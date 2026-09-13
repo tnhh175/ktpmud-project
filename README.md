@@ -52,6 +52,7 @@ ktpmud-project/
 | `may_day` | CS-1: Dr May Day v2.0 | Có 2 kịch bản: `mayday_sim` (mô phỏng) hoặc `mayday_tichhop` (tích hợp thật) — ghi rõ kịch bản trong `submission.json` |
 | `suy_tim` | CS-2: AI-CDSS Suy tim (HF-CDSS) | |
 | `alzheimer` | CS-3: AI-CDSS Alzheimer | |
+| `dreye` | CS-4: Phần mềm điều khiển thiết bị Edge AI (DrEye) | Phần mềm nhúng/di động — khác lớp CS-2/CS-3 (CDSS server/web) |
 
 Slug phải khớp đúng tên trong
 [bảng case study](https://fossbk-spec.github.io/ktpmud-book/do_an_mon_hoc).

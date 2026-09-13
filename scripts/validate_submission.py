@@ -35,7 +35,7 @@ SUBMISSIONS_DIR = ROOT / "submissions"
 TEMPLATE_NAME = "_TEMPLATE"
 
 REQUIRED_SUBMISSION_FIELDS = ["case_study_slug", "case_study_id", "group_code", "members"]
-VALID_CASE_STUDY_SLUGS = {"may_day", "suy_tim", "alzheimer"}
+VALID_CASE_STUDY_SLUGS = {"may_day", "suy_tim", "alzheimer", "dreye"}
 MAX_FILE_SIZE_MB = 10
 
 # Regex mẫu hình phổ biến của khóa API/secret — lưới an toàn cuối, không
