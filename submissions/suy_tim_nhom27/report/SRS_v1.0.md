@@ -1,4 +1,4 @@
-# SRS v1.0 — Hệ thống hỗ trợ quyết định lâm sàng cho bệnh nhân suy tim cao tuổi
+# SRS v1.0 — Hệ thống quản lý bệnh nhân suy tim cao tuổi
 
 - **Môn học:** Kỹ thuật Phần mềm Ứng dụng
 - **Trạng thái:** Bản review Tuần 2
@@ -9,7 +9,11 @@
 
 ### 1.1. Mục đích
 
-Tài liệu này đặc tả yêu cầu cho Hệ thống, một hệ thống web hỗ trợ bác sĩ đánh giá ca suy tim ở người cao tuổi. Hệ thống không tự chẩn đoán hoặc kê đơn. Bác sĩ là người quyết định cuối cùng.
+Tài liệu đặc tả yêu cầu cho hệ thống hỗ trợ bác sĩ đánh giá và quản lý
+quyết định lâm sàng liên quan đến suy tim ở người cao tuổi. Hệ thống
+tổng hợp dữ liệu, đưa ra gợi ý có căn cứ và ghi nhận phản hồi của bác sĩ.
+Hệ thống không tự ban hành chẩn đoán, y lệnh hoặc thay đổi thuốc.
+Bác sĩ quyết định việc áp dụng các gợi ý.
 
 ### 1.2. Phạm vi MVP
 
@@ -20,8 +24,12 @@ MVP gồm bốn phân hệ:
 3. **Treatment:** đưa ra hướng điều trị tham khảo theo kiểu hình và khả năng dung nạp.
 4. **MedSafety:** kiểm tra đơn thuốc, tập trung vào cảnh báo NSAID và nguy cơ tăng kali khi phối hợp ARNI/ACEI với MRA.
 
-Ngoài phạm vi MVP: kết nối HIS thật, dùng PII/PHI thật, tự kê đơn, tự thay đổi thuốc, thay thế bác sĩ và huấn luyện mô hình trên dữ liệu bệnh viện thật.
+Ngoài phạm vi MVP: Bản demo hiện được nhóm đề xuất sử dụng dữ liệu synthetic và nguồn
+HIS/EMR mô phỏng. Mức tích hợp thực tế, yêu cầu sử dụng ML/LLM và
+phạm vi đầu ra của từng phân hệ đang chờ xác nhận.
 
+Hệ thống không tự ban hành y lệnh, tự thay đổi thuốc hoặc thay thế
+quyết định chuyên môn của bác sĩ.
 ### 1.3. Thuật ngữ
 
 | Thuật ngữ | Ý nghĩa |
@@ -61,13 +69,15 @@ Dữ liệu suy tim cao tuổi nằm ở nhiều nhóm: triệu chứng, sinh hi
 - Chỉ dùng dữ liệu synthetic trong đồ án.
 - Rule lâm sàng phải có nguồn, phiên bản và người duyệt.
 - Ngưỡng chưa được xác nhận phải để cấu hình và gắn trạng thái `pending_review`.
+- Nếu dùng quy tắc chưa duyệt để minh họa trong môi trường thử nghiệm, đầu ra phải ghi rõ trạng thái thử nghiệm.
 - Hệ thống phải trả `Chưa đủ dữ liệu` thay vì tự suy đoán.
+- Trạng thái thiếu dữ liệu được xác định theo từng quyết định; một phần thiếu dữ liệu không mặc định làm dừng toàn bộ hệ thống.
 - Bác sĩ có quyền chấp nhận, điều chỉnh hoặc từ chối và phải ghi lý do khi cần.
 
 ### 2.4. Giao diện ngoài
 
-- **UI:** web responsive cho Chrome/Edge; biểu mẫu theo nhóm dữ liệu; cảnh báo có mức độ nhưng không chỉ dựa vào màu.
-- **Nguồn dữ liệu:** form nhập tay, tệp synthetic hoặc mock service; chưa kết nối HIS thật.
+- **UI:** định hướng hiển thị gợi ý trong màn hình bệnh án điện tử dưới dạng Smart Panel. Bản demo dự kiến mô phỏng môi trường này; mức tích hợp thực tế chờ xác nhận.
+- **Nguồn dữ liệu:** HIS/EMR, LIS, PACS/RIS theo phạm vi được thống nhất.Trong bản demo, các nguồn có thể được mô phỏng bằng dữ liệu synthetic, biểu mẫu hoặc mock service.
 - **API:** REST/JSON qua API Gateway; OpenAPI được thiết kế ở Tuần 3.
 - **Bảo mật:** HTTPS khi triển khai, RBAC, mật khẩu băm, không ghi PII vào log.
 
@@ -103,11 +113,12 @@ Dữ liệu suy tim cao tuổi nằm ở nhiều nhóm: triệu chứng, sinh hi
 | FR-01 | Tài khoản | Đăng nhập và phân quyền Bác sĩ, Dược sĩ, Quản trị viên. | Must |
 | FR-02 | Ca bệnh | Tạo ca bằng mã synthetic và mã lượt khám. | Must |
 | FR-03 | Ca bệnh | Nhập/sửa triệu chứng, dấu hiệu, sinh hiệu, bệnh đồng mắc và đánh giá lão khoa. | Must |
-| FR-04 | Dữ liệu | Kiểm tra kiểu, miền giá trị, đơn vị, thời điểm và trạng thái Có/Không/Chưa đánh giá. | Must |
+| FR-04 | Dữ liệu | Kiểm tra kiểu, đơn vị, miền giá trị hợp lệ và thời điểm. Phân biệt dữ liệu không hợp lệ với dữ liệu hợp lệ nhưng bất thường; biểu diễn rõ trạng thái chưa có/chưa đánh giá. | Must |
 | FR-05 | Dữ liệu | Ghi nhận xét nghiệm và chẩn đoán hình ảnh kèm đơn vị, thời điểm, nguồn. | Must |
 | FR-06 | Thuốc | Ghi nhận thuốc hiện tại và đơn mới theo hoạt chất, liều, đường dùng, tần suất. | Must |
 | FR-07 | Dữ liệu | Hiển thị dữ liệu thiếu theo mục tiêu; không đổi giá trị thiếu thành 0. | Must |
-| FR-08 | Diagnosis | Phân loại HFrEF/HFmrEF/HFpEF theo EF; thiếu EF thì chưa phân loại. | Must |
+| FR-08 | Diagnosis | Hỗ trợ đánh giá kiểu hình suy tim khi có đủ căn cứ theo quy tắc đã
+duyệt; không kết luận kiểu hình chỉ từ EF. Nếu thiếu căn cứ, nêu rõ phần chưa đánh giá được.| Must |
 | FR-09 | Diagnosis | Ước tính Stage A–D khi đủ tiêu chí đã duyệt. | Should |
 | FR-10 | Diagnosis | Phân loại mới khởi phát, mạn ổn định, worsening hoặc mất bù theo rule. | Should |
 | FR-11 | Diagnosis | Phát hiện dữ liệu gợi ý cấp cứu và yêu cầu bác sĩ đánh giá ngay. | Must |
@@ -118,22 +129,22 @@ Dữ liệu suy tim cao tuổi nằm ở nhiều nhóm: triệu chứng, sinh hi
 | FR-16 | Treatment | Chọn Strategy tham khảo theo HFrEF, HFmrEF hoặc HFpEF. | Must |
 | FR-17 | Treatment | Hiển thị bốn nhóm thuốc nền tảng để bác sĩ đánh giá ở HFrEF. | Must |
 | FR-18 | Treatment | Gợi ý xem xét lợi tiểu khi sung huyết; không tự kê đơn. | Must |
-| FR-19 | MedSafety | Cảnh báo đỏ khi có NSAID thuộc danh mục cấu hình. | Must |
+| FR-19 | MedSafety | Phát hiện thuốc thuộc danh mục NSAID cần cảnh báo theo quy tắc đã duyệt; nêu hoạt chất, lý do và mức cảnh báo. | Must |
 | FR-20 | MedSafety | Cảnh báo vàng khi ARNI/ACEI phối hợp MRA và có nguy cơ tăng kali theo rule. | Must |
 | FR-21 | MedSafety | Cảnh báo nguy cơ digoxin khi suy thận, nhịp chậm hoặc điều kiện cấu hình. | Could |
 | FR-22 | Giải thích | Hiển thị input kích hoạt, căn cứ, mức cảnh báo và rule version. | Must |
 | FR-23 | Quyết định | Cho bác sĩ chấp nhận, điều chỉnh hoặc từ chối và nhập lý do. | Must |
-| FR-24 | Audit | Lưu timestamp, user UUID, action, status, rule version và lý do. | Must |
+| FR-24 | Audit | Lưu mã ca/lượt khám, mã lần đánh giá, tham chiếu phiên bản dữ liệu đầu vào, phiên bản quy tắc, khuyến nghị và quyết định; kèm người thao tác, thời điểm và lý do khi có. | Must |
 | FR-25 | Lịch sử | Xem lại các lần đánh giá và quyết định trước của cùng ca. | Should |
 | FR-26 | Báo cáo | Xuất tóm tắt không chứa PII/PHI thật. | Could |
-|FR-27  | Quản trị quy tắc | Tạo bản nháp, kiểm thử, phê duyệt, kích hoạt và lưu phiên bản quy tắc cùng người duyệt và thời điểm hiệu lực. | Should |
+|FR-27  | Quản trị quy tắc | Hỗ trợ vòng đời quy tắc: nháp, kiểm thử, phê duyệt và kích hoạt. Quyền soạn, duyệt và kích hoạt thực hiện theo phân quyền được xác nhận; không mặc định quản trị kỹ thuật có quyền duyệt chuyên môn. | Should |
 
 ## 5. Yêu cầu phi chức năng theo ISO 25010
 
 | ID | Thuộc tính | Tiêu chí định lượng | Xác minh |
 |---|---|---|---|
 | NFR-01 | Hiệu năng | Rule cảnh báo lõi p95 ≤200 ms/100 lượt gọi trên môi trường demo. | Performance test |
-| NFR-02 | Hiệu năng | Một lần đánh giá đầy đủ ≤2 giây/ca. | API test |
+| NFR-02 | Hiệu năng | Một lần đánh giá đầy đủ ≤10 giây/ca. | API test |
 | NFR-03 | Tin cậy | Cùng input + rule version cho cùng output trong 100/100 lần. | Repeat test |
 | NFR-04 | Tính đúng | Rule EF, NSAID, tăng kali đạt 100% gold cases đã duyệt. | Integration test |
 | NFR-05 | Sẵn sàng | Mục tiêu deploy ≥99,9%; MVP mô phỏng health check. | Monitoring |
@@ -279,6 +290,15 @@ Then từ chối và không trả dữ liệu
 ```
 
 ## 8. Use Case
+Sơ đồ tổng thể và theo vai trò:
+
+![01-use-case-tong-the](diagrams/01-use-case-tong-the.png)
+
+![02-use-case-bac-si](diagrams/02-use-case-bac-si.png)
+
+![03-use-case-duoc-si](diagrams/03-use-case-duoc-si.png)
+
+![04-use-case-quan-tri](diagrams/04-use-case-quan-tri.png)
 
 ### 8.1. Danh sách
 
@@ -314,7 +334,9 @@ Then từ chối và không trả dữ liệu
 
 ### 9.1. Context (Level 0)
 
-Tiến trình duy nhất là **HF-CDSS**. Bác sĩ/dược sĩ gửi dữ liệu ca và đơn thuốc, nhận kết quả/cảnh báo. Nguồn synthetic gửi hồ sơ và kết quả. Quản trị viên gửi cấu hình/rule và nhận audit.
+Tiến trình duy nhất là **Hệ thống hỗ trợ quyết định suy tim**. Bác sĩ/dược sĩ gửi dữ liệu ca và đơn thuốc, nhận kết quả/cảnh báo. Nguồn synthetic gửi hồ sơ và kết quả. Quản trị viên gửi cấu hình/rule và nhận audit.
+
+![DFD Context](diagrams/05-dfd-context.png)
 
 ### 9.2. Level 1
 
@@ -325,7 +347,7 @@ Tiến trình duy nhất là **HF-CDSS**. Bác sĩ/dược sĩ gửi dữ liệu
 | P3 Treatment & MedSafety | Kết quả + thuốc → hướng tham khảo/cảnh báo | D2, D3 |
 | P4 Quyết định & Audit | Khuyến nghị + quyết định bác sĩ | D4 Khuyến nghị/Audit |
 
-Sơ đồ hình ảnh sẽ được bổ sung trong `report/diagrams/` khi hoàn thiện báo cáo.
+![DFD Level 1](diagrams/06-dfd-level-1.png)
 
 ## 10. Requirements Traceability Matrix
 
@@ -390,8 +412,8 @@ Sơ đồ hình ảnh sẽ được bổ sung trong `report/diagrams/` khi hoàn
 
 ## 12. Vấn đề cần giảng viên xác nhận
 
-1. Mức hoàn thiện bắt buộc của bốn module trong MVP.
-2. Rule Engine có đủ đáp ứng yêu cầu AI của CS-2 hay bắt buộc có mô hình ML.
+1. Nhóm bác sĩ và bối cảnh sử dụng; các vai trò điều dưỡng, dược sĩ, bệnh nhân/người chăm sóc có trực tiếp dùng hệ thống không.
+2. Rule-based được dùng đến đâu; có bắt buộc ML/LLM; đầu ra xác suất 0–100% được tính và kiểm chứng bằng phương pháp nào.
 
 ## 13. Lịch sử phiên bản
 
