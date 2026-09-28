@@ -27,9 +27,9 @@ MVP gồm bốn phân hệ:
 Ngoài phạm vi MVP: Bản demo hiện được nhóm đề xuất sử dụng dữ liệu synthetic và nguồn
 HIS/EMR mô phỏng. Mức tích hợp thực tế, yêu cầu sử dụng ML/LLM và
 phạm vi đầu ra của từng phân hệ đang chờ xác nhận.
-
 Hệ thống không tự ban hành y lệnh, tự thay đổi thuốc hoặc thay thế
 quyết định chuyên môn của bác sĩ.
+
 ### 1.3. Thuật ngữ
 
 | Thuật ngữ | Ý nghĩa |
@@ -117,8 +117,7 @@ Dữ liệu suy tim cao tuổi nằm ở nhiều nhóm: triệu chứng, sinh hi
 | FR-05 | Dữ liệu | Ghi nhận xét nghiệm và chẩn đoán hình ảnh kèm đơn vị, thời điểm, nguồn. | Must |
 | FR-06 | Thuốc | Ghi nhận thuốc hiện tại và đơn mới theo hoạt chất, liều, đường dùng, tần suất. | Must |
 | FR-07 | Dữ liệu | Hiển thị dữ liệu thiếu theo mục tiêu; không đổi giá trị thiếu thành 0. | Must |
-| FR-08 | Diagnosis | Hỗ trợ đánh giá kiểu hình suy tim khi có đủ căn cứ theo quy tắc đã
-duyệt; không kết luận kiểu hình chỉ từ EF. Nếu thiếu căn cứ, nêu rõ phần chưa đánh giá được.| Must |
+| FR-08 | Diagnosis | Hỗ trợ đánh giá kiểu hình suy tim khi có đủ căn cứ theo quy tắc đã duyệt. Nếu thiếu căn cứ, nêu rõ phần chưa đánh giá được.| Must |
 | FR-09 | Diagnosis | Ước tính Stage A–D khi đủ tiêu chí đã duyệt. | Should |
 | FR-10 | Diagnosis | Phân loại mới khởi phát, mạn ổn định, worsening hoặc mất bù theo rule. | Should |
 | FR-11 | Diagnosis | Phát hiện dữ liệu gợi ý cấp cứu và yêu cầu bác sĩ đánh giá ngay. | Must |
@@ -162,7 +161,7 @@ duyệt; không kết luận kiểu hình chỉ từ EF. Nếu thiếu căn cứ
 |---|---|---|
 | US-01 | Là bác sĩ, tôi muốn tạo ca synthetic để không dùng PII thật. | FR-02 |
 | US-02 | Là bác sĩ, tôi muốn nhập và kiểm tra dữ liệu để biết trường sai. | FR-03–07 |
-| US-03 | Là bác sĩ, tôi muốn phân loại kiểu hình theo EF. | FR-08 |
+| US-03 | Là bác sĩ, tôi muốn xem nhóm EF và mức độ đầy đủ của bằng chứng để không nhầm phân nhóm EF với kết luận suy tim. | FR-08 |
 | US-04 | Là bác sĩ, tôi muốn nhận trạng thái chưa đủ dữ liệu. | FR-07–12 |
 | US-05 | Là bác sĩ, tôi muốn nhận gợi ý cận lâm sàng theo mức ưu tiên. | FR-13–15 |
 | US-06 | Là bác sĩ, tôi muốn xem hướng điều trị tham khảo theo kiểu hình. | FR-16–18 |
@@ -199,13 +198,14 @@ When lưu
 Then hệ thống chỉ rõ trường lỗi và không chạy module phụ thuộc
 
 # US-03
-Given EF là 35%, 45% hoặc 55%
-When phân loại
-Then kết quả là HFrEF, HFmrEF hoặc HFpEF tương ứng
+Given ca có giá trị EF hợp lệ
+When bác sĩ yêu cầu đánh giá
+Then hệ thống hiển thị nhóm EF tương ứng và các bằng chứng đã dùng
 
-Given EF ngoài 0–100%
-When phân loại
-Then hệ thống báo không hợp lệ và không trả kiểu hình
+Given ca chỉ có EF nhưng thiếu bằng chứng cần thiết theo rule đã duyệt
+When bác sĩ yêu cầu đánh giá
+Then hệ thống hiển thị "Chưa đủ dữ liệu để kết luận kiểu hình suy tim"
+And liệt kê bằng chứng còn thiếu
 
 # US-04
 Given ca chưa có EF
@@ -412,8 +412,25 @@ Tiến trình duy nhất là **Hệ thống hỗ trợ quyết định suy tim**
 
 ## 12. Vấn đề cần giảng viên xác nhận
 
-1. Nhóm bác sĩ và bối cảnh sử dụng; các vai trò điều dưỡng, dược sĩ, bệnh nhân/người chăm sóc có trực tiếp dùng hệ thống không.
-2. Rule-based được dùng đến đâu; có bắt buộc ML/LLM; đầu ra xác suất 0–100% được tính và kiểm chứng bằng phương pháp nào.
+Các mục dưới đây chưa được xem là yêu cầu lâm sàng đã phê duyệt. Nhóm dùng dữ liệu synthetic và ghi `pending_review` cho rule chưa được xác nhận. Câu trả lời của thầy sẽ được cập nhật vào SRS và các tài liệu thiết kế tuần 3.
+
+1. **Người dùng:** Trong phạm vi đồ án, người dùng trực tiếp có đúng là bác sĩ, dược sĩ và quản trị viên không? Dược sĩ tham gia ở bước nào của quy trình khám?
+
+2. **Dữ liệu đầu vào:** Trong các file thầy cung cấp, file và phiên bản nào là danh mục biến chính thức cho phần suy tim? Với từng module, biến nào bắt buộc, biến nào tùy chọn; đơn vị, thời điểm đo và cách ghi dữ liệu chưa có được quy định theo nguồn nào?
+
+3. **Rule và ngưỡng:** Nhóm phải dùng tài liệu/phiên bản nào cho ngưỡng EF, kali, eGFR, các điều kiện cảnh báo thuốc và mức cảnh báo? Nếu các tài liệu khác nhau, nguồn nào được ưu tiên và ai duyệt rule cuối cùng?
+
+4. **Đầu ra bốn module:** Diagnosis cần trả nhóm EF tham khảo hay kết luận kiểu hình suy tim khi đủ bằng chứng? Lab/Test cần mức ưu tiên đến đâu? Treatment chỉ đưa ra hướng điều trị hay phải đề xuất thuốc và liều? MedSafety cần tối thiểu những cảnh báo nào?
+
+5. **Phương pháp AI:** Rule-based có được chấp nhận cho Case 2 không? Có bắt buộc dùng ML/LLM hoặc trả xác suất 0–100% không? Nếu có, kết quả sẽ được đánh giá bằng tiêu chí nào?
+
+6. **Dữ liệu kiểm thử:** Thầy có cung cấp ca synthetic kèm kết quả chuẩn (gold labels) không? Nếu nhóm tự tạo, cần tối thiểu bao nhiêu ca và ai xác nhận kết quả kỳ vọng?
+
+7. **Tích hợp và phê duyệt:** HIS/EMR, LIS, PACS/RIS chỉ cần mô phỏng hay phải kết nối thật? Ai có quyền duyệt chuyên môn và ai có quyền kích hoạt rule version?
+
+Sau khi được xác nhận, nhóm ghi nguồn, ngày xác nhận và quyết định vào tài liệu liên quan; đồng thời cập nhật các User Story, BDD, Data Dictionary và test case bị ảnh hưởng.
+
+
 
 ## 13. Lịch sử phiên bản
 
