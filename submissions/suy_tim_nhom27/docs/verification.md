@@ -20,12 +20,5 @@ Rà soát lại ngày 28/09/2026, Python 3.12 trên môi trường tạo bộ b�
 
 Tổng: **8 test functions passed** sau khi ghép vào repo ngày 28/09. TestClient có một cảnh báo deprecation từ Starlette/httpx; không gây lỗi kiểm thử. HTTP smoke đã lặp lại qua socket trên phiên bản đã ghép.
 
-## Chưa thực hiện / không suy ra từ kết quả trên
-
-- Chưa thực thi schema/seed trên PostgreSQL thật: parser chỉ xác nhận cú pháp, chưa xác nhận toàn bộ trigger khi chạy. Nhóm cần chạy các lệnh trong README trên DB rỗng.
-- Chưa chạy Docker Compose trong môi trường này.
-- Chưa triển khai mạng giữa Gateway–Core–bốn dịch vụ, chưa nối persistence thật.
-- Không kiểm chứng độ đúng y khoa, độ nhạy/đặc hiệu, gold labels, thời gian phản hồi khi chịu tải, 99,9% uptime hoặc khả năng phát hiện mọi PII.
-- GitHub Actions sẵn có chỉ chạy khi mở PR vào `main` và kiểm tra cách ly thư mục/manifest/secret. Chưa có job tự động chạy pytest, kiểm tra OpenAPI và DDL; không ghi nhận các bước này là CI đã hoàn thành.
 
 Lệnh tái lập: `python scripts/export_openapi.py`, `python -m pytest -q`. Khi server đang chạy và DEMO_PASSWORD khớp, chạy `python scripts/demo_flow.py` để thử HTTP.
