@@ -1,6 +1,6 @@
 # Thiết kế kiến trúc — tuần 3
 
-Mốc yêu cầu: SRS trên nhánh `submit/suy_tim-nhom27`, blob `7d3a0557f962e33a1c4b12fd865e638effb80977`, đọc ngày 28/09/2026. Ba vai trò: bác sĩ, dược sĩ, quản trị. Chưa đặt tên thương mại cho hệ thống.
+Mốc yêu cầu: SRS trên nhánh `submit/suy_tim-nhom27`, blob `7d3a0557f962e33a1c4b12fd865e638effb80977`. Ba vai trò: bác sĩ, dược sĩ, quản trị.
 
 Thư mục này chứa PNG và nguồn `.drawio` cùng tên cho C4, DFD, ERD, Class và Sequence. [Sơ đồ tuần 2 và mô tả DFD](../SRS_v1.0.md#9-dfd) · [ERD và từ điển dữ liệu](../../database/erd.md) · [UML tuần 3](../uml/uml.md). Tệp [So_do_tuan3.drawio](So_do_tuan3.drawio) gồm 11 trang để chỉnh sửa cả bộ tuần 3.
 
@@ -58,18 +58,11 @@ Bản chạy tuần 3 có **một Gateway FastAPI**, bộ nhớ RAM và bốn ad
 
 Demo có một tài khoản cho mỗi vai trò; dược sĩ được rà thuốc của mọi ca synthetic trong phiên. Đây là giả định demo, không phải phân quyền bệnh viện. Thiết kế DB có case_access và user_role để triển khai quyền theo ca và đa vai trò sau này. API quản lý tài khoản chi tiết chờ bổ sung UC tương ứng; skeleton dùng tài khoản cố định.
 
-## 5. Các điểm cần đồng bộ SRS
 
-1. FR-08 và US-03/BDD đã được sửa thống nhất ở mốc SRS trên: nhóm EF có thể hiển thị, còn kết luận kiểu hình suy tim đòi hỏi đủ căn cứ theo rule đã duyệt. Gateway stub hiện chỉ liệt kê trường thiếu, chưa chạy rule hay phân nhóm EF; xem bảng đối chiếu trong [consistency_review.md](../consistency_review.md).
-2. “Ngoài phạm vi MVP” đang chứa mô tả phạm vi demo; nên tách lại khi nhóm chỉnh SRS.
-3. UR-08/US-11 nói quản lý tài khoản, nhưng danh sách UC chưa có chức năng quản lý tài khoản riêng. Chưa tự thêm quyền quản trị nghiệp vụ mới.
-4. Bảng mô tả DFD trong SRS đã thêm D1 cho P3 và D3 cho P4. Hình DFD Level 1 và nguồn draw.io tuần 2 vẫn cần cập nhật các mũi tên tương ứng; chưa coi hình hiện tại là bản cuối.
-5. Cơ chế duyệt chuyên môn, ML/LLM, liều thuốc, FHIR và gold labels vẫn cần xác nhận. Không chặn việc thiết kế hợp đồng API và thử giao diện bằng stub. Các câu hỏi đã ghi ở mục 12 của SRS hiện tại.
 
-## 6. Nguồn kỹ thuật
+## 5. Nguồn kỹ thuật
 
 - C4 Container: https://c4model.com/diagrams/container
 - FastAPI APIRouter / cấu trúc nhiều file: https://fastapi.tiangolo.com/tutorial/bigger-applications/
 - OpenAPI 3.0.3: https://spec.openapis.org/oas/v3.0.3.html
 
-Các lựa chọn container/stack là đề xuất thiết kế của nhóm, không phải yêu cầu y khoa đã được thầy phê duyệt.
