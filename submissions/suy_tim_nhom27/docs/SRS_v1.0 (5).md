@@ -16,12 +16,6 @@ SRS thống nhất phạm vi, người dùng, yêu cầu chức năng, yêu cầ
 
 Mã FR và NFR là mã tham chiếu chung cho báo cáo, Product Backlog, Use Cases, RTM, thiết kế dữ liệu và API. Những chức năng được mô tả là yêu cầu cần thực hiện, không phải báo cáo kết quả đã triển khai.
 
-Quy ước diễn đạt:
-
-- **Phải** (MUST/SHALL): yêu cầu bắt buộc trong phạm vi đã chọn.
-- **Nên** (SHOULD): khuyến nghị, chưa thay thế yêu cầu bắt buộc.
-- **Có thể** (MAY): lựa chọn được phép, chỉ trở thành cam kết khi nhóm đưa vào phạm vi.
-
 34 FR và 13 NFR ở chương 3 là các yêu cầu bắt buộc đã thống nhất trong nhóm. 
 ### 1.2. Phạm vi sản phẩm
 
