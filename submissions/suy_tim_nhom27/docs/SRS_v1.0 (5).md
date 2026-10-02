@@ -1,15 +1,13 @@
 # Đặc tả yêu cầu phần mềm hệ thống quản lý bệnh nhân suy tim cao tuổi
-
-**Tệp:** `docs/SRS_v1.0.md`  
+ 
 **Nhóm:** 27  
 **Môn học:** Kỹ thuật Phần mềm Ứng dụng ET3260  
-**Phiên bản tài liệu:** v1.0 đang soạn thảo  
-**Ngày cập nhật:** 02/10/2026  
+**Phiên bản tài liệu:** v1.0    
 **Trạng thái:** Bản nháp theo bộ 34 FR và 13 NFR đã thống nhất. Chưa hoàn tất User Stories, BDD, Use Cases, DFD và các liên kết RTM.
 
 Tài liệu đặc tả yêu cầu cho một ứng dụng web quản lý bệnh nhân suy tim cao tuổi và hỗ trợ nhân viên y tế đánh giá, điều trị, theo dõi. Bản nháp tổng hợp phần đã thống nhất trong báo cáo hiện tại; các phần chưa có nội dung được ghi rõ, chưa dùng để xác nhận hoàn thành tuần 2.
 
-Cấu trúc ba chương dựa trên khung IEEE 830 trong bài giảng. User Stories, tiêu chí BDD, mô hình chức năng và RTM được đặt trong chương 3 để đáp ứng yêu cầu Sprint 1. 
+Cấu trúc ba chương dựa trên khung IEEE 830 trong bài giảng.
 ## 1. Giới thiệu
 
 ### 1.1. Mục đích tài liệu
@@ -24,11 +22,10 @@ Quy ước diễn đạt:
 - **Nên** (SHOULD): khuyến nghị, chưa thay thế yêu cầu bắt buộc.
 - **Có thể** (MAY): lựa chọn được phép, chỉ trở thành cam kết khi nhóm đưa vào phạm vi.
 
-34 FR và 13 NFR ở chương 3 là các yêu cầu bắt buộc đã thống nhất trong nhóm. Các mục ghi **Chưa hoàn thiện** hoặc **Cần xác nhận** chưa phải nội dung đã được giảng viên hay người dùng nghiệp vụ phê duyệt.
-
+34 FR và 13 NFR ở chương 3 là các yêu cầu bắt buộc đã thống nhất trong nhóm. 
 ### 1.2. Phạm vi sản phẩm
 
-Hệ thống hướng đến quản lý bệnh nhân **từ 60 tuổi trở lên**, gồm ca nghi ngờ và ca đã được chẩn đoán suy tim. Trong đồ án, hồ sơ và tình huống đều là dữ liệu giả lập. Hệ thống ưu tiên bối cảnh điều trị nội trú tại bệnh viện và hỗ trợ cả khám, theo dõi ngoại trú.
+Hệ thống hướng đến quản lý bệnh nhân cao tuổi , gồm ca nghi ngờ và ca đã được chẩn đoán suy tim. Trong đồ án, hồ sơ và tình huống đều là dữ liệu giả lập. Hệ thống ưu tiên bối cảnh điều trị nội trú tại bệnh viện và hỗ trợ cả khám, theo dõi ngoại trú.
 
 **Trong phạm vi MVP:**
 
@@ -78,16 +75,15 @@ Bệnh nhân và người chăm sóc là đối tượng hưởng lợi và cung
 
 | Mã | Tài liệu | Cách sử dụng |
 | --- | --- | --- |
-| REF-01 | Báo cáo Nhóm 27 bản Word gửi ngày 02/10/2026. | Nguồn bối cảnh, mục tiêu, người dùng, phạm vi và bộ 34 FR/13 NFR hiện tại. |
-| REF-02 | Bài giảng KTPMUD và hướng dẫn Sprint 1 tuần 2–3 do giảng viên cung cấp. | Cấu trúc SRS, cách đặc tả yêu cầu và sản phẩm bàn giao. |
-| REF-03 | Hướng dẫn chẩn đoán và điều trị suy tim cấp và mạn của Bộ Y tế, bản năm 2022 đã cung cấp. | Nguồn chuyên môn ưu tiên khi xây dựng quy tắc. |
-| REF-04 | Quy trình chẩn đoán và điều trị bệnh suy tim ở người cao tuổi, tài liệu có tên Bệnh viện Hữu Nghị do nhóm nhận. | Bổ sung đặc điểm và các vấn đề chăm sóc người cao tuổi; không coi tên file là bằng chứng đã khảo sát bệnh viện. |
-| REF-05 | `SUY TIM.docx`. | Mô tả đầu vào, đầu ra của bốn module hỗ trợ. |
-| REF-06 | `DATA_DICTIONARY_SUY_TIM_AI_CDSS` bản được cung cấp. | Đối chiếu trường dữ liệu, kiểu, đơn vị và danh mục đầu vào phần suy tim. |
-| REF-07 | Bảng biến bác sĩ AI-CDSS cho 5 mặt bệnh, phần suy tim. | Đối chiếu thông tin được trình bày và trao đổi trong luồng nghiệp vụ. |
-| REF-08 | Schema tối thiểu AI-CDSS cho 5 mặt bệnh, phần suy tim. | Đối chiếu dữ liệu và các nguồn tích hợp tối thiểu. |
+| REF-01 | Bài giảng KTPMUD và hướng dẫn Sprint 1 tuần 2–3 do giảng viên cung cấp. | Cấu trúc SRS, cách đặc tả yêu cầu và sản phẩm bàn giao. |
+| REF-02 | Hướng dẫn chẩn đoán và điều trị suy tim cấp và mạn của Bộ Y tế, bản năm 2022 đã cung cấp. | Nguồn chuyên môn ưu tiên khi xây dựng quy tắc. |
+| REF-03 | Quy trình chẩn đoán và điều trị bệnh suy tim ở người cao tuổi, tài liệu có tên Bệnh viện Hữu Nghị do nhóm nhận. | Bổ sung đặc điểm và các vấn đề chăm sóc người cao tuổi; không coi tên file là bằng chứng đã khảo sát bệnh viện. |
+| REF-04 | `SUY TIM.docx`. | Mô tả đầu vào, đầu ra của bốn module hỗ trợ. |
+| REF-05 | `DATA_DICTIONARY_SUY_TIM_AI_CDSS` bản được cung cấp. | Đối chiếu trường dữ liệu, kiểu, đơn vị và danh mục đầu vào phần suy tim. |
+| REF-06 | Bảng biến bác sĩ AI-CDSS cho 5 mặt bệnh, phần suy tim. | Đối chiếu thông tin được trình bày và trao đổi trong luồng nghiệp vụ. |
+| REF-07 | Schema tối thiểu AI-CDSS cho 5 mặt bệnh, phần suy tim. | Đối chiếu dữ liệu và các nguồn tích hợp tối thiểu. |
 
-Liên kết học phần: [Hướng dẫn đồ án KTPMUD](https://fossbk-spec.github.io/ktpmud-book/do_an_mon_hoc). Sáu tài liệu đầu vào chuyên môn và dữ liệu tương ứng REF-03 đến REF-08. Chỉ sử dụng phần suy tim trong các tài liệu chứa nhiều bệnh.
+Liên kết học phần: [Hướng dẫn đồ án KTPMUD](https://fossbk-spec.github.io/ktpmud-book/do_an_mon_hoc). Sáu tài liệu đầu vào chuyên môn và dữ liệu tương ứng REF-02 đến REF-07. Chỉ sử dụng phần suy tim trong các tài liệu chứa nhiều bệnh.
 
 Nhóm ưu tiên hướng dẫn Bộ Y tế, sau đó đối chiếu tài liệu tổng hợp về người cao tuổi. Khi có khác biệt về nội dung áp dụng, nhóm phải ghi nhận để xác nhận trước khi đưa thành quy tắc; không tự kết hợp các ngưỡng không thống nhất.
 
@@ -155,7 +151,7 @@ Bác sĩ, điều dưỡng, dược sĩ và quản trị viên là bốn vai tr�
 
 | Nội dung | Trạng thái |
 | --- | --- |
-| Bối cảnh nội trú ưu tiên, có ngoại trú; đối tượng từ 60 tuổi; bốn vai trò MVP; bệnh nhân/người chăm sóc ở phần mở rộng. | Đã thống nhất trong nhóm; chưa xác nhận qua khảo sát trực tiếp. |
+| Bối cảnh nội trú ưu tiên, có ngoại trú; đối tượng người cao tuổi; bốn vai trò MVP; bệnh nhân/người chăm sóc ở phần mở rộng. | Đã thống nhất trong nhóm; chưa xác nhận qua khảo sát trực tiếp. |
 | Dữ liệu nhập tay, file theo mẫu và API mô phỏng. | Phạm vi đã chọn; cấu trúc file, bản tin và quy tắc đối chiếu định danh còn cần đặc tả. |
 | Rule Engine có thể giải thích là hướng thực hiện ban đầu. | Yêu cầu bắt buộc ML/LLM còn chờ giảng viên xác nhận. |
 | Web độc lập có phân quyền và mô phỏng tích hợp. | Cần xác nhận yêu cầu Smart Panel, vị trí nhúng và hợp đồng tích hợp. |
@@ -287,12 +283,10 @@ Các yêu cầu sau áp dụng cho môi trường thử nghiệm đồ án. Đâ
 
 ### 3.5. Ma trận truy vết yêu cầu
 
-Ma trận đầy đủ nằm trong [RTM.md](RTM.md), cùng thư mục `docs/` với SRS. RTM dùng đúng cấu trúc nhóm đã thống nhất:
+Ma trận đầy đủ nằm trong [RTM.md](RTM.md):
 
 **Mã yêu cầu → User Story → Use Case → Schema CSDL → API.**
 
 Mỗi FR/NFR có một dòng riêng. NFR liên kết với các luồng chịu ảnh hưởng; trường hợp không áp dụng trực tiếp với schema hoặc API phải ghi lý do. Danh mục FR ở mục 3.2.1 vẫn xác định phân hệ của yêu cầu.
 
 **Trạng thái đối chiếu:** đã có 34 FR và 13 NFR, nhưng chưa có mã US/UC được đối chiếu theo bộ yêu cầu mới trong báo cáo này. RTM hiện chưa chứng minh độ phủ 100%. Schema và API ở tuần 3 cần đối chiếu lại với bộ yêu cầu đã chốt trước khi ghi thành liên kết hoàn chỉnh.
-
-Các tệp C4, ERD, Data Dictionary, DDL, UML Class/Sequence và OpenAPI là bộ thiết kế tuần 3; chúng không thay thế những phần yêu cầu còn thiếu trong mục 3.2.
