@@ -1,0 +1,288 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="XpSb-HsPeWk98PaMzkHC" name="Page-3">
+    <mxGraphModel dx="2448" dy="1144" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-1" parent="1" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#4FA66A;strokeColor=#487653;fontColor=#000000;fontFamily=Arial;fontSize=18;spacing=10;align=center;verticalAlign=middle;fontStyle=1;" value="Quản lý bệnh nhân suy tim" vertex="1">
+          <mxGeometry height="80" width="540" x="580" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-2" parent="1" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#BCE3C5;strokeColor=#487653;fontColor=#000000;fontFamily=Arial;fontSize=18;spacing=10;align=center;verticalAlign=middle;fontStyle=1;" value="1. Quản trị hệ thống" vertex="1">
+          <mxGeometry height="90" width="290" x="40" y="210" as="geometry" />
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-3" edge="1" parent="1" source="Yrac821b_ZKBS3aoXfjh-1" style="edgeStyle=orthogonalEdgeStyle;endArrow=none;startArrow=none;strokeColor=#54735B;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="Yrac821b_ZKBS3aoXfjh-2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="850" y="165" />
+              <mxPoint x="185" y="165" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-4" parent="1" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#EFF8F0;strokeColor=#487653;fontColor=#000000;fontFamily=Arial;fontSize=18;spacing=10;align=center;verticalAlign=middle;" value="1.1 Quản lý tài khoản" vertex="1">
+          <mxGeometry height="75" width="260" x="70" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-5" edge="1" parent="1" source="Yrac821b_ZKBS3aoXfjh-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=none;startArrow=none;strokeColor=#54735B;strokeWidth=2;exitX=0.5;exitY=1;entryX=0;entryY=0.5;" target="Yrac821b_ZKBS3aoXfjh-4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="55" y="320" />
+              <mxPoint x="55" y="377.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-6" parent="1" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#EFF8F0;strokeColor=#487653;fontColor=#000000;fontFamily=Arial;fontSize=18;spacing=10;align=center;verticalAlign=middle;" value="1.2 Quản lý quyền&#xa;truy cập" vertex="1">
+          <mxGeometry height="75" width="260" x="70" y="435" as="geometry" />
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-7" edge="1" parent="1" source="Yrac821b_ZKBS3aoXfjh-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=none;startArrow=none;strokeColor=#54735B;strokeWidth=2;exitX=0.5;exitY=1;entryX=0;entryY=0.5;" target="Yrac821b_ZKBS3aoXfjh-6">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="55" y="320" />
+              <mxPoint x="55" y="472.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-8" parent="1" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#EFF8F0;strokeColor=#487653;fontColor=#000000;fontFamily=Arial;fontSize=18;spacing=10;align=center;verticalAlign=middle;" value="1.3 Quản lý danh mục&#xa;dùng chung" vertex="1">
+          <mxGeometry height="75" width="260" x="70" y="530" as="geometry" />
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-9" edge="1" parent="1" source="Yrac821b_ZKBS3aoXfjh-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=none;startArrow=none;strokeColor=#54735B;strokeWidth=2;exitX=0.5;exitY=1;entryX=0;entryY=0.5;" target="Yrac821b_ZKBS3aoXfjh-8">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="55" y="320" />
+              <mxPoint x="55" y="567.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-10" parent="1" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#BCE3C5;strokeColor=#487653;fontColor=#000000;fontFamily=Arial;fontSize=18;spacing=10;align=center;verticalAlign=middle;fontStyle=1;" value="2. Quản lý hồ sơ và&#xa;quá trình khám, điều trị" vertex="1">
+          <mxGeometry height="90" width="290" x="370" y="210" as="geometry" />
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-11" edge="1" parent="1" source="Yrac821b_ZKBS3aoXfjh-1" style="edgeStyle=orthogonalEdgeStyle;endArrow=none;startArrow=none;strokeColor=#54735B;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="Yrac821b_ZKBS3aoXfjh-10">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="850" y="165" />
+              <mxPoint x="515" y="165" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-12" parent="1" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#EFF8F0;strokeColor=#487653;fontColor=#000000;fontFamily=Arial;fontSize=18;spacing=10;align=center;verticalAlign=middle;" value="2.1 Quản lý hồ sơ&#xa;bệnh nhân" vertex="1">
+          <mxGeometry height="75" width="260" x="400" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-13" edge="1" parent="1" source="Yrac821b_ZKBS3aoXfjh-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=none;startArrow=none;strokeColor=#54735B;strokeWidth=2;exitX=0.5;exitY=1;entryX=0;entryY=0.5;" target="Yrac821b_ZKBS3aoXfjh-12">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="385" y="320" />
+              <mxPoint x="385" y="377.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-14" parent="1" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#EFF8F0;strokeColor=#487653;fontColor=#000000;fontFamily=Arial;fontSize=18;spacing=10;align=center;verticalAlign=middle;" value="2.2 Quản lý lượt khám&#xa;và đợt điều trị" vertex="1">
+          <mxGeometry height="75" width="260" x="400" y="435" as="geometry" />
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-15" edge="1" parent="1" source="Yrac821b_ZKBS3aoXfjh-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=none;startArrow=none;strokeColor=#54735B;strokeWidth=2;exitX=0.5;exitY=1;entryX=0;entryY=0.5;" target="Yrac821b_ZKBS3aoXfjh-14">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="385" y="320" />
+              <mxPoint x="385" y="472.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-16" parent="1" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#EFF8F0;strokeColor=#487653;fontColor=#000000;fontFamily=Arial;fontSize=18;spacing=10;align=center;verticalAlign=middle;" value="2.3 Quản lý diễn biến&#xa;và thông tin chăm sóc" vertex="1">
+          <mxGeometry height="75" width="260" x="400" y="530" as="geometry" />
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-17" edge="1" parent="1" source="Yrac821b_ZKBS3aoXfjh-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=none;startArrow=none;strokeColor=#54735B;strokeWidth=2;exitX=0.5;exitY=1;entryX=0;entryY=0.5;" target="Yrac821b_ZKBS3aoXfjh-16">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="385" y="320" />
+              <mxPoint x="385" y="567.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-18" parent="1" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#EFF8F0;strokeColor=#487653;fontColor=#000000;fontFamily=Arial;fontSize=18;spacing=10;align=center;verticalAlign=middle;" value="2.4 Quản lý thông tin&#xa;cận lâm sàng và thuốc" vertex="1">
+          <mxGeometry height="75" width="260" x="400" y="625" as="geometry" />
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-19" edge="1" parent="1" source="Yrac821b_ZKBS3aoXfjh-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=none;startArrow=none;strokeColor=#54735B;strokeWidth=2;exitX=0.5;exitY=1;entryX=0;entryY=0.5;" target="Yrac821b_ZKBS3aoXfjh-18">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="385" y="320" />
+              <mxPoint x="385" y="662.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-20" parent="1" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#EFF8F0;strokeColor=#487653;fontColor=#000000;fontFamily=Arial;fontSize=18;spacing=10;align=center;verticalAlign=middle;" value="2.5 Ghi nhận kế hoạch&#xa;điều trị và theo dõi" vertex="1">
+          <mxGeometry height="75" width="260" x="400" y="720" as="geometry" />
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-21" edge="1" parent="1" source="Yrac821b_ZKBS3aoXfjh-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=none;startArrow=none;strokeColor=#54735B;strokeWidth=2;exitX=0.5;exitY=1;entryX=0;entryY=0.5;" target="Yrac821b_ZKBS3aoXfjh-20">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="385" y="320" />
+              <mxPoint x="385" y="757.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-22" parent="1" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#BCE3C5;strokeColor=#487653;fontColor=#000000;fontFamily=Arial;fontSize=18;spacing=10;align=center;verticalAlign=middle;fontStyle=1;" value="3. Tiếp nhận và&#xa;kiểm tra dữ liệu" vertex="1">
+          <mxGeometry height="90" width="290" x="700" y="210" as="geometry" />
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-23" edge="1" parent="1" source="Yrac821b_ZKBS3aoXfjh-1" style="edgeStyle=orthogonalEdgeStyle;endArrow=none;startArrow=none;strokeColor=#54735B;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="Yrac821b_ZKBS3aoXfjh-22">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="850" y="165" />
+              <mxPoint x="845" y="165" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-24" parent="1" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#EFF8F0;strokeColor=#487653;fontColor=#000000;fontFamily=Arial;fontSize=18;spacing=10;align=center;verticalAlign=middle;" value="3.1 Nhập dữ liệu&#xa;thủ công" vertex="1">
+          <mxGeometry height="75" width="260" x="730" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-25" edge="1" parent="1" source="Yrac821b_ZKBS3aoXfjh-22" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=none;startArrow=none;strokeColor=#54735B;strokeWidth=2;exitX=0.5;exitY=1;entryX=0;entryY=0.5;" target="Yrac821b_ZKBS3aoXfjh-24">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="715" y="320" />
+              <mxPoint x="715" y="377.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-26" parent="1" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#EFF8F0;strokeColor=#487653;fontColor=#000000;fontFamily=Arial;fontSize=18;spacing=10;align=center;verticalAlign=middle;" value="3.2 Nhập dữ liệu từ&#xa;file theo mẫu" vertex="1">
+          <mxGeometry height="75" width="260" x="730" y="435" as="geometry" />
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-27" edge="1" parent="1" source="Yrac821b_ZKBS3aoXfjh-22" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=none;startArrow=none;strokeColor=#54735B;strokeWidth=2;exitX=0.5;exitY=1;entryX=0;entryY=0.5;" target="Yrac821b_ZKBS3aoXfjh-26">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="715" y="320" />
+              <mxPoint x="715" y="472.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-28" parent="1" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#EFF8F0;strokeColor=#487653;fontColor=#000000;fontFamily=Arial;fontSize=18;spacing=10;align=center;verticalAlign=middle;" value="3.3 Tiếp nhận dữ liệu&#xa;qua API mô phỏng" vertex="1">
+          <mxGeometry height="75" width="260" x="730" y="530" as="geometry" />
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-29" edge="1" parent="1" source="Yrac821b_ZKBS3aoXfjh-22" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=none;startArrow=none;strokeColor=#54735B;strokeWidth=2;exitX=0.5;exitY=1;entryX=0;entryY=0.5;" target="Yrac821b_ZKBS3aoXfjh-28">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="715" y="320" />
+              <mxPoint x="715" y="567.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-30" parent="1" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#EFF8F0;strokeColor=#487653;fontColor=#000000;fontFamily=Arial;fontSize=18;spacing=10;align=center;verticalAlign=middle;" value="3.4 Kiểm tra dữ liệu&#xa;đầu vào" vertex="1">
+          <mxGeometry height="75" width="260" x="730" y="625" as="geometry" />
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-31" edge="1" parent="1" source="Yrac821b_ZKBS3aoXfjh-22" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=none;startArrow=none;strokeColor=#54735B;strokeWidth=2;exitX=0.5;exitY=1;entryX=0;entryY=0.5;" target="Yrac821b_ZKBS3aoXfjh-30">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="715" y="320" />
+              <mxPoint x="715" y="662.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-32" parent="1" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#BCE3C5;strokeColor=#487653;fontColor=#000000;fontFamily=Arial;fontSize=18;spacing=10;align=center;verticalAlign=middle;fontStyle=1;" value="4. Hỗ trợ chuyên môn" vertex="1">
+          <mxGeometry height="90" width="290" x="1030" y="210" as="geometry" />
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-33" edge="1" parent="1" source="Yrac821b_ZKBS3aoXfjh-1" style="edgeStyle=orthogonalEdgeStyle;endArrow=none;startArrow=none;strokeColor=#54735B;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="Yrac821b_ZKBS3aoXfjh-32">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="850" y="165" />
+              <mxPoint x="1175" y="165" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-34" parent="1" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#EFF8F0;strokeColor=#487653;fontColor=#000000;fontFamily=Arial;fontSize=18;spacing=10;align=center;verticalAlign=middle;" value="4.1 Hỗ trợ chẩn đoán" vertex="1">
+          <mxGeometry height="75" width="260" x="1060" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-35" edge="1" parent="1" source="Yrac821b_ZKBS3aoXfjh-32" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=none;startArrow=none;strokeColor=#54735B;strokeWidth=2;exitX=0.5;exitY=1;entryX=0;entryY=0.5;" target="Yrac821b_ZKBS3aoXfjh-34">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1045" y="320" />
+              <mxPoint x="1045" y="377.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-36" parent="1" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#EFF8F0;strokeColor=#487653;fontColor=#000000;fontFamily=Arial;fontSize=18;spacing=10;align=center;verticalAlign=middle;" value="4.2 Gợi ý cận lâm sàng" vertex="1">
+          <mxGeometry height="75" width="260" x="1060" y="435" as="geometry" />
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-37" edge="1" parent="1" source="Yrac821b_ZKBS3aoXfjh-32" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=none;startArrow=none;strokeColor=#54735B;strokeWidth=2;exitX=0.5;exitY=1;entryX=0;entryY=0.5;" target="Yrac821b_ZKBS3aoXfjh-36">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1045" y="320" />
+              <mxPoint x="1045" y="472.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-38" parent="1" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#EFF8F0;strokeColor=#487653;fontColor=#000000;fontFamily=Arial;fontSize=18;spacing=10;align=center;verticalAlign=middle;" value="4.3 Hỗ trợ điều trị" vertex="1">
+          <mxGeometry height="75" width="260" x="1060" y="530" as="geometry" />
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-39" edge="1" parent="1" source="Yrac821b_ZKBS3aoXfjh-32" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=none;startArrow=none;strokeColor=#54735B;strokeWidth=2;exitX=0.5;exitY=1;entryX=0;entryY=0.5;" target="Yrac821b_ZKBS3aoXfjh-38">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1045" y="320" />
+              <mxPoint x="1045" y="567.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-40" parent="1" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#EFF8F0;strokeColor=#487653;fontColor=#000000;fontFamily=Arial;fontSize=18;spacing=10;align=center;verticalAlign=middle;" value="4.4 Kiểm tra&#xa;an toàn thuốc" vertex="1">
+          <mxGeometry height="75" width="260" x="1060" y="625" as="geometry" />
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-41" edge="1" parent="1" source="Yrac821b_ZKBS3aoXfjh-32" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=none;startArrow=none;strokeColor=#54735B;strokeWidth=2;exitX=0.5;exitY=1;entryX=0;entryY=0.5;" target="Yrac821b_ZKBS3aoXfjh-40">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1045" y="320" />
+              <mxPoint x="1045" y="662.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-42" parent="1" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#BCE3C5;strokeColor=#487653;fontColor=#000000;fontFamily=Arial;fontSize=18;spacing=10;align=center;verticalAlign=middle;fontStyle=1;" value="5. Ghi nhận ý kiến,&#xa;quyết định và lịch sử" vertex="1">
+          <mxGeometry height="90" width="290" x="1360" y="210" as="geometry" />
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-43" edge="1" parent="1" source="Yrac821b_ZKBS3aoXfjh-1" style="edgeStyle=orthogonalEdgeStyle;endArrow=none;startArrow=none;strokeColor=#54735B;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="Yrac821b_ZKBS3aoXfjh-42">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="850" y="165" />
+              <mxPoint x="1505" y="165" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-44" parent="1" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#EFF8F0;strokeColor=#487653;fontColor=#000000;fontFamily=Arial;fontSize=18;spacing=10;align=center;verticalAlign=middle;" value="5.1 Ghi nhận ý kiến&#xa;rá soát của dược sĩ" vertex="1">
+          <mxGeometry height="75" width="260" x="1390" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-45" edge="1" parent="1" source="Yrac821b_ZKBS3aoXfjh-42" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=none;startArrow=none;strokeColor=#54735B;strokeWidth=2;exitX=0.5;exitY=1;entryX=0;entryY=0.5;" target="Yrac821b_ZKBS3aoXfjh-44">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1375" y="320" />
+              <mxPoint x="1375" y="377.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-46" parent="1" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#EFF8F0;strokeColor=#487653;fontColor=#000000;fontFamily=Arial;fontSize=18;spacing=10;align=center;verticalAlign=middle;" value="5.2 Ghi nhận quyết định&#xa;của bác sĩ và lý do" vertex="1">
+          <mxGeometry height="75" width="260" x="1390" y="435" as="geometry" />
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-47" edge="1" parent="1" source="Yrac821b_ZKBS3aoXfjh-42" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=none;startArrow=none;strokeColor=#54735B;strokeWidth=2;exitX=0.5;exitY=1;entryX=0;entryY=0.5;" target="Yrac821b_ZKBS3aoXfjh-46">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1375" y="320" />
+              <mxPoint x="1375" y="472.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-48" parent="1" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#EFF8F0;strokeColor=#487653;fontColor=#000000;fontFamily=Arial;fontSize=18;spacing=10;align=center;verticalAlign=middle;" value="5.3 Tra cứu lịch sử&#xa;đánh giá và quyết định" vertex="1">
+          <mxGeometry height="75" width="260" x="1390" y="530" as="geometry" />
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-49" edge="1" parent="1" source="Yrac821b_ZKBS3aoXfjh-42" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=none;startArrow=none;strokeColor=#54735B;strokeWidth=2;exitX=0.5;exitY=1;entryX=0;entryY=0.5;" target="Yrac821b_ZKBS3aoXfjh-48">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1375" y="320" />
+              <mxPoint x="1375" y="567.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-50" parent="1" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#EFF8F0;strokeColor=#487653;fontColor=#000000;fontFamily=Arial;fontSize=18;spacing=10;align=center;verticalAlign=middle;" value="5.4 Tra cứu nhật ký&#xa;thao tác theo quyền" vertex="1">
+          <mxGeometry height="75" width="260" x="1390" y="625" as="geometry" />
+        </mxCell>
+        <mxCell id="Yrac821b_ZKBS3aoXfjh-51" edge="1" parent="1" source="Yrac821b_ZKBS3aoXfjh-42" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=none;startArrow=none;strokeColor=#54735B;strokeWidth=2;exitX=0.5;exitY=1;entryX=0;entryY=0.5;" target="Yrac821b_ZKBS3aoXfjh-50">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1375" y="320" />
+              <mxPoint x="1375" y="662.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
