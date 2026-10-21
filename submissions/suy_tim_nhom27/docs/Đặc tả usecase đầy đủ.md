@@ -1,6 +1,6 @@
 # Đặc tả Use Case — Hệ thống quản lý bệnh nhân suy tim
 
-**Phiên bản:** 0.2 · **Ngày:** 21/10/2026 · **Trạng thái:** bản dự thảo đầy đủ theo bộ sơ đồ hiện tại, chờ trưởng nhóm rà soát; chưa phải xác nhận của bệnh viện hoặc kết quả triển khai.
+**Phiên bản:** 0.2 · **Ngày:** 21/10/2026 · **Trạng thái:** bản dự thảo đầy đủ theo bộ sơ đồ hiện tại; chưa phải xác nhận của bệnh viện hoặc kết quả triển khai.
 
 ## 1. Phạm vi và cách sử dụng
 
