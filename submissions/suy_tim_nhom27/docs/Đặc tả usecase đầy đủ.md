@@ -6,9 +6,7 @@
 
 Tài liệu đặc tả 54 Use Case thuộc sáu nhóm, giữ nguyên mã/tên trên các sơ đồ hiện hành. Mỗi bảng có sáu trường: tên, tác nhân chính, tiền điều kiện, luồng chính, luồng thay thế và hậu điều kiện. Mã UC nằm trong tên để liên kết các tài liệu. Sơ đồ tổng quan không được đặc tả lặp thành một bộ khác.
 
-Đây là bản đầy đủ để quản lý tài liệu trên GitHub và làm đầu vào thiết kế/kiểm thử. Bản [Use Case trọng tâm cho báo cáo](Use-case-trong-tam-cho-bao-cao-v0.2.md) trích nguyên 12 bảng đại diện. Lựa chọn báo cáo là đề xuất biên tập, không loại bỏ các chức năng còn lại khỏi phạm vi.
-
-**RTM được lập ở một mục/tệp riêng.** Tài liệu này không thay bảng truy vết, User Story, BDD, đặc tả dữ liệu hoặc bộ ca kiểm thử. Các mã FR hiện hành là FR01–FR46; khi lập RTM cần đối chiếu theo quan hệ nhiều–nhiều, không suy rằng một bảng UC bằng một FR.
+Đây là bản đầy đủ để quản lý tài liệu trên GitHub và làm đầu vào thiết kế/kiểm thử.
 
 ## 2. Quy ước dùng chung
 
@@ -829,14 +827,12 @@ Các bảng mô tả hành vi mục tiêu của bản dự thảo. Cụm “theo
 | Q06, Q10–Q11 | Cách xử lý bản sửa/xung đột, tập nội dung được ghi trả, bằng chứng HIS tiếp nhận, điều kiện xác nhận và hiệu lực kế hoạch. |
 | Q09, Q13–Q16 | Phạm vi lưu dữ liệu gốc, kênh/chính sách nhắc, nội dung bệnh nhân được xem, dữ liệu thật và vòng đời quy tắc/mô hình. |
 
-Bộ đếm biến trên sơ đồ thầy và Excel từng có chênh lệch đã ghi nhận: riêng Diagnosis là 84/21 so với 87/13; nhãn tổng 211 so với 206 dòng biến. Tài liệu này không chọn một bộ đếm làm hợp đồng cuối cùng; Q05/Q07 phải đối chiếu từng biến trước triển khai module.
 
 ## 11. Căn cứ và quản lý phiên bản
 
-- Bộ mô hình/sơ đồ Use Case nhóm 1–2 v0.2, nhóm 3–4 v0.1, nhóm 5–6 v0.1: 12/9/8/9/6/10 Use Case. Tên/mã được giữ để đối chiếu; nội dung từng luồng là bản đặc tả dự thảo mới, không tự coi chi tiết sơ đồ hoặc quyền đã được duyệt.
+- Bộ mô hình/sơ đồ Use Case nhóm 1–2 , nhóm 3–4 , nhóm 5–6 : 12/9/8/9/6/10 Use Case. Tên/mã được giữ để đối chiếu; nội dung từng luồng là bản đặc tả dự thảo mới, không tự coi chi tiết sơ đồ hoặc quyền đã được duyệt.
 
-- FR tổng hợp v0.2 (FR01–FR46), phạm vi tích hợp theo sơ đồ thầy và các quyết định làm việc hiện hành. Không ghi các đầu ra dự báo, quy tắc y khoa hoặc giao diện kết nối chưa có căn cứ thành chức năng đã được kiểm chứng.
+- FR tổng hợp (FR01–FR46), phạm vi tích hợp theo sơ đồ thầy và các quyết định làm việc hiện hành. Không ghi các đầu ra dự báo, quy tắc y khoa hoặc giao diện kết nối chưa có căn cứ thành chức năng đã được kiểm chứng.
 
 - [Bài giảng môn học — mục 2.2.2.1 và phần thực hành Bước 5](https://fossbk-spec.github.io/ktpmud-book/ch02_yeu_cau_thiet_ke_c4#_2-2-mo-hinh-hoa-yeu-cau-va-kien-truc-he-thong): tham khảo khung sáu trường. Việc chọn 54 bảng và 12 ca trình bày là cách tổ chức tài liệu của nhóm, không phải số lượng bài giảng bắt buộc cho riêng đồ án này.
 
-Bản hướng dẫn Khung-va-danh-muc-dac-ta-Use-case-v0.1.md được giữ làm lịch sử. Bản v0.2 thay mẫu dài bằng sáu trường, đặc tả đủ 54 mã hiện có và tách file trọng tâm phục vụ báo cáo. RTM tiếp tục là phần riêng. Chưa thay FR/NFR, sơ đồ hay trạng thái xác nhận của bệnh viện.
