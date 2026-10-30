@@ -8,8 +8,6 @@
 
 Tài liệu đặc tả đầy đủ **56 Use Case thuộc sáu nhóm**, đồng bộ mã/tên với bộ sơ đồ tổng quan và chi tiết ngày 30/10/2026. Mỗi bảng giữ sáu trường: tên Use Case, tác nhân chính, tiền điều kiện, luồng chính, luồng thay thế và hậu điều kiện. Sơ đồ tổng quan không được đặc tả lặp thành một bộ mã khác.
 
-Bản này thay phiên bản 0.2 ngày 21/10/2026. Các ca còn dùng giữ mã; ba mã rút khỏi phạm vi được ghi tại [lịch sử thay đổi](#lich-su-thay-doi), không đổi số liên tiếp để lấp khoảng trống. Mục lục bên dưới dẫn đến từng bảng.
-
 Trình tự xây dựng: ưu tiên nền tảng ở nhóm 1, 2 và 6, bắt đầu từ nhập tay trên biểu mẫu rồi nhập file vào cùng dữ liệu. AI và quyết định/kế hoạch chuyên môn phát triển sau khi biểu mẫu, dữ liệu ổn định; phần bệnh nhân triển khai sau luồng chính. Các ca gắn với tài khoản bệnh nhân ở nhóm 1/6 cũng thuộc giai đoạn bệnh nhân. Có trong đặc tả không đồng nghĩa đã chạy trên web demo hoặc đã đạt kiểm thử.
 
 ## 2. Quy ước dùng chung
@@ -878,39 +876,3 @@ Cụm “theo quy tắc/điều kiện đã đặc tả” không có nghĩa đi
 | Quyết định và công bố | Điều kiện xác nhận/hiệu lực kế hoạch, lý do điều chỉnh, nội dung chia sẻ và cơ chế thay thế/thu hồi. |
 | Thông báo và nhắc | Sự kiện tạo thông báo, thời điểm/kênh, quyền xem, chống trùng, trạng thái gửi/nhận và cập nhật khi lịch/kế hoạch đổi. |
 | Sao lưu và khôi phục | Phạm vi nhất quán, thành phần tệp, nơi lưu, quyền kỹ thuật, cách kiểm tra bản sao và khôi phục thử trên môi trường riêng. |
-
-<a id="lich-su-thay-doi"></a>
-
-## 11. Căn cứ và lịch sử thay đổi
-
-### 11.1 Căn cứ nội dung
-
-- File đặc tả 0.2 do trưởng nhóm cung cấp: giữ các luồng còn phù hợp, sửa tác nhân và phạm vi đã thay đổi.
-- Phân cấp đã chốt ngày 28/10/2026: sáu nhóm, 27 chức năng con; bộ Use Case cập nhật ngày 30/10 gồm 16 ca tổng quan và **56 ca chi tiết**, phân bố **12/9/8/9/6/12**.
-- Report (5) và phần bổ sung ngày 31/10/2026: giữ mã FR01–FR46, NFR01–NFR13 và phân kỳ xây nhánh 1, 2, 6 trước. Báo cáo có thể trích sáu ca tiêu biểu; tài liệu này trình bày đủ 56 bảng, không nhân đôi mã các ca tổng quan.
-- [Bài giảng môn học về yêu cầu và thiết kế hệ thống](https://fossbk-spec.github.io/ktpmud-book/ch02_yeu_cau_thiet_ke_c4#_2-2-mo-hinh-hoa-yeu-cau-va-kien-truc-he-thong): tham khảo form đặc tả sáu trường. Số ca và cách chọn ca cho report là tổ chức tài liệu của dự án.
-
-### 11.2 Thay đổi từ phiên bản 0.2
-
-| Phạm vi | Cập nhật |
-|---|---|
-| Nhóm 1 | Dùng “hồ sơ bệnh nhân” ở tên ca phù hợp; tạo mã BN; đồng bộ Bác sĩ/Admin, mẫu theo lượt, nhập tay, lịch hẹn và quyền hoàn tất. |
-| Nhóm 2 | Chuyển từ trao đổi trực tiếp/mô phỏng sang tải file → xem trước/đối chiếu → Bác sĩ xác nhận ghi vào bệnh án sản phẩm. Bổ sung UC2.10 và UC2.11. |
-| Nhóm 3 | Bác sĩ tương tác bốn module; dữ liệu từ file chỉ dùng sau khi được ghi vào bệnh án; giữ điều kiện, căn cứ, phiên bản và đánh giá lại. |
-| Nhóm 4 | Bác sĩ ghi/xác nhận và công bố; UC4.04 lưu phương án thuốc dự thảo; UC4.07 kết thúc bằng bản điều chỉnh dự thảo, xác nhận là bước riêng. Bỏ phụ thuộc ghi trả HIS. |
-| Nhóm 5 | Giữ phần bệnh nhân ngoại trú ở giai đoạn sau; chỉ xem phần công bố, lịch/nhắc dùng dữ liệu hiện hành. |
-| Nhóm 6 | Một trang đăng nhập; thu hẹp UC6.08 về phiên bản mẫu; thêm UC6.11 định nghĩa biểu mẫu/trường, UC6.12 sao lưu và UC6.13 khôi phục. Cấu hình nhập file chuyển sang UC2.11. |
-
-### 11.3 Mã cũ rút khỏi phạm vi hiện tại
-
-Các mã sau chỉ được giữ để tra lịch sử và liên kết cũ, không tính vào 56 Use Case hiện hành. Khi quay lại tích hợp thật phải xác định lại yêu cầu; tài liệu này không cam kết các chức năng đó.
-
-<a id="uc2-06"></a>
-<a id="uc2-08"></a>
-<a id="uc6-10"></a>
-
-| Mã cũ | Tên cũ | Trạng thái |
-|---|---|
-| UC2.06 | Ghi trả dữ liệu đã xác nhận | Rút khỏi demo; không dùng lại mã này cho UC2.10 xác nhận nhập nội bộ. |
-| UC2.08 | Kiểm tra kết quả ghi trả dữ liệu | Rút khỏi demo do không có đích HIS nhận ghi trả. |
-| UC6.10 | Mở bệnh án/lượt từ HIS/EMR | Rút khỏi demo; không dựng màn hình host mô phỏng hoặc mặc định SSO/nhúng. |
