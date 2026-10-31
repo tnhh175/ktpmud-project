@@ -1,68 +1,78 @@
-# Thiết kế kiến trúc — tuần 3
+# Kiến trúc và các sơ đồ của hệ thống quản lý bệnh nhân suy tim
 
-Mốc yêu cầu: SRS trên nhánh `submit/suy_tim-nhom27`, blob `7d3a0557f962e33a1c4b12fd865e638effb80977`. Ba vai trò: bác sĩ, dược sĩ, quản trị.
+Cập nhật ngày 31/10/2026. Nội dung theo phạm vi hiện hành của [SRS v1.0](../SRS-v1.0.md), [đặc tả Use Case](<../Đặc tả usecase đầy đủ.md>) và [User Story INVEST BDD](../User-Stories-INVEST-BDD.md). Tài liệu này thay nội dung kiến trúc tuần 3 cũ tại cùng đường dẫn.
 
-Thư mục này chứa PNG và nguồn `.drawio` cùng tên cho C4, DFD, ERD, Class và Sequence. [Sơ đồ tuần 2 và mô tả DFD](../SRS_v1.0.md#9-dfd) · [ERD và từ điển dữ liệu](../../database/erd.md) · [UML tuần 3](../uml/uml.md). Tệp [So_do_tuan3.drawio](So_do_tuan3.drawio) gồm 11 trang để chỉnh sửa cả bộ tuần 3.
+Thư mục lưu nguyên bảy ảnh Use Case trưởng nhóm cung cấp và hai ảnh C1/C2 đã thống nhất. Những ảnh `.drawio.png` giữ metadata nguồn trong ảnh nếu bản cung cấp có chứa; không mặc định các PNG khác có file draw.io chỉnh sửa riêng. Tên ảnh được dùng nhất quán trong SRS.
 
-## 1. C1 — Ranh giới và đối tượng tương tác
+## 1 Phạm vi và trình tự xây dựng
 
-![C1](01-c4-c1.png)
+Hệ thống là web chuyên suy tim, dùng hồ sơ bệnh nhân và các lượt khám làm trung tâm. Nhập tay rồi nhập file vào cùng bệnh án sản phẩm; phần thiếu được bổ sung theo quyền. Nền tảng nhóm 1, 2, 6 được xây trước; AI và quyết định/kế hoạch sau khi dữ liệu ổn định; bệnh nhân ngoại trú sau luồng chính.
 
-Bác sĩ nhập/xem ca, yêu cầu đánh giá, quyết định và xem lịch sử. Dược sĩ rà soát thuốc; không xác nhận thay bác sĩ. Quản trị quản lý cấu hình, phiên bản quy tắc và audit; quyền quản trị kỹ thuật không mặc định cho phép duyệt chuyên môn. Bệnh nhân là đối tượng được hỗ trợ gián tiếp, chưa phải actor đăng nhập.
+Bản demo dùng một trang đăng nhập theo vai trò Bác sĩ/Admin. Nhân viên y tế là tác nhân nghiệp vụ theo quyền trên các sơ đồ chi tiết; chưa tạo loại đăng nhập riêng. Chỉ Bác sĩ xác nhận kết luận và kế hoạch. Quyền Admin không tự là quyền nhập/xác nhận lâm sàng. Không mặc định có vai trò dược sĩ riêng hoặc phạm vi truy cập toàn bộ người bệnh.
 
-HIS/EMR, LIS và PACS/RIS là nguồn ngoài dự kiến. Tuần 3 mô phỏng bằng dữ liệu nhập/API, chưa kết nối bệnh viện. Tài liệu nguồn phân loại nơi nhập dữ liệu ở mức đề xuất; không coi đây là xác nhận tích hợp. Các đường nối trên C1 biểu diễn quan hệ sử dụng/cung cấp dữ liệu; kết quả được trả về người yêu cầu theo quyền.
+HIS/EMR là nguồn file do Bác sĩ đưa vào sản phẩm và cung cấp quy ước cấu trúc để đối chiếu. Demo không dựng nguồn HIS/LIS/PACS mô phỏng, không gọi API viện hoặc ghi trả HIS. Việc kết nối/nhúng thật cần thỏa thuận riêng.
 
-## 2. C2 — Các container và giao tiếp
+## 2 C1 Ngữ cảnh hệ thống
 
-![C2](02-c4-c2.png)
+![C1 Ngữ cảnh hệ thống](C1-Ngu-canh-he-thong-v0.1.drawio.png)
 
-| Container | Trách nhiệm | Giao tiếp |
-|---|---|---|
-| Web App | Smart Panel mô phỏng, nhập/xem dữ liệu và quyết định | HTTPS/REST JSON → Gateway |
-| API Gateway | Xác thực, kiểm quyền đầu vào, routing, chuẩn hóa lỗi | HTTPS/REST JSON → Core |
-| Core Service | Ca/lượt khám, snapshot, điều phối module, lịch sử, quyết định, rule và audit | HTTPS/REST tới bốn dịch vụ; PostgreSQL wire/TLS tới DB |
-| Diagnosis | Đánh giá suy tim dựa trên căn cứ đã duyệt | Nhận snapshot, trả kết quả/căn cứ |
-| Lab/Test | Gợi ý CLS còn thiếu, ưu tiên, tránh trùng | Nhận snapshot/kết quả liên quan |
-| Treatment | Hướng điều trị tham khảo | Không tự ban hành y lệnh |
-| MedSafety | Kiểm tra thuốc và dữ liệu an toàn | Trả cảnh báo và phần chưa kiểm tra được |
-| PostgreSQL | Dữ liệu chuẩn hóa và truy vết bất biến | Core là đầu mối ghi; module không sửa hồ sơ trực tiếp |
+C1 biểu diễn toàn hệ thống trong quan hệ với Bác sĩ, Người quản trị, Bệnh nhân ngoại trú và HIS. Hệ thống lưu dữ liệu khám và quyết định ở sản phẩm; Bác sĩ nhập, kiểm tra và xác nhận chuyên môn. Bệnh nhân chỉ xem phần được công bố sau liên kết tài khoản đã xác minh.
 
-Đây là kiến trúc đích đề xuất. Không đồng nhất “container C4” với một Docker container: đó là ứng dụng/dịch vụ/kho dữ liệu có thể triển khai riêng. Chia bốn dịch vụ để phù hợp bốn module và có khả năng triển khai riêng; cần cân nhắc chi phí vận hành khi triển khai thật.
+## 3 C2 Các container
 
-Bản chạy tuần 3 có **một Gateway FastAPI**, bộ nhớ RAM và bốn adapter StubModule chạy trong tiến trình. Core handler đang gộp trong skeleton; các đường mạng Core ↔ module chưa được triển khai. `services.py` là điểm thay adapter stub bằng HTTP client khi tách dịch vụ. PostgreSQL đã có DDL và Compose profile riêng, nhưng Gateway chưa dùng DB đó.
+![C2 Các container](C2-Container-v0.1.drawio.png)
 
-## 3. Quyết định kiến trúc
+| Thành phần | Công nghệ hoặc định hướng | Trách nhiệm |
+| --- | --- | --- |
+| Ứng dụng web | HTML, CSS, JavaScript | Giao diện hồ sơ/lượt, biểu mẫu, nhập file và quản trị theo quyền. |
+| Backend API và nghiệp vụ | Python, FastAPI | Quyền, nghiệp vụ, kiểm tra/chuẩn hóa dữ liệu, bốn module hỗ trợ, quyết định và truy vết. |
+| Cơ sở dữ liệu sản phẩm | PostgreSQL | Hồ sơ/lượt, giá trị, mẫu/phiên bản, tài khoản/quyền, kết quả và các dữ liệu nghiệp vụ liên quan. |
+| Kho tệp | File system do ứng dụng quản lý | File nhập, tham chiếu nguồn, tệp cần lưu và bản sao theo phạm vi đã xác định. Volume hoạt động không tự là bản sao lưu. |
+| App bệnh nhân | React Native, giai đoạn sau | Đặt/xem lịch, xem thông tin công bố, lấy thông báo và nhắc qua API. |
+| Worker theo lịch | Python, APScheduler được đề xuất, giai đoạn sau | Đọc lịch, tạo thông báo/nhắc; cách chạy tiến trình riêng và kênh khi app đóng được cụ thể hóa khi triển khai. |
 
-| Quyết định | Lý do / giới hạn |
-|---|---|
-| Python/FastAPI | Có validation, Swagger UI và dễ tạo stub; lựa chọn kỹ thuật của nhóm |
-| PostgreSQL 16+ | Quan hệ ca–lượt khám–đánh giá cần PK/FK, CHECK và transaction |
-| Đồng bộ REST trước | Đủ luồng demo; tránh thêm broker khi chưa có tác vụ bất đồng bộ được yêu cầu |
-| Chưa dùng Redis/RabbitMQ | Chưa có chứng cứ nhu cầu cache/queue trong SRS; ghi nhận là hướng mở rộng |
-| Chưa có Mobile/Email/BHXH/Payment | Những thành phần này nằm trong ví dụ của đề bài nhưng không có FR tương ứng trong SRS hiện tại; xác nhận nếu thầy yêu cầu mọi nhóm phải có |
-| Snapshot bất biến | Dữ liệu mới không được làm thay đổi căn cứ của đánh giá cũ |
-| Quyết định + audit cùng transaction | Tránh đã lưu quyết định nhưng mất dấu truy vết |
-| Người dùng có nhiều vai trò | Dùng bảng user_role; không ép kế thừa người dùng theo nghề nghiệp |
+Diagnosis, Lab/Test, Treatment và MedSafety là các module bên trong Backend; không mặc định bốn dịch vụ hay bốn máy chủ AI riêng. Web/app dùng API theo quyền, Backend truy cập PostgreSQL và kho tệp. HTTPS/JSON trên hình là giao tiếp mục tiêu; không phải bằng chứng demo local đã chạy HTTPS hoặc app đã có push khi đóng.
 
-## 4. Quyền trong stub
+Container C4 là ứng dụng hoặc kho dữ liệu; không đồng nhất với container Docker. Docker Compose là cách đóng gói khi cấu hình được hoàn thiện. Không tự thêm Redis/RabbitMQ hay một Gateway triển khai riêng khi chưa có nhu cầu được xác định.
 
-| Thao tác | Bác sĩ | Dược sĩ | Quản trị |
-|---|---|---|---|
-| Tạo/sửa ca, nhập CLS/thuốc | Có | Không | Không |
-| Xem ca và lịch sử đầy đủ | Có | Không | Không |
-| Xem thuốc, gọi MedSafety | Có | Có | Không |
-| Gọi Diagnosis/Lab/Test/Treatment | Có | Không | Không |
-| Ghi quyết định | Có | Không | Không |
-| Tạo/test rule, xem audit | Không | Không | Có |
-| Tự phê duyệt lâm sàng | Không triển khai | Không triển khai | Không triển khai |
+## 4 Bộ sơ đồ Use Case
 
-Demo có một tài khoản cho mỗi vai trò; dược sĩ được rà thuốc của mọi ca synthetic trong phiên. Đây là giả định demo, không phải phân quyền bệnh viện. Thiết kế DB có case_access và user_role để triển khai quyền theo ca và đa vai trò sau này. API quản lý tài khoản chi tiết chờ bổ sung UC tương ứng; skeleton dùng tài khoản cố định.
+Các hình được giữ nguyên theo lựa chọn của trưởng nhóm. Danh mục và nội dung đặc tả hiện hành có 54 ca theo nhóm 12/9/8/9/6/10; các mã ca đã gộp có liên kết lịch sử ở file đặc tả.
 
+### Tổng quan
 
+![Use Case tổng quan](UC-00-Tong-quan.png)
 
-## 5. Nguồn kỹ thuật
+### Nhóm 1 Hồ sơ bệnh án và lượt khám
 
-- C4 Container: https://c4model.com/diagrams/container
-- FastAPI APIRouter / cấu trúc nhiều file: https://fastapi.tiangolo.com/tutorial/bigger-applications/
-- OpenAPI 3.0.3: https://spec.openapis.org/oas/v3.0.3.html
+![Use Case nhóm 1](UC-01-Nhom-1.png)
 
+### Nhóm 2 Tiếp nhận và tiền xử lý dữ liệu
+
+![Use Case nhóm 2](UC-02-Nhom-2.png)
+
+### Nhóm 3 Hỗ trợ chuyên môn AI CDSS
+
+![Use Case nhóm 3](UC-03-Nhom-3.png)
+
+### Nhóm 4 Kết luận và kế hoạch điều trị
+
+![Use Case nhóm 4](UC-04-Nhom-4.png)
+
+### Nhóm 5 Hỗ trợ bệnh nhân ngoại trú
+
+![Use Case nhóm 5](UC-05-Nhom-5.png)
+
+### Nhóm 6 Quản trị hệ thống và dữ liệu dùng chung
+
+![Use Case nhóm 6](UC-06-Nhom-6.png)
+
+UC2.01 bao gồm các kiểm tra nhập và bước Bác sĩ xác nhận; UC2.12 kiểm tra kết quả từng lần nhập. Bốn ca AI include kiểm tra đầu vào UC3.05. UC4.07 include xác nhận lại UC4.06 trên luồng thành công; lưu nháp chưa hoàn tất điều chỉnh hoặc thay hiệu lực. UC6.08 quản lý chung mẫu/trường/phiên bản; UC6.12 có hai nhánh sao lưu và khôi phục.
+
+Tác nhân nội bộ chưa ghi nhãn ở ảnh nhóm 6 được diễn giải trong SRS là người dùng nội bộ thực hiện các chức năng tài khoản cá nhân. Quan hệ HIS/EMR với cấu hình nguồn không cấp quyền quản trị sản phẩm cho hệ thống bên ngoài.
+
+## 5 Trạng thái thiết kế và tài liệu liên quan
+
+Các sơ đồ mô tả phạm vi thiết kế theo giai đoạn, không chứng minh mọi thành phần đã triển khai hoặc được bệnh viện nghiệm thu. Thiết kế dữ liệu mục 5.3 đang được rà soát riêng; chưa đưa ERD đề xuất chưa duyệt thành kiến trúc đã chốt. DFD/UML cũ ở tài liệu khác phải đối chiếu trước dùng lại, không tự coi khớp với bộ hiện hành này.
+
+Nguồn phương pháp: [C4 System Context](https://c4model.com/diagrams/system-context) và [C4 Container](https://c4model.com/diagrams/container). Phạm vi sản phẩm và công nghệ áp dụng được giải thích trong SRS.

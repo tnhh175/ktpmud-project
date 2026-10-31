@@ -2,7 +2,7 @@
 
 Hệ thống quản lý bệnh nhân suy tim
 
-Nhóm 27  |  Môn Kỹ thuật phần mềm ứng dụng  |  Phiên bản 0.3  |  Ngày 31/10/2026
+Nhóm 27  |  Môn Kỹ thuật phần mềm ứng dụng  |  Phiên bản 1.0  |  Ngày 31/10/2026
 
 Tài liệu xác định phạm vi, hành vi và tiêu chí kiểm tra của sản phẩm để trưởng nhóm, giảng viên, bên chuyên môn và nhóm phát triển cùng rà soát. Nền tảng hồ sơ, biểu mẫu, nhập file và quản trị được xây trước; AI và chức năng bệnh nhân phát triển theo giai đoạn. Bản SRS này chưa là biên bản nghiệm thu hoặc phê duyệt triển khai tại bệnh viện.
 
@@ -65,7 +65,7 @@ Mỗi dòng FR biểu thị hành vi phần mềm cần hỗ trợ trong giai đ
 
 ### 1.4 Phiên bản và căn cứ
 
-SRS 0.3 đồng bộ nội dung theo nguyên bộ bảy ảnh Use Case trưởng nhóm cung cấp: 54 ca thuộc sáu nhóm, cùng hai sơ đồ C1/C2 đã thống nhất ngày 31/10. Tên chức năng, phạm vi tác nhân, luồng nhập file, quan hệ include và mức gộp các ca được thống nhất trong danh mục, đặc tả v0.4 và RTM.
+SRS 1.0 đồng bộ nội dung theo nguyên bộ bảy ảnh Use Case trưởng nhóm cung cấp: 54 ca thuộc sáu nhóm, cùng hai sơ đồ C1/C2 đã thống nhất ngày 31/10. Tên chức năng, phạm vi tác nhân, luồng nhập file, quan hệ include và mức gộp các ca được thống nhất trong danh mục, đặc tả v0.4 và RTM.
 
 <a id="tong-quan"></a>
 
@@ -360,7 +360,7 @@ Hình tổng quan biểu diễn sáu nhóm chức năng của hệ thống. Hìn
 
 Đặc tả đầy đủ 54 ca: [Đặc tả Use Case v0.4 trên GitHub](https://github.com/tnhh175/ktpmud-project/blob/submit/suy_tim-nhom27/submissions/suy_tim_nhom27/docs/%C4%90%E1%BA%B7c%20t%E1%BA%A3%20usecase%20%C4%91%E1%BA%A7y%20%C4%91%E1%BB%A7.md). Bản đi kèm: [Đặc tả Use Case đầy đủ](<Đặc tả usecase đầy đủ.md>). Mỗi mã ở danh mục 8.3 dẫn trực tiếp đến bảng sáu trường tương ứng.
 
-![Hình 8.1 Use Case tổng quan](assets/UC-00-Tong-quan.png)
+![Hình 8.1 Use Case tổng quan](architecture/UC-00-Tong-quan.png)
 
 <a id="uc-chi-tiet"></a>
 
@@ -368,37 +368,37 @@ Hình tổng quan biểu diễn sáu nhóm chức năng của hệ thống. Hìn
 
 #### Nhóm 1 Quản lý hồ sơ bệnh án, lượt khám
 
-![Hình 8.2 Use Case chi tiết nhóm 1](assets/UC-01-Nhom-1.png)
+![Hình 8.2 Use Case chi tiết nhóm 1](architecture/UC-01-Nhom-1.png)
 
 Nhóm 1 có 12 ca được đặc tả tại mục 8.3 và tài liệu v0.4. Các chức năng phát triển sau vẫn được thể hiện trong phạm vi toàn sản phẩm; chưa được xem là đã hiện thực.
 
 #### Nhóm 2 Tiếp nhận và tiền xử lý dữ liệu
 
-![Hình 8.3 Use Case chi tiết nhóm 2](assets/UC-02-Nhom-2.png)
+![Hình 8.3 Use Case chi tiết nhóm 2](architecture/UC-02-Nhom-2.png)
 
 Nhóm 2 có 9 ca được đặc tả tại mục 8.3 và tài liệu v0.4. Các chức năng phát triển sau vẫn được thể hiện trong phạm vi toàn sản phẩm; chưa được xem là đã hiện thực.
 
 #### Nhóm 3 Hỗ trợ chuyên môn AI-CDSS
 
-![Hình 8.4 Use Case chi tiết nhóm 3](assets/UC-03-Nhom-3.png)
+![Hình 8.4 Use Case chi tiết nhóm 3](architecture/UC-03-Nhom-3.png)
 
 Nhóm 3 có 8 ca được đặc tả tại mục 8.3 và tài liệu v0.4. Các chức năng phát triển sau vẫn được thể hiện trong phạm vi toàn sản phẩm; chưa được xem là đã hiện thực.
 
 #### Nhóm 4 Quản lý kết luận và kế hoạch điều trị
 
-![Hình 8.5 Use Case chi tiết nhóm 4](assets/UC-04-Nhom-4.png)
+![Hình 8.5 Use Case chi tiết nhóm 4](architecture/UC-04-Nhom-4.png)
 
 Nhóm 4 có 9 ca được đặc tả tại mục 8.3 và tài liệu v0.4. Các chức năng phát triển sau vẫn được thể hiện trong phạm vi toàn sản phẩm; chưa được xem là đã hiện thực.
 
 #### Nhóm 5 Hỗ trợ bệnh nhân ngoại trú
 
-![Hình 8.6 Use Case chi tiết nhóm 5](assets/UC-05-Nhom-5.png)
+![Hình 8.6 Use Case chi tiết nhóm 5](architecture/UC-05-Nhom-5.png)
 
 Nhóm 5 có 6 ca được đặc tả tại mục 8.3 và tài liệu v0.4. Các chức năng phát triển sau vẫn được thể hiện trong phạm vi toàn sản phẩm; chưa được xem là đã hiện thực.
 
 #### Nhóm 6 Quản trị hệ thống và dữ liệu dùng chung
 
-![Hình 8.7 Use Case chi tiết nhóm 6](assets/UC-06-Nhom-6.png)
+![Hình 8.7 Use Case chi tiết nhóm 6](architecture/UC-06-Nhom-6.png)
 
 Nhóm 6 có 10 ca được đặc tả tại mục 8.3 và tài liệu v0.4. Các chức năng phát triển sau vẫn được thể hiện trong phạm vi toàn sản phẩm; chưa được xem là đã hiện thực.
 
@@ -498,47 +498,11 @@ Nhóm 2: Tiếp nhận dữ liệu viện vào hồ sơ bệnh án bao gồm đ�
 
 Nhóm 3: cả bốn ca hỗ trợ đều include kiểm tra đầu vào và điều kiện áp dụng UC3.05. Nhóm 4: Điều chỉnh kế hoạch đã xác nhận UC4.07 include Xác nhận kế hoạch điều trị UC4.06; chỉ sau xác nhận thành công mới hoàn tất điều chỉnh. Lưu nháp/hủy/thất bại giữ bản hiện hành. Nhóm 6: UC6.08 quản lý chung phiên bản biểu mẫu và trường dữ liệu; UC6.12 có hai nhánh sao lưu và khôi phục.
 
-### 8.5 Danh mục User Story
+### 8.5 User Story và kiểm tra INVEST
 
-Các Story biểu diễn mục tiêu người dùng, không tách mỗi bước kỹ thuật thành mục tiêu độc lập. Giữ mã để truy vết; FR được liên kết tại RTM. Ưu tiên của US thống nhất với yêu cầu chức năng liên quan; kế hoạch xây theo giai đoạn được ghi riêng tại mục 2.4.
+Danh mục đầy đủ **33 User Story** và bảng kiểm sáu tiêu chí INVEST được quản lý tại [User Story INVEST và BDD](User-Stories-INVEST-BDD.md#user-stories). [Bảng kiểm INVEST](User-Stories-INVEST-BDD.md#invest) ghi rõ các phần cần làm rõ hoặc chia nhỏ trước Sprint; không coi dấu kiểm là kết quả nghiệm thu.
 
-| Mã | Vai trò | Tôi muốn | Để | Ưu tiên |
-| --- | --- | --- | --- | --- |
-| US-001 | Bác sĩ hoặc nhân viên y tế theo quyền | Tra cứu, tạo và bổ sung hồ sơ đúng người bệnh | Duy trì thông tin nhận diện để khám và cập nhật | P1 |
-| US-002 | Bác sĩ hoặc nhân viên y tế theo quyền | Liên kết tài khoản bệnh nhân sau xác minh | Cấp đúng quyền xem phần đã công bố | P3 |
-| US-003 | Nhân viên y tế được giao quản lý lịch | Quản lý khung giờ, sức chứa và lịch hẹn | Tiếp nhận đăng ký trên cùng dữ liệu lịch | P1 |
-| US-004 | Bác sĩ; nhân viên y tế hỗ trợ tiếp nhận theo quyền | Mở lượt, cập nhật trạng thái và hoàn tất khi đủ điều kiện | Theo dõi công việc khám đúng hồ sơ và lượt | P1 |
-| US-005 | Bác sĩ hoặc nhân viên y tế theo quyền | Nhập, lưu và mở lại dữ liệu khám trên biểu mẫu | Có dữ liệu chung đáng tin cậy cho lượt khám | P1 |
-| US-006 | Bác sĩ | Ghi chỉ định và kết quả cận lâm sàng thực tế | Có căn cứ đánh giá, phân biệt với gợi ý của AI | P1 |
-| US-007 | Bác sĩ hoặc nhân viên y tế theo quyền | Tra cứu lịch sử khám, thuốc và điều trị | Đối chiếu diễn biến đúng hồ sơ, lượt và thời điểm | P1 |
-| US-008 | Bác sĩ | Nhập và đối chiếu file từ HIS với đúng hồ sơ và lượt | Tận dụng dữ liệu có sẵn và nhận biết phần thiếu | P1 |
-| US-009 | Bác sĩ | Tra lịch sử nhận và kiểm tra kết quả từng lần nhập | Biết phần đã ghi, còn chờ hoặc cần xử lý | P1 |
-| US-011 | Bác sĩ | Xử lý lại lần nhập lỗi sau khi khắc phục | Bổ sung dữ liệu mà không nhân bản hoặc ghi đè âm thầm | P1 |
-| US-012 | Bác sĩ | Nhận hỗ trợ Diagnosis kèm căn cứ và giới hạn | Có thêm cơ sở xem xét kết luận | P2 |
-| US-013 | Bác sĩ | Nhận gợi ý Lab/Test kèm lý do và ưu tiên | Cân nhắc chỉ định cận lâm sàng cần thiết | P2 |
-| US-014 | Bác sĩ | Nhận gợi ý Treatment và yêu cầu theo dõi liên quan | Xây dựng phương án từ dữ liệu thực đo và bệnh cảnh | P2 |
-| US-015 | Bác sĩ | Rà soát MedSafety theo phương án thuốc đang xem | Nhận biết nguy cơ và phần chưa kiểm tra được | P2 |
-| US-016 | Bác sĩ; nhân viên y tế được quyền xem | Tra các lần hỗ trợ; Bác sĩ yêu cầu đánh giá lại khi cần | Dùng kết quả gắn đúng dữ liệu và phiên bản hiện hành | P2 |
-| US-017 | Bác sĩ | Ghi kết luận, hướng xử trí và phản hồi gợi ý | Lưu rõ quyết định chuyên môn trong bệnh án | P1 |
-| US-018 | Bác sĩ | Lập dự thảo phương án, thuốc, hướng dẫn và theo dõi | Chuẩn bị kế hoạch cụ thể trước khi xác nhận | P1 |
-| US-019 | Bác sĩ | Xác nhận và lưu đúng phiên bản kế hoạch | Có kế hoạch chính thức đã được tôi xem xét | P1 |
-| US-020 | Bác sĩ | Điều chỉnh kế hoạch bằng phiên bản mới và xác nhận lại | Cập nhật điều trị đúng hiệu lực và giữ lịch sử | P1 |
-| US-021 | Bác sĩ | Công bố phần kết quả và kế hoạch được phép | Cung cấp đúng thông tin đã xác nhận cho bệnh nhân | P1 |
-| US-022 | Bác sĩ | Thay thế hoặc thu hồi nội dung đã công bố | Kiểm soát bản được xem và giữ lịch sử chia sẻ | P1 |
-| US-023 | Bệnh nhân | Đặt và xem lịch khám, tái khám | Chủ động thời gian và biết trạng thái lịch hẹn | P3 |
-| US-024 | Bệnh nhân | Xem kết quả, thuốc và hướng dẫn đã công bố cho mình | Nắm thông tin và kế hoạch đang áp dụng | P3 |
-| US-025 | Bệnh nhân | Nhận thông báo, nhắc khám và nhắc thuốc | Nhớ các mốc trong kế hoạch được phép cung cấp | P3 |
-| US-026 | Bệnh nhân | Đăng ký và xác minh tài khoản | Sử dụng chức năng bệnh nhân được cấp | P3 |
-| US-027 | Người dùng theo vai trò | Đăng nhập, đăng xuất và cập nhật tài khoản được phép | Sử dụng hệ thống đúng quyền và bảo vệ phiên | P1 |
-| US-028 | Người dùng theo vai trò | Khôi phục truy cập qua xác minh hoặc Admin có quyền | Lấy lại tài khoản mà không cấp nhầm quyền bệnh án | P1 |
-| US-029 | Admin | Quản lý tài khoản và cấp, đổi, thu hồi quyền | Giới hạn thao tác theo vai trò và phạm vi hồ sơ | P1 |
-| US-030 | Admin | Quản lý trường và phiên bản mẫu bệnh án | Điều chỉnh biểu mẫu dùng chung mà giữ lượt cũ | P1 |
-| US-031 | Admin | Quản lý cấu hình nhập file và danh mục đối chiếu | Áp dụng quy tắc nhất quán, có phạm vi và phiên bản | P1 |
-| US-033 | Admin | Tra nhật ký theo người, thời gian, thao tác và đối tượng | Kiểm tra thay đổi và xử lý sự cố theo quyền | P1 |
-| US-035 | Admin | Sao lưu và thử khôi phục dữ liệu | Khôi phục được hồ sơ và cấu trúc khi có sự cố | P1 |
-| US-036 | Bác sĩ | Xem trước và xác nhận phần dữ liệu được nhập vào bệnh án | Kiểm soát giá trị mới, xung đột và đích nhận | P1 |
-
-Rà INVEST theo sáu tiêu chí độc lập, có thể thảo luận, có giá trị, ước lượng được, đủ nhỏ và kiểm thử được. Story rộng hoặc phụ thuộc điều kiện chưa rõ phải tách/làm rõ khi lập Sprint. Đánh dấu INVEST không thay kết quả nghiệm thu và chưa tạo ước lượng công việc của nhóm.
+Mã US và ưu tiên được giữ để truy vết. Quan hệ từng Story với tiêu chí nghiệm thu xem tại [bảng Story và BDD](User-Stories-INVEST-BDD.md#story-bdd); FR/UC/C2 liên quan được liên kết trong RTM của SRS. Chi tiết Story chỉ duy trì ở file riêng để tránh hai danh sách khác nhau.
 
 <a id="nghiem-thu"></a>
 
@@ -558,55 +522,9 @@ Một chức năng chỉ được ghi đạt khi các yêu cầu trong phạm vi
 
 ### 9.2 Kịch bản BDD dự kiến
 
-Bảng có 45 Scenario dự kiến. BDD43–BDD45 bổ sung kiểm tra quyền hỗ trợ nhập/xem và kết quả từng lần nhập; BDD27 kiểm tra include xác nhận lại. Các Scenario chưa được ghi nhận là chạy đạt và chưa thay mọi ca biên/tổ hợp dữ liệu.
+Bộ **50 Scenario Gherkin BDD** được trình bày tại [Kịch bản BDD](User-Stories-INVEST-BDD.md#bdd), có mã BDD và tag Story. Giữ nguyên BDD01–BDD45; BDD46–BDD50 bổ sung tiêu chí trực tiếp cho đăng ký, đăng nhập và cập nhật/quản lý tài khoản đã thuộc phạm vi yêu cầu.
 
-| Mã | Given | When | Then |
-| --- | --- | --- | --- |
-| BDD01 | Bác sĩ có quyền, thông tin người bệnh chưa có mã | Tạo hồ sơ với hành chính tối thiểu đã quy định | Cấp mã BN duy nhất, lưu người/thời điểm; chưa buộc có dữ liệu khám. |
-| BDD02 | Có lượt theo mẫu hiện hành; một trường chưa biết, trường khác là Không/0 hợp lệ | Nhập, lưu rồi mở lại lượt khám | Giữ đúng dữ liệu đã lưu, đúng lượt và phiên bản mẫu; phân biệt NULL, Không và 0. |
-| BDD03 | file có mã người bệnh/lượt không khớp | Yêu cầu xem trước hoặc xác nhận nhập | Nêu phần chưa đối chiếu được; không ghi vào lượt đang mở theo suy đoán. |
-| BDD04 | Tệp có phần hợp lệ, NULL và giá trị khác dữ liệu đích | Bác sĩ xem trước, chọn phần và xác nhận | Chỉ ghi phần được phép; NULL không tự xóa giá trị đang có; lưu kết quả từng phần và lịch sử. |
-| BDD05 | Lần nhập đã ghi nhưng phản hồi bị mất | Thử lại cùng thao tác | Trả đúng trạng thái đã ghi, không tạo bản trùng; cho tra cứu mã lần nhập. |
-| BDD06 | Đã nhập tệp, sau đó bác sĩ sửa dữ liệu đích | Tạo lần nhập mới từ cùng nội dung tệp | Đối chiếu với phiên bản đích mới; không nhận nhầm là thao tác thử lại và bỏ qua giá trị đã chọn. |
-| BDD07 | Lượt A dùng mẫu v1; Admin lưu mẫu v2 | Mở lượt A và tạo lượt B | A giữ v1 và dữ liệu; B nhận v2; không đổi ngầm cấu trúc lịch sử. |
-| BDD08 | Admin được quản lý mẫu nhưng không ghi dữ liệu khám | Admin gọi thao tác cập nhật lâm sàng hoặc bác sĩ sửa định nghĩa mẫu | Hệ thống từ chối đúng quyền ở cả giao diện và API; hồ sơ chung vẫn tra cứu được theo quyền. |
-| BDD09 | Hai phiên cùng mở một phiên bản dữ liệu | Phiên thứ nhất lưu, phiên thứ hai lưu bản cũ | Phát hiện xung đột, yêu cầu đối chiếu; không ghi đè âm thầm. |
-| BDD10 | Khung giờ chỉ còn một chỗ | Hai yêu cầu đặt được xử lý đồng thời | Không xác nhận vượt sức chứa; lịch hẹn không tự mở lượt khám. |
-| BDD11 | Có bản sao gồm bệnh án, mẫu và dữ liệu phụ thuộc | Khôi phục vào môi trường riêng | Mở và đối chiếu được hồ sơ/lượt/mẫu, quyền và tệp cần thiết; thiếu/hỏng phải báo lỗi, không báo hoàn tất giả. |
-| BDD12 | Module chưa triển khai hoặc thiếu điều kiện đầu vào | Yêu cầu hỗ trợ chuyên môn | Báo chưa đánh giá được; giữ dữ liệu khám; không sinh kết luận hoặc nhãn an toàn giả. |
-| BDD13 | Có dự thảo kế hoạch nhưng phiên bản dữ liệu hoặc kế hoạch đã thay đổi | Bác sĩ xác nhận bản cũ | Chặn xác nhận bản cũ, yêu cầu xem lại; chưa công bố hoặc lưu bản cũ như đã được xác nhận. |
-| BDD14 | Tài khoản bệnh nhân đã liên kết và có nội dung công bố | Xem kết quả của mình hoặc yêu cầu hồ sơ người khác | Chỉ xem phần được cấp của mình; chặn hồ sơ khác và dự thảo; bản bị thu hồi không còn truy cập được. |
-| BDD15 | File sai cấu trúc hoặc không đọc được | Bác sĩ tải lên để xem trước | Nêu lỗi đọc hoặc vị trí sai; không ghi dữ liệu; giữ thông tin lần nhập theo khả năng đọc được. |
-| BDD16 | Có ánh xạ và quy tắc đổi đơn vị, ngày giờ đã xác định | Hệ thống kiểm tra dữ liệu file | Hiển thị giá trị gốc, giá trị chuẩn hóa và nguồn; phần thiếu quy tắc không bị tự chuyển đổi hoặc điền bình thường. |
-| BDD17 | Một lượt chưa đáp ứng điều kiện hoàn tất đã đặc tả | Bác sĩ yêu cầu hoàn tất | Nêu điều kiện còn thiếu, giữ trạng thái; mở xem bệnh án không tự mở hoặc hoàn tất lượt. |
-| BDD18 | Một bệnh nhân có nhiều lượt và thuốc ở các thời điểm khác nhau | Người có quyền tra cứu lịch sử | Thấy đúng lượt, nguồn, thời điểm và phiên bản; dữ liệu cũ không được trình bày như kết quả mới. |
-| BDD19 | Tài khoản bị khóa hoặc phiên không còn hợp lệ | Đăng nhập hoặc gọi thao tác cần quyền | Từ chối truy cập; tài khoản hợp lệ dùng một trang đăng nhập và nhận đúng vai trò; đăng xuất làm mất hiệu lực phiên theo thiết kế. |
-| BDD20 | Tài khoản bệnh nhân chưa được liên kết xác minh | Yêu cầu xem bệnh án bằng mã CCCD hoặc mã BN | Không cấp quyền chỉ từ mã định danh; sau xác minh chỉ thấy nội dung được công bố đúng hồ sơ. |
-| BDD21 | Có dữ liệu và điều kiện áp dụng Lab/Test được phép | Bác sĩ yêu cầu gợi ý cận lâm sàng | Có gợi ý, lý do và ưu tiên; chưa sinh chỉ định chính thức hoặc kết quả đo; chỉ định bác sĩ được ghi riêng. |
-| BDD22 | Có dữ liệu thực đo và ngữ cảnh điều trị đủ cho phạm vi Treatment | Bác sĩ yêu cầu gợi ý | Hiển thị phương án, điều kiện cá thể hóa, giới hạn và yêu cầu theo dõi; không coi xét nghiệm mới đề xuất là đã có kết quả. |
-| BDD23 | Có phương án thuốc và một phần dữ liệu an toàn còn thiếu | Bác sĩ yêu cầu MedSafety | Gắn kết quả với đúng phiên bản thuốc, nêu cảnh báo/căn cứ và phần chưa kiểm tra; không tự đổi thuốc hoặc kết luận toàn bộ an toàn. |
-| BDD24 | Đã có kết quả hỗ trợ, sau đó dữ liệu liên quan đổi | Bác sĩ yêu cầu đánh giá lại | Tạo lần mới, giữ lần cũ và đánh dấu cần xem lại; truy được đầu vào, phiên bản và đầu ra liên quan giữa các module. |
-| BDD25 | Bác sĩ đang xem một gợi ý cụ thể | Ghi phản hồi và kết luận, hướng xử trí | Lưu đúng gợi ý/phiên bản và quyết định vào lượt; phản hồi không tự xác nhận kế hoạch hoặc huấn luyện lại. |
-| BDD26 | Lượt có dữ liệu để lập phương án | Bác sĩ lưu dự thảo kế hoạch, thuốc và nội dung theo dõi | Dự thảo được mở lại trong bệnh án; chỉ ra lịch tái khám dự kiến khác lịch hẹn; chưa tự xác nhận, công bố hay tạo nhắc chính thức. |
-| BDD27 | Đã có kế hoạch được bác sĩ xác nhận | Bác sĩ thực hiện điều chỉnh và bước xác nhận được include | Chỉ báo hoàn tất điều chỉnh sau xác nhận thành công; giữ bản cũ/lý do, xác định hiệu lực mới. Lưu nháp hoặc hủy giữ bản hiện hành. |
-| BDD28 | Có phiên bản kết quả và kế hoạch đã xác nhận | Bác sĩ chọn phạm vi công bố | Công bố đúng người, nội dung và phiên bản được chọn; không lộ nháp; lưu người và thời điểm. |
-| BDD29 | Có nội dung đã công bố | Bác sĩ thay thế hoặc thu hồi | Giữ lý do, lịch sử; bản bị thu hồi không còn được xem; thao tác thu hồi hiển thị không tự ngừng thuốc. |
-| BDD30 | Có sự kiện thông báo đã chọn và tài khoản nhận hợp lệ | Hệ thống tạo và người dùng mở thông báo | Tạo đúng người, tránh trùng; đánh dấu đọc theo thao tác; mở nội dung kiểm tra quyền hiện hành; đã đọc không đồng nghĩa đã thực hiện. |
-| BDD31 | Lịch hẹn đã xác nhận có nhắc tương lai | Lịch đổi hoặc bị hủy trước khi nhắc | Điều chỉnh hoặc hủy nhắc cũ; không gửi nhắc theo lịch hết hiệu lực; trạng thái gửi phản ánh kênh thực tế. |
-| BDD32 | Kế hoạch thuốc hiện hành được công bố và có đủ thời điểm dùng | Tạo nhắc, sau đó kế hoạch thay đổi | Nhắc theo bản hiện hành; cập nhật nhắc tương lai; thiếu thời điểm không suy giờ và không đánh dấu đã uống. |
-| BDD33 | Người yêu cầu khôi phục chưa xác minh được danh tính | Yêu cầu đặt lại quyền truy cập | Chưa đổi quyền hoặc liên kết; hỗ trợ qua Admin có quyền phải có dấu vết; ca hợp lệ khôi phục đúng tài khoản. |
-| BDD34 | Có thao tác thay đổi thuộc phạm vi phải lưu nhật ký | Admin được quyền tra cứu | Truy được người, thời gian, đối tượng, thao tác và lần nhập liên quan; không lộ mật khẩu/khóa; lịch sử được bảo vệ. |
-| BDD35 | Admin chỉnh trường/mẫu với mã trùng hoặc kiểu không hợp lệ | Yêu cầu lưu hoặc áp dụng mẫu | Báo lỗi và chưa áp dụng; bản hợp lệ xem trước được và tạo phiên bản mới, không mất dữ liệu cũ. |
-| BDD36 | Admin cập nhật ánh xạ nhập hoặc danh mục đối chiếu | Lưu cấu hình và áp dụng cho lần nhập mới | Kiểm tra cấu hình, lưu phạm vi/phiên bản; lần nhập cũ truy được bản đã dùng; Bác sĩ không sửa định nghĩa chung. |
-| BDD37 | Quyền của một tài khoản bị thay đổi hoặc thu hồi | Tài khoản gọi thao tác trên giao diện hoặc API | Kiểm tra quyền hiện hành theo cơ chế phiên; thao tác trái quyền bị chặn; không mặc nhiên cấp quyền lâm sàng cho Admin. |
-| BDD38 | Có ca mẫu và kết quả kỳ vọng được chuyên môn rà soát | Chạy phiên bản quy tắc/mô hình được phép | Đối chiếu đúng phạm vi và phiên bản; gói chưa kiểm chứng không được gắn nhãn đã kiểm định; dự báo chưa đủ điều kiện không được bật. |
-| BDD39 | Có khung giờ/sức chứa và yêu cầu cập nhật lịch theo quyền | Nhân viên y tế được giao quản lý lịch hẹn | Hiển thị đúng trạng thái, không vượt sức chứa; lịch hẹn và lượt khám có mã/trạng thái riêng. |
-| BDD40 | Có thông tin tối thiểu hợp lệ và hồ sơ cùng định danh | Bác sĩ yêu cầu tạo hồ sơ mới | Cảnh báo khả năng trùng để đối chiếu; không gộp theo tên; mã BN ổn định, không bắt buộc CCCD nếu chưa có. |
-| BDD41 | Có kết quả xác nhận cần lưu nhưng ghi dữ liệu thất bại hoặc phản hồi bị mất | Người dùng kiểm tra trạng thái rồi thử lại | Không báo thành công khi chưa có bằng chứng; thử lại đúng thao tác không tạo bản trùng hoặc mất dữ liệu đã lưu. |
-| BDD42 | Có bản dự thảo hiện hành, Bác sĩ đúng quyền và đủ điều kiện xác nhận đã đặc tả | Bác sĩ kiểm tra nội dung và xác nhận phiên bản đang xem | Lưu bản xác nhận vào đúng bệnh án/lượt cùng người, thời điểm và hiệu lực; không tự công bố hoặc ghi trả HIS. |
-| BDD43 | Tài khoản được giao quyền hỗ trợ nhập lâm sàng nhưng không xác nhận kế hoạch | Nhập và lưu dữ liệu đúng hồ sơ/lượt, sau đó yêu cầu xác nhận kế hoạch | Lưu dữ liệu theo quyền; chặn xác nhận chuyên môn. Bác sĩ đủ quyền mới xác nhận; Admin không tự có quyền lâm sàng. |
-| BDD44 | Có lần nhập ghi một phần hoặc bị mất phản hồi | Bác sĩ mở lịch sử rồi kiểm tra kết quả nhập | Hiển thị đúng mã lần nhập, phần đã ghi/chưa ghi, lỗi và dữ liệu đích; không tự ghi lại hoặc báo đã lưu toàn bộ. |
-| BDD45 | Nhân viên y tế được cấp quyền xem kết quả và lịch sử hỗ trợ | Xem một lần hỗ trợ rồi yêu cầu chạy đánh giá lại khi không có quyền đó | Xem đúng phạm vi/căn cứ/phiên bản; chặn yêu cầu đánh giá lại ngoài quyền, không tự chấp nhận gợi ý. |
+Các Scenario là tiêu chí hành vi dự kiến, chưa được ghi nhận là đã chạy đạt. Khi hiện thực bộ thử, bổ sung dữ liệu cụ thể, step definitions và kết quả thực thi; không dùng số Scenario để khẳng định đã phủ mọi ngoại lệ hoặc đạt NFR. Mỗi Story có đường dẫn tới các tiêu chí tại [bảng Story và BDD](User-Stories-INVEST-BDD.md#story-bdd).
 
 <a id="truy-vet"></a>
 
@@ -659,7 +577,7 @@ Ký hiệu: WEB giao diện web; API Backend; DB PostgreSQL; FILE kho tệp; APP
 | FR37 | UC5.04 | US-025 | BDD30 | APP, API, DB, WORKER |
 | FR38 | UC5.05 | US-025 | BDD31 | APP, API, DB, WORKER |
 | FR39 | UC5.06 | US-025 | BDD32 | APP, API, DB, WORKER |
-| FR40 | UC6.01, UC6.02, UC6.03, UC6.05 | US-027, US-026, US-029 | BDD19, BDD20 | WEB, API, DB, APP |
+| FR40 | UC6.01, UC6.02, UC6.03, UC6.05 | US-027, US-026, US-029 | BDD19, BDD20, BDD46, BDD47, BDD48, BDD49, BDD50 | WEB, API, DB, APP |
 | FR41 | UC6.08, UC6.07 | US-030, US-031 | BDD08, BDD35 | WEB, API, DB |
 | FR42 | UC6.06 | US-029 | BDD08, BDD37, BDD43, BDD45 | WEB, API, DB |
 | FR43 | UC6.08 | US-030 | BDD07, BDD35 | WEB, API, DB |
@@ -711,7 +629,7 @@ Các mục SRS-O dùng riêng cho bản SRS, không thay mã câu hỏi cũ củ
 
 Khi có yêu cầu mới, ghi vấn đề/đề xuất và lý do; xác định FR/NFR/UC/US/BDD, dữ liệu, quyền, sơ đồ và kiểm tra bị ảnh hưởng. Trưởng nhóm trao đổi với giảng viên hoặc chuyên môn khi cần rồi chốt phạm vi thay đổi. Sau khi chốt, cập nhật cùng phiên bản các tài liệu liên quan và giữ lịch sử; không ghi đè quyết định cũ hoặc tự thay nguồn chuyên môn.
 
-Bằng chứng kiểm thử ghi phiên bản mã, cấu hình, dữ liệu, ngày chạy, kết quả và lỗi. SRS 0.3 và đặc tả Use Case 0.4 dùng cùng danh mục 54 ca; bản đặc tả đi kèm và thư mục assets giữ cùng SRS để các liên kết hoạt động. Cập nhật tài liệu không tự chứng minh web đã thay đổi hoặc được bệnh viện chấp thuận.
+Bằng chứng kiểm thử ghi phiên bản mã, cấu hình, dữ liệu, ngày chạy, kết quả và lỗi. SRS 1.0 và đặc tả Use Case 0.4 dùng cùng danh mục 54 ca; bản đặc tả đi kèm và thư mục architecture giữ cùng SRS để các liên kết hoạt động. Cập nhật tài liệu không tự chứng minh web đã thay đổi hoặc được bệnh viện chấp thuận.
 
 <a id="tham-chieu"></a>
 
@@ -734,17 +652,25 @@ Bằng chứng kiểm thử ghi phiên bản mã, cấu hình, dữ liệu, ngà
 
 ### 12.2 Tài liệu phương pháp và quan hệ phụ lục
 
+Bộ ảnh và thuyết minh hiện hành được lưu tại [Kiến trúc và sơ đồ](architecture/architecture.md).
+
 Cấu trúc tài liệu tham khảo [bài giảng môn học về yêu cầu và thiết kế hệ thống](https://fossbk-spec.github.io/ktpmud-book/ch02_yeu_cau_thiet_ke_c4), tổ chức phần giới thiệu, mô tả tổng quan và yêu cầu cụ thể, kèm kiểm chứng/truy vết. Các nội dung của ví dụ đề tài khác trong bài giảng không được dùng làm yêu cầu của sản phẩm suy tim.
 
 [Đặc tả Use Case đầy đủ v0.4](<Đặc tả usecase đầy đủ.md>) trình bày luồng của 54 ca. SRS giữ yêu cầu, dữ liệu, quy tắc và RTM. Phân cấp biểu diễn nhóm chức năng, DFD biểu diễn luồng dữ liệu, C1/C2 biểu diễn cấu trúc; các sơ đồ bổ trợ nhau.
 
 ### 12.3 Lịch sử phát hành SRS
 
+Phiên bản 1.0 ngày 31/10/2026
+
+- Tách 33 User Story, bảng INVEST và 50 Scenario BDD vào [User Story INVEST và BDD](User-Stories-INVEST-BDD.md); SRS giữ phần giới thiệu, điều kiện nghiệm thu và RTM.
+- Giữ nguyên mã FR/NFR/UC/US và BDD01–BDD45; bổ sung BDD46–BDD50 cho các chức năng tài khoản đã có, cập nhật truy vết FR40.
+- Phiên bản tài liệu không đồng nghĩa mọi yêu cầu đã được bệnh viện phê duyệt hoặc phần mềm đã được kiểm thử đạt.
+
 Phiên bản 0.3 ngày 31/10/2026
 
 - Đồng bộ toàn bộ nội dung Use Case theo bảy ảnh trưởng nhóm chọn; danh mục có 54 ca và đặc tả đi kèm v0.4.
 - Gộp xác nhận nhập vào UC2.01, tách kiểm tra kết quả ở UC2.12; gộp mẫu/trường/phiên bản ở UC6.08 và sao lưu/khôi phục ở UC6.12.
-- Thống nhất quyền hỗ trợ nhập/xem, include UC4.07 tới UC4.06, FR/US và RTM; có 45 BDD dự kiến, chưa đánh dấu đạt.
+- Thống nhất quyền hỗ trợ nhập/xem, include UC4.07 tới UC4.06, FR/US và RTM; có 50 BDD dự kiến, chưa đánh dấu đạt.
 - Giữ nguyên hình C1/C2 đã thống nhất; kiến trúc và thứ tự xây nhóm 1, 2, 6 trước tiếp tục áp dụng.
 
 <a id="kien-truc-c1"></a>
@@ -753,7 +679,7 @@ Phiên bản 0.3 ngày 31/10/2026
 
 C1 thể hiện Hệ thống quản lý bệnh nhân suy tim trong quan hệ với Bác sĩ, Người quản trị, Bệnh nhân ngoại trú và HIS. Hai sơ đồ kiến trúc ở mục 12.4–12.5 được trưởng nhóm thống nhất ngày 31/10/2026; hình được giữ nguyên theo bản gửi.
 
-![Hình 12.1 C1 Ngữ cảnh Hệ thống quản lý bệnh nhân suy tim](assets/C1-Ngu-canh-he-thong-v0.1.drawio.png)
+![Hình 12.1 C1 Ngữ cảnh Hệ thống quản lý bệnh nhân suy tim](architecture/C1-Ngu-canh-he-thong-v0.1.drawio.png)
 
 Bác sĩ nhập, kiểm tra và bổ sung dữ liệu, sử dụng hỗ trợ AI và xác nhận chuyên môn. Người quản trị quản lý tài khoản, quyền, biểu mẫu/cấu hình và nhật ký theo quyền; dữ liệu lâm sàng chỉ đọc. Bệnh nhân đặt/xem lịch, xem phần công bố và nhận thông báo theo giai đoạn.
 
@@ -765,7 +691,7 @@ HIS là nguồn cung cấp file, bác sĩ đưa file vào sản phẩm để đ�
 
 C2 biểu diễn sáu container logic của sản phẩm. Web và app sử dụng API theo quyền; Backend chịu trách nhiệm xử lý nghiệp vụ, AI, truy cập dữ liệu và kho tệp. Container C4 là ứng dụng hoặc kho dữ liệu, không mặc định tương ứng với một máy chủ hoặc container Docker.
 
-![Hình 12.2 C2 Các container của Hệ thống quản lý bệnh nhân suy tim](assets/C2-Container-v0.1.drawio.png)
+![Hình 12.2 C2 Các container của Hệ thống quản lý bệnh nhân suy tim](architecture/C2-Container-v0.1.drawio.png)
 
 Diagnosis, Lab/Test, Treatment và MedSafety nằm trong Backend. WEB/API/DB/FILE phục vụ nền tảng trước; AI, APP và WORKER được phát triển theo giai đoạn. Nhãn HTTPS/JSON mô tả giao tiếp mục tiêu, không xác nhận demo local đã triển khai HTTPS.
 
