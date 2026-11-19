@@ -1,0 +1,173 @@
+"""Source-bound structural validation and BMI calculation from recorded measurements."""
+from datetime import date, datetime
+from decimal import Decimal, ROUND_HALF_UP, localcontext
+import math
+import re
+from typing import Any, Literal
+
+from fastapi import HTTPException
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+class Input(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+
+class Choice(Input):
+    code: str = Field(pattern=r'^[a-zA-Z0-9_-]{1,60}$')
+    label: str = Field(min_length=1, max_length=200)
+
+
+class FieldDefinition(Input):
+    code: str = Field(pattern=r'^[a-z][a-z0-9_]{1,79}$')
+    label: str = Field(min_length=1, max_length=200)
+    group: str = Field(min_length=1, max_length=100)
+    type: Literal['integer', 'number', 'boolean', 'select', 'multiselect', 'text', 'textarea', 'date', 'datetime']
+    unit: str | None = Field(default=None, max_length=60)
+    choices: list[Choice] = Field(default_factory=list, max_length=100)
+    help: str = Field(default='', max_length=1000)
+    order: int = Field(default=1000, ge=0, le=10000)
+    active: bool = True
+
+    @model_validator(mode='after')
+    def check_definition(self):
+        if not self.label.strip() or not self.group.strip():
+            raise ValueError('Nhãn/nhóm không được trống')
+        if self.code in {'id', 'patient_id', 'visit_id', 'role', 'owner_id', 'revision', 'external_id',
+                         'his_huyet_ap_cao', 'his_huyet_ap_thap', 'his_nhiet_do'} or self.code.startswith('pending_'):
+            raise ValueError('Mã được dành cho hệ thống')
+        if self.type in {'select', 'multiselect'}:
+            if not self.choices or len({c.code for c in self.choices}) != len(self.choices):
+                raise ValueError('Lựa chọn phải có mã duy nhất')
+        elif self.choices:
+            raise ValueError('Kiểu trường không sử dụng lựa chọn')
+        return self
+
+
+def fail(code, message):
+    raise HTTPException(422, detail={'fields': {code: message}})
+
+
+def with_constraints(field):
+    """Source bound (TL06 row 2) and non-negative physical measurements, not normal ranges."""
+    bounds = {'tuoi': {'minimum': 0, 'maximum': 120},
+              'can_nang': {'minimum': 0}, 'chieu_cao': {'minimum': 0}}
+    return {**field, **({'constraints': bounds[field['code']]} if field['code'] in bounds else {})}
+
+
+def calculate_bmi(values: dict) -> float | None:
+    """BMI in kg/m², using weight in kg and height in cm from the same visit.
+
+    Formula source: https://www.cdc.gov/growth-chart-training/hcp/using-bmi/calculating-bmi.html
+    Round half up to two decimals. Zero, missing and invalid measurements yield no result.
+    """
+    weight, height = values.get('can_nang'), values.get('chieu_cao')
+    try:
+        if any(type(value) not in (int, float) or not math.isfinite(value) or value <= 0
+               for value in (weight, height)):
+            return None
+        bmi = Decimal(str(weight)) * 10000 / Decimal(str(height)) ** 2
+        if not math.isfinite(float(bmi)):
+            return None
+        with localcontext() as context:
+            context.prec = max(28, bmi.adjusted() + 3)
+            return float(bmi.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+    except (ArithmeticError, ValueError):
+        return None
+
+
+def value_for(field: dict, value: Any):
+    code, kind = field['code'], field['type']
+    if code == 'bmi' and value is not None:
+        fail(code, 'BMI được tính từ chiều cao và cân nặng, không nhập hoặc ghi đè trực tiếp')
+    if isinstance(value, str):
+        value = value.strip() or None
+    if value is None:
+        return None
+    if kind == 'unavailable' or not field['active']:
+        fail(code, 'Trường chưa được đặc tả hoặc đã ngừng dùng')
+    if kind in {'integer', 'number'}:
+        try:
+            finite = type(value) in (int, float) and math.isfinite(value)
+        except OverflowError:
+            finite = False
+        if not finite:
+            fail(code, 'Cần giá trị số hữu hạn, không dùng chuỗi hoặc Có/Không')
+        if kind == 'integer' and type(value) is not int:
+            fail(code, 'Cần số nguyên')
+        bounds = with_constraints(field).get('constraints', {})
+        if 'minimum' in bounds and value < bounds['minimum']:
+            fail(code, f"Giá trị không được nhỏ hơn {bounds['minimum']}")
+        if 'maximum' in bounds and value > bounds['maximum']:
+            fail(code, f"Giá trị không được lớn hơn {bounds['maximum']} theo giới hạn của trường")
+    elif kind == 'boolean':
+        if type(value) is not bool:
+            fail(code, 'Cần Có/Không hoặc để trống')
+    elif kind in {'select', 'multiselect'}:
+        valid = {c['code'] for c in field['choices']}
+        if kind == 'select':
+            if not isinstance(value, str) or value not in valid:
+                fail(code, 'Lựa chọn không có trong định nghĩa')
+        elif not isinstance(value, list) or any(not isinstance(v, str) or v not in valid for v in value) or len(value) != len(set(value)):
+            fail(code, 'Danh sách lựa chọn không hợp lệ')
+    elif kind in {'text', 'textarea'}:
+        if not isinstance(value, str) or len(value) > 5000:
+            fail(code, 'Cần văn bản tối đa 5000 ký tự')
+    elif kind in {'date', 'datetime'}:
+        try:
+            if not isinstance(value, str):
+                raise ValueError()
+            if kind == 'date':
+                if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', value):
+                    raise ValueError()
+                date.fromisoformat(value)
+            else:
+                if datetime.fromisoformat(value).tzinfo is None:
+                    raise ValueError()
+        except ValueError:
+            fail(code, 'Ngày ISO YYYY-MM-DD; thời điểm phải có múi giờ')
+    elif kind in {'medications', 'results'}:
+        if not isinstance(value, list) or len(value) > 200:
+            fail(code, 'Cần danh sách tối đa 200 mục')
+        columns = ({'name': 'text', 'ingredient': 'text', 'dose': 'text', 'route': 'text', 'frequency': 'text', 'observed_at': 'datetime'}
+                   if kind == 'medications' else {'name': 'text', 'value': 'number', 'unit': 'text', 'observed_at': 'datetime'})
+        modern = field.get('contract_version') == 2
+        if modern:
+            columns = {**columns, 'source': 'text'}
+            if kind == 'results':
+                columns['test_code'] = 'text'
+            else:
+                columns.update(strength='text', dose_value='number', dose_unit='text',
+                               start_date='date', end_date='date', status='text', category='text')
+        cleaned = []
+        for item in value:
+            if not isinstance(item, dict) or set(item) - set(columns):
+                fail(code, 'Mục có cấu trúc không hợp lệ')
+            row = {k: value_for(dict(code=code, type=t, active=True), item.get(k)) for k, t in columns.items()}
+            if not row['name']:
+                fail(code, 'Mỗi mục cần tên để phân biệt kết quả/thuốc; chưa rõ để toàn bộ trường trống')
+            if modern and kind == 'results':
+                tests = {test['code']: test for test in field.get('result_tests', [])}
+                test = tests.get(row['test_code'])
+                if test is None:
+                    fail(code, 'Chọn mã xét nghiệm đúng danh mục; không tự thay thế BNP và NT-proBNP')
+                if row['unit'] is not None and test['units'] and row['unit'] not in test['units']:
+                    fail(code, 'Đơn vị không khớp mã xét nghiệm; giữ dữ liệu gốc, không tự quy đổi')
+                if row['value'] is not None and row['unit'] is None:
+                    fail(code, 'Kết quả có giá trị cần đơn vị từ báo cáo nguồn')
+            if modern and kind == 'medications':
+                if row['dose_value'] is not None and row['dose_value'] < 0:
+                    fail(code, 'Liều số không được âm')
+                if row['dose_value'] is not None and row['dose_unit'] is None:
+                    fail(code, 'Liều số cần đơn vị; có thể giữ nguyên mô tả liều gốc')
+                if row['status'] not in {None, 'current', 'planned', 'stopped'}:
+                    fail(code, 'Trạng thái thuốc không hợp lệ')
+                if row['category'] not in {None, 'prescription', 'otc', 'supplement', 'traditional'}:
+                    fail(code, 'Nhóm thuốc không hợp lệ')
+                if row['start_date'] and row['end_date'] and row['end_date'] < row['start_date']:
+                    fail(code, 'Ngày kết thúc không được trước ngày bắt đầu')
+            cleaned.append(row)
+        value = cleaned
+    else:
+        fail(code, 'Kiểu chưa được hỗ trợ')
+    return value

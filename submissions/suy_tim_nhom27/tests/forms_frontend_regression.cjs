@@ -1,0 +1,233 @@
+'use strict';
+// Run: node tests/forms_frontend_regression.cjs. Executes the shipped script in a
+// VM with deterministic DOM/network doubles; browser layout is checked separately.
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const vm=require('node:vm');
+const source=fs.readFileSync(path.join(__dirname,'../web/forms.js'),'utf8').replace(/\r\n/g,'\n');
+const exported=['state','runAction','lockBusyUI','portal','initialize','shell','showPatients','showForm','openPatient','openVisit','navigate','hasDraft','resetDraft','dirty','handleInput','handleClick','save','numericValue','localDateTime','toISO','ageOn','fieldWidget','valueContent','patientInputs','patientBody','captureMapping','readImportFile','importAction','applyPreset','showImport','renderImport','latestSummary','previewContent','resultContent','patientItems','groupContent','repeatColumns','setInvalid','context','logout','requireSignIn'];
+function environment(){
+ const elements=new Map(),events={},app={innerHTML:'',querySelectorAll:()=>[],setAttribute(){},removeAttribute(){},addEventListener(name,fn){events[name]=fn;}};
+ const element=()=>({value:'',checked:false,textContent:'',hidden:false,disabled:false,dataset:{},options:[],focus(){},setAttribute(){},removeAttribute(){},querySelector(){return element();},querySelectorAll(){return [];}});
+ const document={getElementById(id){if(id==='app')return app;return elements.get(id)||null;},querySelector(){return null;},querySelectorAll(){return [];},body:{append(){}}};
+ elements.set('notice',element());elements.set('save-status',element());
+ const requests=[],context={document,sessionStorage:{getItem(){return null;},setItem(){},removeItem(){}},history:{replaceState(){}},location:{href:''},crypto:{randomUUID:()=> 'mutation-uuid'},structuredClone,console,Date,Set,Map,Uint8Array,URL,FormData,Number,JSON,Promise,setTimeout,clearTimeout,confirm:()=>true,btoa:s=>Buffer.from(s,'binary').toString('base64'),fetch:async(url,options={})=>{requests.push({url,...options});return {ok:true,json:async()=>[]};},window:{addEventListener(name,fn){events[name]=fn;}}};
+ context.globalThis=context;vm.createContext(context);
+ const ending='\ninitialize();\n})();';assert(source.includes(ending),'expected single initialization entry');
+ vm.runInContext(source.replace(ending,'\nglobalThis.frontend={'+exported.join(',')+'};\n})();'),context);
+ const api=context.frontend;api.state.actor={username:'doctor_demo',role:'doctor'};
+ return {api,app,elements,events,context,requests,element};
+}
+const field={code:'can_nang',label:'Cân nặng cũ',group:'Thông tin nền',type:'number',active:true,unit:'kg',constraints:{minimum:0},order:1};
+const patient={id:'p1',code:'BN-00001',display_name:'Người bệnh giả lập 00001',date_of_birth:null,sex:null,insurance_number:null,demographic_revision:0};
+const visit={id:'visit-old',patient_id:'p1',external_id:'LK-OLD',occurred_at:'2026-10-01T09:00:00+07:00',revision:1,catalog_revision:2,metadata:{primary_diagnosis_code:'I50',secondary_diagnosis_codes:[]},demographics_snapshot:{display_name:patient.display_name,date_of_birth:null,sex:null,insurance_number:null},fields:[field],values_json:{can_nang:50}};
+let count=0;
+async function test(name,fn){await fn();count++;console.log('PASS '+name);}
+(async()=>{
+ await test('product header and unified login omit portal choice/subtitles',()=>{const {api,app,elements,element}=environment();const form=element();elements.set('login-form',form);api.portal();assert(!app.innerHTML.includes('Demo'));assert(!app.innerHTML.includes('data-portal'));assert(app.innerHTML.includes('autocomplete="current-password"'));assert(!app.innerHTML.includes('name="role"'));});
+ await test('server account role controls access and Admin clinical actions hidden',()=>{const {api,app,elements,element}=environment();api.state.actor.role='admin';elements.set('patient-search',element());api.showPatients();assert(!app.innerHTML.includes('data-action="new-patient"'));assert(!app.innerHTML.includes('data-page="excel"'));api.state.patient=patient;api.state.visit=structuredClone(visit);api.showForm();assert(!app.innerHTML.includes('data-action="save"'));assert(!app.innerHTML.includes('data-field="can_nang"'));assert(app.innerHTML.includes('Chỉ đọc'));assert(!app.innerHTML.includes('data-add-item'));});
+ await test('Admin direct clinical save rejected before fetch',async()=>{const {api,requests}=environment();api.state.actor.role='admin';await assert.rejects(()=>api.save(),/chỉ đọc/);assert.equal(requests.length,0);});
+ await test('opening old encounter reads pinned fields without current catalog',async()=>{const {api,app,context,requests}=environment();api.state.fields=[{...field,label:'Nhãn toàn cục mới',group:'Nhóm mới'}];api.state.patients=[patient];context.fetch=async url=>{requests.push(url);return {ok:true,json:async()=>structuredClone(visit)};};await api.openVisit('visit-old');assert.deepEqual(requests,['/api/forms/visits/visit-old']);assert(app.innerHTML.includes('Cân nặng cũ'));assert(!app.innerHTML.includes('Nhãn toàn cục mới'));assert(app.innerHTML.includes('LK-OLD'));assert(app.innerHTML.includes('I50'));});
+ await test('failed navigation preserves dirty values, invalid state and pending retry',async()=>{const {api,context}=environment();api.state.dirty={can_nang:65};api.state.invalid={tuoi:'Số lỗi'};api.state.pending={mutation_id:'keep'};context.fetch=async()=>{throw new Error('offline');};await assert.rejects(()=>api.navigate('patients'));assert.equal(api.state.dirty.can_nang,65);assert.equal(api.state.invalid.tuoi,'Số lỗi');assert.equal(api.state.pending.mutation_id,'keep');assert.equal(api.hasDraft(),true);});
+ await test('failed visit/patient switch preserves draft and current encounter',async()=>{const {api,context}=environment();api.state.visit=visit;api.state.dirty={can_nang:65};context.fetch=async()=>({ok:false,status:503,json:async()=>({detail:'offline'})});await assert.rejects(()=>api.openVisit('other'));assert.equal(api.state.visit.id,'visit-old');assert.equal(api.state.dirty.can_nang,65);await assert.rejects(()=>api.openPatient('other'));assert.equal(api.state.dirty.can_nang,65);});
+ await test('badInput cannot become null or reach the save API',async()=>{const {api,requests}=environment();api.state.visit=structuredClone(visit);api.handleInput({target:{value:'',validity:{badInput:true},dataset:{field:'can_nang'}}});assert(api.state.invalid.can_nang);assert(!Object.hasOwn(api.state.dirty,'can_nang'));await api.save();assert.equal(requests.length,0);});
+ await test('sourced numeric constraints preserve abnormal positives and distinguish 0/null',()=>{const {api}=environment();assert.throws(()=>api.numericValue({value:'-1'},field),/trở lên/);assert.equal(api.numericValue({value:'300'},field),300);assert.equal(api.numericValue({value:'0'},field),0);assert.equal(api.numericValue({value:''},field),null);assert.throws(()=>api.numericValue({value:'150'},{type:'integer',constraints:{minimum:0,maximum:120}}),/120/);assert.throws(()=>api.numericValue({value:'3.2'},{type:'integer'}),/nguyên/);});
+ await test('per-group changes and beforeunload include metadata and invalid values',()=>{const {api,events}=environment();api.state.visit=structuredClone(visit);api.dirty('can_nang',51);let prevented=false;events.beforeunload({preventDefault(){prevented=true;}});assert.equal(prevented,true);api.resetDraft();api.state.metadataDirty={reason:'Khó thở'};assert(api.hasDraft());api.resetDraft();api.state.invalid={can_nang:'Lỗi'};assert(api.hasDraft());});
+ await test('repeat numeric errors remain after editing another component',async()=>{const {api}=environment();api.state.visit={...structuredClone(visit),fields:[{...field,code:'results',type:'results'}],values_json:{results:[{name:'X',value:4,unit:'g'}]}};api.handleInput({target:{value:'',validity:{badInput:true},dataset:{repeat:'results',index:'0',column:'value'}}});api.handleInput({target:{value:'mmol/L',dataset:{repeat:'results',index:'0',column:'unit'}}});assert(api.state.invalid['results:0:value']);});
+ await test('datetime picker round trips an existing instant without manual offset strings',()=>{const {api}=environment();const instant='2026-10-01T09:15:00+07:00';assert.equal(new Date(api.toISO(api.localDateTime(instant))).getTime(),new Date(instant).getTime());assert.equal(api.toISO(''),null);assert.equal(api.ageOn('1960-10-02','2026-10-01T09:00:00+07:00'),65);});
+ await test('patient fields optional and insurance/source leading zeros retained',()=>{const {api}=environment();const html=api.patientInputs();assert(html.includes('type="date"'));assert(!html.includes('name="code"'));assert(!html.includes(' required'));const body=api.patientBody(new Map([['display_name',''],['date_of_birth',''],['sex',''],['insurance_number','001234'],['external_id','000001']]));assert.equal(body.insurance_number,'001234');assert.equal(body.external_id,'000001');assert.equal(body.date_of_birth,null);assert.equal(body.sex,null);});
+ await test('history presents choices units and vertical records as readable labels',()=>{const {api}=environment();assert.equal(api.valueContent({type:'select',choices:[{code:'v1',label:'Độ I'}]},'v1'),'Độ I');assert.equal(api.valueContent(field,50),'50 kg');const html=api.valueContent({type:'medications'},[{name:'Thuốc A',dose:'5 mg'}]);assert(html.includes('repeat-card'));assert(html.includes('Liều ghi nhận'));assert(!html.includes('{"'));const widget=api.fieldWidget({...field,type:'results'},[{name:'X',value:0}]);assert(widget.includes('<fieldset'));assert(!widget.includes('<table'));assert(widget.includes('datetime-local'));});
+ await test('invalid replacement clears prior workbook payload immediately',async()=>{const {api}=environment();api.state.import={content_base64:'OLD',filename:'old.xlsx',fileGeneration:0};await api.readImportFile({name:'bad.csv',size:10});assert.equal(api.state.import.content_base64,null);assert.equal(api.state.import.filename,null);await assert.rejects(()=>api.importAction('inspect-file'),/hợp lệ/);});
+ await test('out-of-order file reads cannot replace the newer selected workbook',async()=>{const {api}=environment();api.state.page='excel';api.state.import={fileGeneration:0};let resolveOld;const slow={name:'old.xlsx',size:1,arrayBuffer:()=>new Promise(resolve=>resolveOld=resolve)},newer={name:'new.xlsx',size:1,arrayBuffer:async()=>new Uint8Array([2]).buffer};const pending=api.readImportFile(slow);await api.readImportFile(newer);resolveOld(new Uint8Array([1]).buffer);await pending;assert.equal(api.state.import.filename,'new.xlsx');assert.equal(api.state.import.content_base64,'Ag==');});
+ await test('mapping capture survives navigation and missing detached controls',async()=>{const {api,elements,element,context}=environment();const im={stage:2,columns:[{column:3}],mapping:{},patient_column:1,visit_column:2};api.state.import=im;const target=element();target.value='can_nang';const unit=element();unit.checked=true;const conversion=element();conversion.value='dot_number';elements.set('map-3',target);elements.set('unit-3',unit);elements.set('convert-3',conversion);context.fetch=async()=>{throw new Error('offline');};await assert.rejects(()=>api.navigate('patients'));assert.equal(im.mapping[3].target,'can_nang');assert.equal(im.mapping[3].conversion,'dot_number');elements.clear();api.captureMapping();assert.equal(im.patient_column,1);assert.equal(im.visit_column,2);assert.equal(im.mapping[3].target,'can_nang');});
+ await test('import always requires source patient and visit identity columns',async()=>{const {api,requests}=environment();api.state.import={stage:2,columns:[],mapping:{3:{target:'can_nang',conversion:'native',unit_confirmed:true}},filename:'test.xlsx',content_base64:'AA==',sheet:'Data',header_row:1,patient_column:null,visit_column:2};await assert.rejects(()=>api.importAction('preview'),/mã hồ sơ và mã lượt/);assert.equal(requests.length,0);});
+ await test('overview order and explicit undated encounter retain provenance',async()=>{const {api,app,context}=environment();context.fetch=async()=>({ok:true,json:async()=>({patient,latest_visit:visit,visits:[{...visit,id:'undated',external_id:'UNDATED',occurred_at:null},{...visit,id:'recent',external_id:'RECENT',occurred_at:'2026-10-20T02:00:00Z'},visit]})});await api.openPatient('p1');assert(app.innerHTML.indexOf('Thông tin hành chính')<app.innerHTML.indexOf('Thông tin bệnh và thuốc'));assert(app.innerHTML.indexOf('Thông tin bệnh và thuốc')<app.innerHTML.indexOf('Các lượt khám'));assert(app.innerHTML.indexOf('<strong>RECENT')<app.innerHTML.indexOf('<strong>UNDATED'));assert(app.innerHTML.includes('Theo LK-OLD'));assert(app.innerHTML.includes('Chưa có thời điểm khám'));});
+
+ await test('known demographic snapshot derives age and sex without copying clinical values',()=>{const {api}=environment();api.state.visit={...structuredClone(visit),demographics_snapshot:{date_of_birth:'1970-10-02',sex:'female'}};const age=api.fieldWidget({...field,code:'tuoi',type:'integer',unit:'tuổi'},45),sex=api.fieldWidget({...field,code:'gioi_tinh',type:'select'},null);assert(age.includes('Tuổi tại ngày khám'));assert(age.includes('55 tuổi'));assert(age.includes('45 tuổi'));assert(!age.includes('data-field="tuoi"'));assert(sex.includes('Nữ'));assert(!sex.includes('data-field="gioi_tinh"'));assert.equal(Object.keys(api.state.dirty).length,0);api.state.visit.demographics_snapshot={};assert(api.fieldWidget({...field,code:'tuoi'},null).includes('data-field="tuoi"'));});
+ await test('age follows Vietnam calendar at UTC date boundary',()=>{const {api}=environment();assert.equal(api.ageOn('1970-10-02','2026-10-01T17:15:00Z'),56);});
+ await test('metadata save is partial and includes explicit null without fabricated demographics',async()=>{const {api,context,requests}=environment();api.state.visit=structuredClone(visit);api.state.patient=patient;api.state.dirty={can_nang:51};api.state.metadataDirty={reason:'Khó thở',secondary_diagnosis_codes:null};context.fetch=async(url,options={})=>{requests.push({url,...options});return {ok:true,json:async()=>options.method==='PATCH'?{revision:2}:{...structuredClone(visit),revision:2,values_json:{can_nang:51},metadata:{...visit.metadata,reason:'Khó thở',secondary_diagnosis_codes:null}}};};await api.save();const body=JSON.parse(requests[0].body);assert.equal(body.values.can_nang,51);assert.equal(body.metadata.reason,'Khó thở');assert.equal(body.metadata.secondary_diagnosis_codes,null);assert.equal(body.catalog_revision,2);assert.equal(body.expected_revision,1);assert(!Object.hasOwn(body.values,'gioi_tinh'));assert(!Object.hasOwn(body.values,'tuoi'));assert.equal(api.hasDraft(),false);});
+ await test('uncertain save retry retains the same mutation and draft until confirmation',async()=>{const {api,context,requests}=environment();api.state.visit=structuredClone(visit);api.state.patient=patient;api.state.dirty={can_nang:52};context.fetch=async(url,options={})=>{requests.push({url,...options});throw new Error('offline');};await api.save();assert.equal(api.state.dirty.can_nang,52);const first=JSON.parse(requests[0].body);assert.equal(api.state.pending.mutation_id,first.mutation_id);context.fetch=async(url,options={})=>{requests.push({url,...options});return {ok:true,json:async()=>options.method==='PATCH'?{revision:2}:{...structuredClone(visit),revision:2,values_json:{can_nang:52}}};};await api.save();const second=JSON.parse(requests[1].body);assert.equal(second.mutation_id,first.mutation_id);assert.deepEqual(second,first);assert.equal(api.hasDraft(),false);});
+ await test('successful group navigation preserves unsaved values across groups',async()=>{const {api,app}=environment();api.state.patient=patient;api.state.visit={...structuredClone(visit),fields:[field,{...field,code:'other',label:'Trường khác',group:'Triệu chứng và dấu hiệu'}]};api.state.dirty={can_nang:53};const button={disabled:false,dataset:{group:'Triệu chứng và dấu hiệu'}};await api.handleClick({target:{closest:()=>button}});assert.equal(api.state.dirty.can_nang,53);assert(app.innerHTML.includes('Trường khác'));assert(app.innerHTML.includes('1 thay đổi chưa lưu'));});
+ await test('separate summary sources preserve each recorded visit and date',()=>{const {api}=environment();const older={...structuredClone(visit),external_id:'LK-DISEASE',metadata:{primary_diagnosis_code:'I50'}},med={...structuredClone(visit),external_id:'LK-MED',occurred_at:'2026-10-02T02:00:00Z',fields:[{code:'thuoc',type:'medications'}],values_json:{thuoc:[{name:'Thuốc A',dose:'5 mg'}]}};const html=api.latestSummary({...visit,external_id:'NEW-EMPTY'},{disease:older,medications:med,allergy:null});assert(html.includes('Theo LK-DISEASE'));assert(html.includes('Theo LK-MED'));assert(html.includes('Thuốc A'));assert(!html.includes('Theo NEW-EMPTY'));});
+ await test('preset restoration checks source structure and preserves explicit mapping',()=>{const {api,elements,element}=environment();api.state.page='excel';api.state.fields=[field];api.state.import={stage:2,sheet:'Data',header_row:1,columns:[{column:1,letter:'A',header:'BN'},{column:2,letter:'B',header:'LK'},{column:3,letter:'C',header:'kg'}],sample:[],mapping:{},patient_column:null,visit_column:null};elements.set('preset-select',element());api.state.presets=[{id:'preset',name:'Cấu hình 1',source_name:'Nguồn 1',mapping:{sheet:'Data',header_row:1,patient_column:1,visit_column:2,columns:[{column:3,target:'can_nang',unit_confirmed:true,conversion:'native'}]}}];api.applyPreset('preset');assert.equal(api.state.import.patient_column,1);assert.equal(api.state.import.visit_column,2);assert.equal(api.state.import.mapping[3].target,'can_nang');assert.equal(api.state.import.mapping[3].unit_confirmed,true);});
+
+ await test('busy UI locks newly rendered controls and restores their original disabled state',async()=>{const {api,app,element,elements}=environment(),old=element(),newEnabled=element(),newDisabled=element(),status=element();newDisabled.disabled=true;elements.set('busy-status',status);let controls=[old];app.querySelectorAll=()=>controls;await api.runAction(async()=>{assert.equal(old.disabled,true);assert.equal(api.state.busy,true);controls=[newEnabled,newDisabled];api.shell('<p>New view</p>');assert.equal(newEnabled.disabled,true);assert.equal(newDisabled.disabled,true);assert.equal(status.hidden,false);});assert.equal(api.state.busy,false);assert.equal(old.disabled,false);assert.equal(newEnabled.disabled,false);assert.equal(newDisabled.disabled,true);assert.equal(status.hidden,true);});
+ await test('date badInput is not silently stored as missing encounter timestamp',()=>{const {api}=environment();api.state.visit=structuredClone(visit);api.handleInput({target:{value:'',validity:{badInput:true},dataset:{visitField:'occurred_at'}}});assert(api.state.invalid.occurred_at);assert(!Object.hasOwn(api.state.visitDirty,'occurred_at'));});
+ await test('removing a repeat record retains errors on remaining records',async()=>{const {api}=environment();api.state.visit={...structuredClone(visit),fields:[{...field,code:'results',type:'results'}],values_json:{results:[{name:'A',value:1},{name:'B',value:2}]}};api.state.patient=patient;api.state.invalid={'results:1:value':'Số lỗi'};const b={disabled:false,dataset:{removeItem:'results',index:'0'}};await api.handleClick({target:{closest:()=>b}});assert.equal(api.state.invalid['results:0:value'],'Số lỗi');assert.equal(api.state.dirty.results[0].name,'B');});
+ await test('beforeunload remains quiet after a confirmed save or explicit reset',()=>{const {api,events}=environment();let prevented=false;api.resetDraft();events.beforeunload({preventDefault(){prevented=true;}});assert.equal(prevented,false);});
+
+ await test('opening a visit outside stale patient list loads its matching identity before replacing state',async()=>{const {api,context,requests,app}=environment();api.state.patient={...patient,id:'wrong',code:'BN-WRONG'};context.fetch=async url=>{requests.push(url);return {ok:true,json:async()=>url.includes('/overview')?{patient}:structuredClone(visit)};};await api.openVisit(visit.id);assert.equal(api.state.patient.id,visit.patient_id);assert.equal(requests[1],'/api/forms/patients/p1/overview');assert(!app.innerHTML.includes('BN-WRONG'));});
+
+ await test('inspect waits for asynchronous file read and becomes available on completion',async()=>{const {api,elements,element}=environment();api.state.page='excel';api.state.import={fileGeneration:0};const inspect=element(),status=element();elements.set('excel-inspect',inspect);elements.set('file-read-status',status);let finish;const file={name:'ready.xlsx',size:1,arrayBuffer:()=>new Promise(resolve=>finish=resolve)},reading=api.readImportFile(file);assert.equal(inspect.disabled,true);assert.equal(status.textContent,'Đang đọc file…');finish(new Uint8Array([1]).buffer);await reading;assert.equal(inspect.disabled,false);assert(status.textContent.includes('ready.xlsx'));await api.readImportFile({name:'bad.csv',size:1});assert.equal(inspect.disabled,true);});
+
+ await test('import preview and result identify canonical BN target separately from source alias',()=>{const {api}=environment();const record={index:0,patient_code:'SYNFORM001',target_patient_code:'BN-00001',target_patient_name:'Người bệnh giả lập 00001',target_occurred_at:'2026-10-10T02:00:00Z',visit_external_id:'LK-001',visit_id:'visit-old',status:'eligible',errors:[],fields:[]};api.state.import={preview:{eligible:1,errors:0,records:[record]}};const preview=api.previewContent();assert(preview.includes('Đích: BN-00001'));assert(preview.includes('Người bệnh giả lập 00001'));assert(preview.includes('Mã trong file: SYNFORM001 / LK-001'));assert(preview.includes('Thời điểm khám đích:'));const result=api.resultContent({records:[{...record,written_fields:1,revision:2,skipped:[]}],written_fields:1,written_records:1,skipped_fields:0,unselected_records:0,source_name:'Nguồn 1',mapping_version:'1.0'});assert(result.includes('<strong>BN-00001</strong>'));assert(result.includes('Người bệnh giả lập 00001'));assert(result.includes('Mã trong file: SYNFORM001'));assert(!result.includes('<strong>SYNFORM001</strong>'));const legacy=api.resultContent({records:[{patient_code:'OLD001',visit_external_id:'LK-OLD',written_fields:1,revision:1,skipped:[]}],written_fields:1,written_records:1,skipped_fields:0,unselected_records:0});assert(legacy.includes('OLD001'));});
+
+ await test('unavailable catalog roles distinguish AI derived linked and recorded inputs without editable controls',()=>{const {api}=environment();const expected={ai_output:'đầu ra AI chưa triển khai',derived:'giá trị tính chưa đủ quy tắc',module_linked:'dữ liệu liên kết module chưa có hợp đồng đầu vào',recorded_input:'đầu vào ghi nhận chưa đủ đặc tả',measured_input:'đầu vào đo/thu thập chưa đủ đặc tả'};for(const [data_role,label]of Object.entries(expected)){const html=api.fieldWidget({...field,type:'unavailable',data_role},null);assert(html.includes(label),data_role);assert(!html.includes('<input'));assert(!html.includes('data-field='));}});
+
+ await test('password toggle preserves value and login locks the actual submit control',async()=>{const {api,app,elements,element,context,requests}=environment(),form=element(),password=element(),submit=element(),toggle=element();password.type='password';password.value='keep-secret';toggle.dataset.action='toggle-password';elements.set('password',password);elements.set('login-form',form);api.portal();assert.equal((app.innerHTML.match(/<form /g)||[]).length,1);assert(app.innerHTML.includes('login-intro'));await api.handleClick({target:{closest:()=>toggle}});assert.equal(password.type,'text');assert.equal(password.value,'keep-secret');assert.equal(toggle.textContent,'Ẩn');assert.equal(requests.length,0);context.fetch=async()=>{assert.equal(submit.disabled,true);return {ok:false,status:401,json:async()=>({detail:'Sai tài khoản'})};};await form.onsubmit({preventDefault(){},target:{username:{value:'doctor'},password,querySelector(selector){assert.equal(selector,'[type="submit"]');return submit;}}});assert.equal(submit.disabled,false);assert.equal(password.value,'keep-secret');});
+ await test('account keeps technical username in details with truthful display fallback',()=>{const {api,app}=environment();api.shell('');assert(app.innerHTML.includes('<strong>Bác sĩ</strong>'));assert(app.innerHTML.includes('Tên đăng nhập: doctor_demo'));api.state.actor.display_name='Nguyễn A';api.shell('');assert(app.innerHTML.includes('<strong>Nguyễn A</strong>'));assert(app.innerHTML.includes('<small>Bác sĩ</small>'));assert(!app.innerHTML.includes('Hồ sơ người bệnh'));});
+ await test('patient list uses supplied latest visit and never replaces it with creation date',()=>{const {api}=environment(),unknown=api.patientItems([{...patient,created_at:'2020-01-01T00:00:00Z'}]);assert(unknown.includes('Chưa có thời điểm khám gần nhất'));assert(!unknown.includes('2020'));assert(!unknown.includes('0 tuổi'));assert(!unknown.includes('Nam'));const known=api.patientItems([{...patient,date_of_birth:'1970-01-01',sex:'female',latest_visit_at:'2026-10-20T02:00:00Z',latest_visit_external_id:'LK-LATEST'}]);assert(known.includes('Nữ'));assert(known.includes('tuổi'));assert(known.includes('LK-LATEST'));});
+ await test('compact group navigation preserves drafts and collapses pinned unavailable fields',()=>{const {api,app,events}=environment();api.state.patient=patient;api.state.visit={...structuredClone(visit),fields:[field,{...field,code:'locked',label:'Mục AI',group:'Chờ đặc tả module',type:'unavailable',data_role:'ai_output'}]};api.state.fields=Array.from({length:119},(_,i)=>({...field,code:'global-'+i,type:'unavailable'}));api.state.dirty={can_nang:55};api.showForm();assert(app.innerHTML.includes('data-group-select'));events.change({target:{dataset:{groupSelect:''},value:'Chờ đặc tả module'}});assert.equal(api.state.dirty.can_nang,55);assert(app.innerHTML.includes('Trạng thái các mục chưa hỗ trợ (1)'));assert(app.innerHTML.includes('<details class="unavailable-section">'));assert(!app.innerHTML.includes('unavailable-section" open'));assert(app.innerHTML.includes('Chưa hỗ trợ nhập'));assert(!app.innerHTML.includes('(119)'));});
+ await test('draft encounter date updates compact context age and leaves unknown date unknown',()=>{const {api,elements,element}=environment();api.state.visit={...structuredClone(visit),demographics_snapshot:{date_of_birth:'1970-10-02'}};const age=element();elements.set('context-age',age);api.handleInput({target:{dataset:{visitField:'occurred_at'},value:'2026-10-03T09:00',validity:{badInput:false}}});assert(age.textContent.includes('56 tuổi'));api.handleInput({target:{dataset:{visitField:'occurred_at'},value:'',validity:{badInput:false}}});assert.equal(age.textContent,'');assert.equal(api.state.visitDirty.occurred_at,null);});
+ await test('typed result choices units and source leave legacy widgets unchanged',()=>{const {api}=environment(),legacy={...field,type:'results'},typed={...legacy,contract_version:2,result_tests:[{code:'BNP',label:'BNP',units:['pg/mL']},{code:'NT_PROBNP',label:'NT-proBNP',units:['pg/mL']}]},row={test_code:'BNP',name:'Tên gốc',value:0,unit:'pg/mL',source:'Báo cáo A'},old=api.fieldWidget(legacy,[row]),html=api.fieldWidget(typed,[row]);assert(!old.includes('data-column="test_code"'));assert(!old.includes('data-column="source"'));assert(html.includes('data-column="test_code"'));assert(html.includes('NT-proBNP'));assert(html.includes('data-column="source"'));assert(html.includes('value="0"'));assert(html.includes('value="pg/mL" selected'));assert(!html.includes('value="NT_PROBNP" selected'));});
+ await test('changing typed result identity preserves original name value unit source and timestamp',()=>{const {api}=environment(),f={...field,code:'labs',type:'results',contract_version:2,result_tests:[{code:'BNP',label:'BNP',units:['pg/mL']},{code:'NT_PROBNP',label:'NT-proBNP',units:['pg/mL']}]};api.state.visit={...structuredClone(visit),fields:[f],values_json:{labs:[{test_code:'BNP',name:'Tên gốc',value:0,unit:'pg/mL',source:'Báo cáo A'}]}};api.handleInput({target:{dataset:{repeat:'labs',index:'0',column:'test_code'},value:'NT_PROBNP'}});const row=api.state.dirty.labs[0];assert.equal(row.test_code,'NT_PROBNP');assert.equal(row.name,'Tên gốc');assert.equal(row.value,0);assert.equal(row.unit,'pg/mL');assert.equal(row.source,'Báo cáo A');assert(!Object.hasOwn(row,'observed_at'));});
+ await test('structured medicines keep nullable status dose dates and original dose text',()=>{const {api}=environment(),f={...field,code:'meds',type:'medications',contract_version:2},html=api.fieldWidget(f,[{name:'Thuốc A',dose:'5 mg'}]);for(const c of ['strength','dose_value','dose_unit','start_date','end_date','status','category','source'])assert(html.includes('data-column="'+c+'"'),c);assert(!html.includes('value="current" selected'));api.state.visit={...structuredClone(visit),fields:[f],values_json:{meds:[{name:'Thuốc A',dose:'5 mg'}]}};api.handleInput({target:{dataset:{repeat:'meds',index:'0',column:'dose_value'},value:'0'}});assert.equal(api.state.dirty.meds[0].dose_value,0);api.handleInput({target:{dataset:{repeat:'meds',index:'0',column:'status'},value:''}});assert.equal(api.state.dirty.meds[0].status,null);assert.equal(api.state.dirty.meds[0].dose,'5 mg');assert(!Object.hasOwn(api.state.dirty.meds[0],'start_date'));});
+ await test('repeat date badInput blocks silent conversion into missing value',()=>{const {api}=environment();api.state.visit={...structuredClone(visit),fields:[{...field,code:'results',type:'results'}],values_json:{results:[{name:'X',observed_at:'2026-10-01T02:00:00Z'}]}};api.handleInput({target:{dataset:{repeat:'results',index:'0',column:'observed_at'},value:'',validity:{badInput:true}}});assert(api.state.invalid['results:0:observed_at']);assert(!Object.hasOwn(api.state.dirty,'results'));});
+ await test('boolean selection preserves false true and missing distinctly',()=>{const {api}=environment(),f={...field,code:'symptom',type:'boolean'};api.state.visit={...structuredClone(visit),fields:[f],values_json:{symptom:null}};assert(!api.fieldWidget(f,null).includes('value="false" selected'));api.handleInput({target:{dataset:{field:'symptom'},value:'false'}});assert.equal(api.state.dirty.symptom,false);api.handleInput({target:{dataset:{field:'symptom'},value:'true'}});assert.equal(api.state.dirty.symptom,true);api.handleInput({target:{dataset:{field:'symptom'},value:''}});assert(!Object.hasOwn(api.state.dirty,'symptom'));});
+ await test('new scalar timestamps reject badInput and metadata correction clears inline error',()=>{const {api,elements,element}=environment(),f={...field,code:'measurement_time',type:'datetime'};api.state.visit={...structuredClone(visit),fields:[f]};api.handleInput({target:{dataset:{field:f.code},value:'',validity:{badInput:true}}});assert(api.state.invalid.measurement_time);assert(!Object.hasOwn(api.state.dirty,'measurement_time'));const error=element();error.textContent='Ngày lỗi';elements.set('error-occurred_at',error);api.state.invalid.occurred_at='Ngày lỗi';api.handleInput({target:{dataset:{visitField:'occurred_at'},value:'2026-10-02T09:00',validity:{badInput:false}}});assert.equal(error.textContent,'');assert(!api.state.invalid.occurred_at);});
+ await test('numeric labels separate the unit in accessible text',()=>{const {api}=environment(),html=api.fieldWidget(field,50);assert(html.includes('Cân nặng cũ <span class="unit">kg</span>'));});
+ await test('transient catalog startup failure retains bearer and offers retry',async()=>{
+  const {api,app,elements,element,context}=environment();
+  api.state.token='valid-session';
+  let catalogUnavailable=true;
+  context.fetch=async url=>{
+   if(url.endsWith('/me'))return {ok:true,json:async()=>({user_id:'doctor-id',username:'doctor_demo',role:'doctor'})};
+   if(url.endsWith('/fields')&&catalogUnavailable)return {ok:false,status:503,json:async()=>({detail:'Unavailable'})};
+   return {ok:true,json:async()=>url.endsWith('/fields')?{revision:1,fields:[]}:[]};
+  };
+  await api.initialize();
+  assert.equal(api.state.token,'valid-session');
+  assert(app.innerHTML.includes('retry-startup'));
+  catalogUnavailable=false;
+  elements.set('patient-search',element());
+  await api.initialize();
+  assert.equal(api.state.token,'valid-session');
+  assert(app.innerHTML.includes('patient-list'));
+ });
+ await test('explicit logout clears expired token and all account data',async()=>{
+  const {api,elements,element,context}=environment();
+  elements.set('login-form',element());
+  api.state.token='expired';
+  api.state.patient=patient;
+  api.state.visit=visit;
+  api.state.dirty={can_nang:66};
+  context.fetch=async()=>({ok:false,status:401,json:async()=>({detail:'Expired'})});
+  await api.logout();
+  assert.equal(api.state.token,null);
+  assert.equal(api.state.actor,null);
+  assert.equal(api.state.patient,null);
+  assert.equal(api.hasDraft(),false);
+ });
+ await test('reauth preserves draft and rejects a different account before resuming',async()=>{
+  const {api,app,elements,element,context}=environment();
+  const submit=element(),signOut=element(),form=element(),dialog=element();
+  const notices=element();
+  elements.set('reauth-notice',notices);
+  form.password={value:'qa-password',focus(){}};
+  form.querySelector=()=>submit;
+  dialog.querySelector=selector=>selector==='form'?form:signOut;
+  dialog.addEventListener=()=>{};
+  dialog.showModal=()=>{};
+  dialog.close=()=>{dialog.closed=true;};
+  dialog.remove=()=>{dialog.removed=true;};
+  context.document.createElement=()=>dialog;
+  api.state.actor={user_id:'original',username:'doctor_demo',role:'doctor'};
+  api.state.token='expired';
+  api.state.dirty={can_nang:66};
+  api.state.pending={mutation_id:'keep-until-confirmed'};
+  assert(api.requireSignIn({status:401}));
+  assert.equal(app.hidden,true);
+  assert.equal(api.state.token,null);
+  let identity='different';
+  context.fetch=async url=>({ok:true,json:async()=>url.endsWith('/token')?{access_token:'refreshed'}:{user_id:identity,username:'doctor_demo',role:'doctor'}});
+  await form.onsubmit({preventDefault(){}});
+  assert.equal(api.state.token,null);
+  assert.equal(app.hidden,true);
+  assert.equal(api.state.dirty.can_nang,66);
+  assert(notices.textContent.includes('Tài khoản đã thay đổi'));
+  identity='original';
+  await form.onsubmit({preventDefault(){}});
+  assert.equal(api.state.token,'refreshed');
+  assert.equal(app.hidden,false);
+  assert.equal(dialog.closed,true);
+  assert.equal(api.state.dirty.can_nang,66);
+  assert.equal(api.state.pending.mutation_id,'keep-until-confirmed');
+ });
+ await test('BMI is readonly and updates from measurement drafts including cleared and invalid inputs',()=>{
+  const {api,elements,element}=environment();
+  const height={...field,code:'chieu_cao',label:'Chiều cao',unit:'cm'};
+  const bmi={...field,code:'bmi',label:'BMI',type:'unavailable',unit:null,data_role:'derived'};
+  api.state.visit={...structuredClone(visit),fields:[height,field,bmi],values_json:{chieu_cao:168,can_nang:86,bmi:null}};
+  const html=api.groupContent(api.state.visit.fields);
+  assert(html.includes('30,47'));
+  assert(html.includes('kg/m²'));
+  assert(!html.includes('unavailable-section'));
+  assert(!html.includes('data-field="bmi"'));
+  const output=element();
+  elements.set('bmi-value',output);
+  api.handleInput({target:{dataset:{field:'can_nang'},value:'70',validity:{badInput:false}}});
+  assert.equal(output.textContent,'24,80');
+  api.handleInput({target:{dataset:{field:'chieu_cao'},value:'',validity:{badInput:false}}});
+  assert.equal(output.textContent,'Chưa tính được');
+  api.handleInput({target:{dataset:{field:'chieu_cao'},value:'168',validity:{badInput:false}}});
+  assert.equal(output.textContent,'24,80');
+  api.handleInput({target:{dataset:{field:'chieu_cao'},value:'',validity:{badInput:true}}});
+  assert.equal(output.textContent,'Chưa tính được');
+  assert(!Object.hasOwn(api.state.dirty,'bmi'));
+ });
+ await test('BMI uses only measurements in the currently opened encounter for both roles',async()=>{
+  const {api,context}=environment();
+  const bmi={...field,code:'bmi',label:'BMI',type:'unavailable',data_role:'derived'};
+  api.state.patient=patient;
+  api.state.visit={...structuredClone(visit),fields:[bmi],values_json:{chieu_cao:168,can_nang:86}};
+  api.state.actor.role='admin';
+  assert(api.fieldWidget(bmi,null).includes('30,47'));
+  context.fetch=async()=>({ok:true,json:async()=>({...structuredClone(visit),id:'another',fields:[bmi],values_json:{chieu_cao:null,can_nang:86}})});
+  await api.openVisit('another');
+  assert(api.fieldWidget(bmi,null).includes('Chưa tính được'));
+ });
+ await test('patient form accepts a display code and retains existing labels without a fixed prefix',()=>{
+  const {api}=environment();
+  const html=api.patientInputs({id:'p1',display_name:'HF-DEMO-01'});
+  assert(html.includes('Mã hiển thị giả lập'));
+  assert(html.includes('value="HF-DEMO-01"'));
+  assert(!html.includes('pattern="Người bệnh giả lập [0-9]+"'));
+  const data=new Map([['display_name','HF-DEMO-01']]);
+  assert.equal(api.patientBody(data).display_name,'HF-DEMO-01');
+ });
+ await test('HIS default flow skips structure and mapping and sends one automatic preview request',async()=>{
+  const {api,app,elements,element,context,requests}=environment();
+  elements.set('excel-file',element());
+  api.showImport();
+  assert(app.innerHTML.includes('data-import="auto-preview"'));
+  assert(!app.innerHTML.includes('2. Cấu trúc'));
+  assert(!app.innerHTML.includes('3. Ánh xạ'));
+  assert(app.innerHTML.includes('Tải mẫu HIS'));
+  api.state.import.filename='his-synthetic.xlsx';
+  api.state.import.content_base64='encoded';
+  context.fetch=async(url,options)=>{requests.push({url,...options});return {ok:true,json:async()=>({profile:'his_sheet3_v1',preview_token:'signed',eligible:1,errors:0,records:[],notes:[]})};};
+  await api.importAction('auto-preview');
+  assert.equal(api.state.import.stage,3);
+  assert.equal(requests.length,1);
+  assert.equal(requests[0].url,'/api/forms/imports/excel/auto-preview');
+  assert.deepEqual(JSON.parse(requests[0].body),{filename:'his-synthetic.xlsx',content_base64:'encoded'});
+  assert(!app.innerHTML.includes('Sửa ánh xạ'));
+ });
+ await test('HIS confirmation requires every selected conflict decision and sends explicit keep fields',async()=>{
+  const {api,context,requests}=environment();
+  const selected={dataset:{importRecord:'0'}},conflict={dataset:{code:'can_nang'},value:''};
+  context.document.querySelectorAll=selector=>selector==='[data-import-record]:checked'?[selected]:[conflict];
+  api.state.import={stage:3,preview:{profile:'his_sheet3_v1',preview_token:'signed'},mapping:{}};
+  await assert.rejects(()=>api.importAction('commit'),/từng xung đột/);
+  assert.equal(requests.length,0);
+  conflict.value='keep';
+  context.fetch=async(url,options)=>{requests.push({url,...options});return {ok:true,json:async()=>({records:[],skipped_fields:1,written_fields:0,written_records:0,unselected_records:0})};};
+  await api.importAction('commit');
+  assert.deepEqual(JSON.parse(requests[0].body).records,[{index:0,override_fields:[],keep_fields:['can_nang']}]);
+ });
+ await test('medication cards group dates next to dose information without discarding values',()=>{
+  const {api}=environment();
+  const medicine={code:'meds',label:'Thuốc',type:'medications',active:true,contract_version:2};
+  const row={name:'Thuốc mẫu',ingredient:'Hoạt chất mẫu',dose:'1 viên',route:'Uống',frequency:'Một lần/ngày',start_date:'2026-01-01',end_date:'2026-02-02',observed_at:null};
+  const summary=api.valueContent(medicine,[row]);
+  assert(summary.includes('medication-columns'));
+  assert(summary.includes('1 viên')&&summary.includes('2026-01-01')&&summary.includes('2026-02-02'));
+  api.state.visit={...structuredClone(visit),fields:[medicine],values_json:{meds:[row]}};
+  const inputs=api.fieldWidget(medicine,[row]);
+  assert(inputs.includes('medication-card'));
+  assert(inputs.includes('medication-columns'));
+  assert(inputs.includes('data-column="start_date"')&&inputs.includes('data-column="end_date"'));
+ });
+ console.log(`${count} frontend regressions passed`);
+})().catch(error=>{console.error(error);process.exitCode=1;});
