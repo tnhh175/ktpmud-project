@@ -77,6 +77,6 @@ Tác nhân nội bộ chưa ghi nhãn ở ảnh nhóm 6 được diễn giải t
 
 ## 5 Trạng thái thiết kế và tài liệu liên quan
 
-Các sơ đồ mô tả phạm vi thiết kế theo giai đoạn, không chứng minh mọi thành phần đã triển khai hoặc được bệnh viện nghiệm thu. [Thiết kế dữ liệu](../thiet-ke-du-lieu.md) đang được rà soát riêng; chưa đưa ERD đề xuất chưa duyệt thành kiến trúc đã chốt. DFD/UML cũ ở tài liệu khác phải đối chiếu trước dùng lại, không tự coi khớp với bộ hiện hành này.
+Các sơ đồ mô tả phạm vi thiết kế theo giai đoạn, không chứng minh mọi thành phần đã triển khai hoặc được bệnh viện nghiệm thu. [Thiết kế dữ liệu](../thiet-ke-du-lieu.md) là cơ sở cho [thiết kế UML nhóm 1, 2, 6](../thiet-ke-UML.md); hai Class Diagram và ba Sequence Diagram có ảnh cùng nguồn `.drawio` trong thư mục này. DFD cũ ở tài liệu khác phải đối chiếu trước dùng lại, không tự coi khớp với bộ hiện hành này.
 
 Nguồn phương pháp: [C4 System Context](https://c4model.com/diagrams/system-context) và [C4 Container](https://c4model.com/diagrams/container). Phạm vi sản phẩm và công nghệ áp dụng được giải thích trong SRS.
