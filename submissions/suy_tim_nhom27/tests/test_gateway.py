@@ -102,7 +102,7 @@ def test_contract_and_sql():
     from openapi_spec_validator import validate
     from pglast import parse_sql
     root=Path(__file__).resolve().parents[1]
-    spec=yaml.safe_load((root/'api/openapi.yaml').read_text())
+    spec=yaml.safe_load((root/'api/openapi-week3.yaml').read_text())
     assert spec==create_app().openapi()
     assert spec['openapi']=='3.0.3';validate(spec)
     parse_sql((root/'database/schema.sql').read_text());parse_sql((root/'database/seed.sql').read_text())
