@@ -1,0 +1,10 @@
+{
+  "type": "https://errors.ktpmud.nhom27.local/concurrency-conflict",
+  "title": "Xung đột phiên bản dữ liệu (Optimistic Concurrency Conflict)",
+  "status": 409,
+  "detail": "Lượt khám này vừa được cập nhật lên rowVersion 3 bởi một phiên làm việc khác. Vui lòng so sánh khác biệt và tải lại bản mới nhất trước khi lưu.",
+  "instance": "/api/v1/visits/9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d/draft",
+  "code": "CONCURRENCY_ROW_VERSION_MISMATCH",
+  "correlationId": "req-20261119-00198",
+  "currentRowVersion": 3
+}

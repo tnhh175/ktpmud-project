@@ -1,0 +1,3917 @@
+{
+  "schemaVersion": "1.0.0",
+  "formTemplate": {
+    "id": "fba1cd0d-dfb0-5dd3-91bb-8e9fa87bf381",
+    "code": "heart_failure_intake",
+    "name": "Biểu mẫu thu thập dữ liệu lâm sàng suy tim",
+    "description": "Biểu mẫu nhập tay chuẩn hóa dữ liệu bệnh nhân suy tim trước AI (MVP Nhóm 1, 2, 6).",
+    "isActive": true,
+    "createdAt": "2026-11-01T08:00:00Z"
+  },
+  "aiModules": [
+    {
+      "code": "ai_diagnosis",
+      "labelVi": "Module 1: Hỗ trợ Chẩn đoán Suy tim"
+    },
+    {
+      "code": "ai_lab_test",
+      "labelVi": "Module 2: Hỗ trợ Chỉ định Cận lâm sàng"
+    },
+    {
+      "code": "ai_treatment",
+      "labelVi": "Module 3: Hỗ trợ Định hướng Điều trị"
+    },
+    {
+      "code": "ai_medsafety",
+      "labelVi": "Module 4: Hỗ trợ An toàn Thuốc (MedSafety)"
+    }
+  ],
+  "sections": [
+    {
+      "id": "0e42a24c-e371-5fda-8614-336f73caecc5",
+      "sectionCode": "hanh_chinh",
+      "displayOrder": 1,
+      "titleVi": "Hành chính và Thông tin nền",
+      "description": "Định danh hồ sơ, giới tính và tuổi tại thời điểm khám."
+    },
+    {
+      "id": "0f86f0b1-6d55-5ab6-8aaa-026a2977dc76",
+      "sectionCode": "trieu_chung_dien_bien",
+      "displayOrder": 2,
+      "titleVi": "Triệu chứng cơ năng và Diễn biến",
+      "description": "Triệu chứng suy tim điển hình, biểu hiện lão khoa không điển hình và diễn biến theo dõi."
+    },
+    {
+      "id": "a106728a-1c3b-529e-a2a7-0e627ecf5215",
+      "sectionCode": "sinh_ton_kham",
+      "displayOrder": 3,
+      "titleVi": "Dấu hiệu sinh tồn, Nhân trắc và Khám thực thể",
+      "description": "Nhân trắc, huyết áp theo tư thế (bảng lặp), sinh hiệu và dấu hiệu khám lâm sàng."
+    },
+    {
+      "id": "c3f5dfea-7550-5661-8c3a-ee83b2f71042",
+      "sectionCode": "benh_su_dong_mac",
+      "displayOrder": 4,
+      "titleVi": "Bệnh sử, Yếu tố nguy cơ, Nguyên nhân và Bệnh đồng mắc",
+      "description": "Tiền sử, nguyên nhân nền và các bệnh đồng mắc tim mạch/ngoài tim mạch."
+    },
+    {
+      "id": "49cec672-b6ef-550c-9804-9e0bc58e9044",
+      "sectionCode": "thuoc_di_ung",
+      "displayOrder": 5,
+      "titleVi": "Thuốc hiện dùng và Dị ứng / ADR",
+      "description": "Danh sách thuốc đang sử dụng (kê đơn & OTC/TPCN/YHCT) và tiền sử dị ứng/ADR/thuốc cản quang."
+    },
+    {
+      "id": "455f1c7e-fefa-5403-9df4-12bf6d55cfcd",
+      "sectionCode": "can_lam_sang",
+      "displayOrder": 6,
+      "titleVi": "Kết quả Cận lâm sàng đã có",
+      "description": "Xét nghiệm sinh hóa/dấu ấn tim tách loại (BNP vs NT-proBNP, Creatinin vs eGFR), Siêu âm tim/LVEF, ECG, X-quang."
+    },
+    {
+      "id": "96a671fc-0a26-53dc-a80a-6377abf2d1a8",
+      "sectionCode": "lao_khoa",
+      "displayOrder": 7,
+      "titleVi": "Đánh giá Lão khoa và Hỗ trợ Xã hội",
+      "description": "Đánh giá lão khoa toàn diện và hoàn cảnh hỗ trợ xã hội của người bệnh."
+    },
+    {
+      "id": "f56f8bdb-f959-5e9e-83c5-4cce895df20b",
+      "sectionCode": "ghi_chu",
+      "displayOrder": 8,
+      "titleVi": "Ghi chú bác sĩ và Kết luận trước điều trị",
+      "description": "Ghi chú lâm sàng bổ sung của bác sĩ và các mục tiêu/phân tầng chờ xác nhận."
+    }
+  ],
+  "fields": [
+    {
+      "id": "170072c5-c444-5903-a04d-f7ed0b0e54af",
+      "code": "luot_tuoi",
+      "labelVi": "Tuổi tại thời điểm khám",
+      "sectionCode": "hanh_chinh",
+      "dataType": "integer",
+      "canonicalUnit": "tuổi",
+      "scopeStatus": "mvp",
+      "storageLevel": "computed",
+      "isCalculated": true,
+      "minValue": 0,
+      "maxValue": 120,
+      "helpText": "Tự động tính từ ngày sinh/năm sinh/tuổi khai báo tại thời điểm khám (0–120 tuổi).",
+      "sourceRef": "TL06 R2/STT 1 (tuoi)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "170072c5-c444-5903-a04d-f7ed0b0e54af",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 1"
+        }
+      ]
+    },
+    {
+      "id": "39f17379-aabd-5e93-aafa-2646e07d867b",
+      "code": "bn_gioi_tinh",
+      "labelVi": "Giới tính sinh học",
+      "sectionCode": "hanh_chinh",
+      "dataType": "single_choice",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "patient",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Giới tính sinh học của bệnh nhân (lưu ở bảng patient).",
+      "sourceRef": "TL06 R3/STT 2 (gioi_tinh)",
+      "options": [
+        {
+          "id": "3615b75f-05fe-5cb4-8ef0-e008f819c130",
+          "fieldDefinitionId": "39f17379-aabd-5e93-aafa-2646e07d867b",
+          "optionCode": "male",
+          "labelVi": "Nam",
+          "displayOrder": 1,
+          "isActive": true
+        },
+        {
+          "id": "64188d30-0472-53db-b165-61ac80b1df72",
+          "fieldDefinitionId": "39f17379-aabd-5e93-aafa-2646e07d867b",
+          "optionCode": "female",
+          "labelVi": "Nữ",
+          "displayOrder": 2,
+          "isActive": true
+        },
+        {
+          "id": "3f9a6e73-8cb7-52b8-bb2f-1f95639d4696",
+          "fieldDefinitionId": "39f17379-aabd-5e93-aafa-2646e07d867b",
+          "optionCode": "unknown",
+          "labelVi": "Chưa rõ",
+          "displayOrder": 3,
+          "isActive": true
+        }
+      ],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "39f17379-aabd-5e93-aafa-2646e07d867b",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 2"
+        }
+      ]
+    },
+    {
+      "id": "a499185d-1672-5aca-b817-91623acbc877",
+      "code": "kho_tho_khi_gang_suc",
+      "labelVi": "Khó thở khi gắng sức",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Triệu chứng cơ năng điển hình của suy tim (TL01 Bảng 3).",
+      "sourceRef": "TL06 R7/STT 6 (kho_tho_khi_gang_suc); TL06 R107/STT 111 (trieu_chung_dau_hieu)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "a499185d-1672-5aca-b817-91623acbc877",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 6"
+        },
+        {
+          "fieldDefinitionId": "a499185d-1672-5aca-b817-91623acbc877",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": false,
+          "sourceSttRefs": "STT 111"
+        }
+      ]
+    },
+    {
+      "id": "f6858393-ef73-5968-b109-60f469f2a936",
+      "code": "kho_tho_khi_nam",
+      "labelVi": "Khó thở khi nằm (Orthopnea)",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Triệu chứng sung huyết phổi khi nằm đầu thấp (TL01 Bảng 3).",
+      "sourceRef": "TL06 R8/STT 7 (kho_tho_khi_nam)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "f6858393-ef73-5968-b109-60f469f2a936",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 7"
+        }
+      ]
+    },
+    {
+      "id": "dbb35cfc-0cf8-5fc0-ace7-b4b9132495e2",
+      "code": "kho_tho_kich_phat_ve_dem",
+      "labelVi": "Cơn khó thở kịch phát về đêm (PND)",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Cơn khó thở đột ngột đánh thức người bệnh ban đêm (TL01 Bảng 3).",
+      "sourceRef": "TL06 R9/STT 8 (kho_tho_kich_phat_ve_dem)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "dbb35cfc-0cf8-5fc0-ace7-b4b9132495e2",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 8"
+        }
+      ]
+    },
+    {
+      "id": "35f96590-807f-5448-af94-5b0584b67bc3",
+      "code": "met_moi",
+      "labelVi": "Mệt mỏi",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Mệt mỏi cơ năng do giảm cung lượng tim (TL01 Bảng 3).",
+      "sourceRef": "TL06 R10/STT 9 (met_moi)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "35f96590-807f-5448-af94-5b0584b67bc3",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 9"
+        }
+      ]
+    },
+    {
+      "id": "25e8b0b5-1b6a-5dc4-9d20-f7962af8bcd8",
+      "code": "giam_kha_nang_gang_suc",
+      "labelVi": "Giảm khả năng gắng sức",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Giảm khả năng vận động thể lực hoặc tăng thời gian hồi phục (TL01 Bảng 3).",
+      "sourceRef": "TL06 R11/STT 10 (giam_kha_nang_gang_suc)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "25e8b0b5-1b6a-5dc4-9d20-f7962af8bcd8",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 10"
+        }
+      ]
+    },
+    {
+      "id": "3dc51dcb-e37d-5056-b340-45cbc638ddac",
+      "code": "phu_hai_chi_duoi",
+      "labelVi": "Phù hai chi dưới (cơ năng)",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Sưng/phù mắt cá chân hoặc hai chân do người bệnh ghi nhận.",
+      "sourceRef": "TL06 R12/STT 11 (phu_hai_chi_duoi)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "3dc51dcb-e37d-5056-b340-45cbc638ddac",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 11"
+        }
+      ]
+    },
+    {
+      "id": "a768cbca-16ed-5214-a7e5-359606f06031",
+      "code": "tang_can_nhanh",
+      "labelVi": "Tăng cân nhanh",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Dấu hiệu giữ nước tiến triển (> 2 kg/tuần theo TL01 Bảng 3).",
+      "sourceRef": "TL06 R13/STT 12 (tang_can_nhanh)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "a768cbca-16ed-5214-a7e5-359606f06031",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 12"
+        }
+      ]
+    },
+    {
+      "id": "2cd0ff9d-2835-54ac-aced-302304306ad5",
+      "code": "dau_nguc",
+      "labelVi": "Đau ngực",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Đau ngực gợi ý thiếu máu cơ tim hoặc bệnh mạch vành kèm theo.",
+      "sourceRef": "TL06 R14/STT 13 (dau_nguc)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "2cd0ff9d-2835-54ac-aced-302304306ad5",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 13"
+        }
+      ]
+    },
+    {
+      "id": "d2c7e4e0-f942-5dcd-9bfb-a2002e635ed3",
+      "code": "hoi_hop",
+      "labelVi": "Hồi hộp, đánh trống ngực",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Triệu chứng gợi ý rối loạn nhịp tim.",
+      "sourceRef": "TL06 R15/STT 14 (hoi_hop)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "d2c7e4e0-f942-5dcd-9bfb-a2002e635ed3",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 14"
+        }
+      ]
+    },
+    {
+      "id": "91da2089-39d9-57be-9f87-bfefdac357a9",
+      "code": "ngat",
+      "labelVi": "Ngất hoặc tiền sử ngất",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Ngất do rối loạn nhịp, hẹp van tim hoặc hạ huyết áp tư thế.",
+      "sourceRef": "TL06 R16/STT 15 (ngat); TL06 R188/STT 192 (tien_su_te_nga_ngat)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "91da2089-39d9-57be-9f87-bfefdac357a9",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 15"
+        },
+        {
+          "fieldDefinitionId": "91da2089-39d9-57be-9f87-bfefdac357a9",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 192"
+        }
+      ]
+    },
+    {
+      "id": "691b1ac3-3915-52b8-b765-d937c338b47a",
+      "code": "lu_lan_sang",
+      "labelVi": "Lú lẫn hoặc sảng",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Biểu hiện suy tim không điển hình ở người cao tuổi (TL02 Mục 2.1).",
+      "sourceRef": "TL06 R17/STT 16 (lu_lan_sang)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "691b1ac3-3915-52b8-b765-d937c338b47a",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 16"
+        }
+      ]
+    },
+    {
+      "id": "5eb5ccb5-6980-597f-9f70-8352b9ba6975",
+      "code": "te_nga",
+      "labelVi": "Té ngã hoặc tiền sử té ngã",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Biểu hiện không điển hình ở người cao tuổi và nguy cơ khi dùng thuốc.",
+      "sourceRef": "TL06 R18/STT 17 (te_nga); TL06 R188/STT 192 (tien_su_te_nga_ngat)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "5eb5ccb5-6980-597f-9f70-8352b9ba6975",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 17"
+        },
+        {
+          "fieldDefinitionId": "5eb5ccb5-6980-597f-9f70-8352b9ba6975",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 192"
+        }
+      ]
+    },
+    {
+      "id": "80192ec2-7569-587e-8e31-310464bea9d2",
+      "code": "chan_an",
+      "labelVi": "Chán ăn",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Biểu hiện không điển hình ở người cao tuổi hoặc suy tim sung huyết.",
+      "sourceRef": "TL06 R19/STT 18 (chan_an)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "80192ec2-7569-587e-8e31-310464bea9d2",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 18"
+        }
+      ]
+    },
+    {
+      "id": "91b0c4e9-14da-5e8f-91bd-b69482daec6c",
+      "code": "mat_ngu",
+      "labelVi": "Mất ngủ",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Mất ngủ hoặc kích thích về đêm ở người cao tuổi (TL02 Mục 2.1).",
+      "sourceRef": "TL06 R20/STT 19 (mat_ngu)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "91b0c4e9-14da-5e8f-91bd-b69482daec6c",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 19"
+        }
+      ]
+    },
+    {
+      "id": "515a7beb-6424-5d66-84a8-2645b376c193",
+      "code": "giam_van_dong",
+      "labelVi": "Giảm vận động",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Suy giảm khả năng vận động ở người cao tuổi (TL02 Mục 2.1).",
+      "sourceRef": "TL06 R21/STT 20 (giam_van_dong)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "515a7beb-6424-5d66-84a8-2645b376c193",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 20"
+        }
+      ]
+    },
+    {
+      "id": "e848869f-cf00-5a84-8978-f7653c7afbd3",
+      "code": "giam_kha_nang_tu_cham_soc",
+      "labelVi": "Giảm khả năng tự chăm sóc",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Suy giảm khả năng sinh hoạt độc lập (TL02 Mục 2.1).",
+      "sourceRef": "TL06 R22/STT 21 (giam_kha_nang_tu_cham_soc)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "e848869f-cf00-5a84-8978-f7653c7afbd3",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 21"
+        }
+      ]
+    },
+    {
+      "id": "7b160361-acb0-5599-a565-97ce33f4b615",
+      "code": "suy_giam_chuc_nang_khong_giai_thich",
+      "labelVi": "Suy giảm chức năng không giải thích được",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Biểu hiện khởi phát suy tim kín đáo ở người cao tuổi.",
+      "sourceRef": "TL06 R23/STT 22 (suy_giam_chuc_nang_khong_giai_thich)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "7b160361-acb0-5599-a565-97ce33f4b615",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 22"
+        }
+      ]
+    },
+    {
+      "id": "66f54ba3-cb1c-510d-ba02-6c4b2f68c4e7",
+      "code": "thay_doi_trieu_chung",
+      "labelVi": "Diễn biến thay đổi triệu chứng",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "single_choice",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Đánh giá xu hướng triệu chứng khi tái khám/theo dõi.",
+      "sourceRef": "TL06 R77/STT 81 (thay_doi_trieu_chung)",
+      "options": [
+        {
+          "id": "b0113e92-3f0c-525f-bc8d-3b811f9763bf",
+          "fieldDefinitionId": "66f54ba3-cb1c-510d-ba02-6c4b2f68c4e7",
+          "optionCode": "cai_thien",
+          "labelVi": "Cải thiện",
+          "displayOrder": 1,
+          "isActive": true
+        },
+        {
+          "id": "b464eaf9-b200-55d0-8a5b-c8cefbe6c1d4",
+          "fieldDefinitionId": "66f54ba3-cb1c-510d-ba02-6c4b2f68c4e7",
+          "optionCode": "khong_doi",
+          "labelVi": "Không đổi",
+          "displayOrder": 2,
+          "isActive": true
+        },
+        {
+          "id": "5b2782bf-e6ee-5a94-925e-fa521a039e02",
+          "fieldDefinitionId": "66f54ba3-cb1c-510d-ba02-6c4b2f68c4e7",
+          "optionCode": "nang_len",
+          "labelVi": "Nặng lên",
+          "displayOrder": 3,
+          "isActive": true
+        }
+      ],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "66f54ba3-cb1c-510d-ba02-6c4b2f68c4e7",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 81"
+        }
+      ]
+    },
+    {
+      "id": "0ba20ca4-592a-5a46-9faf-7e66a2337912",
+      "code": "nyha_hien_tai",
+      "labelVi": "Phân độ chức năng NYHA hiện tại",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "single_choice",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Phân độ suy tim theo Hội Tim New York (TL01 Bảng 2).",
+      "sourceRef": "TL06 R79/STT 83 (thay_doi_nyha); TL06 R149/STT 153 (nyha)",
+      "options": [
+        {
+          "id": "307dd32c-5e04-5bf6-af55-485abb0528b6",
+          "fieldDefinitionId": "0ba20ca4-592a-5a46-9faf-7e66a2337912",
+          "optionCode": "nyha_i",
+          "labelVi": "Độ I",
+          "displayOrder": 1,
+          "isActive": true
+        },
+        {
+          "id": "e16dac9a-297c-51db-9c4a-82093ec6ca2c",
+          "fieldDefinitionId": "0ba20ca4-592a-5a46-9faf-7e66a2337912",
+          "optionCode": "nyha_ii",
+          "labelVi": "Độ II",
+          "displayOrder": 2,
+          "isActive": true
+        },
+        {
+          "id": "7d376e8e-b9d9-5e1b-bd61-c069e06f36f6",
+          "fieldDefinitionId": "0ba20ca4-592a-5a46-9faf-7e66a2337912",
+          "optionCode": "nyha_iii",
+          "labelVi": "Độ III",
+          "displayOrder": 3,
+          "isActive": true
+        },
+        {
+          "id": "906cc37d-e6d7-54de-b8ec-0525e6a49f06",
+          "fieldDefinitionId": "0ba20ca4-592a-5a46-9faf-7e66a2337912",
+          "optionCode": "nyha_iv",
+          "labelVi": "Độ IV",
+          "displayOrder": 4,
+          "isActive": true
+        }
+      ],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "0ba20ca4-592a-5a46-9faf-7e66a2337912",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 83"
+        },
+        {
+          "fieldDefinitionId": "0ba20ca4-592a-5a46-9faf-7e66a2337912",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 153"
+        }
+      ]
+    },
+    {
+      "id": "c240a5e9-11e2-5872-9e53-bb7625d44f80",
+      "code": "nhu_cau_tang_lieu_loi_tieu",
+      "labelVi": "Nhu cầu tăng liều lợi tiểu gần đây",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Dấu hiệu gợi ý suy tim diễn biến xấu hoặc ứ dịch tái phát.",
+      "sourceRef": "TL06 R82/STT 86 (nhu_cau_tang_lieu_loi_tieu)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "c240a5e9-11e2-5872-9e53-bb7625d44f80",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 86"
+        }
+      ]
+    },
+    {
+      "id": "3f227d05-a518-561e-99f9-cd9ae90d2997",
+      "code": "thay_doi_can_nang_kg",
+      "labelVi": "Mức thay đổi cân nặng",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "number",
+      "canonicalUnit": "kg",
+      "scopeStatus": "can_xac_nhan",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": -50,
+      "maxValue": 50,
+      "helpText": "Chờ xác nhận khung thời gian chuẩn với nhóm AI (Q-AI-16).",
+      "sourceRef": "TL06 R78/STT 82 (thay_doi_can_nang)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "3f227d05-a518-561e-99f9-cd9ae90d2997",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 82"
+        }
+      ]
+    },
+    {
+      "id": "ac9f9bcc-52d3-55db-9e2d-a7b83b42b92c",
+      "code": "thay_doi_can_nang_khoang_thoi_gian",
+      "labelVi": "Khoảng thời gian theo dõi thay đổi cân nặng",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "integer",
+      "canonicalUnit": "ngày",
+      "scopeStatus": "can_xac_nhan",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": 1,
+      "maxValue": 365,
+      "helpText": "Chờ xác nhận mốc 3–7 ngày hay giữa hai lượt khám (Q-AI-16).",
+      "sourceRef": "TL06 R78/STT 82 (thay_doi_can_nang)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "ac9f9bcc-52d3-55db-9e2d-a7b83b42b92c",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 82"
+        }
+      ]
+    },
+    {
+      "id": "ff7258a6-6c28-5834-a841-228e81b5b89b",
+      "code": "thay_doi_nyha",
+      "labelVi": "Thay đổi phân độ NYHA",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "single_choice",
+      "canonicalUnit": null,
+      "scopeStatus": "can_xac_nhan",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Chờ xác nhận là phân độ tĩnh I–IV hay chiều thay đổi (Q-AI-17).",
+      "sourceRef": "TL06 R79/STT 83 (thay_doi_nyha)",
+      "options": [
+        {
+          "id": "a5eb6ee9-1dd1-54ab-9704-82dee4cae4e2",
+          "fieldDefinitionId": "ff7258a6-6c28-5834-a841-228e81b5b89b",
+          "optionCode": "nyha_i",
+          "labelVi": "Độ I",
+          "displayOrder": 1,
+          "isActive": true
+        },
+        {
+          "id": "45b21d11-d31a-5562-bfb6-1733b9c77d5a",
+          "fieldDefinitionId": "ff7258a6-6c28-5834-a841-228e81b5b89b",
+          "optionCode": "nyha_ii",
+          "labelVi": "Độ II",
+          "displayOrder": 2,
+          "isActive": true
+        },
+        {
+          "id": "06a678cd-3d36-5e1c-a2bf-0cce28f83df5",
+          "fieldDefinitionId": "ff7258a6-6c28-5834-a841-228e81b5b89b",
+          "optionCode": "nyha_iii",
+          "labelVi": "Độ III",
+          "displayOrder": 3,
+          "isActive": true
+        },
+        {
+          "id": "f5043dae-9ced-5c68-8524-476ef4cdea10",
+          "fieldDefinitionId": "ff7258a6-6c28-5834-a841-228e81b5b89b",
+          "optionCode": "nyha_iv",
+          "labelVi": "Độ IV",
+          "displayOrder": 4,
+          "isActive": true
+        }
+      ],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "ff7258a6-6c28-5834-a841-228e81b5b89b",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 83"
+        }
+      ]
+    },
+    {
+      "id": "d040189c-1f1c-5e9e-a6bb-87734d1cf3e6",
+      "code": "so_lan_cap_cuu_nhap_vien",
+      "labelVi": "Số lần cấp cứu / nhập viện vì suy tim",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "integer",
+      "canonicalUnit": "lần",
+      "scopeStatus": "can_xac_nhan",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": 0,
+      "maxValue": 100,
+      "helpText": "Cho phép nhập 0 hợp lệ; chờ xác nhận cửa sổ 6 hay 12 tháng (Q-AI-19).",
+      "sourceRef": "TL06 R81/STT 85 (so_lan_cap_cuu_nhap_vien)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "d040189c-1f1c-5e9e-a6bb-87734d1cf3e6",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 85"
+        }
+      ]
+    },
+    {
+      "id": "a8822ab3-3f8f-5ea2-af96-d94932cd4330",
+      "code": "tinh_trang_worsening_decompensated",
+      "labelVi": "Tình trạng worsening / decompensated",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "text",
+      "canonicalUnit": null,
+      "scopeStatus": "can_xac_nhan",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Chờ xác nhận danh mục phân loại của Model 3 (Q-AI-25).",
+      "sourceRef": "TL06 R150/STT 154 (worsening_decompensated)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "a8822ab3-3f8f-5ea2-af96-d94932cd4330",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 154"
+        }
+      ]
+    },
+    {
+      "id": "87be28ab-1899-5738-94ba-79c0a26f7ec9",
+      "code": "chieu_cao_cm",
+      "labelVi": "Chiều cao",
+      "sectionCode": "sinh_ton_kham",
+      "dataType": "number",
+      "canonicalUnit": "cm",
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": 50,
+      "maxValue": 250,
+      "helpText": "Đo chiều cao (cm), không chấp nhận giá trị 0.",
+      "sourceRef": "TL06 R4/STT 3 (chieu_cao)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "87be28ab-1899-5738-94ba-79c0a26f7ec9",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 3"
+        }
+      ]
+    },
+    {
+      "id": "8e5d891f-c0db-528c-9875-568adaa2837c",
+      "code": "can_nang_kg",
+      "labelVi": "Cân nặng hiện tại",
+      "sectionCode": "sinh_ton_kham",
+      "dataType": "number",
+      "canonicalUnit": "kg",
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": 15,
+      "maxValue": 250,
+      "helpText": "Cân nặng tại lượt khám (kg), không tự chép từ lượt cũ.",
+      "sourceRef": "TL06 R5/STT 4 (can_nang); TL06 R190/STT 194 (dinh_duong_can_nang_sarcopenia)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "8e5d891f-c0db-528c-9875-568adaa2837c",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 4"
+        },
+        {
+          "fieldDefinitionId": "8e5d891f-c0db-528c-9875-568adaa2837c",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 194"
+        }
+      ]
+    },
+    {
+      "id": "81d6bc40-74fd-5b35-a9d2-480d4a499937",
+      "code": "bmi",
+      "labelVi": "Chỉ số khối cơ thể (BMI)",
+      "sectionCode": "sinh_ton_kham",
+      "dataType": "number",
+      "canonicalUnit": "kg/m²",
+      "scopeStatus": "mvp",
+      "storageLevel": "computed",
+      "isCalculated": true,
+      "minValue": 10,
+      "maxValue": 80,
+      "helpText": "Tự động tính từ chiều cao và cân nặng cùng lượt; NULL nếu thiếu một trong hai.",
+      "sourceRef": "TL06 R6/STT 5 (bmi)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "81d6bc40-74fd-5b35-a9d2-480d4a499937",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 5"
+        }
+      ]
+    },
+    {
+      "id": "76142158-0458-58ee-a5b7-41f6eb881c57",
+      "code": "huyet_ap_tam_thu",
+      "labelVi": "Huyết áp tâm thu",
+      "sectionCode": "sinh_ton_kham",
+      "dataType": "integer",
+      "canonicalUnit": "mmHg",
+      "scopeStatus": "mvp",
+      "storageLevel": "orthostatic_bp",
+      "isCalculated": false,
+      "minValue": 40,
+      "maxValue": 300,
+      "helpText": "Lưu trong bảng lặp visit_orthostatic_bp.systolic kèm tư thế và thời điểm.",
+      "sourceRef": "TL06 R24/STT 23 (ha_t_the_nam_ngoi); TL06 R25/STT 24 (ha_t_the_dung); TL06 R152/STT 156 (ha_treatment); TL06 R165/STT 169 (nguy_co_te_nga_hha); +1 dòng khác",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "76142158-0458-58ee-a5b7-41f6eb881c57",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 23, STT 24"
+        },
+        {
+          "fieldDefinitionId": "76142158-0458-58ee-a5b7-41f6eb881c57",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 188"
+        },
+        {
+          "fieldDefinitionId": "76142158-0458-58ee-a5b7-41f6eb881c57",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 156, STT 169"
+        }
+      ]
+    },
+    {
+      "id": "c16244e4-463c-52ca-8f3a-fce1d6f9a8d4",
+      "code": "huyet_ap_tam_truong",
+      "labelVi": "Huyết áp tâm trương",
+      "sectionCode": "sinh_ton_kham",
+      "dataType": "integer",
+      "canonicalUnit": "mmHg",
+      "scopeStatus": "mvp",
+      "storageLevel": "orthostatic_bp",
+      "isCalculated": false,
+      "minValue": 20,
+      "maxValue": 200,
+      "helpText": "Lưu trong bảng lặp visit_orthostatic_bp.diastolic kèm tư thế và thời điểm.",
+      "sourceRef": "TL06 R24/STT 23 (ha_t_the_nam_ngoi); TL06 R25/STT 24 (ha_t_the_dung); TL06 R152/STT 156 (ha_treatment); TL06 R165/STT 169 (nguy_co_te_nga_hha); +1 dòng khác",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "c16244e4-463c-52ca-8f3a-fce1d6f9a8d4",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 23, STT 24"
+        },
+        {
+          "fieldDefinitionId": "c16244e4-463c-52ca-8f3a-fce1d6f9a8d4",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 188"
+        },
+        {
+          "fieldDefinitionId": "c16244e4-463c-52ca-8f3a-fce1d6f9a8d4",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 156, STT 169"
+        }
+      ]
+    },
+    {
+      "id": "95c3e0e5-3ea8-5595-bfc1-2363f3c5373b",
+      "code": "thoi_diem_do_ha",
+      "labelVi": "Thời điểm đo huyết áp",
+      "sectionCode": "sinh_ton_kham",
+      "dataType": "text",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "orthostatic_bp",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Lưu dạng timestamptz tại visit_orthostatic_bp.measured_at.",
+      "sourceRef": "TL06 R24/STT 23 (ha_t_the_nam_ngoi); TL06 R25/STT 24 (ha_t_the_dung); TL06 R152/STT 156 (ha_treatment); TL06 R184/STT 188 (ha_nam_ngoi_dung)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "95c3e0e5-3ea8-5595-bfc1-2363f3c5373b",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 23, STT 24"
+        },
+        {
+          "fieldDefinitionId": "95c3e0e5-3ea8-5595-bfc1-2363f3c5373b",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 188"
+        },
+        {
+          "fieldDefinitionId": "95c3e0e5-3ea8-5595-bfc1-2363f3c5373b",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 156"
+        }
+      ]
+    },
+    {
+      "id": "a64408d9-2bec-5e72-bd49-25709f60b54a",
+      "code": "tu_the_do_ha",
+      "labelVi": "Tư thế đo huyết áp",
+      "sectionCode": "sinh_ton_kham",
+      "dataType": "single_choice",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "orthostatic_bp",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Lưu trong bảng lặp visit_orthostatic_bp.position.",
+      "sourceRef": "TL06 R24/STT 23 (ha_t_the_nam_ngoi); TL06 R25/STT 24 (ha_t_the_dung); TL06 R152/STT 156 (ha_treatment); TL06 R165/STT 169 (nguy_co_te_nga_hha); +1 dòng khác",
+      "options": [
+        {
+          "id": "867f4510-edca-5bf3-9e18-97910e4e6913",
+          "fieldDefinitionId": "a64408d9-2bec-5e72-bd49-25709f60b54a",
+          "optionCode": "supine",
+          "labelVi": "Nằm",
+          "displayOrder": 1,
+          "isActive": true
+        },
+        {
+          "id": "895b93a0-22d4-5fe9-9a11-7a1a9e0d7a06",
+          "fieldDefinitionId": "a64408d9-2bec-5e72-bd49-25709f60b54a",
+          "optionCode": "sitting",
+          "labelVi": "Ngồi",
+          "displayOrder": 2,
+          "isActive": true
+        },
+        {
+          "id": "3530e62a-7740-5d25-ac9e-e352f9a24e3a",
+          "fieldDefinitionId": "a64408d9-2bec-5e72-bd49-25709f60b54a",
+          "optionCode": "standing",
+          "labelVi": "Đứng",
+          "displayOrder": 3,
+          "isActive": true
+        }
+      ],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "a64408d9-2bec-5e72-bd49-25709f60b54a",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 23, STT 24"
+        },
+        {
+          "fieldDefinitionId": "a64408d9-2bec-5e72-bd49-25709f60b54a",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 188"
+        },
+        {
+          "fieldDefinitionId": "a64408d9-2bec-5e72-bd49-25709f60b54a",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 156, STT 169"
+        }
+      ]
+    },
+    {
+      "id": "08e64d3e-62ec-5951-a020-98edbaa7756a",
+      "code": "mach",
+      "labelVi": "Mạch / Tần số tim",
+      "sectionCode": "sinh_ton_kham",
+      "dataType": "integer",
+      "canonicalUnit": "lần/phút",
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": 20,
+      "maxValue": 300,
+      "helpText": "Tần số tim khi khám lâm sàng (lần/phút).",
+      "sourceRef": "TL06 R26/STT 25 (mach); TL06 R153/STT 157 (mach_treatment); TL06 R185/STT 189 (nhip_tim_ecg)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "08e64d3e-62ec-5951-a020-98edbaa7756a",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 25"
+        },
+        {
+          "fieldDefinitionId": "08e64d3e-62ec-5951-a020-98edbaa7756a",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 189"
+        },
+        {
+          "fieldDefinitionId": "08e64d3e-62ec-5951-a020-98edbaa7756a",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 157"
+        }
+      ]
+    },
+    {
+      "id": "03e518a5-ce73-58fb-86e6-f28f2d1c30ab",
+      "code": "nhip_tho",
+      "labelVi": "Nhịp thở",
+      "sectionCode": "sinh_ton_kham",
+      "dataType": "integer",
+      "canonicalUnit": "lần/phút",
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": 4,
+      "maxValue": 80,
+      "helpText": "Tần số hô hấp (lần/phút).",
+      "sourceRef": "TL06 R27/STT 26 (nhip_tho)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "03e518a5-ce73-58fb-86e6-f28f2d1c30ab",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 26"
+        }
+      ]
+    },
+    {
+      "id": "4b48b30f-15e3-5098-821e-5c4641938dd4",
+      "code": "spo2",
+      "labelVi": "Độ bão hòa oxy máu ngoại vi (SpO₂)",
+      "sectionCode": "sinh_ton_kham",
+      "dataType": "number",
+      "canonicalUnit": "%",
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": 30,
+      "maxValue": 100,
+      "helpText": "Giá trị SpO₂ (%) trong giới hạn sinh lý 30–100%.",
+      "sourceRef": "TL06 R28/STT 27 (spo2); TL06 R154/STT 158 (spo2_treatment)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "4b48b30f-15e3-5098-821e-5c4641938dd4",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 27"
+        },
+        {
+          "fieldDefinitionId": "4b48b30f-15e3-5098-821e-5c4641938dd4",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 158"
+        }
+      ]
+    },
+    {
+      "id": "a0f49c79-5167-5f5b-a164-6159e26392b9",
+      "code": "tinh_mach_co_noi",
+      "labelVi": "Tĩnh mạch cổ nổi",
+      "sectionCode": "sinh_ton_kham",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Dấu hiệu thực thể tăng áp lực tĩnh mạch trung tâm (TL01 Bảng 3).",
+      "sourceRef": "TL06 R29/STT 28 (tinh_mach_co_noi); TL06 R107/STT 111 (trieu_chung_dau_hieu)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "a0f49c79-5167-5f5b-a164-6159e26392b9",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 28"
+        },
+        {
+          "fieldDefinitionId": "a0f49c79-5167-5f5b-a164-6159e26392b9",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": false,
+          "sourceSttRefs": "STT 111"
+        }
+      ]
+    },
+    {
+      "id": "6a295959-0f95-5691-ae1b-ecab36ae09a3",
+      "code": "phan_hoi_gan_tinh_mach_co",
+      "labelVi": "Phản hồi gan – tĩnh mạch cổ dương tính",
+      "sectionCode": "sinh_ton_kham",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Dấu hiệu thực thể đặc hiệu của sung huyết hệ thống (TL01 Bảng 3).",
+      "sourceRef": "TL06 R30/STT 29 (phan_hoi_gan_tinh_mach_co)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "6a295959-0f95-5691-ae1b-ecab36ae09a3",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 29"
+        }
+      ]
+    },
+    {
+      "id": "428c9f96-2b22-5834-abbe-e2ceaed8c564",
+      "code": "tieng_tim_t3",
+      "labelVi": "Tiếng tim T3 (ngựa phi)",
+      "sectionCode": "sinh_ton_kham",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Dấu hiệu thực thể đặc hiệu khi nghe tim (TL01 Bảng 3).",
+      "sourceRef": "TL06 R31/STT 30 (tieng_tim_t3)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "428c9f96-2b22-5834-abbe-e2ceaed8c564",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 30"
+        }
+      ]
+    },
+    {
+      "id": "3d7d2ef8-ec36-5bcc-943a-c7f61aa6d142",
+      "code": "ran_am_phoi",
+      "labelVi": "Ran ẩm ở phổi",
+      "sectionCode": "sinh_ton_kham",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Dấu hiệu ứ dịch phế nang / sung huyết phổi (TL01 Bảng 3).",
+      "sourceRef": "TL06 R32/STT 31 (ran_am_phoi)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "3d7d2ef8-ec36-5bcc-943a-c7f61aa6d142",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 31"
+        }
+      ]
+    },
+    {
+      "id": "8a53e4a6-3e55-533b-8658-cf63290c4dc4",
+      "code": "phu_ngoai_bien",
+      "labelVi": "Phù ngoại biên (khám thực thể)",
+      "sectionCode": "sinh_ton_kham",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Phù mắt cá, cẳng chân, bìu khi bác sĩ khám thực thể.",
+      "sourceRef": "TL06 R33/STT 32 (phu_ngoai_bien); TL06 R107/STT 111 (trieu_chung_dau_hieu)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "8a53e4a6-3e55-533b-8658-cf63290c4dc4",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 32"
+        },
+        {
+          "fieldDefinitionId": "8a53e4a6-3e55-533b-8658-cf63290c4dc4",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": false,
+          "sourceSttRefs": "STT 111"
+        }
+      ]
+    },
+    {
+      "id": "618e194c-293f-5c10-9cc6-dea4b18ffee4",
+      "code": "gan_to",
+      "labelVi": "Gan to",
+      "sectionCode": "sinh_ton_kham",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Dấu hiệu sung huyết tĩnh mạch hệ thống (TL01 Bảng 3).",
+      "sourceRef": "TL06 R34/STT 33 (gan_to)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "618e194c-293f-5c10-9cc6-dea4b18ffee4",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 33"
+        }
+      ]
+    },
+    {
+      "id": "d1305822-713d-501b-986e-0d3eb3aa361f",
+      "code": "co_truong",
+      "labelVi": "Cổ trướng",
+      "sectionCode": "sinh_ton_kham",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Dấu hiệu sung huyết hệ thống nặng (TL01 Bảng 3).",
+      "sourceRef": "TL06 R35/STT 34 (co_truong)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "d1305822-713d-501b-986e-0d3eb3aa361f",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 34"
+        }
+      ]
+    },
+    {
+      "id": "06725da5-314f-5296-9a37-eb89c085254a",
+      "code": "giam_tuoi_mau_ngoai_vi",
+      "labelVi": "Dấu hiệu giảm tưới máu ngoại vi",
+      "sectionCode": "sinh_ton_kham",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Đầu chi lạnh, ẩm, mạch nhanh nhỏ, thiểu niệu.",
+      "sourceRef": "TL06 R36/STT 35 (giam_tuoi_mau_ngoai_vi); TL06 R151/STT 155 (sung_huyet_tuoi_mau)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "06725da5-314f-5296-9a37-eb89c085254a",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 35"
+        },
+        {
+          "fieldDefinitionId": "06725da5-314f-5296-9a37-eb89c085254a",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 155"
+        }
+      ]
+    },
+    {
+      "id": "510091f7-b964-51ab-820d-1da85eeadcbe",
+      "code": "tinh_trang_sung_huyet",
+      "labelVi": "Kết luận tình trạng sung huyết lâm sàng",
+      "sectionCode": "sinh_ton_kham",
+      "dataType": "text",
+      "canonicalUnit": null,
+      "scopeStatus": "can_xac_nhan",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Chờ xác nhận cần ô tổng hợp riêng ngoài 8 dấu hiệu thực thể hay không (Q-AI-25).",
+      "sourceRef": "TL06 R151/STT 155 (sung_huyet_tuoi_mau)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "510091f7-b964-51ab-820d-1da85eeadcbe",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 155"
+        }
+      ]
+    },
+    {
+      "id": "b50ba240-e677-5fe9-bd04-76efd9cfedc1",
+      "code": "ts_benh_mach_vanh_nmct",
+      "labelVi": "Bệnh mạch vành / Nhồi máu cơ tim",
+      "sectionCode": "benh_su_dong_mac",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Cờ 3 trạng thái tiền sử/nguyên nhân bệnh mạch vành (chi tiết mức hẹp tách riêng).",
+      "sourceRef": "TL06 R44/STT 45 (benh_mach_vanh_nhoi_mau_co_tim); TL06 R161/STT 165 (benh_dong_mac_treatment)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "b50ba240-e677-5fe9-bd04-76efd9cfedc1",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 45"
+        },
+        {
+          "fieldDefinitionId": "b50ba240-e677-5fe9-bd04-76efd9cfedc1",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 165"
+        }
+      ]
+    },
+    {
+      "id": "8ad8e55d-93ec-5eb8-9f5c-f93abcd8ecc7",
+      "code": "ts_dai_thao_duong",
+      "labelVi": "Đái tháo đường",
+      "sectionCode": "benh_su_dong_mac",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Bệnh đồng mắc ảnh hưởng ưu tiên điều trị SGLT2i.",
+      "sourceRef": "TL06 R45/STT 46 (dai_thao_duong); TL06 R111/STT 115 (benh_dong_mac_lab); TL06 R161/STT 165 (benh_dong_mac_treatment)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "8ad8e55d-93ec-5eb8-9f5c-f93abcd8ecc7",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 46"
+        },
+        {
+          "fieldDefinitionId": "8ad8e55d-93ec-5eb8-9f5c-f93abcd8ecc7",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": false,
+          "sourceSttRefs": "STT 115"
+        },
+        {
+          "fieldDefinitionId": "8ad8e55d-93ec-5eb8-9f5c-f93abcd8ecc7",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 165"
+        }
+      ]
+    },
+    {
+      "id": "532b16a9-13a5-5be2-8bcf-d49956053e43",
+      "code": "ts_beo_phi",
+      "labelVi": "Béo phì (ghi nhận lâm sàng)",
+      "sectionCode": "benh_su_dong_mac",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Tiền sử béo phì lưu tách riêng với chỉ số BMI tự tính.",
+      "sourceRef": "TL06 R46/STT 47 (beo_phi)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "532b16a9-13a5-5be2-8bcf-d49956053e43",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 47"
+        }
+      ]
+    },
+    {
+      "id": "49687dc7-7181-5353-82fd-74959503587f",
+      "code": "ts_benh_than_man",
+      "labelVi": "Bệnh thận mạn (CKD)",
+      "sectionCode": "benh_su_dong_mac",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Bệnh đồng mắc ảnh hưởng chỉnh liều RAASi/MRA/Digoxin.",
+      "sourceRef": "TL06 R47/STT 48 (benh_than_man); TL06 R111/STT 115 (benh_dong_mac_lab); TL06 R161/STT 165 (benh_dong_mac_treatment)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "49687dc7-7181-5353-82fd-74959503587f",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 48"
+        },
+        {
+          "fieldDefinitionId": "49687dc7-7181-5353-82fd-74959503587f",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": false,
+          "sourceSttRefs": "STT 115"
+        },
+        {
+          "fieldDefinitionId": "49687dc7-7181-5353-82fd-74959503587f",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 165"
+        }
+      ]
+    },
+    {
+      "id": "d8992296-2a89-5bf5-bae7-636ead74f2ca",
+      "code": "ts_hoa_tri_thuoc_doc_tim",
+      "labelVi": "Tiền sử hóa trị / thuốc độc tim",
+      "sectionCode": "benh_su_dong_mac",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Yếu tố nguy cơ gây bệnh cơ tim do hóa chất/thuốc.",
+      "sourceRef": "TL06 R48/STT 49 (tien_su_hoa_tri_thuoc_doc_tim)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "d8992296-2a89-5bf5-bae7-636ead74f2ca",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 49"
+        }
+      ]
+    },
+    {
+      "id": "c74576ef-79e8-547f-81d5-fd2514df182f",
+      "code": "ts_benh_co_tim_cau_truc",
+      "labelVi": "Tiền sử bệnh cơ tim / tim cấu trúc",
+      "sectionCode": "benh_su_dong_mac",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Tiền sử bất thường cấu trúc tim đã biết.",
+      "sourceRef": "TL06 R49/STT 50 (tien_su_benh_co_tim_cau_truc)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "c74576ef-79e8-547f-81d5-fd2514df182f",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 50"
+        }
+      ]
+    },
+    {
+      "id": "2b3ef450-40bb-583d-ac9d-3d84b1af60bd",
+      "code": "ts_tang_huyet_ap",
+      "labelVi": "Tăng huyết áp",
+      "sectionCode": "benh_su_dong_mac",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Yếu tố nguy cơ và nguyên nhân thường gặp gây suy tim.",
+      "sourceRef": "TL06 R50/STT 52 (tang_huyet_ap_nguyen_nhan)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "2b3ef450-40bb-583d-ac9d-3d84b1af60bd",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 52"
+        }
+      ]
+    },
+    {
+      "id": "3081821e-efa4-5083-ac2e-813206605005",
+      "code": "ts_benh_van_tim",
+      "labelVi": "Bệnh van tim",
+      "sectionCode": "benh_su_dong_mac",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Nguyên nhân hoặc bệnh lý tại van tim.",
+      "sourceRef": "TL06 R51/STT 53 (benh_van_tim)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "3081821e-efa4-5083-ac2e-813206605005",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 53"
+        }
+      ]
+    },
+    {
+      "id": "b9d7409d-eb01-552d-b929-46f1d42601d9",
+      "code": "ts_rung_nhi_roi_loan_nhip",
+      "labelVi": "Rung nhĩ / Rối loạn nhịp khác",
+      "sectionCode": "benh_su_dong_mac",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Nguyên nhân/yếu tố thúc đẩy và bệnh đồng mắc thường gặp.",
+      "sourceRef": "TL06 R52/STT 54 (rung_nhi_roi_loan_nhip); TL06 R161/STT 165 (benh_dong_mac_treatment)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "b9d7409d-eb01-552d-b929-46f1d42601d9",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 54"
+        },
+        {
+          "fieldDefinitionId": "b9d7409d-eb01-552d-b929-46f1d42601d9",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 165"
+        }
+      ]
+    },
+    {
+      "id": "daa08db7-f85a-5918-ae72-96bfe4fb8d81",
+      "code": "ts_benh_co_tim",
+      "labelVi": "Bệnh cơ tim (giãn, phì đại, hạn chế...)",
+      "sectionCode": "benh_su_dong_mac",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Nguyên nhân bệnh cơ tim nguyên phát hoặc thứ phát.",
+      "sourceRef": "TL06 R53/STT 55 (benh_co_tim)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "daa08db7-f85a-5918-ae72-96bfe4fb8d81",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 55"
+        }
+      ]
+    },
+    {
+      "id": "159dd9b4-6356-525e-8f30-d4793a877089",
+      "code": "ts_amyloidosis_tim",
+      "labelVi": "Bệnh cơ tim Amyloid (Amyloidosis tim)",
+      "sectionCode": "benh_su_dong_mac",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Chọn Chưa rõ nếu chưa thăm dò chuyên sâu (TL01 Bảng 5).",
+      "sourceRef": "TL06 R54/STT 56 (amyloidosis_tim)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "159dd9b4-6356-525e-8f30-d4793a877089",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 56"
+        }
+      ]
+    },
+    {
+      "id": "e8fd0d75-6878-5aec-8cd4-6c95994951ee",
+      "code": "ts_viem_co_tim",
+      "labelVi": "Viêm cơ tim",
+      "sectionCode": "benh_su_dong_mac",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Nguyên nhân hoặc yếu tố thúc đẩy suy tim.",
+      "sourceRef": "TL06 R55/STT 57 (viem_co_tim)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "e8fd0d75-6878-5aec-8cd4-6c95994951ee",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 57"
+        }
+      ]
+    },
+    {
+      "id": "16c88750-c75d-5dc5-b596-141a6a5d0187",
+      "code": "ts_thuoc_doc_chat",
+      "labelVi": "Suy tim do thuốc hoặc độc chất",
+      "sectionCode": "benh_su_dong_mac",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Nguyên nhân do rượu, chất kích thích hoặc độc chất.",
+      "sourceRef": "TL06 R56/STT 58 (thuoc_doc_chat)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "16c88750-c75d-5dc5-b596-141a6a5d0187",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 58"
+        }
+      ]
+    },
+    {
+      "id": "8aac6c31-d15b-56be-a6ad-ac347ccae8c3",
+      "code": "ts_takotsubo",
+      "labelVi": "Bệnh cơ tim Takotsubo",
+      "sectionCode": "benh_su_dong_mac",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Chọn Chưa rõ nếu chưa loại trừ mạch vành.",
+      "sourceRef": "TL06 R57/STT 59 (takotsubo)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "8aac6c31-d15b-56be-a6ad-ac347ccae8c3",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 59"
+        }
+      ]
+    },
+    {
+      "id": "f54ede28-e925-5449-88f7-0f0c7940a2f0",
+      "code": "ts_benh_noi_tiet_chuyen_hoa",
+      "labelVi": "Bệnh nội tiết – chuyển hóa",
+      "sectionCode": "benh_su_dong_mac",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Cường giáp, suy giáp, suy thượng thận hoặc rối loạn chuyển hóa.",
+      "sourceRef": "TL06 R58/STT 60 (benh_noi_tiet_chuyen_hoa)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "f54ede28-e925-5449-88f7-0f0c7940a2f0",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 60"
+        }
+      ]
+    },
+    {
+      "id": "54a49627-29d0-5a26-b50f-a4bba572771b",
+      "code": "ts_suy_tim_cung_luong_cao",
+      "labelVi": "Suy tim cung lượng cao",
+      "sectionCode": "benh_su_dong_mac",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Suy tim do thiếu máu nặng, cường giáp, thông động–tĩnh mạch.",
+      "sourceRef": "TL06 R59/STT 61 (suy_tim_cung_luong_cao)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "54a49627-29d0-5a26-b50f-a4bba572771b",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 61"
+        }
+      ]
+    },
+    {
+      "id": "adcdecf0-c0fd-5d20-ab9b-249c3d7a9464",
+      "code": "ts_copd",
+      "labelVi": "Bệnh phổi tắc nghẽn mạn tính (COPD)",
+      "sectionCode": "benh_su_dong_mac",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Bệnh đồng mắc cần phân biệt khó thở tim với khó thở phổi.",
+      "sourceRef": "TL06 R60/STT 64 (copd); TL06 R111/STT 115 (benh_dong_mac_lab); TL06 R161/STT 165 (benh_dong_mac_treatment)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "adcdecf0-c0fd-5d20-ab9b-249c3d7a9464",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 64"
+        },
+        {
+          "fieldDefinitionId": "adcdecf0-c0fd-5d20-ab9b-249c3d7a9464",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": false,
+          "sourceSttRefs": "STT 115"
+        },
+        {
+          "fieldDefinitionId": "adcdecf0-c0fd-5d20-ab9b-249c3d7a9464",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 165"
+        }
+      ]
+    },
+    {
+      "id": "858fb830-99c6-5693-b36a-69451cb1c4a3",
+      "code": "ts_thieu_mau",
+      "labelVi": "Thiếu máu",
+      "sectionCode": "benh_su_dong_mac",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Bệnh đồng mắc thường gặp ở người cao tuổi suy tim.",
+      "sourceRef": "TL06 R61/STT 65 (thieu_mau); TL06 R111/STT 115 (benh_dong_mac_lab)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "858fb830-99c6-5693-b36a-69451cb1c4a3",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 65"
+        },
+        {
+          "fieldDefinitionId": "858fb830-99c6-5693-b36a-69451cb1c4a3",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": false,
+          "sourceSttRefs": "STT 115"
+        }
+      ]
+    },
+    {
+      "id": "0315dc5e-decc-5637-a1b9-dfa2478004e0",
+      "code": "ts_benh_gan",
+      "labelVi": "Bệnh gan",
+      "sectionCode": "benh_su_dong_mac",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Bệnh đồng mắc ảnh hưởng chuyển hóa thuốc và phù/cổ trướng.",
+      "sourceRef": "TL06 R62/STT 66 (benh_gan)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "0315dc5e-decc-5637-a1b9-dfa2478004e0",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 66"
+        }
+      ]
+    },
+    {
+      "id": "a0f1e38b-0834-5c27-b14d-ad280562c5f1",
+      "code": "ts_roi_loan_tuyen_giap",
+      "labelVi": "Rối loạn tuyến giáp",
+      "sectionCode": "benh_su_dong_mac",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Yếu tố thúc đẩy rối loạn nhịp và suy tim.",
+      "sourceRef": "TL06 R63/STT 67 (roi_loan_tuyen_giap)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "a0f1e38b-0834-5c27-b14d-ad280562c5f1",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 67"
+        }
+      ]
+    },
+    {
+      "id": "e2c29158-9a56-5eae-81dc-0e0cbcf1e37c",
+      "code": "ts_sa_sut_tri_tue",
+      "labelVi": "Sa sút trí tuệ",
+      "sectionCode": "benh_su_dong_mac",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Ảnh hưởng tuân thủ điều trị và tự chăm sóc ở người cao tuổi.",
+      "sourceRef": "TL06 R64/STT 68 (sa_sut_tri_tue)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "e2c29158-9a56-5eae-81dc-0e0cbcf1e37c",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 68"
+        }
+      ]
+    },
+    {
+      "id": "3c7003ce-a478-5df2-bf15-94bb4d2ab90d",
+      "code": "ts_tram_cam",
+      "labelVi": "Trầm cảm",
+      "sectionCode": "benh_su_dong_mac",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Bệnh đồng mắc ảnh hưởng chất lượng sống và tuân thủ thuốc.",
+      "sourceRef": "TL06 R65/STT 69 (tram_cam)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "3c7003ce-a478-5df2-bf15-94bb4d2ab90d",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 69"
+        }
+      ]
+    },
+    {
+      "id": "678277c9-23ae-5583-8d1c-ddff0ac5dc26",
+      "code": "ts_benh_mach_mau_nao",
+      "labelVi": "Bệnh mạch máu não (đột quỵ / TIA)",
+      "sectionCode": "benh_su_dong_mac",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Bệnh đồng mắc tim mạch – thần kinh.",
+      "sourceRef": "TL06 R66/STT 70 (benh_mach_mau_nao)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "678277c9-23ae-5583-8d1c-ddff0ac5dc26",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 70"
+        }
+      ]
+    },
+    {
+      "id": "0b21dc12-7d72-59b4-92d4-795256ce3820",
+      "code": "ts_ung_thu",
+      "labelVi": "Ung thư",
+      "sectionCode": "benh_su_dong_mac",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Liên quan tiên lượng và tiền sử điều trị độc tim.",
+      "sourceRef": "TL06 R67/STT 71 (ung_thu)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "0b21dc12-7d72-59b4-92d4-795256ce3820",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 71"
+        }
+      ]
+    },
+    {
+      "id": "1484fb07-fa20-51b3-a744-b76133efcba7",
+      "code": "ts_benh_mach_vanh_chi_tiet",
+      "labelVi": "Chi tiết mức độ hẹp / can thiệp ĐMV",
+      "sectionCode": "benh_su_dong_mac",
+      "dataType": "text",
+      "canonicalUnit": null,
+      "scopeStatus": "can_xac_nhan",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Câu hỏi treo TL06 R44: chờ chốt văn bản hay cấu trúc (Q-AI-07).",
+      "sourceRef": "TL06 R44/STT 45 (benh_mach_vanh_nhoi_mau_co_tim)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "1484fb07-fa20-51b3-a744-b76133efcba7",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 45"
+        }
+      ]
+    },
+    {
+      "id": "dd0f7c69-6b48-5861-9d0f-fb86354dc185",
+      "code": "ts_thiet_bi_cay_ghep_chong_chi_dinh_mri",
+      "labelVi": "Thiết bị cấy ghép và chống chỉ định MRI",
+      "sectionCode": "benh_su_dong_mac",
+      "dataType": "text",
+      "canonicalUnit": null,
+      "scopeStatus": "can_xac_nhan",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Chờ chốt danh sách lựa chọn từ nhóm AI (Q-AI-24).",
+      "sourceRef": "TL06 R114/STT 118 (thiet_bi_cay_ghep)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "dd0f7c69-6b48-5861-9d0f-fb86354dc185",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": false,
+          "sourceSttRefs": "STT 118"
+        }
+      ]
+    },
+    {
+      "id": "93f04340-e597-5be4-8fa4-0cf540d57bbf",
+      "code": "thuoc_ghi_nhan",
+      "labelVi": "Danh sách thuốc đang sử dụng",
+      "sectionCode": "thuoc_di_ung",
+      "dataType": "text",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "medication",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Lưu dạng bản ghi lặp trong bảng visit_medication (thuốc kê đơn & OTC/TPCN/YHCT).",
+      "sourceRef": "TL06 R68/STT 72 (danh_sach_thuoc); TL06 R112/STT 116 (thuoc_dang_su_dung_lab); TL06 R159/STT 163 (thuoc_lieu_tuan_thu); TL06 R177/STT 181 (don_thuoc_moi); +1 dòng khác",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "93f04340-e597-5be4-8fa4-0cf540d57bbf",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 72"
+        },
+        {
+          "fieldDefinitionId": "93f04340-e597-5be4-8fa4-0cf540d57bbf",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": false,
+          "sourceSttRefs": "STT 116"
+        },
+        {
+          "fieldDefinitionId": "93f04340-e597-5be4-8fa4-0cf540d57bbf",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 181, STT 182"
+        },
+        {
+          "fieldDefinitionId": "93f04340-e597-5be4-8fa4-0cf540d57bbf",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 163"
+        }
+      ]
+    },
+    {
+      "id": "60838194-7c49-5468-954d-8583525ca985",
+      "code": "so_luong_thuoc_dong_thoi",
+      "labelVi": "Số lượng thuốc sử dụng đồng thời",
+      "sectionCode": "thuoc_di_ung",
+      "dataType": "integer",
+      "canonicalUnit": "thuốc",
+      "scopeStatus": "mvp",
+      "storageLevel": "computed",
+      "isCalculated": true,
+      "minValue": 0,
+      "maxValue": 50,
+      "helpText": "Tự động đếm từ bảng visit_medication với status='active'.",
+      "sourceRef": "TL06 R69/STT 73 (da_thuoc); TL06 R179/STT 183 (so_luong_thuoc_dong_thoi)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "60838194-7c49-5468-954d-8583525ca985",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 73"
+        },
+        {
+          "fieldDefinitionId": "60838194-7c49-5468-954d-8583525ca985",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 183"
+        }
+      ]
+    },
+    {
+      "id": "25807e9e-4b9b-5e8a-8908-5388d2a4f35d",
+      "code": "di_ung_adr",
+      "labelVi": "Dị ứng thuốc, ADR và không dung nạp",
+      "sectionCode": "thuoc_di_ung",
+      "dataType": "text",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "allergy",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Lưu dạng bản ghi lặp trong bảng visit_allergy.",
+      "sourceRef": "TL06 R113/STT 117 (di_ung_thuoc_can_quang); TL06 R160/STT 164 (khong_dung_nap_thuoc); TL06 R180/STT 184 (di_ung_phan_ung_co_hai)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "25807e9e-4b9b-5e8a-8908-5388d2a4f35d",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": false,
+          "sourceSttRefs": "STT 117"
+        },
+        {
+          "fieldDefinitionId": "25807e9e-4b9b-5e8a-8908-5388d2a4f35d",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 184"
+        },
+        {
+          "fieldDefinitionId": "25807e9e-4b9b-5e8a-8908-5388d2a4f35d",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 164"
+        }
+      ]
+    },
+    {
+      "id": "26142240-f585-5487-adbf-bfc16b46475d",
+      "code": "di_ung_thuoc_can_quang",
+      "labelVi": "Dị ứng thuốc cản quang",
+      "sectionCode": "thuoc_di_ung",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "allergy",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Ghi nhận trong visit_allergy với agent_category='contrast_media'.",
+      "sourceRef": "TL06 R113/STT 117 (di_ung_thuoc_can_quang)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "26142240-f585-5487-adbf-bfc16b46475d",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": false,
+          "sourceSttRefs": "STT 117"
+        }
+      ]
+    },
+    {
+      "id": "53a014c1-65ff-5099-90f9-699c3d59e037",
+      "code": "co_da_thuoc",
+      "labelVi": "Cờ tình trạng đa thuốc",
+      "sectionCode": "thuoc_di_ung",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "can_xac_nhan",
+      "storageLevel": "computed",
+      "isCalculated": true,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Chờ nhóm AI chốt ngưỡng >=4 hay >=5 thuốc và quy tắc đếm OTC (Q-AI-14).",
+      "sourceRef": "TL06 R69/STT 73 (da_thuoc)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "53a014c1-65ff-5099-90f9-699c3d59e037",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 73"
+        }
+      ]
+    },
+    {
+      "id": "364197bf-2007-55f1-80b7-2e843e318dc6",
+      "code": "thuoc_muc_do_tuan_thu",
+      "labelVi": "Mức độ tuân thủ dùng thuốc",
+      "sectionCode": "thuoc_di_ung",
+      "dataType": "text",
+      "canonicalUnit": null,
+      "scopeStatus": "can_xac_nhan",
+      "storageLevel": "medication",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Chờ nhóm AI chốt thang tuân thủ và vị trí gắn theo thuốc hay lượt (Q-AI-25).",
+      "sourceRef": "TL06 R159/STT 163 (thuoc_lieu_tuan_thu)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "364197bf-2007-55f1-80b7-2e843e318dc6",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 163"
+        }
+      ]
+    },
+    {
+      "id": "a5036b67-843e-5bd0-8341-aa50e7ccdd8b",
+      "code": "cls_ecg_ket_luan",
+      "labelVi": "Kết quả đọc Điện tâm đồ (ECG 12 chuyển đạo)",
+      "sectionCode": "can_lam_sang",
+      "dataType": "text",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "lab_result",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Nhịp tim, rung nhĩ, QRS, block, QTc lưu tại visit_lab_result.value_text.",
+      "sourceRef": "TL06 R70/STT 74 (ecg_12_chuyen_dao); TL06 R109/STT 113 (xet_nghiem_da_co); TL06 R185/STT 189 (nhip_tim_ecg)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "a5036b67-843e-5bd0-8341-aa50e7ccdd8b",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 74"
+        },
+        {
+          "fieldDefinitionId": "a5036b67-843e-5bd0-8341-aa50e7ccdd8b",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": false,
+          "sourceSttRefs": "STT 113"
+        },
+        {
+          "fieldDefinitionId": "a5036b67-843e-5bd0-8341-aa50e7ccdd8b",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 189"
+        }
+      ]
+    },
+    {
+      "id": "f9d40c98-a4cc-565b-a2f8-ee897fdf1300",
+      "code": "cls_ecg_thoi_diem",
+      "labelVi": "Thời điểm đo ECG",
+      "sectionCode": "can_lam_sang",
+      "dataType": "text",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "lab_result",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Lưu dạng timestamptz tại visit_lab_result.measured_at.",
+      "sourceRef": "TL06 R70/STT 74 (ecg_12_chuyen_dao); TL06 R185/STT 189 (nhip_tim_ecg)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "f9d40c98-a4cc-565b-a2f8-ee897fdf1300",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 74"
+        },
+        {
+          "fieldDefinitionId": "f9d40c98-a4cc-565b-a2f8-ee897fdf1300",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 189"
+        }
+      ]
+    },
+    {
+      "id": "13298908-40d3-5891-8a9a-2f70a9ef0ad0",
+      "code": "cls_bnp",
+      "labelVi": "Xét nghiệm BNP",
+      "sectionCode": "can_lam_sang",
+      "dataType": "number",
+      "canonicalUnit": "pg/mL",
+      "scopeStatus": "mvp",
+      "storageLevel": "lab_result",
+      "isCalculated": false,
+      "minValue": 0,
+      "maxValue": 50000,
+      "helpText": "Tách riêng khỏi NT-proBNP; lưu ở visit_lab_result kèm đơn vị và thời điểm.",
+      "sourceRef": "TL06 R71/STT 75 (bnp_ntprobnp); TL06 R109/STT 113 (xet_nghiem_da_co); TL06 R156/STT 160 (bnp_treatment)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "13298908-40d3-5891-8a9a-2f70a9ef0ad0",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 75"
+        },
+        {
+          "fieldDefinitionId": "13298908-40d3-5891-8a9a-2f70a9ef0ad0",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": false,
+          "sourceSttRefs": "STT 113"
+        },
+        {
+          "fieldDefinitionId": "13298908-40d3-5891-8a9a-2f70a9ef0ad0",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 160"
+        }
+      ]
+    },
+    {
+      "id": "4ae36d03-1c2d-5438-9865-aa137dd8c993",
+      "code": "cls_don_vi",
+      "labelVi": "Đơn vị xét nghiệm cận lâm sàng",
+      "sectionCode": "can_lam_sang",
+      "dataType": "text",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "lab_result",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Thuộc tính unit bắt buộc trên mọi bản ghi số của visit_lab_result.",
+      "sourceRef": "TL06 R71/STT 75 (bnp_ntprobnp); TL06 R72/STT 76 (troponin); TL06 R75/STT 79 (creatinin_egfr); TL06 R76/STT 80 (dien_giai); +6 dòng khác",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "4ae36d03-1c2d-5438-9865-aa137dd8c993",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 75, STT 76, STT 79, STT 80"
+        },
+        {
+          "fieldDefinitionId": "4ae36d03-1c2d-5438-9865-aa137dd8c993",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 185, STT 186, STT 187"
+        },
+        {
+          "fieldDefinitionId": "4ae36d03-1c2d-5438-9865-aa137dd8c993",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 160, STT 161, STT 162"
+        }
+      ]
+    },
+    {
+      "id": "c632fdaf-9a99-5d20-8988-262a7edb16bc",
+      "code": "cls_nt_probnp",
+      "labelVi": "Xét nghiệm NT-proBNP",
+      "sectionCode": "can_lam_sang",
+      "dataType": "number",
+      "canonicalUnit": "pg/mL",
+      "scopeStatus": "mvp",
+      "storageLevel": "lab_result",
+      "isCalculated": false,
+      "minValue": 0,
+      "maxValue": 200000,
+      "helpText": "Tách riêng khỏi BNP; lưu ở visit_lab_result kèm đơn vị và thời điểm.",
+      "sourceRef": "TL06 R71/STT 75 (bnp_ntprobnp); TL06 R109/STT 113 (xet_nghiem_da_co); TL06 R156/STT 160 (bnp_treatment)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "c632fdaf-9a99-5d20-8988-262a7edb16bc",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 75"
+        },
+        {
+          "fieldDefinitionId": "c632fdaf-9a99-5d20-8988-262a7edb16bc",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": false,
+          "sourceSttRefs": "STT 113"
+        },
+        {
+          "fieldDefinitionId": "c632fdaf-9a99-5d20-8988-262a7edb16bc",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 160"
+        }
+      ]
+    },
+    {
+      "id": "a1ddd615-e7d8-51fa-a43c-da227ad37652",
+      "code": "cls_thoi_diem",
+      "labelVi": "Thời điểm thực hiện / lấy mẫu CLS",
+      "sectionCode": "can_lam_sang",
+      "dataType": "text",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "lab_result",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Lưu dạng timestamptz tại visit_lab_result.measured_at.",
+      "sourceRef": "TL06 R71/STT 75 (bnp_ntprobnp); TL06 R72/STT 76 (troponin); TL06 R75/STT 79 (creatinin_egfr); TL06 R76/STT 80 (dien_giai); +6 dòng khác",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "a1ddd615-e7d8-51fa-a43c-da227ad37652",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 75, STT 76, STT 79, STT 80"
+        },
+        {
+          "fieldDefinitionId": "a1ddd615-e7d8-51fa-a43c-da227ad37652",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 185, STT 186, STT 187"
+        },
+        {
+          "fieldDefinitionId": "a1ddd615-e7d8-51fa-a43c-da227ad37652",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 160, STT 161, STT 162"
+        }
+      ]
+    },
+    {
+      "id": "aa3b2f8c-8180-587c-9b87-b2c2b5485589",
+      "code": "cls_troponin",
+      "labelVi": "Xét nghiệm Troponin",
+      "sectionCode": "can_lam_sang",
+      "dataType": "number",
+      "canonicalUnit": "ng/L",
+      "scopeStatus": "mvp",
+      "storageLevel": "lab_result",
+      "isCalculated": false,
+      "minValue": 0,
+      "maxValue": 100000,
+      "helpText": "Lưu ở visit_lab_result.value_num kèm đơn vị và thời điểm.",
+      "sourceRef": "TL06 R72/STT 76 (troponin)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "aa3b2f8c-8180-587c-9b87-b2c2b5485589",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 76"
+        }
+      ]
+    },
+    {
+      "id": "45837d96-35bc-5120-9d20-509511dc73d3",
+      "code": "cls_troponin_loai",
+      "labelVi": "Loại xét nghiệm Troponin",
+      "sectionCode": "can_lam_sang",
+      "dataType": "single_choice",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "lab_result",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Lưu ở visit_lab_result.lab_subtype.",
+      "sourceRef": "TL06 R72/STT 76 (troponin)",
+      "options": [
+        {
+          "id": "786961c4-2396-5455-988e-32182eb769ba",
+          "fieldDefinitionId": "45837d96-35bc-5120-9d20-509511dc73d3",
+          "optionCode": "hs_troponin_t",
+          "labelVi": "hs-Troponin T",
+          "displayOrder": 1,
+          "isActive": true
+        },
+        {
+          "id": "5637e03f-6553-5c65-b367-f3d291e695f2",
+          "fieldDefinitionId": "45837d96-35bc-5120-9d20-509511dc73d3",
+          "optionCode": "hs_troponin_i",
+          "labelVi": "hs-Troponin I",
+          "displayOrder": 2,
+          "isActive": true
+        },
+        {
+          "id": "7bbae679-1ac1-5f93-a47e-27301ced5d81",
+          "fieldDefinitionId": "45837d96-35bc-5120-9d20-509511dc73d3",
+          "optionCode": "troponin_t",
+          "labelVi": "Troponin T",
+          "displayOrder": 3,
+          "isActive": true
+        },
+        {
+          "id": "8377dd7a-1e31-5fe7-bd03-893880867e4a",
+          "fieldDefinitionId": "45837d96-35bc-5120-9d20-509511dc73d3",
+          "optionCode": "troponin_i",
+          "labelVi": "Troponin I",
+          "displayOrder": 4,
+          "isActive": true
+        }
+      ],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "45837d96-35bc-5120-9d20-509511dc73d3",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 76"
+        }
+      ]
+    },
+    {
+      "id": "28ffd661-6e7b-5883-98b6-4da9d90d043d",
+      "code": "cls_lvef",
+      "labelVi": "Phân suất tống máu thất trái (LVEF)",
+      "sectionCode": "can_lam_sang",
+      "dataType": "number",
+      "canonicalUnit": "%",
+      "scopeStatus": "mvp",
+      "storageLevel": "lab_result",
+      "isCalculated": false,
+      "minValue": 5,
+      "maxValue": 95,
+      "helpText": "Tách số thực LVEF (%) khỏi văn bản kết luận siêu âm tim; hỗ trợ nhiều mốc thời gian.",
+      "sourceRef": "TL06 R73/STT 77 (sieu_am_tim_ef); TL06 R109/STT 113 (xet_nghiem_da_co); TL06 R155/STT 159 (ef_hien_tai)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "28ffd661-6e7b-5883-98b6-4da9d90d043d",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 77"
+        },
+        {
+          "fieldDefinitionId": "28ffd661-6e7b-5883-98b6-4da9d90d043d",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": false,
+          "sourceSttRefs": "STT 113"
+        },
+        {
+          "fieldDefinitionId": "28ffd661-6e7b-5883-98b6-4da9d90d043d",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 159"
+        }
+      ]
+    },
+    {
+      "id": "341e763a-76c1-51db-b5fd-afa6a0344c9e",
+      "code": "cls_sieu_am_tim_ket_luan",
+      "labelVi": "Kết luận siêu âm tim",
+      "sectionCode": "can_lam_sang",
+      "dataType": "text",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "lab_result",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Mô tả cấu trúc buồng tim, van tim, tâm trương, ALĐMP tại visit_lab_result.value_text.",
+      "sourceRef": "TL06 R73/STT 77 (sieu_am_tim_ef)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "341e763a-76c1-51db-b5fd-afa6a0344c9e",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 77"
+        }
+      ]
+    },
+    {
+      "id": "11c5bc8e-7100-5f08-833e-a631b47ccaf0",
+      "code": "cls_sieu_am_tim_thoi_diem",
+      "labelVi": "Thời điểm siêu âm tim",
+      "sectionCode": "can_lam_sang",
+      "dataType": "text",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "lab_result",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Lưu dạng timestamptz tại visit_lab_result.measured_at.",
+      "sourceRef": "TL06 R73/STT 77 (sieu_am_tim_ef); TL06 R155/STT 159 (ef_hien_tai)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "11c5bc8e-7100-5f08-833e-a631b47ccaf0",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 77"
+        },
+        {
+          "fieldDefinitionId": "11c5bc8e-7100-5f08-833e-a631b47ccaf0",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 159"
+        }
+      ]
+    },
+    {
+      "id": "f73ecfdc-7d2a-5ecd-8fbc-1688bc0b6d60",
+      "code": "cls_xquang_ket_luan",
+      "labelVi": "Kết quả X-quang tim phổi",
+      "sectionCode": "can_lam_sang",
+      "dataType": "text",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "lab_result",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Bóng tim to, ứ huyết phổi, tràn dịch màng phổi lưu tại visit_lab_result.value_text.",
+      "sourceRef": "TL06 R74/STT 78 (xquang_tim_phoi); TL06 R109/STT 113 (xet_nghiem_da_co)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "f73ecfdc-7d2a-5ecd-8fbc-1688bc0b6d60",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 78"
+        },
+        {
+          "fieldDefinitionId": "f73ecfdc-7d2a-5ecd-8fbc-1688bc0b6d60",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": false,
+          "sourceSttRefs": "STT 113"
+        }
+      ]
+    },
+    {
+      "id": "afc12a73-8745-53ee-a819-ed5764154db3",
+      "code": "cls_xquang_thoi_diem",
+      "labelVi": "Thời điểm chụp X-quang tim phổi",
+      "sectionCode": "can_lam_sang",
+      "dataType": "text",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "lab_result",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Lưu dạng timestamptz tại visit_lab_result.measured_at.",
+      "sourceRef": "TL06 R74/STT 78 (xquang_tim_phoi)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "afc12a73-8745-53ee-a819-ed5764154db3",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 78"
+        }
+      ]
+    },
+    {
+      "id": "e4845f99-e3c8-5263-87e6-cd7f23d2496d",
+      "code": "cls_creatinin",
+      "labelVi": "Creatinin huyết thanh",
+      "sectionCode": "can_lam_sang",
+      "dataType": "number",
+      "canonicalUnit": "umol/L",
+      "scopeStatus": "mvp",
+      "storageLevel": "lab_result",
+      "isCalculated": false,
+      "minValue": 10,
+      "maxValue": 3000,
+      "helpText": "Tách riêng khỏi eGFR; bắt buộc đơn vị (umol/L hoặc mg/dL) trong visit_lab_result.",
+      "sourceRef": "TL06 R75/STT 79 (creatinin_egfr); TL06 R110/STT 114 (chuc_nang_than_gan_dien_giai); TL06 R157/STT 161 (creatinin_egfr_treatment); TL06 R181/STT 185 (creatinin_egfr_medsafety)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "e4845f99-e3c8-5263-87e6-cd7f23d2496d",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 79"
+        },
+        {
+          "fieldDefinitionId": "e4845f99-e3c8-5263-87e6-cd7f23d2496d",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": false,
+          "sourceSttRefs": "STT 114"
+        },
+        {
+          "fieldDefinitionId": "e4845f99-e3c8-5263-87e6-cd7f23d2496d",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 185"
+        },
+        {
+          "fieldDefinitionId": "e4845f99-e3c8-5263-87e6-cd7f23d2496d",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 161"
+        }
+      ]
+    },
+    {
+      "id": "92847c23-e430-52cb-9de6-4abda9d7bc27",
+      "code": "cls_egfr",
+      "labelVi": "Mức lọc cầu thận ước tính (eGFR)",
+      "sectionCode": "can_lam_sang",
+      "dataType": "number",
+      "canonicalUnit": "mL/phút/1.73m²",
+      "scopeStatus": "mvp",
+      "storageLevel": "lab_result",
+      "isCalculated": false,
+      "minValue": 1,
+      "maxValue": 200,
+      "helpText": "Tách riêng khỏi Creatinin; lưu ở visit_lab_result.",
+      "sourceRef": "TL06 R75/STT 79 (creatinin_egfr); TL06 R110/STT 114 (chuc_nang_than_gan_dien_giai); TL06 R157/STT 161 (creatinin_egfr_treatment); TL06 R181/STT 185 (creatinin_egfr_medsafety)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "92847c23-e430-52cb-9de6-4abda9d7bc27",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 79"
+        },
+        {
+          "fieldDefinitionId": "92847c23-e430-52cb-9de6-4abda9d7bc27",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": false,
+          "sourceSttRefs": "STT 114"
+        },
+        {
+          "fieldDefinitionId": "92847c23-e430-52cb-9de6-4abda9d7bc27",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 185"
+        },
+        {
+          "fieldDefinitionId": "92847c23-e430-52cb-9de6-4abda9d7bc27",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 161"
+        }
+      ]
+    },
+    {
+      "id": "e17fa29e-7803-56c5-89a1-018c9222a39c",
+      "code": "cls_clo",
+      "labelVi": "Clo máu (Cl-)",
+      "sectionCode": "can_lam_sang",
+      "dataType": "number",
+      "canonicalUnit": "mmol/L",
+      "scopeStatus": "mvp",
+      "storageLevel": "lab_result",
+      "isCalculated": false,
+      "minValue": 60,
+      "maxValue": 150,
+      "helpText": "Bổ sung từ XLS bộ điện giải; lưu ở visit_lab_result.",
+      "sourceRef": "TL06 R76/STT 80 (dien_giai); TL06 R182/STT 186 (kali_natri_dien_giai_medsafety)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "e17fa29e-7803-56c5-89a1-018c9222a39c",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 80"
+        },
+        {
+          "fieldDefinitionId": "e17fa29e-7803-56c5-89a1-018c9222a39c",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 186"
+        }
+      ]
+    },
+    {
+      "id": "96d1b6b1-8474-5f12-a2e9-70c099b81d42",
+      "code": "cls_kali",
+      "labelVi": "Kali máu (K+)",
+      "sectionCode": "can_lam_sang",
+      "dataType": "number",
+      "canonicalUnit": "mmol/L",
+      "scopeStatus": "mvp",
+      "storageLevel": "lab_result",
+      "isCalculated": false,
+      "minValue": 1.0,
+      "maxValue": 10.0,
+      "helpText": "Lưu ở visit_lab_result kèm đơn vị và thời điểm.",
+      "sourceRef": "TL06 R76/STT 80 (dien_giai); TL06 R110/STT 114 (chuc_nang_than_gan_dien_giai); TL06 R158/STT 162 (kali_natri_gan); TL06 R182/STT 186 (kali_natri_dien_giai_medsafety)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "96d1b6b1-8474-5f12-a2e9-70c099b81d42",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 80"
+        },
+        {
+          "fieldDefinitionId": "96d1b6b1-8474-5f12-a2e9-70c099b81d42",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": false,
+          "sourceSttRefs": "STT 114"
+        },
+        {
+          "fieldDefinitionId": "96d1b6b1-8474-5f12-a2e9-70c099b81d42",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 186"
+        },
+        {
+          "fieldDefinitionId": "96d1b6b1-8474-5f12-a2e9-70c099b81d42",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 162"
+        }
+      ]
+    },
+    {
+      "id": "37cb154e-7413-5e1b-b640-269fedaf41e3",
+      "code": "cls_natri",
+      "labelVi": "Natri máu (Na+)",
+      "sectionCode": "can_lam_sang",
+      "dataType": "number",
+      "canonicalUnit": "mmol/L",
+      "scopeStatus": "mvp",
+      "storageLevel": "lab_result",
+      "isCalculated": false,
+      "minValue": 90,
+      "maxValue": 190,
+      "helpText": "Lưu ở visit_lab_result kèm đơn vị và thời điểm.",
+      "sourceRef": "TL06 R76/STT 80 (dien_giai); TL06 R110/STT 114 (chuc_nang_than_gan_dien_giai); TL06 R158/STT 162 (kali_natri_gan); TL06 R182/STT 186 (kali_natri_dien_giai_medsafety)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "37cb154e-7413-5e1b-b640-269fedaf41e3",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 80"
+        },
+        {
+          "fieldDefinitionId": "37cb154e-7413-5e1b-b640-269fedaf41e3",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": false,
+          "sourceSttRefs": "STT 114"
+        },
+        {
+          "fieldDefinitionId": "37cb154e-7413-5e1b-b640-269fedaf41e3",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 186"
+        },
+        {
+          "fieldDefinitionId": "37cb154e-7413-5e1b-b640-269fedaf41e3",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 162"
+        }
+      ]
+    },
+    {
+      "id": "79bb27e6-8617-54a1-92f8-a4c447a89fc8",
+      "code": "thay_doi_bnp_ntprobnp_ef",
+      "labelVi": "Biến thiên BNP/NT-proBNP và EF",
+      "sectionCode": "can_lam_sang",
+      "dataType": "number",
+      "canonicalUnit": "%",
+      "scopeStatus": "can_xac_nhan",
+      "storageLevel": "computed",
+      "isCalculated": true,
+      "minValue": -100,
+      "maxValue": 10000,
+      "helpText": "Chờ chốt cách tính chênh lệch hay truyền chuỗi thời gian từ visit_lab_result (Q-AI-18).",
+      "sourceRef": "TL06 R80/STT 84 (thay_doi_bnp_ntprobnp)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "79bb27e6-8617-54a1-92f8-a4c447a89fc8",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 84"
+        }
+      ]
+    },
+    {
+      "id": "19829bf3-27e0-59b8-bd0c-3634a44b7714",
+      "code": "cls_chuc_nang_gan",
+      "labelVi": "Kết quả chức năng gan",
+      "sectionCode": "can_lam_sang",
+      "dataType": "text",
+      "canonicalUnit": null,
+      "scopeStatus": "can_xac_nhan",
+      "storageLevel": "lab_result",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Chờ chốt danh mục chỉ số thành phần (AST, ALT, Bilirubin, Albumin) và đơn vị (Q-AI-21).",
+      "sourceRef": "TL06 R110/STT 114 (chuc_nang_than_gan_dien_giai); TL06 R158/STT 162 (kali_natri_gan); TL06 R183/STT 187 (chuc_nang_gan_medsafety)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "19829bf3-27e0-59b8-bd0c-3634a44b7714",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": false,
+          "sourceSttRefs": "STT 114"
+        },
+        {
+          "fieldDefinitionId": "19829bf3-27e0-59b8-bd0c-3634a44b7714",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 187"
+        },
+        {
+          "fieldDefinitionId": "19829bf3-27e0-59b8-bd0c-3634a44b7714",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 162"
+        }
+      ]
+    },
+    {
+      "id": "8faac762-dd2b-5b28-9a2f-3b47ce982174",
+      "code": "lao_khoa_tien_su_sang",
+      "labelVi": "Tiền sử sảng (Delirium)",
+      "sectionCode": "lao_khoa",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Tiền sử từng có đợt sảng cấp tính ở người cao tuổi.",
+      "sourceRef": "TL06 R39/STT 39 (tien_su_sang); TL06 R187/STT 191 (nhan_thuc_tien_su_sang)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "8faac762-dd2b-5b28-9a2f-3b47ce982174",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 39"
+        },
+        {
+          "fieldDefinitionId": "8faac762-dd2b-5b28-9a2f-3b47ce982174",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 191"
+        }
+      ]
+    },
+    {
+      "id": "ab0ff0d1-de8b-5f4c-95af-e8a1742b7b08",
+      "code": "lao_khoa_sarcopenia",
+      "labelVi": "Suy giảm khối cơ / lực cơ (Sarcopenia)",
+      "sectionCode": "lao_khoa",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Khớp TL06 R42: Có / Không / Chưa đánh giá (value_state='unknown').",
+      "sourceRef": "TL06 R42/STT 42 (sarcopenia); TL06 R166/STT 170 (dinh_duong_sarcopenia); TL06 R190/STT 194 (dinh_duong_can_nang_sarcopenia)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "ab0ff0d1-de8b-5f4c-95af-e8a1742b7b08",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 42"
+        },
+        {
+          "fieldDefinitionId": "ab0ff0d1-de8b-5f4c-95af-e8a1742b7b08",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 194"
+        },
+        {
+          "fieldDefinitionId": "ab0ff0d1-de8b-5f4c-95af-e8a1742b7b08",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 170"
+        }
+      ]
+    },
+    {
+      "id": "218c5eda-af09-59fc-bf95-8dedacf157b1",
+      "code": "lao_khoa_tu_su_dung_thuoc",
+      "labelVi": "Khả năng tự sử dụng và quản lý thuốc",
+      "sectionCode": "lao_khoa",
+      "dataType": "single_choice",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Khớp TL06 R43.",
+      "sourceRef": "TL06 R43/STT 43 (tu_su_dung_thuoc); TL06 R167/STT 171 (tu_quan_ly_thuoc); TL06 R189/STT 193 (kha_nang_nuot_tu_dung_thuoc)",
+      "options": [
+        {
+          "id": "e69860a7-c6be-51c1-998d-9ec876c3c82a",
+          "fieldDefinitionId": "218c5eda-af09-59fc-bf95-8dedacf157b1",
+          "optionCode": "tu_su_dung_duoc",
+          "labelVi": "Tự sử dụng được",
+          "displayOrder": 1,
+          "isActive": true
+        },
+        {
+          "id": "42841534-d750-5615-9e95-38c9f29f8934",
+          "fieldDefinitionId": "218c5eda-af09-59fc-bf95-8dedacf157b1",
+          "optionCode": "can_ho_tro",
+          "labelVi": "Cần hỗ trợ",
+          "displayOrder": 2,
+          "isActive": true
+        },
+        {
+          "id": "6d2bc28a-97a1-5b95-9a26-ad86733a3217",
+          "fieldDefinitionId": "218c5eda-af09-59fc-bf95-8dedacf157b1",
+          "optionCode": "khong_tu_su_dung",
+          "labelVi": "Không tự sử dụng",
+          "displayOrder": 3,
+          "isActive": true
+        }
+      ],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "218c5eda-af09-59fc-bf95-8dedacf157b1",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 43"
+        },
+        {
+          "fieldDefinitionId": "218c5eda-af09-59fc-bf95-8dedacf157b1",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 193"
+        },
+        {
+          "fieldDefinitionId": "218c5eda-af09-59fc-bf95-8dedacf157b1",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 171"
+        }
+      ]
+    },
+    {
+      "id": "627dcfcb-f93a-57a5-9a0f-b2a9374651d0",
+      "code": "xh_co_nguoi_cham_soc",
+      "labelVi": "Có người chăm sóc hỗ trợ",
+      "sectionCode": "lao_khoa",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Tách cờ Có/Không/Chưa rõ từ TL06 R83.",
+      "sourceRef": "TL06 R83/STT 87 (nguoi_cham_soc); TL06 R167/STT 171 (tu_quan_ly_thuoc); TL06 R191/STT 195 (ho_tro_nguoi_cham_soc_medsafety)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "627dcfcb-f93a-57a5-9a0f-b2a9374651d0",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 87"
+        },
+        {
+          "fieldDefinitionId": "627dcfcb-f93a-57a5-9a0f-b2a9374651d0",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 195"
+        },
+        {
+          "fieldDefinitionId": "627dcfcb-f93a-57a5-9a0f-b2a9374651d0",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 171"
+        }
+      ]
+    },
+    {
+      "id": "e2b25c8d-3689-5a91-8af3-283bf564e8ef",
+      "code": "xh_quan_he_nguoi_cham_soc",
+      "labelVi": "Quan hệ người chăm sóc",
+      "sectionCode": "lao_khoa",
+      "dataType": "text",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Ghi nhận quan hệ (vợ/chồng, con, điều dưỡng...) khi Có người chăm sóc.",
+      "sourceRef": "TL06 R83/STT 87 (nguoi_cham_soc)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "e2b25c8d-3689-5a91-8af3-283bf564e8ef",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 87"
+        }
+      ]
+    },
+    {
+      "id": "badab604-5d20-50b7-828d-9d350ff74005",
+      "code": "xh_kha_nang_chi_tra",
+      "labelVi": "Khả năng chi trả",
+      "sectionCode": "lao_khoa",
+      "dataType": "single_choice",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Khớp TL06 R84.",
+      "sourceRef": "TL06 R84/STT 88 (kha_nang_chi_tra); TL06 R116/STT 120 (muc_tieu_kha_nang_xet_nghiem); TL06 R192/STT 196 (chi_tra_tai_kham_medsafety)",
+      "options": [
+        {
+          "id": "f3464592-904f-5a21-8f8c-78d672c2321e",
+          "fieldDefinitionId": "badab604-5d20-50b7-828d-9d350ff74005",
+          "optionCode": "du",
+          "labelVi": "Đủ",
+          "displayOrder": 1,
+          "isActive": true
+        },
+        {
+          "id": "683fa420-6ce3-5cfd-bffa-73aaecbe567f",
+          "fieldDefinitionId": "badab604-5d20-50b7-828d-9d350ff74005",
+          "optionCode": "han_che",
+          "labelVi": "Hạn chế",
+          "displayOrder": 2,
+          "isActive": true
+        },
+        {
+          "id": "9c6824eb-9a7f-55b3-9bad-fdf3de4cc04d",
+          "fieldDefinitionId": "badab604-5d20-50b7-828d-9d350ff74005",
+          "optionCode": "khong_du",
+          "labelVi": "Không đủ",
+          "displayOrder": 3,
+          "isActive": true
+        }
+      ],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "badab604-5d20-50b7-828d-9d350ff74005",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 88"
+        },
+        {
+          "fieldDefinitionId": "badab604-5d20-50b7-828d-9d350ff74005",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": false,
+          "sourceSttRefs": "STT 120"
+        },
+        {
+          "fieldDefinitionId": "badab604-5d20-50b7-828d-9d350ff74005",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 196"
+        }
+      ]
+    },
+    {
+      "id": "4ad469b5-7a9f-502e-88e4-bb6b249814a6",
+      "code": "xh_kha_nang_tai_kham",
+      "labelVi": "Khả năng tái khám",
+      "sectionCode": "lao_khoa",
+      "dataType": "single_choice",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Khớp TL06 R85.",
+      "sourceRef": "TL06 R85/STT 89 (kha_nang_tai_kham); TL06 R192/STT 196 (chi_tra_tai_kham_medsafety)",
+      "options": [
+        {
+          "id": "b4e72e36-60a9-5766-bc6c-4e5123058315",
+          "fieldDefinitionId": "4ad469b5-7a9f-502e-88e4-bb6b249814a6",
+          "optionCode": "co",
+          "labelVi": "Có",
+          "displayOrder": 1,
+          "isActive": true
+        },
+        {
+          "id": "aabf4f9e-473f-526a-ac69-e2f2ae40d531",
+          "fieldDefinitionId": "4ad469b5-7a9f-502e-88e4-bb6b249814a6",
+          "optionCode": "han_che",
+          "labelVi": "Hạn chế",
+          "displayOrder": 2,
+          "isActive": true
+        },
+        {
+          "id": "11003d67-6611-52f2-8fbc-f10d5999ccce",
+          "fieldDefinitionId": "4ad469b5-7a9f-502e-88e4-bb6b249814a6",
+          "optionCode": "khong",
+          "labelVi": "Không",
+          "displayOrder": 3,
+          "isActive": true
+        }
+      ],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "4ad469b5-7a9f-502e-88e4-bb6b249814a6",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 89"
+        },
+        {
+          "fieldDefinitionId": "4ad469b5-7a9f-502e-88e4-bb6b249814a6",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 196"
+        }
+      ]
+    },
+    {
+      "id": "2c1d50ad-4da7-5c36-8b08-540e7256f6de",
+      "code": "xh_kha_nang_mua_su_dung_thuoc",
+      "labelVi": "Khả năng mua và sử dụng thuốc",
+      "sectionCode": "lao_khoa",
+      "dataType": "single_choice",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Khớp TL06 R86.",
+      "sourceRef": "TL06 R86/STT 90 (kha_nang_mua_su_dung_thuoc)",
+      "options": [
+        {
+          "id": "6cdc0cbd-1b85-55ef-8319-8d597c255d9f",
+          "fieldDefinitionId": "2c1d50ad-4da7-5c36-8b08-540e7256f6de",
+          "optionCode": "tot",
+          "labelVi": "Tốt",
+          "displayOrder": 1,
+          "isActive": true
+        },
+        {
+          "id": "69f1ec54-ebb8-5494-8255-5b702ed18a80",
+          "fieldDefinitionId": "2c1d50ad-4da7-5c36-8b08-540e7256f6de",
+          "optionCode": "han_che",
+          "labelVi": "Hạn chế",
+          "displayOrder": 2,
+          "isActive": true
+        },
+        {
+          "id": "aa407f53-670e-57f3-afa9-070dbff569e3",
+          "fieldDefinitionId": "2c1d50ad-4da7-5c36-8b08-540e7256f6de",
+          "optionCode": "khong",
+          "labelVi": "Không",
+          "displayOrder": 3,
+          "isActive": true
+        }
+      ],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "2c1d50ad-4da7-5c36-8b08-540e7256f6de",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 90"
+        }
+      ]
+    },
+    {
+      "id": "7b27bd34-c09b-57f4-b8d1-bd95856d67b1",
+      "code": "xh_ho_tro_gia_dinh",
+      "labelVi": "Mức độ hỗ trợ của gia đình",
+      "sectionCode": "lao_khoa",
+      "dataType": "single_choice",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Khớp TL06 R88.",
+      "sourceRef": "TL06 R88/STT 92 (ho_tro_gia_dinh); TL06 R191/STT 195 (ho_tro_nguoi_cham_soc_medsafety)",
+      "options": [
+        {
+          "id": "f61c457b-784e-5f65-9c40-39fbbd4449de",
+          "fieldDefinitionId": "7b27bd34-c09b-57f4-b8d1-bd95856d67b1",
+          "optionCode": "tot",
+          "labelVi": "Tốt",
+          "displayOrder": 1,
+          "isActive": true
+        },
+        {
+          "id": "6d5a9206-be65-5565-8bb3-1a5dbe8fe5d2",
+          "fieldDefinitionId": "7b27bd34-c09b-57f4-b8d1-bd95856d67b1",
+          "optionCode": "trung_binh",
+          "labelVi": "Trung bình",
+          "displayOrder": 2,
+          "isActive": true
+        },
+        {
+          "id": "abcda6bf-b646-569b-93e2-09af9facf73d",
+          "fieldDefinitionId": "7b27bd34-c09b-57f4-b8d1-bd95856d67b1",
+          "optionCode": "it_khong",
+          "labelVi": "Ít/Không",
+          "displayOrder": 3,
+          "isActive": true
+        }
+      ],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "7b27bd34-c09b-57f4-b8d1-bd95856d67b1",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 92"
+        },
+        {
+          "fieldDefinitionId": "7b27bd34-c09b-57f4-b8d1-bd95856d67b1",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 195"
+        }
+      ]
+    },
+    {
+      "id": "233ff63e-af9d-5432-86c4-618c07d117fc",
+      "code": "lao_khoa_frailty",
+      "labelVi": "Đánh giá suy yếu (Frailty)",
+      "sectionCode": "lao_khoa",
+      "dataType": "text",
+      "canonicalUnit": null,
+      "scopeStatus": "can_xac_nhan",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Chờ chốt thang đo CFS 1–9 vs Fried/FRAIL (Q-AI-01); tuyệt đối không tự bịa.",
+      "sourceRef": "TL06 R37/STT 36 (frailty); TL06 R108/STT 112 (frailty_hop_tac_xet_nghiem); TL06 R162/STT 166 (frailty_treatment); TL06 R186/STT 190 (frailty_medsafety)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "233ff63e-af9d-5432-86c4-618c07d117fc",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 36"
+        },
+        {
+          "fieldDefinitionId": "233ff63e-af9d-5432-86c4-618c07d117fc",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": false,
+          "sourceSttRefs": "STT 112"
+        },
+        {
+          "fieldDefinitionId": "233ff63e-af9d-5432-86c4-618c07d117fc",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 190"
+        },
+        {
+          "fieldDefinitionId": "233ff63e-af9d-5432-86c4-618c07d117fc",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 166"
+        }
+      ]
+    },
+    {
+      "id": "b9452097-18b8-504b-b1a6-1a1b278daa55",
+      "code": "lao_khoa_chuc_nang_nhan_thuc",
+      "labelVi": "Chức năng nhận thức",
+      "sectionCode": "lao_khoa",
+      "dataType": "text",
+      "canonicalUnit": null,
+      "scopeStatus": "can_xac_nhan",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Chờ chốt thang đo MMSE/MoCA/Mini-Cog hay phân loại lâm sàng (Q-AI-02).",
+      "sourceRef": "TL06 R38/STT 38 (chuc_nang_nhan_thuc); TL06 R108/STT 112 (frailty_hop_tac_xet_nghiem); TL06 R163/STT 167 (nhan_thuc_treatment); TL06 R187/STT 191 (nhan_thuc_tien_su_sang)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "b9452097-18b8-504b-b1a6-1a1b278daa55",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 38"
+        },
+        {
+          "fieldDefinitionId": "b9452097-18b8-504b-b1a6-1a1b278daa55",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": false,
+          "sourceSttRefs": "STT 112"
+        },
+        {
+          "fieldDefinitionId": "b9452097-18b8-504b-b1a6-1a1b278daa55",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 191"
+        },
+        {
+          "fieldDefinitionId": "b9452097-18b8-504b-b1a6-1a1b278daa55",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 167"
+        }
+      ]
+    },
+    {
+      "id": "2922f744-4462-5fc0-a081-e99447a11c77",
+      "code": "lao_khoa_nguy_co_te_nga",
+      "labelVi": "Nguy cơ té ngã",
+      "sectionCode": "lao_khoa",
+      "dataType": "text",
+      "canonicalUnit": null,
+      "scopeStatus": "can_xac_nhan",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Chờ chốt công cụ đánh giá tại cơ sở (Q-AI-04).",
+      "sourceRef": "TL06 R40/STT 40 (nguy_co_te_nga); TL06 R165/STT 169 (nguy_co_te_nga_hha)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "2922f744-4462-5fc0-a081-e99447a11c77",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 40"
+        },
+        {
+          "fieldDefinitionId": "2922f744-4462-5fc0-a081-e99447a11c77",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 169"
+        }
+      ]
+    },
+    {
+      "id": "9c2fd5f2-125d-5a96-a9a4-8a48ded96d2f",
+      "code": "lao_khoa_tinh_trang_dinh_duong",
+      "labelVi": "Tình trạng dinh dưỡng",
+      "sectionCode": "lao_khoa",
+      "dataType": "text",
+      "canonicalUnit": null,
+      "scopeStatus": "can_xac_nhan",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Chờ chốt thang MNA-SF hay phân loại định tính (Q-AI-05).",
+      "sourceRef": "TL06 R41/STT 41 (tinh_trang_dinh_duong); TL06 R166/STT 170 (dinh_duong_sarcopenia); TL06 R190/STT 194 (dinh_duong_can_nang_sarcopenia)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "9c2fd5f2-125d-5a96-a9a4-8a48ded96d2f",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 41"
+        },
+        {
+          "fieldDefinitionId": "9c2fd5f2-125d-5a96-a9a4-8a48ded96d2f",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 194"
+        },
+        {
+          "fieldDefinitionId": "9c2fd5f2-125d-5a96-a9a4-8a48ded96d2f",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 170"
+        }
+      ]
+    },
+    {
+      "id": "097ecb28-667e-5464-b772-d2f0afb307e1",
+      "code": "xh_khoang_cach_co_so_y_te",
+      "labelVi": "Khoảng cách đến cơ sở y tế",
+      "sectionCode": "lao_khoa",
+      "dataType": "number",
+      "canonicalUnit": "km",
+      "scopeStatus": "can_xac_nhan",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": 0,
+      "maxValue": 1000,
+      "helpText": "Chờ chốt nhập số km hay phân nhóm Gần/Trung bình/Xa (Q-AI-20).",
+      "sourceRef": "TL06 R87/STT 91 (khoang_cach_co_so_y_te)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "097ecb28-667e-5464-b772-d2f0afb307e1",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": false,
+          "sourceSttRefs": "STT 91"
+        }
+      ]
+    },
+    {
+      "id": "88b17e13-6690-5c15-94ec-f74466490049",
+      "code": "kha_nang_hop_tac_xet_nghiem",
+      "labelVi": "Khả năng hợp tác thực hiện xét nghiệm",
+      "sectionCode": "lao_khoa",
+      "dataType": "text",
+      "canonicalUnit": null,
+      "scopeStatus": "can_xac_nhan",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Chờ chốt danh mục lựa chọn (Q-AI-24).",
+      "sourceRef": "TL06 R108/STT 112 (frailty_hop_tac_xet_nghiem)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "88b17e13-6690-5c15-94ec-f74466490049",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": false,
+          "sourceSttRefs": "STT 112"
+        }
+      ]
+    },
+    {
+      "id": "10a89a5b-4edf-53ad-9634-a742c86626d6",
+      "code": "kha_nang_gang_suc_tham_do_xam_lan",
+      "labelVi": "Khả năng chịu đựng nghiệm pháp gắng sức / xâm lấn",
+      "sectionCode": "lao_khoa",
+      "dataType": "text",
+      "canonicalUnit": null,
+      "scopeStatus": "can_xac_nhan",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Chờ chốt danh mục lựa chọn (Q-AI-24).",
+      "sourceRef": "TL06 R115/STT 119 (kha_nang_gang_suc_tham_do)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "10a89a5b-4edf-53ad-9634-a742c86626d6",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": false,
+          "sourceSttRefs": "STT 119"
+        }
+      ]
+    },
+    {
+      "id": "6f2d7f3f-caa4-5170-8794-0485b5e5bb69",
+      "code": "kha_nang_thuc_hien_xet_nghiem",
+      "labelVi": "Khả năng thực hiện xét nghiệm tại cơ sở",
+      "sectionCode": "lao_khoa",
+      "dataType": "text",
+      "canonicalUnit": null,
+      "scopeStatus": "can_xac_nhan",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Chờ chốt danh mục lựa chọn (Q-AI-24).",
+      "sourceRef": "TL06 R116/STT 120 (muc_tieu_kha_nang_xet_nghiem)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "6f2d7f3f-caa4-5170-8794-0485b5e5bb69",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": false,
+          "sourceSttRefs": "STT 120"
+        }
+      ]
+    },
+    {
+      "id": "88e58f1a-5dfa-541c-a175-02371250be7a",
+      "code": "lao_khoa_adl_iadl",
+      "labelVi": "Khả năng thực hiện ADL/IADL",
+      "sectionCode": "lao_khoa",
+      "dataType": "text",
+      "canonicalUnit": null,
+      "scopeStatus": "can_xac_nhan",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Khuyết ở M1 TL06 nhưng có ở M3 R164; chờ chốt thang Katz/Barthel/Lawton (Q-AI-03).",
+      "sourceRef": "TL06 R164/STT 168 (adl_iadl_treatment)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "88e58f1a-5dfa-541c-a175-02371250be7a",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 168"
+        }
+      ]
+    },
+    {
+      "id": "6969a5bf-c330-597d-8a84-58de8fdfc958",
+      "code": "lao_khoa_kha_nang_nuot",
+      "labelVi": "Khả năng nuốt",
+      "sectionCode": "lao_khoa",
+      "dataType": "text",
+      "canonicalUnit": null,
+      "scopeStatus": "can_xac_nhan",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Chờ chốt danh sách lựa chọn từ Model 4 R189 (Q-AI-06).",
+      "sourceRef": "TL06 R189/STT 193 (kha_nang_nuot_tu_dung_thuoc)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "6969a5bf-c330-597d-8a84-58de8fdfc958",
+          "aiModuleCode": "ai_medsafety",
+          "isRequired": false,
+          "sourceSttRefs": "STT 193"
+        }
+      ]
+    },
+    {
+      "id": "3c70cdb8-2b39-5691-a19c-4431fb27f840",
+      "code": "muc_tieu_dieu_tri",
+      "labelVi": "Mục tiêu điều trị ưu tiên",
+      "sectionCode": "ghi_chu",
+      "dataType": "multi_choice",
+      "canonicalUnit": null,
+      "scopeStatus": "can_xac_nhan",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Kiểu multi_choice lưu tại visit_value_option (CR-W1-01); chờ chốt phạm vi MVP (Q-AI-25).",
+      "sourceRef": "TL06 R116/STT 120 (muc_tieu_kha_nang_xet_nghiem); TL06 R168/STT 172 (muc_tieu_dieu_tri)",
+      "options": [
+        {
+          "id": "f5b8f3d4-6c18-5fe8-a4d6-ce9c65a811ca",
+          "fieldDefinitionId": "3c70cdb8-2b39-5691-a19c-4431fb27f840",
+          "optionCode": "keo_dai_song",
+          "labelVi": "Kéo dài thời gian sống",
+          "displayOrder": 1,
+          "isActive": true
+        },
+        {
+          "id": "7dc05146-59b4-5f65-ad8f-52e9c949b1cd",
+          "fieldDefinitionId": "3c70cdb8-2b39-5691-a19c-4431fb27f840",
+          "optionCode": "giam_nhap_vien",
+          "labelVi": "Giảm nhập viện",
+          "displayOrder": 2,
+          "isActive": true
+        },
+        {
+          "id": "8ccd2bbd-b238-57f1-b460-01b8e31b6798",
+          "fieldDefinitionId": "3c70cdb8-2b39-5691-a19c-4431fb27f840",
+          "optionCode": "giam_trieu_chung",
+          "labelVi": "Giảm triệu chứng",
+          "displayOrder": 3,
+          "isActive": true
+        },
+        {
+          "id": "e5a7087f-87fa-5564-a974-23e91f94b263",
+          "fieldDefinitionId": "3c70cdb8-2b39-5691-a19c-4431fb27f840",
+          "optionCode": "duy_tri_chuc_nang",
+          "labelVi": "Duy trì chức năng",
+          "displayOrder": 4,
+          "isActive": true
+        },
+        {
+          "id": "f3a24ec2-87d7-5280-b81e-5cbb7b641ccb",
+          "fieldDefinitionId": "3c70cdb8-2b39-5691-a19c-4431fb27f840",
+          "optionCode": "nang_cao_chat_luong_song",
+          "labelVi": "Nâng cao chất lượng sống",
+          "displayOrder": 5,
+          "isActive": true
+        },
+        {
+          "id": "704d344f-c03b-5c40-b6da-d739624f6bd4",
+          "fieldDefinitionId": "3c70cdb8-2b39-5691-a19c-4431fb27f840",
+          "optionCode": "cham_soc_giam_nhe",
+          "labelVi": "Chăm sóc giảm nhẹ",
+          "displayOrder": 6,
+          "isActive": true
+        }
+      ],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "3c70cdb8-2b39-5691-a19c-4431fb27f840",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": false,
+          "sourceSttRefs": "STT 120"
+        },
+        {
+          "fieldDefinitionId": "3c70cdb8-2b39-5691-a19c-4431fb27f840",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 172"
+        }
+      ]
+    },
+    {
+      "id": "34d18f70-403f-518d-923d-99ac3763fb69",
+      "code": "chan_doan_stage_suy_tim",
+      "labelVi": "Giai đoạn suy tim (Stage A–D)",
+      "sectionCode": "ghi_chu",
+      "dataType": "single_choice",
+      "canonicalUnit": null,
+      "scopeStatus": "can_xac_nhan",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Chờ xác nhận bác sĩ tự nhập hay nhận từ Model 1 giai đoạn sau (Q-AI-25).",
+      "sourceRef": "TL06 R146/STT 150 (stage_suy_tim)",
+      "options": [
+        {
+          "id": "9a7b45a9-d19b-5b9d-a415-56763bdcd738",
+          "fieldDefinitionId": "34d18f70-403f-518d-923d-99ac3763fb69",
+          "optionCode": "stage_a",
+          "labelVi": "Stage A",
+          "displayOrder": 1,
+          "isActive": true
+        },
+        {
+          "id": "d96b4e93-54d2-55b7-8215-b6543e866bb9",
+          "fieldDefinitionId": "34d18f70-403f-518d-923d-99ac3763fb69",
+          "optionCode": "stage_b",
+          "labelVi": "Stage B",
+          "displayOrder": 2,
+          "isActive": true
+        },
+        {
+          "id": "e10e919b-d06d-53e0-9d8a-05afbe7dacf1",
+          "fieldDefinitionId": "34d18f70-403f-518d-923d-99ac3763fb69",
+          "optionCode": "stage_c",
+          "labelVi": "Stage C",
+          "displayOrder": 3,
+          "isActive": true
+        },
+        {
+          "id": "75acc989-d624-58d1-88d5-234f9e14b9f9",
+          "fieldDefinitionId": "34d18f70-403f-518d-923d-99ac3763fb69",
+          "optionCode": "stage_d",
+          "labelVi": "Stage D",
+          "displayOrder": 4,
+          "isActive": true
+        }
+      ],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "34d18f70-403f-518d-923d-99ac3763fb69",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 150"
+        }
+      ]
+    },
+    {
+      "id": "e1682ea7-28dd-5846-93c0-8898d95229e5",
+      "code": "chan_doan_kieu_hinh_ef",
+      "labelVi": "Kiểu hình suy tim theo EF",
+      "sectionCode": "ghi_chu",
+      "dataType": "single_choice",
+      "canonicalUnit": null,
+      "scopeStatus": "can_xac_nhan",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Chờ xác nhận bổ sung HFmrEF (41–49%) bị thiếu trong TL06 (Q-AI-11).",
+      "sourceRef": "TL06 R147/STT 151 (ef_treatment)",
+      "options": [
+        {
+          "id": "0843e10b-b319-55b6-a91c-c75f0f592835",
+          "fieldDefinitionId": "e1682ea7-28dd-5846-93c0-8898d95229e5",
+          "optionCode": "hfref",
+          "labelVi": "EF giảm",
+          "displayOrder": 1,
+          "isActive": true
+        },
+        {
+          "id": "c12c247e-83c3-5e53-9c63-014b5c7f2fc9",
+          "fieldDefinitionId": "e1682ea7-28dd-5846-93c0-8898d95229e5",
+          "optionCode": "hfpef",
+          "labelVi": "EF bảo tồn",
+          "displayOrder": 2,
+          "isActive": true
+        },
+        {
+          "id": "b05b7e08-1f37-5224-8e9c-3c6149cfea63",
+          "fieldDefinitionId": "e1682ea7-28dd-5846-93c0-8898d95229e5",
+          "optionCode": "hfimef",
+          "labelVi": "EF cải thiện",
+          "displayOrder": 3,
+          "isActive": true
+        },
+        {
+          "id": "c58a9b18-cc13-5213-bfb3-d66815fb44f2",
+          "fieldDefinitionId": "e1682ea7-28dd-5846-93c0-8898d95229e5",
+          "optionCode": "unclassified",
+          "labelVi": "Chưa phân loại do thiếu EF",
+          "displayOrder": 4,
+          "isActive": true
+        }
+      ],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "e1682ea7-28dd-5846-93c0-8898d95229e5",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 151"
+        }
+      ]
+    },
+    {
+      "id": "765dac8f-692c-54a5-b5cc-46ef785af1b5",
+      "code": "chan_doan_nguyen_nhan_suy_tim",
+      "labelVi": "Nguyên nhân suy tim trước điều trị",
+      "sectionCode": "ghi_chu",
+      "dataType": "text",
+      "canonicalUnit": null,
+      "scopeStatus": "can_xac_nhan",
+      "storageLevel": "visit_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "helpText": "Chờ chốt danh mục nguyên nhân hay nhận từ Model 1 (Q-AI-25).",
+      "sourceRef": "TL06 R148/STT 152 (nguyen_nhan_treatment)",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "765dac8f-692c-54a5-b5cc-46ef785af1b5",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": false,
+          "sourceSttRefs": "STT 152"
+        }
+      ]
+    }
+  ]
+}

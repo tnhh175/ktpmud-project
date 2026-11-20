@@ -1,0 +1,339 @@
+@startuml erd-heart-failure-mvp
+!pragma layout smetana
+hide circle
+skinparam linetype ortho
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam shadowing false
+skinparam roundcorner 6
+skinparam class {
+  BackgroundColor #FFFFFF
+  HeaderBackgroundColor #DBEAFE
+  BorderColor #1D4ED8
+  FontColor #1E3A8A
+  AttributeFontColor #0F172A
+  ArrowColor #1D4ED8
+}
+skinparam entity {
+  BackgroundColor #FFFFFF
+  HeaderBackgroundColor #DBEAFE
+  BorderColor #1D4ED8
+  FontColor #1E3A8A
+}
+skinparam package {
+  BackgroundColor #F8FAFC
+  BorderColor #93C5FD
+  FontColor #1E3A8A
+}
+skinparam sequence {
+  ArrowColor #1D4ED8
+  LifeLineBorderColor #64748B
+  LifeLineBackgroundColor #DBEAFE
+  ParticipantBorderColor #1D4ED8
+  ParticipantBackgroundColor #DBEAFE
+  ParticipantFontColor #1E3A8A
+  ActorBorderColor #1D4ED8
+  ActorBackgroundColor #DBEAFE
+  ActorFontColor #1E3A8A
+  GroupBorderColor #1D4ED8
+  GroupHeaderFontColor #1E3A8A
+  GroupBackgroundColor #DBEAFE
+  BoxBorderColor #93C5FD
+  BoxBackgroundColor #F8FAFC
+}
+skinparam note {
+  BackgroundColor #EFF6FF
+  BorderColor #2563EB
+  FontColor #1E3A8A
+}
+
+title ERD — Hệ thống Thu thập & Xác nhận Dữ liệu Suy tim Trước AI (MVP · 19 bảng chuẩn 3NF)
+
+entity "app_user" as app_user {
+  * id : uuid <<PK>>
+  --
+  * username : varchar(64) <<UQ>>
+  * password_hash : text
+  * full_name : varchar(120)
+  * role : user_role
+  * is_active : boolean
+  * created_at : timestamptz
+  * updated_at : timestamptz
+}
+
+entity "user_session" as user_session {
+  * id : uuid <<PK>>
+  --
+  * user_id : uuid <<FK>>
+  * refresh_token_hash : varchar(128) <<UQ>>
+  * expires_at : timestamptz
+    revoked_at : timestamptz
+    ip : inet
+    user_agent : varchar(255)
+  * created_at : timestamptz
+}
+
+entity "patient" as patient {
+  * id : uuid <<PK>>
+  --
+  * patient_code : varchar(16) <<UQ>>
+    external_patient_code : varchar(64)
+  * full_name : varchar(120)
+  * sex : varchar(16)
+    birth_date : date
+    birth_year : smallint
+    declared_age : smallint
+  * row_version : integer
+  * created_by : uuid <<FK>>
+  * created_at : timestamptz
+  * updated_at : timestamptz
+}
+
+entity "field_definition" as field_definition {
+  * id : uuid <<PK>>
+  --
+  * code : varchar(80) <<UQ>>
+  * label_vi : varchar(200)
+  * section_code : section_code
+  * data_type : field_data_type
+    canonical_unit : varchar(40)
+  * scope_status : field_scope_status
+  * storage_level : varchar(24)
+  * is_calculated : boolean
+    min_value : numeric
+    max_value : numeric
+    validation_rule : jsonb
+    help_text : text
+  * source_ref : text
+  * created_at : timestamptz
+  * updated_at : timestamptz
+}
+
+entity "field_option" as field_option {
+  * id : uuid <<PK>>
+  --
+  * field_definition_id : uuid <<FK>>
+  * option_code : varchar(64)
+  * label_vi : varchar(160)
+  * display_order : smallint
+  * is_active : boolean
+}
+
+entity "field_ai_module" as field_ai_module {
+  * field_definition_id : uuid <<PK,FK>>
+  * ai_module_code : varchar(32) <<PK>>
+  --
+  * is_required : boolean
+    source_stt_refs : text
+}
+
+entity "form_template" as form_template {
+  * id : uuid <<PK>>
+  --
+  * code : varchar(64) <<UQ>>
+  * name : varchar(160)
+    description : text
+  * is_active : boolean
+  * created_at : timestamptz
+}
+
+entity "form_version" as form_version {
+  * id : uuid <<PK>>
+  --
+  * form_template_id : uuid <<FK>>
+  * version_no : integer
+  * version_label : varchar(32)
+  * status : form_version_status
+    based_on_version_id : uuid <<FK>>
+    change_note : text
+  * created_by : uuid <<FK>>
+  * created_at : timestamptz
+    published_at : timestamptz
+    published_by : uuid <<FK>>
+  * row_version : integer
+}
+
+entity "form_section" as form_section {
+  * id : uuid <<PK>>
+  --
+  * form_version_id : uuid <<FK>>
+  * section_code : section_code
+  * title_vi : varchar(160)
+    description : text
+  * display_order : smallint
+}
+
+entity "form_field" as form_field {
+  * id : uuid <<PK>>
+  --
+  * form_version_id : uuid <<FK>>
+  * form_section_id : uuid <<FK>>
+  * field_definition_id : uuid <<FK>>
+  * display_order : smallint
+  * required_for_confirm : boolean
+  * is_visible : boolean
+  * is_readonly : boolean
+    custom_label_vi : varchar(200)
+    custom_help_text : text
+}
+
+entity "visit" as visit {
+  * id : uuid <<PK>>
+  --
+  * visit_code : varchar(24) <<UQ>>
+    external_visit_code : varchar(64)
+  * patient_id : uuid <<FK>>
+  * form_version_id : uuid <<FK>>
+  * visit_date : timestamptz
+  * visit_type : varchar(32)
+    chief_complaint : text
+    clinical_note : text
+    info_source : varchar(64)
+  * status : visit_status
+  * current_revision_no : integer
+  * created_by : uuid <<FK>>
+  * created_at : timestamptz
+  * updated_at : timestamptz
+    confirmed_at : timestamptz
+    confirmed_by : uuid <<FK>>
+    confirm_note : text
+  * row_version : integer
+}
+
+entity "visit_value" as visit_value {
+  * visit_id : uuid <<PK,FK>>
+  * field_definition_id : uuid <<PK,FK>>
+  --
+  * value_state : value_state
+    value_num : numeric
+    value_text : text
+    value_bool : boolean
+    value_date : date
+    field_option_id : uuid <<FK>>
+    unit : varchar(40)
+  * updated_at : timestamptz
+}
+
+entity "visit_value_option" as visit_value_option {
+  * visit_id : uuid <<PK,FK>>
+  * field_definition_id : uuid <<PK,FK>>
+  * field_option_id : uuid <<PK,FK>>
+  --
+}
+
+entity "visit_orthostatic_bp" as visit_orthostatic_bp {
+  * id : uuid <<PK>>
+  --
+  * visit_id : uuid <<FK>>
+  * position : bp_position
+    minute_after : smallint
+  * systolic : smallint
+  * diastolic : smallint
+    heart_rate : smallint
+  * measured_at : timestamptz
+    note : text
+  * created_at : timestamptz
+}
+
+entity "visit_medication" as visit_medication {
+  * id : uuid <<PK>>
+  --
+  * visit_id : uuid <<FK>>
+  * medication_group : varchar(32)
+  * drug_name : varchar(160)
+    active_ingredient : varchar(160)
+    strength : varchar(64)
+    dose : numeric
+    unit : varchar(32)
+    frequency : varchar(80)
+    route : varchar(32)
+  * status : varchar(24)
+    started_at : date
+    note : text
+  * created_at : timestamptz
+}
+
+entity "visit_allergy" as visit_allergy {
+  * id : uuid <<PK>>
+  --
+  * visit_id : uuid <<FK>>
+  * kind : varchar(24)
+  * agent_category : varchar(32)
+  * allergen : varchar(160)
+    reaction : text
+  * severity : varchar(24)
+    recorded_at : timestamptz
+    note : text
+  * created_at : timestamptz
+}
+
+entity "visit_lab_result" as visit_lab_result {
+  * id : uuid <<PK>>
+  --
+  * visit_id : uuid <<FK>>
+  * lab_code : varchar(80) <<FK>>
+    lab_subtype : varchar(64)
+    value_num : numeric
+    value_text : text
+    unit : varchar(40)
+  * measured_at : timestamptz
+    note : text
+  * created_at : timestamptz
+}
+
+entity "visit_revision" as visit_revision {
+  * id : uuid <<PK>>
+  --
+  * visit_id : uuid <<FK>>
+  * revision_no : integer
+  * form_version_id : uuid <<FK>>
+  * revision_type : varchar(32)
+  * change_reason : text
+  * snapshot_data : jsonb
+  * created_by : uuid <<FK>>
+  * created_at : timestamptz
+}
+
+entity "audit_log" as audit_log {
+  * id : uuid <<PK>>
+  --
+    actor_user_id : uuid <<FK>>
+  * action : audit_action
+  * entity_type : varchar(64)
+    entity_id : uuid
+  * occurred_at : timestamptz
+    ip : inet
+    request_id : varchar(64)
+  * outcome : varchar(16)
+  * detail : jsonb
+}
+
+app_user ||--o{ user_session : "user_id"
+app_user |o--o{ audit_log : "actor_user_id"
+app_user ||--o{ patient : "created_by"
+app_user ||--o{ visit : "created_by / confirmed_by"
+app_user ||--o{ form_version : "created_by / published_by"
+app_user ||--o{ visit_revision : "created_by"
+form_template ||--o{ form_version : "form_template_id"
+form_version |o--o{ form_version : "based_on_version_id"
+form_version ||--|{ form_section : "form_version_id"
+form_section ||--o{ form_field : "(form_section_id, form_version_id)"
+field_definition ||--o{ form_field : "field_definition_id"
+field_definition ||--o{ field_option : "field_definition_id"
+field_definition ||--o{ field_ai_module : "field_definition_id"
+patient ||--o{ visit : "patient_id"
+form_version ||--o{ visit : "form_version_id (immutable)"
+form_version ||--o{ visit_revision : "form_version_id"
+visit ||--o{ visit_revision : "visit_id"
+visit ||--o{ visit_value : "visit_id"
+field_definition ||--o{ visit_value : "field_definition_id"
+field_option |o--o{ visit_value : "(field_option_id, field_definition_id)"
+visit_value ||--o{ visit_value_option : "(visit_id, field_definition_id)"
+field_option ||--o{ visit_value_option : "(field_option_id, field_definition_id)"
+visit ||--o{ visit_orthostatic_bp : "visit_id"
+visit ||--o{ visit_medication : "visit_id"
+visit ||--o{ visit_allergy : "visit_id"
+visit ||--o{ visit_lab_result : "visit_id"
+field_definition ||--o{ visit_lab_result : "lab_code -> code"
+@enduml

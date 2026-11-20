@@ -1,0 +1,55 @@
+{
+  "rowVersion": 1,
+  "values": [
+    {
+      "visitId": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+      "fieldDefinitionId": "11111111-1111-4111-8111-111111111101",
+      "fieldCode": "chieu_cao",
+      "valueState": "answered",
+      "valueNum": 162.0,
+      "valueText": null,
+      "valueBool": null,
+      "valueDate": null,
+      "fieldOptionId": null,
+      "unit": "cm"
+    },
+    {
+      "visitId": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+      "fieldDefinitionId": "11111111-1111-4111-8111-111111111102",
+      "fieldCode": "so_lan_cap_cuu_nhap_vien",
+      "valueState": "answered",
+      "valueNum": 0,
+      "valueText": null,
+      "valueBool": null,
+      "valueDate": null,
+      "fieldOptionId": null,
+      "unit": "lần"
+    },
+    {
+      "visitId": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+      "fieldDefinitionId": "11111111-1111-4111-8111-111111111103",
+      "fieldCode": "tien_su_hoa_tri_Xa_tri_thuoc_doc_tim",
+      "valueState": "unknown",
+      "valueNum": null,
+      "valueText": null,
+      "valueBool": null,
+      "valueDate": null,
+      "fieldOptionId": null,
+      "unit": null
+    }
+  ],
+  "orthostaticBp": [
+    {
+      "visitId": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+      "position": "sitting",
+      "minuteAfter": 0,
+      "systolic": 122,
+      "diastolic": 76,
+      "heartRate": 75,
+      "measuredAt": "2026-11-19T09:15:00Z"
+    }
+  ],
+  "medications": [],
+  "allergies": [],
+  "labResults": []
+}

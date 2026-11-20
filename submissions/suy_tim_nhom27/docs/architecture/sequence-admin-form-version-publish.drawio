@@ -1,0 +1,493 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mxfile host="app.diagrams.net" modified="2026-11-21T02:00:00.000Z" agent="uml-architect" version="24.7.0" type="device">
+  <diagram id="sequence-admin-form-version-publish" name="Sequence 3 — Luồng Admin: Tạo nháp Form → Sửa → Xem trước → So sánh → Phát hành">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1640" pageHeight="2060" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="diagram_title" value="&lt;div style='font-size:18px;font-weight:700;color:#1E3A8A'&gt;Sequence Diagram 3 — Luồng Admin: Tạo bản nháp Form → Chỉnh sửa → Xem trước → Diff → Phát hành&lt;/div&gt;&lt;div style='font-size:12px;font-weight:400;color:#475569;margin-top:3px'&gt;Khớp CONTRACT.md §4.3 &amp;amp; Mục 6.3 bàn giao: createFormVersionDraft, updateFormVersion, previewFormVersion, diffFormVersion, publishFormVersion | Chặn sửa bản published (409 + Trigger K4)&lt;/div&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=2;fontColor=#1E3A8A;fontFamily=Segoe UI;align=left;verticalAlign=middle;spacingLeft=18;spacingRight=18;" vertex="1" parent="1">
+          <mxGeometry x="30" y="16" width="1580" height="62" as="geometry"/>
+        </mxCell>
+        <mxCell id="p_top_adm" value="&lt;div style='font-size:12.5px;font-weight:700;color:#1E3A8A'&gt;Quản trị viên (Admin)&lt;/div&gt;&lt;div style='font-size:10.5px;color:#1E40AF'&gt;Actor · M7&lt;/div&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=2;fontColor=#1E3A8A;fontFamily=Segoe UI;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="57.0" y="98" width="216" height="54" as="geometry"/>
+        </mxCell>
+        <mxCell id="p_bot_adm" value="&lt;div style='font-size:12.5px;font-weight:700;color:#1E3A8A'&gt;Quản trị viên (Admin)&lt;/div&gt;&lt;div style='font-size:10.5px;color:#1E40AF'&gt;Actor · M7&lt;/div&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=2;fontColor=#1E3A8A;fontFamily=Segoe UI;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="57.0" y="1945" width="216" height="54" as="geometry"/>
+        </mxCell>
+        <mxCell id="ll_adm" value="" style="endArrow=none;dashed=1;dashPattern=6 4;strokeWidth=1.5;strokeColor=#64748B;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="165" y="152" as="sourcePoint"/>
+            <mxPoint x="165" y="1945" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="p_top_ui" value="&lt;div style='font-size:12.5px;font-weight:700;color:#1E3A8A'&gt;Web UI (M7 Form Studio)&lt;/div&gt;&lt;div style='font-size:10.5px;color:#1E40AF'&gt;Editor / Preview / Diff&lt;/div&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=2;fontColor=#1E3A8A;fontFamily=Segoe UI;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="362.0" y="98" width="216" height="54" as="geometry"/>
+        </mxCell>
+        <mxCell id="p_bot_ui" value="&lt;div style='font-size:12.5px;font-weight:700;color:#1E3A8A'&gt;Web UI (M7 Form Studio)&lt;/div&gt;&lt;div style='font-size:10.5px;color:#1E40AF'&gt;Editor / Preview / Diff&lt;/div&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=2;fontColor=#1E3A8A;fontFamily=Segoe UI;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="362.0" y="1945" width="216" height="54" as="geometry"/>
+        </mxCell>
+        <mxCell id="ll_ui" value="" style="endArrow=none;dashed=1;dashPattern=6 4;strokeWidth=1.5;strokeColor=#64748B;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="470" y="152" as="sourcePoint"/>
+            <mxPoint x="470" y="1945" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="p_top_api" value="&lt;div style='font-size:12.5px;font-weight:700;color:#1E3A8A'&gt;API Gateway &amp;amp; RBAC&lt;/div&gt;&lt;div style='font-size:10.5px;color:#1E40AF'&gt;/api/v1/admin · JWT + ETag&lt;/div&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=2;fontColor=#1E3A8A;fontFamily=Segoe UI;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="692.0" y="98" width="216" height="54" as="geometry"/>
+        </mxCell>
+        <mxCell id="p_bot_api" value="&lt;div style='font-size:12.5px;font-weight:700;color:#1E3A8A'&gt;API Gateway &amp;amp; RBAC&lt;/div&gt;&lt;div style='font-size:10.5px;color:#1E40AF'&gt;/api/v1/admin · JWT + ETag&lt;/div&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=2;fontColor=#1E3A8A;fontFamily=Segoe UI;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="692.0" y="1945" width="216" height="54" as="geometry"/>
+        </mxCell>
+        <mxCell id="ll_api" value="" style="endArrow=none;dashed=1;dashPattern=6 4;strokeWidth=1.5;strokeColor=#64748B;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="800" y="152" as="sourcePoint"/>
+            <mxPoint x="800" y="1945" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="p_top_svc" value="&lt;div style='font-size:12.5px;font-weight:700;color:#1E3A8A'&gt;FormVersionService&lt;/div&gt;&lt;div style='font-size:10.5px;color:#1E40AF'&gt;Draft, Preview, Diff &amp;amp; Publish&lt;/div&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=2;fontColor=#1E3A8A;fontFamily=Segoe UI;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1027.0" y="98" width="216" height="54" as="geometry"/>
+        </mxCell>
+        <mxCell id="p_bot_svc" value="&lt;div style='font-size:12.5px;font-weight:700;color:#1E3A8A'&gt;FormVersionService&lt;/div&gt;&lt;div style='font-size:10.5px;color:#1E40AF'&gt;Draft, Preview, Diff &amp;amp; Publish&lt;/div&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=2;fontColor=#1E3A8A;fontFamily=Segoe UI;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1027.0" y="1945" width="216" height="54" as="geometry"/>
+        </mxCell>
+        <mxCell id="ll_svc" value="" style="endArrow=none;dashed=1;dashPattern=6 4;strokeWidth=1.5;strokeColor=#64748B;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1135" y="152" as="sourcePoint"/>
+            <mxPoint x="1135" y="1945" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="p_top_db" value="&lt;div style='font-size:12.5px;font-weight:700;color:#1E3A8A'&gt;PostgreSQL 16&lt;/div&gt;&lt;div style='font-size:10.5px;color:#1E40AF'&gt;form_* + Trigger K4 + Audit&lt;/div&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=2;fontColor=#1E3A8A;fontFamily=Segoe UI;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1357.0" y="98" width="216" height="54" as="geometry"/>
+        </mxCell>
+        <mxCell id="p_bot_db" value="&lt;div style='font-size:12.5px;font-weight:700;color:#1E3A8A'&gt;PostgreSQL 16&lt;/div&gt;&lt;div style='font-size:10.5px;color:#1E40AF'&gt;form_* + Trigger K4 + Audit&lt;/div&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=2;fontColor=#1E3A8A;fontFamily=Segoe UI;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1357.0" y="1945" width="216" height="54" as="geometry"/>
+        </mxCell>
+        <mxCell id="ll_db" value="" style="endArrow=none;dashed=1;dashPattern=6 4;strokeWidth=1.5;strokeColor=#64748B;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1465" y="152" as="sourcePoint"/>
+            <mxPoint x="1465" y="1945" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="phase_11" value="GIAI ĐOẠN 1 — Tạo bản nháp mới từ phiên bản hiện hành (createFormVersionDraft)" style="rounded=1;arcSize=12;whiteSpace=wrap;html=1;fillColor=#1E3A8A;strokeColor=#1E3A8A;fontColor=#FFFFFF;fontFamily=Segoe UI;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacingLeft=12;" vertex="1" parent="1">
+          <mxGeometry x="36" y="172" width="1568" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_12" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="464" y="214" width="12" height="278" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_13" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="794" y="230" width="12" height="250" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_14" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="1129" y="326" width="12" height="140" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_15" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="1459" y="358" width="12" height="88" as="geometry"/>
+        </mxCell>
+        <mxCell id="msg_16" value="1. Chọn phiên bản Đang dùng (v1) -&amp;gt; bấm [+ Tạo bản nháp mới]" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="171" y="220" as="sourcePoint"/>
+            <mxPoint x="464" y="220" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_17" value="2. POST /api/v1/admin/forms/{formId}/versions [createFormVersionDraft] (basedOnVersionId, changeNote)" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="476" y="242" as="sourcePoint"/>
+            <mxPoint x="794" y="242" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="frm_18" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FEF2F2;fillOpacity=35;strokeColor=#DC2626;strokeWidth=1.5;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="430" y="260" width="1130" height="54" as="geometry"/>
+        </mxCell>
+        <mxCell id="ftag_19" value="alt" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#DC2626;strokeWidth=1.4;fontColor=#991B1B;fontFamily=Segoe UI;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="430" y="260" width="72" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="fgrd_20" value="[RBAC Guard: role != &amp;#x27;admin&amp;#x27; -&amp;gt; 403 Forbidden | Đã tồn tại bản draft mở -&amp;gt; 409 Conflict]" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=8;fontFamily=Segoe UI;fontSize=11;fontStyle=1;fontColor=#991B1B;" vertex="1" parent="1">
+          <mxGeometry x="506" y="260" width="1048" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="msg_21" value="403 Forbidden (nếu doctor) HOẶC 409 Conflict (nếu đã có draft chưa phát hành)" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.6;strokeColor=#DC2626;fontFamily=Segoe UI;fontSize=11;fontStyle=1;fontColor=#991B1B;verticalAlign=bottom;labelBackgroundColor=#FEF2F2;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="794" y="298" as="sourcePoint"/>
+            <mxPoint x="476" y="298" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_22" value="3. createDraftFrom(formId, baseVersionId, admin)" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="806" y="336" as="sourcePoint"/>
+            <mxPoint x="1129" y="336" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="frm_23" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#EFF6FF;fillOpacity=35;strokeColor=#1D4ED8;strokeWidth=1.5;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="1060" y="350" width="515" height="102" as="geometry"/>
+        </mxCell>
+        <mxCell id="ftag_24" value="critical" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;fontColor=#1E3A8A;fontFamily=Segoe UI;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1060" y="350" width="90" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="fgrd_25" value="[Giao dịch nguyên tử: BEGIN ... COMMIT — Sao chép sâu sang bản nháp mới]" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=8;fontFamily=Segoe UI;fontSize=11;fontStyle=1;fontColor=#1E3A8A;" vertex="1" parent="1">
+          <mxGeometry x="1154" y="350" width="415" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="msg_26" value="4. BEGIN; INSERT form_version(version_no=base+1, status=&amp;#x27;draft&amp;#x27;, based_on_version_id=baseId, row_version=1)" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1141" y="384" as="sourcePoint"/>
+            <mxPoint x="1459" y="384" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_27" value="5. Deep clone form_section (8 nhóm) &amp;amp; form_field từ baseId; INSERT audit_log(action=&amp;#x27;form_version_create&amp;#x27;)" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1141" y="412" as="sourcePoint"/>
+            <mxPoint x="1459" y="412" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_28" value="COMMIT OK (draftVersionId, row_version=1)" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.4;strokeColor=#2563EB;fontFamily=Segoe UI;fontSize=11;fontColor=#1E40AF;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1459" y="438" as="sourcePoint"/>
+            <mxPoint x="1141" y="438" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_29" value="6. 201 Created + ETag: &amp;quot;1&amp;quot; (Mở trình sửa 3 cột trên bản nháp v2)" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.4;strokeColor=#2563EB;fontFamily=Segoe UI;fontSize=11;fontColor=#1E40AF;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="794" y="472" as="sourcePoint"/>
+            <mxPoint x="476" y="472" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="phase_30" value="GIAI ĐOẠN 2 — Chỉnh sửa bản nháp &amp;amp; Chặn sửa trực tiếp bản đã published (updateFormVersion — K4)" style="rounded=1;arcSize=12;whiteSpace=wrap;html=1;fillColor=#1E3A8A;strokeColor=#1E3A8A;fontColor=#FFFFFF;fontFamily=Segoe UI;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacingLeft=12;" vertex="1" parent="1">
+          <mxGeometry x="36" y="512" width="1568" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_31" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="464" y="552" width="12" height="404" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_32" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="794" y="568" width="12" height="374" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_33" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="1129" y="588" width="12" height="338" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_34" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="1459" y="814" width="12" height="88" as="geometry"/>
+        </mxCell>
+        <mxCell id="msg_35" value="7. Sắp xếp nhóm/trường (Alt+↑/↓), chỉnh nhãn/required_for_confirm -&amp;gt; bấm [Lưu nháp]" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="171" y="558" as="sourcePoint"/>
+            <mxPoint x="464" y="558" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_36" value="8. PATCH /api/v1/admin/form-versions/{versionId} [updateFormVersion] (If-Match: &amp;quot;1&amp;quot;)" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="476" y="580" as="sourcePoint"/>
+            <mxPoint x="794" y="580" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_37" value="9. updateFormVersion(versionId, expectedRowVersion=1, patch)" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="806" y="600" as="sourcePoint"/>
+            <mxPoint x="1129" y="600" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="frm_38" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FEF2F2;fillOpacity=35;strokeColor=#DC2626;strokeWidth=1.5;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="430" y="622" width="1135" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="ftag_39" value="alt" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#DC2626;strokeWidth=1.4;fontColor=#991B1B;fontFamily=Segoe UI;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="430" y="622" width="72" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="fgrd_40" value="[version.status != &amp;#x27;draft&amp;#x27; (đã published/retired) HOẶC DB Trigger K4 chặn UPDATE/DELETE]" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=8;fontFamily=Segoe UI;fontSize=11;fontStyle=1;fontColor=#991B1B;" vertex="1" parent="1">
+          <mxGeometry x="506" y="622" width="1053" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="msg_41" value="Kiểm tra status=&amp;#x27;published&amp;#x27; (tầng DB có trigger trg_form_version_immutable / trg_form_field_immutable)" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1141" y="654" as="sourcePoint"/>
+            <mxPoint x="1459" y="654" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_42" value="409 Conflict (FORM_VERSION_IMMUTABLE: Phiên bản đã phát hành bất biến — hãy tạo bản nháp mới)" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.6;strokeColor=#DC2626;fontFamily=Segoe UI;fontSize=11;fontStyle=1;fontColor=#991B1B;verticalAlign=bottom;labelBackgroundColor=#FEF2F2;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="794" y="678" as="sourcePoint"/>
+            <mxPoint x="476" y="678" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="frm_43" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FEF2F2;fillOpacity=35;strokeColor=#DC2626;strokeWidth=1.5;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="430" y="706" width="800" height="68" as="geometry"/>
+        </mxCell>
+        <mxCell id="ftag_44" value="alt" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#DC2626;strokeWidth=1.4;fontColor=#991B1B;fontFamily=Segoe UI;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="430" y="706" width="72" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="fgrd_45" value="[Lệch If-Match (2 Admin sửa đồng thời) -&amp;gt; 409 | Trùng thứ tự / field_definition_id sai -&amp;gt; 422]" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=8;fontFamily=Segoe UI;fontSize=11;fontStyle=1;fontColor=#991B1B;" vertex="1" parent="1">
+          <mxGeometry x="506" y="706" width="718" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="msg_46" value="ConflictError(409) / ValidationError(422)" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.6;strokeColor=#DC2626;fontFamily=Segoe UI;fontSize=11;fontStyle=1;fontColor=#991B1B;verticalAlign=bottom;labelBackgroundColor=#FEF2F2;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1129" y="738" as="sourcePoint"/>
+            <mxPoint x="806" y="738" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_47" value="409 Conflict (CONCURRENCY_ROW_VERSION_MISMATCH) HOẶC 422 Unprocessable Entity" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.6;strokeColor=#DC2626;fontFamily=Segoe UI;fontSize=11;fontStyle=1;fontColor=#991B1B;verticalAlign=bottom;labelBackgroundColor=#FEF2F2;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="794" y="760" as="sourcePoint"/>
+            <mxPoint x="476" y="760" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="frm_48" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#EFF6FF;fillOpacity=35;strokeColor=#1D4ED8;strokeWidth=1.5;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="1060" y="792" width="515" height="112" as="geometry"/>
+        </mxCell>
+        <mxCell id="ftag_49" value="critical" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;fontColor=#1E3A8A;fontFamily=Segoe UI;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1060" y="792" width="90" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="fgrd_50" value="[Giao dịch nguyên tử: BEGIN ... COMMIT — Cập nhật nháp &amp;amp; Ghi AuditLog]" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=8;fontFamily=Segoe UI;fontSize=11;fontStyle=1;fontColor=#1E3A8A;" vertex="1" parent="1">
+          <mxGeometry x="1154" y="792" width="415" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="msg_51" value="10. BEGIN; UPDATE/UPSERT form_section &amp;amp; form_field cho draftVersionId" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1141" y="826" as="sourcePoint"/>
+            <mxPoint x="1459" y="826" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_52" value="11. UPDATE form_version SET row_version=2 WHERE id=? AND status=&amp;#x27;draft&amp;#x27;; INSERT audit_log(&amp;#x27;form_version_update&amp;#x27;)" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1141" y="854" as="sourcePoint"/>
+            <mxPoint x="1459" y="854" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_53" value="COMMIT OK (row_version = 2)" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.4;strokeColor=#2563EB;fontFamily=Segoe UI;fontSize=11;fontColor=#1E40AF;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1459" y="884" as="sourcePoint"/>
+            <mxPoint x="1141" y="884" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_54" value="12. 200 OK (FormVersionDetailResponse) + ETag: &amp;quot;2&amp;quot; (Cập nhật thành công trên bản nháp)" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.4;strokeColor=#2563EB;fontFamily=Segoe UI;fontSize=11;fontColor=#1E40AF;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="794" y="932" as="sourcePoint"/>
+            <mxPoint x="476" y="932" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="phase_55" value="GIAI ĐOẠN 3 — Xem trước biểu mẫu góc nhìn Bác sĩ (previewFormVersion — Tính động, không lưu bảng)" style="rounded=1;arcSize=12;whiteSpace=wrap;html=1;fillColor=#1E3A8A;strokeColor=#1E3A8A;fontColor=#FFFFFF;fontFamily=Segoe UI;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacingLeft=12;" vertex="1" parent="1">
+          <mxGeometry x="36" y="976" width="1568" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_56" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="464" y="1016" width="12" height="130" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_57" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="794" y="1032" width="12" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_58" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="1129" y="1052" width="12" height="66" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_59" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="1459" y="1068" width="12" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="msg_60" value="13. Chuyển sang Tab [Xem trước góc nhìn Bác sĩ]" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="171" y="1022" as="sourcePoint"/>
+            <mxPoint x="464" y="1022" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_61" value="14. GET /api/v1/admin/form-versions/{versionId}/preview [previewFormVersion]" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="476" y="1042" as="sourcePoint"/>
+            <mxPoint x="794" y="1042" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_62" value="15. buildPreview(versionId)" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="806" y="1060" as="sourcePoint"/>
+            <mxPoint x="1129" y="1060" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_63" value="SELECT form_section JOIN form_field JOIN field_definition LEFT JOIN field_option" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1141" y="1078" as="sourcePoint"/>
+            <mxPoint x="1459" y="1078" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_64" value="Cây biểu mẫu 8 nhóm + catalog + lựa chọn" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.4;strokeColor=#2563EB;fontFamily=Segoe UI;fontSize=11;fontColor=#1E40AF;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1459" y="1096" as="sourcePoint"/>
+            <mxPoint x="1141" y="1096" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_65" value="16. 200 OK (FormVersionPreviewResponse: isPreviewOnly=true, giống 100% getVisitForm)" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.4;strokeColor=#2563EB;fontFamily=Segoe UI;fontSize=11;fontColor=#1E40AF;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="794" y="1126" as="sourcePoint"/>
+            <mxPoint x="476" y="1126" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="phase_66" value="GIAI ĐOẠN 4 — So sánh thay đổi với phiên bản hiện hành (diffFormVersion — Tính động, không lưu bảng)" style="rounded=1;arcSize=12;whiteSpace=wrap;html=1;fillColor=#1E3A8A;strokeColor=#1E3A8A;fontColor=#FFFFFF;fontFamily=Segoe UI;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacingLeft=12;" vertex="1" parent="1">
+          <mxGeometry x="36" y="1168" width="1568" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_67" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="464" y="1208" width="12" height="156" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_68" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="794" y="1224" width="12" height="126" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_69" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="1129" y="1244" width="12" height="92" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_70" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="1459" y="1260" width="12" height="36" as="geometry"/>
+        </mxCell>
+        <mxCell id="msg_71" value="17. Chuyển sang Tab [So sánh thay đổi (Diff) &amp;amp; Phát hành]" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="171" y="1214" as="sourcePoint"/>
+            <mxPoint x="464" y="1214" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_72" value="18. GET /api/v1/admin/form-versions/{versionId}/diff?baseVersionId={baseId} [diffFormVersion]" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="476" y="1234" as="sourcePoint"/>
+            <mxPoint x="794" y="1234" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_73" value="19. computeDiff(versionId, baseVersionId)" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="806" y="1252" as="sourcePoint"/>
+            <mxPoint x="1129" y="1252" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_74" value="SELECT cấu trúc form_section &amp;amp; form_field của cả 2 phiên bản" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1141" y="1270" as="sourcePoint"/>
+            <mxPoint x="1459" y="1270" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_75" value="Cấu trúc baseVersion &amp;amp; draftVersion" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.4;strokeColor=#2563EB;fontFamily=Segoe UI;fontSize=11;fontColor=#1E40AF;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1459" y="1292" as="sourcePoint"/>
+            <mxPoint x="1141" y="1292" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_76" value="Tính FormVersionDiffResponse: hasChanges, +addedFields, ~modifiedFields, -removedFields" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11;fontColor=#0F172A;labelBackgroundColor=#FFFFFF;align=left;spacingLeft=6;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1141" y="1300" as="sourcePoint"/>
+            <mxPoint x="1141" y="1326" as="targetPoint"/>
+            <Array as="points">
+              <mxPoint x="1191" y="1300"/>
+              <mxPoint x="1191" y="1326"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_77" value="20. 200 OK (FormVersionDiffResponse) -&amp;gt; Hiển thị bảng thay đổi để Admin duyệt trước phát hành" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.4;strokeColor=#2563EB;fontFamily=Segoe UI;fontSize=11;fontColor=#1E40AF;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="794" y="1346" as="sourcePoint"/>
+            <mxPoint x="476" y="1346" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="phase_78" value="GIAI ĐOẠN 5 — Phát hành phiên bản mới (publishFormVersion): Retire bản cũ, khóa K4 bản mới &amp;amp; Ghi AuditLog" style="rounded=1;arcSize=12;whiteSpace=wrap;html=1;fillColor=#1E3A8A;strokeColor=#1E3A8A;fontColor=#FFFFFF;fontFamily=Segoe UI;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacingLeft=12;" vertex="1" parent="1">
+          <mxGeometry x="36" y="1388" width="1568" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_79" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="464" y="1428" width="12" height="470" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_80" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="794" y="1444" width="12" height="440" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_81" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="1129" y="1464" width="12" height="404" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_82" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="1459" y="1608" width="12" height="236" as="geometry"/>
+        </mxCell>
+        <mxCell id="msg_83" value="21. Nhập ghi chú phát hành &amp;amp; bấm [Phát hành phiên bản mới]" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="171" y="1434" as="sourcePoint"/>
+            <mxPoint x="464" y="1434" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_84" value="22. POST /api/v1/admin/form-versions/{versionId}/publish [publishFormVersion] (If-Match: &amp;quot;2&amp;quot;)" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="476" y="1454" as="sourcePoint"/>
+            <mxPoint x="794" y="1454" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_85" value="23. publishFormVersion(versionId, expectedRowVersion=2, admin)" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="806" y="1474" as="sourcePoint"/>
+            <mxPoint x="1129" y="1474" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="frm_86" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FEF2F2;fillOpacity=35;strokeColor=#DC2626;strokeWidth=1.5;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="430" y="1496" width="800" height="68" as="geometry"/>
+        </mxCell>
+        <mxCell id="ftag_87" value="alt" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#DC2626;strokeWidth=1.4;fontColor=#991B1B;fontFamily=Segoe UI;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="430" y="1496" width="72" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="fgrd_88" value="[status != &amp;#x27;draft&amp;#x27; HOẶC lệch ETag -&amp;gt; 409 | Bản nháp rỗng / thiếu section hợp lệ -&amp;gt; 422]" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=8;fontFamily=Segoe UI;fontSize=11;fontStyle=1;fontColor=#991B1B;" vertex="1" parent="1">
+          <mxGeometry x="506" y="1496" width="718" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="msg_89" value="ConflictError(409) / ValidationError(422)" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.6;strokeColor=#DC2626;fontFamily=Segoe UI;fontSize=11;fontStyle=1;fontColor=#991B1B;verticalAlign=bottom;labelBackgroundColor=#FEF2F2;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1129" y="1528" as="sourcePoint"/>
+            <mxPoint x="806" y="1528" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_90" value="409 Conflict HOẶC 422 Unprocessable Entity (ProblemDetails)" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.6;strokeColor=#DC2626;fontFamily=Segoe UI;fontSize=11;fontStyle=1;fontColor=#991B1B;verticalAlign=bottom;labelBackgroundColor=#FEF2F2;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="794" y="1550" as="sourcePoint"/>
+            <mxPoint x="476" y="1550" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="frm_91" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#EFF6FF;fillOpacity=35;strokeColor=#1D4ED8;strokeWidth=1.5;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="1060" y="1582" width="520" height="262" as="geometry"/>
+        </mxCell>
+        <mxCell id="ftag_92" value="critical" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;fontColor=#1E3A8A;fontFamily=Segoe UI;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1060" y="1582" width="90" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="fgrd_93" value="[Giao dịch nguyên tử: BEGIN ... COMMIT — Chuyển đổi phiên bản đang dùng &amp;amp; Khóa vĩnh viễn K4]" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=8;fontFamily=Segoe UI;fontSize=11;fontStyle=1;fontColor=#1E3A8A;" vertex="1" parent="1">
+          <mxGeometry x="1154" y="1582" width="420" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="msg_94" value="24. BEGIN; Lock form_template &amp;amp; kiểm tra partial unique index (tối đa 1 bản published)" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1141" y="1620" as="sourcePoint"/>
+            <mxPoint x="1459" y="1620" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_95" value="25. UPDATE form_version SET status=&amp;#x27;retired&amp;#x27; WHERE form_template_id=? AND status=&amp;#x27;published&amp;#x27;" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1141" y="1656" as="sourcePoint"/>
+            <mxPoint x="1459" y="1656" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_96" value="26. UPDATE form_version SET status=&amp;#x27;published&amp;#x27;, published_at=NOW(), published_by=admin, row_version=3" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1141" y="1692" as="sourcePoint"/>
+            <mxPoint x="1459" y="1692" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_97" value="27. INSERT audit_log(action=&amp;#x27;form_version_publish&amp;#x27;, entity_type=&amp;#x27;form_version&amp;#x27;, detail={retiredId, versionNo})" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1141" y="1728" as="sourcePoint"/>
+            <mxPoint x="1459" y="1728" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_98" value="Kể từ đây Trigger K4 khóa bất biến bản v2; lượt khám cũ vẫn giữ form_version_id=v1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11;fontColor=#0F172A;labelBackgroundColor=#FFFFFF;align=left;spacingLeft=6;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1471" y="1744" as="sourcePoint"/>
+            <mxPoint x="1471" y="1770" as="targetPoint"/>
+            <Array as="points">
+              <mxPoint x="1521" y="1744"/>
+              <mxPoint x="1521" y="1770"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_99" value="COMMIT OK (v2 = published, v1 = retired)" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.4;strokeColor=#2563EB;fontFamily=Segoe UI;fontSize=11;fontColor=#1E40AF;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1459" y="1824" as="sourcePoint"/>
+            <mxPoint x="1141" y="1824" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_100" value="FormVersionPublished(v2, status=&amp;#x27;published&amp;#x27;, rowVersion=3)" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.4;strokeColor=#2563EB;fontFamily=Segoe UI;fontSize=11;fontColor=#1E40AF;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1129" y="1860" as="sourcePoint"/>
+            <mxPoint x="806" y="1860" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_101" value="28. 200 OK + ETag: &amp;quot;3&amp;quot; -&amp;gt; UI khóa biên tập tại chỗ trên v2; áp dụng cho lượt khám mới" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.4;strokeColor=#2563EB;fontFamily=Segoe UI;fontSize=11;fontColor=#1E40AF;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="794" y="1882" as="sourcePoint"/>
+            <mxPoint x="476" y="1882" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="note_102" value="&lt;b&gt;Đảm bảo bất biến kép (K4):&lt;/b&gt; Chặn sửa bản &lt;b&gt;published&lt;/b&gt; ở cả 2 lớp: (1) API/Service kiểm tra trạng thái trả &lt;b&gt;409 Conflict&lt;/b&gt; ngay lập tức, và (2) PostgreSQL Trigger bảo vệ trực tiếp bảng &lt;b&gt;form_version&lt;/b&gt;, &lt;b&gt;form_section&lt;/b&gt;, &lt;b&gt;form_field&lt;/b&gt; chống mọi truy vấn sửa trực tiếp." style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=14;fillColor=#EFF6FF;strokeColor=#2563EB;strokeWidth=1.3;fontFamily=Segoe UI;fontSize=10.5;fontColor=#1E3A8A;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="36" y="1912" width="1568" height="34" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

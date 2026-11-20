@@ -1,0 +1,404 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mxfile host="app.diagrams.net" modified="2026-11-21T02:00:00.000Z" agent="uml-architect" version="24.7.0" type="device">
+  <diagram id="sequence-admin-user-permission" name="Sequence 2 — Luồng Admin: Xem trước quyền &amp; Tạo / Cập nhật tài khoản">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1610" pageHeight="1640" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="diagram_title" value="&lt;div style='font-size:18px;font-weight:700;color:#1E3A8A'&gt;Sequence Diagram 2 — Luồng Admin: Xem trước quyền → Tạo &amp;amp; Cập nhật tài khoản Bác sĩ&lt;/div&gt;&lt;div style='font-size:12px;font-weight:400;color:#475569;margin-top:3px'&gt;Khớp CONTRACT.md §4.3 &amp;amp; Mục 6.3 bàn giao: previewUserPermissions, createUser, updateUser | RBAC admin, tách quyền lâm sàng K8, thu hồi phiên &amp;amp; AuditLog không lộ mật khẩu&lt;/div&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=2;fontColor=#1E3A8A;fontFamily=Segoe UI;align=left;verticalAlign=middle;spacingLeft=18;spacingRight=18;" vertex="1" parent="1">
+          <mxGeometry x="30" y="16" width="1550" height="62" as="geometry"/>
+        </mxCell>
+        <mxCell id="p_top_adm" value="&lt;div style='font-size:12.5px;font-weight:700;color:#1E3A8A'&gt;Quản trị viên (Admin)&lt;/div&gt;&lt;div style='font-size:10.5px;color:#1E40AF'&gt;Actor · M6&lt;/div&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=2;fontColor=#1E3A8A;fontFamily=Segoe UI;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="57.0" y="98" width="216" height="54" as="geometry"/>
+        </mxCell>
+        <mxCell id="p_bot_adm" value="&lt;div style='font-size:12.5px;font-weight:700;color:#1E3A8A'&gt;Quản trị viên (Admin)&lt;/div&gt;&lt;div style='font-size:10.5px;color:#1E40AF'&gt;Actor · M6&lt;/div&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=2;fontColor=#1E3A8A;fontFamily=Segoe UI;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="57.0" y="1525" width="216" height="54" as="geometry"/>
+        </mxCell>
+        <mxCell id="ll_adm" value="" style="endArrow=none;dashed=1;dashPattern=6 4;strokeWidth=1.5;strokeColor=#64748B;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="165" y="152" as="sourcePoint"/>
+            <mxPoint x="165" y="1525" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="p_top_ui" value="&lt;div style='font-size:12.5px;font-weight:700;color:#1E3A8A'&gt;Web UI (M6 Admin)&lt;/div&gt;&lt;div style='font-size:10.5px;color:#1E40AF'&gt;Modal 2 bước + Xem quyền&lt;/div&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=2;fontColor=#1E3A8A;fontFamily=Segoe UI;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="357.0" y="98" width="216" height="54" as="geometry"/>
+        </mxCell>
+        <mxCell id="p_bot_ui" value="&lt;div style='font-size:12.5px;font-weight:700;color:#1E3A8A'&gt;Web UI (M6 Admin)&lt;/div&gt;&lt;div style='font-size:10.5px;color:#1E40AF'&gt;Modal 2 bước + Xem quyền&lt;/div&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=2;fontColor=#1E3A8A;fontFamily=Segoe UI;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="357.0" y="1525" width="216" height="54" as="geometry"/>
+        </mxCell>
+        <mxCell id="ll_ui" value="" style="endArrow=none;dashed=1;dashPattern=6 4;strokeWidth=1.5;strokeColor=#64748B;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="465" y="152" as="sourcePoint"/>
+            <mxPoint x="465" y="1525" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="p_top_api" value="&lt;div style='font-size:12.5px;font-weight:700;color:#1E3A8A'&gt;API Gateway &amp;amp; RBAC&lt;/div&gt;&lt;div style='font-size:10.5px;color:#1E40AF'&gt;/api/v1/admin · JWT + ETag&lt;/div&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=2;fontColor=#1E3A8A;fontFamily=Segoe UI;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="682.0" y="98" width="216" height="54" as="geometry"/>
+        </mxCell>
+        <mxCell id="p_bot_api" value="&lt;div style='font-size:12.5px;font-weight:700;color:#1E3A8A'&gt;API Gateway &amp;amp; RBAC&lt;/div&gt;&lt;div style='font-size:10.5px;color:#1E40AF'&gt;/api/v1/admin · JWT + ETag&lt;/div&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=2;fontColor=#1E3A8A;fontFamily=Segoe UI;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="682.0" y="1525" width="216" height="54" as="geometry"/>
+        </mxCell>
+        <mxCell id="ll_api" value="" style="endArrow=none;dashed=1;dashPattern=6 4;strokeWidth=1.5;strokeColor=#64748B;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="790" y="152" as="sourcePoint"/>
+            <mxPoint x="790" y="1525" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="p_top_svc" value="&lt;div style='font-size:12.5px;font-weight:700;color:#1E3A8A'&gt;UserAdminService&lt;/div&gt;&lt;div style='font-size:10.5px;color:#1E40AF'&gt;RBAC Policy &amp;amp; Crypto&lt;/div&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=2;fontColor=#1E3A8A;fontFamily=Segoe UI;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1012.0" y="98" width="216" height="54" as="geometry"/>
+        </mxCell>
+        <mxCell id="p_bot_svc" value="&lt;div style='font-size:12.5px;font-weight:700;color:#1E3A8A'&gt;UserAdminService&lt;/div&gt;&lt;div style='font-size:10.5px;color:#1E40AF'&gt;RBAC Policy &amp;amp; Crypto&lt;/div&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=2;fontColor=#1E3A8A;fontFamily=Segoe UI;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1012.0" y="1525" width="216" height="54" as="geometry"/>
+        </mxCell>
+        <mxCell id="ll_svc" value="" style="endArrow=none;dashed=1;dashPattern=6 4;strokeWidth=1.5;strokeColor=#64748B;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1120" y="152" as="sourcePoint"/>
+            <mxPoint x="1120" y="1525" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="p_top_db" value="&lt;div style='font-size:12.5px;font-weight:700;color:#1E3A8A'&gt;PostgreSQL 16&lt;/div&gt;&lt;div style='font-size:10.5px;color:#1E40AF'&gt;app_user, user_session, audit_log&lt;/div&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=2;fontColor=#1E3A8A;fontFamily=Segoe UI;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1337.0" y="98" width="216" height="54" as="geometry"/>
+        </mxCell>
+        <mxCell id="p_bot_db" value="&lt;div style='font-size:12.5px;font-weight:700;color:#1E3A8A'&gt;PostgreSQL 16&lt;/div&gt;&lt;div style='font-size:10.5px;color:#1E40AF'&gt;app_user, user_session, audit_log&lt;/div&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=2;fontColor=#1E3A8A;fontFamily=Segoe UI;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1337.0" y="1525" width="216" height="54" as="geometry"/>
+        </mxCell>
+        <mxCell id="ll_db" value="" style="endArrow=none;dashed=1;dashPattern=6 4;strokeWidth=1.5;strokeColor=#64748B;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1445" y="152" as="sourcePoint"/>
+            <mxPoint x="1445" y="1525" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="phase_11" value="GIAI ĐOẠN 1 — Xem trước ma trận quyền 2 cột trước khi lưu (previewUserPermissions — Bước 2 bắt buộc)" style="rounded=1;arcSize=12;whiteSpace=wrap;html=1;fillColor=#1E3A8A;strokeColor=#1E3A8A;fontColor=#FFFFFF;fontFamily=Segoe UI;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacingLeft=12;" vertex="1" parent="1">
+          <mxGeometry x="36" y="172" width="1538" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_12" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="459" y="214" width="12" height="236" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_13" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="784" y="230" width="12" height="208" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_14" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="1114" y="336" width="12" height="84" as="geometry"/>
+        </mxCell>
+        <mxCell id="msg_15" value="1. Chọn vai trò (doctor | admin) &amp;amp; bấm [Tiếp tục: Xem lại quyền]" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="171" y="220" as="sourcePoint"/>
+            <mxPoint x="459" y="220" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_16" value="2. POST /api/v1/admin/users/permission-preview [previewUserPermissions] (Bearer JWT)" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="471" y="242" as="sourcePoint"/>
+            <mxPoint x="784" y="242" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="frm_17" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FEF2F2;fillOpacity=35;strokeColor=#DC2626;strokeWidth=1.5;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="420" y="260" width="1115" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="ftag_18" value="alt" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#DC2626;strokeWidth=1.4;fontColor=#991B1B;fontFamily=Segoe UI;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="420" y="260" width="72" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="fgrd_19" value="[RBAC Guard: role != &amp;#x27;admin&amp;#x27; (vd. doctor gọi trực tiếp URL /admin/*)]" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=8;fontFamily=Segoe UI;fontSize=11;fontStyle=1;fontColor=#991B1B;" vertex="1" parent="1">
+          <mxGeometry x="496" y="260" width="1033" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="msg_20" value="INSERT audit_log(outcome=&amp;#x27;denied&amp;#x27;, entity_type=&amp;#x27;app_user&amp;#x27;, detail={path, reason:&amp;#x27;role_forbidden&amp;#x27;})" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="796" y="290" as="sourcePoint"/>
+            <mxPoint x="1439" y="290" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_21" value="403 Forbidden (ProblemDetails: RBAC_ROLE_FORBIDDEN)" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.6;strokeColor=#DC2626;fontFamily=Segoe UI;fontSize=11;fontStyle=1;fontColor=#991B1B;verticalAlign=bottom;labelBackgroundColor=#FEF2F2;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="784" y="308" as="sourcePoint"/>
+            <mxPoint x="471" y="308" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_22" value="3. computePermissionPreview(targetRole, existingUserId?)" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="796" y="344" as="sourcePoint"/>
+            <mxPoint x="1114" y="344" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_23" value="Đối chiếu chính sách K8: doctor (lâm sàng, cấm /admin) vs admin (quản trị, cấm đọc bệnh án)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11;fontColor=#0F172A;labelBackgroundColor=#FFFFFF;align=left;spacingLeft=6;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1126" y="358" as="sourcePoint"/>
+            <mxPoint x="1126" y="384" as="targetPoint"/>
+            <Array as="points">
+              <mxPoint x="1176" y="358"/>
+              <mxPoint x="1176" y="384"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_24" value="PermissionPreviewResponse(clinicalDataAccessAllowed=false for admin, granted[], denied[])" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.4;strokeColor=#2563EB;fontFamily=Segoe UI;fontSize=11;fontColor=#1E40AF;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1114" y="412" as="sourcePoint"/>
+            <mxPoint x="796" y="412" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_25" value="4. 200 OK (Không ghi DB) -&amp;gt; Hiển thị bảng 2 cột Quyền được cấp vs Quyền không được cấp" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.4;strokeColor=#2563EB;fontFamily=Segoe UI;fontSize=11;fontColor=#1E40AF;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="784" y="434" as="sourcePoint"/>
+            <mxPoint x="471" y="434" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="phase_26" value="GIAI ĐOẠN 2 — Tạo tài khoản bác sĩ mới (createUser): Validate, Sinh mã kích hoạt 1 lần, Giao dịch &amp;amp; AuditLog" style="rounded=1;arcSize=12;whiteSpace=wrap;html=1;fillColor=#1E3A8A;strokeColor=#1E3A8A;fontColor=#FFFFFF;fontFamily=Segoe UI;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacingLeft=12;" vertex="1" parent="1">
+          <mxGeometry x="36" y="472" width="1538" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_27" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="459" y="512" width="12" height="452" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_28" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="784" y="528" width="12" height="422" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_29" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="1114" y="548" width="12" height="388" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_30" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="1439" y="694" width="12" height="218" as="geometry"/>
+        </mxCell>
+        <mxCell id="msg_31" value="5. Rà soát xong quyền -&amp;gt; bấm [Xác nhận &amp;amp; Lưu tài khoản]" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="171" y="518" as="sourcePoint"/>
+            <mxPoint x="459" y="518" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_32" value="6. POST /api/v1/admin/users [createUser] (CreateUserRequest: username, fullName, role, isActive, reason)" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="471" y="540" as="sourcePoint"/>
+            <mxPoint x="784" y="540" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_33" value="7. createUser(actor=admin, CreateUserRequest)" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="796" y="560" as="sourcePoint"/>
+            <mxPoint x="1114" y="560" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_34" value="Validate định dạng username (^[a-zA-Z0-9_.-]{3,64}$), fullName, role &amp;amp; reason" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11;fontColor=#0F172A;labelBackgroundColor=#FFFFFF;align=left;spacingLeft=6;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1126" y="574" as="sourcePoint"/>
+            <mxPoint x="1126" y="600" as="targetPoint"/>
+            <Array as="points">
+              <mxPoint x="1176" y="574"/>
+              <mxPoint x="1176" y="600"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="frm_35" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FEF2F2;fillOpacity=35;strokeColor=#DC2626;strokeWidth=1.5;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="420" y="622" width="790" height="54" as="geometry"/>
+        </mxCell>
+        <mxCell id="ftag_36" value="alt" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#DC2626;strokeWidth=1.4;fontColor=#991B1B;fontFamily=Segoe UI;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="420" y="622" width="72" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="fgrd_37" value="[Dữ liệu đầu vào không hợp lệ (sai định dạng username / thiếu họ tên / role sai)]" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=8;fontFamily=Segoe UI;fontSize=11;fontStyle=1;fontColor=#991B1B;" vertex="1" parent="1">
+          <mxGeometry x="496" y="622" width="708" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="msg_38" value="ValidationError(fieldErrors[])" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.6;strokeColor=#DC2626;fontFamily=Segoe UI;fontSize=11;fontStyle=1;fontColor=#991B1B;verticalAlign=bottom;labelBackgroundColor=#FEF2F2;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1114" y="652" as="sourcePoint"/>
+            <mxPoint x="796" y="652" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_39" value="422 Unprocessable Entity (ProblemDetails + errors[])" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.6;strokeColor=#DC2626;fontFamily=Segoe UI;fontSize=11;fontStyle=1;fontColor=#991B1B;verticalAlign=bottom;labelBackgroundColor=#FEF2F2;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="784" y="668" as="sourcePoint"/>
+            <mxPoint x="471" y="668" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_40" value="8. SELECT 1 FROM app_user WHERE username = ? (kiểm tra UQ)" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1126" y="700" as="sourcePoint"/>
+            <mxPoint x="1439" y="700" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="frm_41" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FEF2F2;fillOpacity=35;strokeColor=#DC2626;strokeWidth=1.5;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="420" y="718" width="1115" height="54" as="geometry"/>
+        </mxCell>
+        <mxCell id="ftag_42" value="alt" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#DC2626;strokeWidth=1.4;fontColor=#991B1B;fontFamily=Segoe UI;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="420" y="718" width="72" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="fgrd_43" value="[username đã tồn tại trong hệ thống]" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=8;fontFamily=Segoe UI;fontSize=11;fontStyle=1;fontColor=#991B1B;" vertex="1" parent="1">
+          <mxGeometry x="496" y="718" width="1033" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="msg_44" value="EXISTS (vi phạm uq_app_user_username)" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.4;strokeColor=#2563EB;fontFamily=Segoe UI;fontSize=11;fontColor=#1E40AF;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1439" y="744" as="sourcePoint"/>
+            <mxPoint x="1126" y="744" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_45" value="409 Conflict (ProblemDetails: DUPLICATE_USERNAME)" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.6;strokeColor=#DC2626;fontFamily=Segoe UI;fontSize=11;fontStyle=1;fontColor=#991B1B;verticalAlign=bottom;labelBackgroundColor=#FEF2F2;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="784" y="762" as="sourcePoint"/>
+            <mxPoint x="471" y="762" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_46" value="Sinh oneTimeSetupCode (hết hạn 24h) &amp;amp; băm Argon2id/bcrypt (tuyệt đối không lưu/log mật khẩu rõ)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11;fontColor=#0F172A;labelBackgroundColor=#FFFFFF;align=left;spacingLeft=6;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1126" y="782" as="sourcePoint"/>
+            <mxPoint x="1126" y="808" as="targetPoint"/>
+            <Array as="points">
+              <mxPoint x="1176" y="782"/>
+              <mxPoint x="1176" y="808"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="frm_47" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#EFF6FF;fillOpacity=35;strokeColor=#1D4ED8;strokeWidth=1.5;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="1045" y="822" width="510" height="94" as="geometry"/>
+        </mxCell>
+        <mxCell id="ftag_48" value="critical" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;fontColor=#1E3A8A;fontFamily=Segoe UI;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1045" y="822" width="90" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="fgrd_49" value="[Giao dịch nguyên tử: BEGIN ... COMMIT — Tạo tài khoản &amp;amp; Ghi AuditLog]" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=8;fontFamily=Segoe UI;fontSize=11;fontStyle=1;fontColor=#1E3A8A;" vertex="1" parent="1">
+          <mxGeometry x="1139" y="822" width="410" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="msg_50" value="9. BEGIN; INSERT app_user(id, username, password_hash, full_name, role, is_active)" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1126" y="856" as="sourcePoint"/>
+            <mxPoint x="1439" y="856" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_51" value="10. INSERT audit_log(actor_user_id=admin, action=&amp;#x27;user_create&amp;#x27;, entity_type=&amp;#x27;app_user&amp;#x27;, detail={username, role, reason})" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1126" y="882" as="sourcePoint"/>
+            <mxPoint x="1439" y="882" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_52" value="COMMIT OK (AppUser mới)" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.4;strokeColor=#2563EB;fontFamily=Segoe UI;fontSize=11;fontColor=#1E40AF;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1439" y="904" as="sourcePoint"/>
+            <mxPoint x="1126" y="904" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_53" value="CreateUserResponse(user, oneTimeSetupCode, setupExpiresAt)" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.4;strokeColor=#2563EB;fontFamily=Segoe UI;fontSize=11;fontColor=#1E40AF;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1114" y="930" as="sourcePoint"/>
+            <mxPoint x="796" y="930" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_54" value="11. 201 Created + ETag (CreateUserResponse — chỉ hiện mã kích hoạt 1 lần, 0 password_hash)" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.4;strokeColor=#2563EB;fontFamily=Segoe UI;fontSize=11;fontColor=#1E40AF;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="784" y="950" as="sourcePoint"/>
+            <mxPoint x="471" y="950" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="phase_55" value="GIAI ĐOẠN 3 — Cập nhật tài khoản, Khóa/Mở, Đặt lại MK hoặc Đổi vai trò (updateUser): Thu hồi phiên &amp;amp; AuditLog" style="rounded=1;arcSize=12;whiteSpace=wrap;html=1;fillColor=#1E3A8A;strokeColor=#1E3A8A;fontColor=#FFFFFF;fontFamily=Segoe UI;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacingLeft=12;" vertex="1" parent="1">
+          <mxGeometry x="36" y="988" width="1538" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_56" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="459" y="1028" width="12" height="440" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_57" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="784" y="1044" width="12" height="410" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_58" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="1114" y="1064" width="12" height="374" as="geometry"/>
+        </mxCell>
+        <mxCell id="act_59" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;" vertex="1" parent="1">
+          <mxGeometry x="1439" y="1094" width="12" height="318" as="geometry"/>
+        </mxCell>
+        <mxCell id="msg_60" value="12. Sửa họ tên / đổi role / đặt lại MK / bấm [Khóa tài khoản] kèm lý do" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="171" y="1034" as="sourcePoint"/>
+            <mxPoint x="459" y="1034" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_61" value="13. PATCH /api/v1/admin/users/{userId} [updateUser] (If-Match, UpdateUserRequest: rowVersion, ..., reason)" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="471" y="1054" as="sourcePoint"/>
+            <mxPoint x="784" y="1054" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_62" value="14. updateUser(actor=admin, userId, expectedRowVersion, UpdateUserRequest)" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="796" y="1074" as="sourcePoint"/>
+            <mxPoint x="1114" y="1074" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_63" value="15. SELECT app_user WHERE id = ? ; COUNT(*) active admins" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1126" y="1100" as="sourcePoint"/>
+            <mxPoint x="1439" y="1100" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="frm_64" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FEF2F2;fillOpacity=35;strokeColor=#DC2626;strokeWidth=1.5;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="420" y="1122" width="1115" height="74" as="geometry"/>
+        </mxCell>
+        <mxCell id="ftag_65" value="alt" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#DC2626;strokeWidth=1.4;fontColor=#991B1B;fontFamily=Segoe UI;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="420" y="1122" width="72" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="fgrd_66" value="[Không tìm thấy userId -&amp;gt; 404 | Tự khóa Admin cuối cùng HOẶC lệch If-Match -&amp;gt; 409]" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=8;fontFamily=Segoe UI;fontSize=11;fontStyle=1;fontColor=#991B1B;" vertex="1" parent="1">
+          <mxGeometry x="496" y="1122" width="1033" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="msg_67" value="NotFound / LastActiveAdminViolation / ETagMismatch" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.4;strokeColor=#2563EB;fontFamily=Segoe UI;fontSize=11;fontColor=#1E40AF;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1439" y="1152" as="sourcePoint"/>
+            <mxPoint x="1126" y="1152" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_68" value="404 Not Found HOẶC 409 Conflict (ProblemDetails: LAST_ACTIVE_ADMIN / CONCURRENCY_ROW_VERSION_MISMATCH)" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.6;strokeColor=#DC2626;fontFamily=Segoe UI;fontSize=11;fontStyle=1;fontColor=#991B1B;verticalAlign=bottom;labelBackgroundColor=#FEF2F2;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="784" y="1180" as="sourcePoint"/>
+            <mxPoint x="471" y="1180" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="frm_69" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#EFF6FF;fillOpacity=35;strokeColor=#1D4ED8;strokeWidth=1.5;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="1045" y="1214" width="510" height="198" as="geometry"/>
+        </mxCell>
+        <mxCell id="ftag_70" value="critical" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.4;fontColor=#1E3A8A;fontFamily=Segoe UI;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1045" y="1214" width="90" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="fgrd_71" value="[Giao dịch nguyên tử: BEGIN ... COMMIT — Cập nhật User + Thu hồi Session + AuditLog]" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=8;fontFamily=Segoe UI;fontSize=11;fontStyle=1;fontColor=#1E3A8A;" vertex="1" parent="1">
+          <mxGeometry x="1139" y="1214" width="410" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="msg_72" value="16. BEGIN; UPDATE app_user SET full_name=?, role=?, is_active=?, updated_at=NOW() WHERE id=?" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1126" y="1250" as="sourcePoint"/>
+            <mxPoint x="1439" y="1250" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="frm_73" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;fillOpacity=35;strokeColor=#2563EB;strokeWidth=1.5;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="1060" y="1268" width="480" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="ftag_74" value="opt" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#EFF6FF;strokeColor=#2563EB;strokeWidth=1.4;fontColor=#1E3A8A;fontFamily=Segoe UI;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1060" y="1268" width="72" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="fgrd_75" value="[is_active đổi sang false HOẶC đổi role HOẶC resetPassword=true]" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=8;fontFamily=Segoe UI;fontSize=11;fontStyle=1;fontColor=#1E3A8A;" vertex="1" parent="1">
+          <mxGeometry x="1136" y="1268" width="398" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="msg_76" value="17. UPDATE user_session SET revoked_at = NOW() WHERE user_id = ? AND revoked_at IS NULL" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1126" y="1304" as="sourcePoint"/>
+            <mxPoint x="1439" y="1304" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_77" value="18. INSERT audit_log(action=&amp;#x27;user_update&amp;#x27;, entity_type=&amp;#x27;app_user&amp;#x27;, entity_id=userId, detail={diff, reason})" style="html=1;endArrow=block;endFill=1;strokeWidth=1.6;strokeColor=#1D4ED8;fontFamily=Segoe UI;fontSize=11.5;fontStyle=0;fontColor=#0F172A;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1126" y="1352" as="sourcePoint"/>
+            <mxPoint x="1439" y="1352" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_78" value="COMMIT OK" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.4;strokeColor=#2563EB;fontFamily=Segoe UI;fontSize=11;fontColor=#1E40AF;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1439" y="1388" as="sourcePoint"/>
+            <mxPoint x="1126" y="1388" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_79" value="UpdateUserResponse(user, oneTimeSetupCode?)" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.4;strokeColor=#2563EB;fontFamily=Segoe UI;fontSize=11;fontColor=#1E40AF;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1114" y="1428" as="sourcePoint"/>
+            <mxPoint x="796" y="1428" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_80" value="19. 200 OK + ETag mới (UpdateUserResponse &amp;amp; ghi nhận nhật ký M8)" style="html=1;endArrow=open;endFill=0;dashed=1;dashPattern=5 3;strokeWidth=1.4;strokeColor=#2563EB;fontFamily=Segoe UI;fontSize=11;fontColor=#1E40AF;verticalAlign=bottom;labelBackgroundColor=#FFFFFF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="784" y="1450" as="sourcePoint"/>
+            <mxPoint x="471" y="1450" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="note_81" value="&lt;b&gt;Bảo mật K8:&lt;/b&gt; Mọi truy vấn và phản hồi trong M6 tuyệt đối không trả &lt;b&gt;password_hash&lt;/b&gt;; mọi thay đổi quyền/khóa tài khoản buộc thu hồi tức thì &lt;b&gt;user_session&lt;/b&gt; và lưu diff quyền vào &lt;b&gt;audit_log.detail&lt;/b&gt;." style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=14;fillColor=#EFF6FF;strokeColor=#2563EB;strokeWidth=1.3;fontFamily=Segoe UI;fontSize=10.5;fontColor=#1E3A8A;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="36" y="1484" width="1538" height="30" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,1232 +1,578 @@
-# Từ điển dữ liệu — schema cập nhật theo SRS và cổng bệnh nhân
-
-PostgreSQL 16+. Có 39 bảng. Metadata và bảng cột được xuất từ schema đã khởi tạo, cùng kiểm thử SQL.
-
-UUID là định danh nội bộ; thời gian sự kiện dùng timestamptz. Null biểu thị chưa có dữ liệu. Giới hạn số trong CHECK là kiểm tra biểu diễn, không phải ngưỡng chẩn đoán.
-
-Hướng dẫn tài khoản, phân quyền, đơn thuốc và giờ uống nằm trong [README database](README.md). Các bảng bệnh nhân có RLS cho vai trò DB `hf_patient_portal`; staff backend phải kiểm tra quyền theo phiên và hồ sơ. Gateway hiện tại vẫn dùng RAM.
-
-## allergy_status
-
-Trạng thái dị ứng/phản ứng: chưa rõ, xác nhận không có hoặc đã biết (FR-14).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| case_id | uuid | Không |  | Hồ sơ bệnh nhân liên quan. |
-| status | character varying(10) | Không |  | Trạng thái; các giá trị hợp lệ được ghi trong CHECK bên dưới. |
-| recorded_by | uuid | Không |  | Người ghi nhận dữ liệu. |
-| recorded_at | timestamp with time zone | Không | now() | Thời điểm ghi nhận dữ liệu. |
-
-Ràng buộc bảng:
-
-- `allergy_status_case_id_fkey`: `FOREIGN KEY (case_id) REFERENCES patient_case(id)`
-- `allergy_status_pkey`: `PRIMARY KEY (case_id)`
-- `allergy_status_recorded_by_fkey`: `FOREIGN KEY (recorded_by) REFERENCES app_user(id)`
-- `allergy_status_status_check`: `CHECK (((status)::text = ANY ((ARRAY['unknown'::character varying, 'none'::character varying, 'known'::character varying])::text[])))`
-
-Index:
-
-- `CREATE UNIQUE INDEX allergy_status_pkey ON public.allergy_status USING btree (case_id)`
-
-Trigger:
-
-- `allergy_audit`: `CREATE TRIGGER allergy_audit AFTER INSERT OR DELETE OR UPDATE ON public.allergy_status FOR EACH ROW EXECUTE FUNCTION audit_record_change()`
-- `allergy_revision`: `CREATE TRIGGER allergy_revision AFTER INSERT OR DELETE OR UPDATE ON public.allergy_status FOR EACH ROW EXECUTE FUNCTION bump_case_revision()`
-- `allergy_staff_validate`: `CREATE TRIGGER allergy_staff_validate BEFORE INSERT OR UPDATE ON public.allergy_status FOR EACH ROW EXECUTE FUNCTION validate_staff_record()`
-- `allergy_status_validate`: `CREATE TRIGGER allergy_status_validate BEFORE INSERT OR UPDATE ON public.allergy_status FOR EACH ROW EXECUTE FUNCTION validate_allergies()`
-
-## app_user
-
-Tài khoản; chỉ lưu password hash. Nhân viên có thể thuộc khoa (FR-01,02).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| id | uuid | Không | gen_random_uuid() | Định danh nội bộ UUID. |
-| username | character varying(80) | Không |  | Tên đăng nhập giả lập. |
-| password_hash | text | Không |  | Hash mật khẩu; seed dùng PBKDF2-SHA256, không chứa mật khẩu rõ. |
-| active | boolean | Không | true | Trạng thái được phép sử dụng. |
-| department_code | character varying(30) | Có |  | Mã khoa. |
-| created_at | timestamp with time zone | Không | now() | Thời điểm tạo. |
-
-Ràng buộc bảng:
-
-- `app_user_department_code_fkey`: `FOREIGN KEY (department_code) REFERENCES department(code)`
-- `app_user_pkey`: `PRIMARY KEY (id)`
-- `app_user_username_key`: `UNIQUE (username)`
-
-Index:
-
-- `CREATE UNIQUE INDEX app_user_pkey ON public.app_user USING btree (id)`
-- `CREATE UNIQUE INDEX app_user_username_key ON public.app_user USING btree (username)`
-
-Trigger:
-
-- `user_audit`: `CREATE TRIGGER user_audit AFTER INSERT OR DELETE OR UPDATE ON public.app_user FOR EACH ROW EXECUTE FUNCTION audit_record_change()`
-
-## appointment
-
-Lịch hẹn 30 phút do bệnh nhân yêu cầu; xác nhận, hoàn thành hoặc hủy (FR-P02).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| id | uuid | Không | gen_random_uuid() | Định danh nội bộ UUID. |
-| case_id | uuid | Không |  | Hồ sơ bệnh nhân liên quan. |
-| doctor_id | uuid | Không |  | Bác sĩ phụ trách/xác nhận. |
-| slot_at | timestamp with time zone | Không |  | Thời điểm bắt đầu slot khám 30 phút. |
-| reason | character varying(500) | Không |  | Lý do yêu cầu/quyết định. |
-| status | character varying(12) | Không | 'requested'::character varying | Trạng thái; các giá trị hợp lệ được ghi trong CHECK bên dưới. |
-| requested_by | uuid | Không |  | Tài khoản yêu cầu thao tác. |
-| encounter_id | uuid | Có |  | Lần khám/đợt điều trị liên quan. |
-| created_at | timestamp with time zone | Không | now() | Thời điểm tạo. |
-
-Ràng buộc bảng:
-
-- `appointment_case_id_fkey`: `FOREIGN KEY (case_id) REFERENCES patient_case(id)`
-- `appointment_doctor_id_fkey`: `FOREIGN KEY (doctor_id) REFERENCES app_user(id)`
-- `appointment_encounter_id_case_id_fkey`: `FOREIGN KEY (encounter_id, case_id) REFERENCES encounter(id, case_id)`
-- `appointment_pkey`: `PRIMARY KEY (id)`
-- `appointment_reason_check`: `CHECK ((length(TRIM(BOTH FROM reason)) > 0))`
-- `appointment_requested_by_fkey`: `FOREIGN KEY (requested_by) REFERENCES app_user(id)`
-- `appointment_slot_at_check`: `CHECK (((EXTRACT(epoch FROM slot_at) % (1800)::numeric) = (0)::numeric))`
-- `appointment_status_check`: `CHECK (((status)::text = ANY ((ARRAY['requested'::character varying, 'confirmed'::character varying, 'completed'::character varying, 'cancelled'::character varying])::text[])))`
-
-Index:
-
-- `CREATE UNIQUE INDEX appointment_pkey ON public.appointment USING btree (id)`
-- `CREATE INDEX ix_appointment_case ON public.appointment USING btree (case_id, slot_at DESC)`
-- `CREATE UNIQUE INDEX ux_appointment_doctor_slot ON public.appointment USING btree (doctor_id, slot_at) WHERE ((status)::text = ANY ((ARRAY['requested'::character varying, 'confirmed'::character varying])::text[]))`
-- `CREATE UNIQUE INDEX ux_appointment_patient_slot ON public.appointment USING btree (case_id, slot_at) WHERE ((status)::text = ANY ((ARRAY['requested'::character varying, 'confirmed'::character varying])::text[]))`
-
-Trigger:
-
-- `appointment_audit`: `CREATE TRIGGER appointment_audit AFTER INSERT OR UPDATE ON public.appointment FOR EACH ROW EXECUTE FUNCTION audit_record_change()`
-- `appointment_validate`: `CREATE TRIGGER appointment_validate BEFORE INSERT OR UPDATE ON public.appointment FOR EACH ROW EXECUTE FUNCTION validate_appointment()`
-
-RLS:
-
-- `patient_appointment_cancel`: UPDATE; USING `((case_id = portal_case_id()) AND ((status)::text = ANY ((ARRAY['requested'::character varying, 'confirmed'::character varying])::text[])))`; WITH CHECK `((case_id = portal_case_id()) AND ((status)::text = 'cancelled'::text))`.
-- `patient_appointment_create`: INSERT; USING ``; WITH CHECK `((case_id = portal_case_id()) AND (requested_by = current_app_user()) AND ((status)::text = 'requested'::text) AND (encounter_id IS NULL))`.
-- `patient_appointment_read`: SELECT; USING `(case_id = portal_case_id())`; WITH CHECK ``.
-
-## audit_event
-
-Nhật ký bất biến: người hoặc tiến trình hệ thống, đối tượng, hành động và thời gian (FR-34).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| id | uuid | Không | gen_random_uuid() | Định danh nội bộ UUID. |
-| actor_id | uuid | Có |  | Tài khoản thao tác; null cho tiến trình hệ thống không gắn tài khoản. |
-| actor_kind | character varying(10) | Không | 'user'::character varying | user hoặc system. |
-| action | character varying(80) | Không |  | Hành động/quyết định. |
-| entity_type | character varying(40) | Không |  | Loại đối tượng nhật ký. |
-| entity_id | uuid | Không |  | UUID đối tượng nhật ký. |
-| created_at | timestamp with time zone | Không | now() | Thời điểm tạo. |
-
-Ràng buộc bảng:
-
-- `audit_event_actor_id_fkey`: `FOREIGN KEY (actor_id) REFERENCES app_user(id)`
-- `audit_event_actor_kind_check`: `CHECK (((actor_kind)::text = ANY ((ARRAY['user'::character varying, 'system'::character varying])::text[])))`
-- `audit_event_check`: `CHECK (((((actor_kind)::text = 'user'::text) AND (actor_id IS NOT NULL)) OR (((actor_kind)::text = 'system'::text) AND (actor_id IS NULL))))`
-- `audit_event_pkey`: `PRIMARY KEY (id)`
-
-Index:
-
-- `CREATE UNIQUE INDEX audit_event_pkey ON public.audit_event USING btree (id)`
-- `CREATE INDEX ix_audit_entity_time ON public.audit_event USING btree (entity_type, entity_id, created_at DESC)`
-
-Trigger:
-
-- `audit_immutable`: `CREATE TRIGGER audit_immutable BEFORE DELETE OR UPDATE ON public.audit_event FOR EACH ROW EXECUTE FUNCTION prevent_mutation()`
-
-## auth_session
-
-Phiên xác thực có hạn dùng và trạng thái thu hồi; chỉ lưu hash token (FR-01).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| id | uuid | Không | gen_random_uuid() | Định danh nội bộ UUID. |
-| user_id | uuid | Không |  | Tài khoản liên quan. |
-| token_hash | character varying(64) | Không |  | SHA-256 của token phiên, không lưu token rõ. |
-| expires_at | timestamp with time zone | Không |  | Thời điểm hết hạn phiên. |
-| revoked_at | timestamp with time zone | Có |  | Thời điểm thu hồi phiên. |
-| created_at | timestamp with time zone | Không | now() | Thời điểm tạo. |
-
-Ràng buộc bảng:
-
-- `auth_session_check`: `CHECK ((expires_at > created_at))`
-- `auth_session_pkey`: `PRIMARY KEY (id)`
-- `auth_session_token_hash_check`: `CHECK (((token_hash)::text ~ '^[a-f0-9]{64}$'::text))`
-- `auth_session_token_hash_key`: `UNIQUE (token_hash)`
-- `auth_session_user_id_fkey`: `FOREIGN KEY (user_id) REFERENCES app_user(id)`
-
-Index:
-
-- `CREATE UNIQUE INDEX auth_session_pkey ON public.auth_session USING btree (id)`
-- `CREATE UNIQUE INDEX auth_session_token_hash_key ON public.auth_session USING btree (token_hash)`
-- `CREATE INDEX ix_auth_session_user ON public.auth_session USING btree (user_id, expires_at)`
-
-## case_access
-
-Phạm vi hồ sơ cấp riêng cho bác sĩ, điều dưỡng hoặc dược sĩ (FR-03).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| case_id | uuid | Không |  | Hồ sơ bệnh nhân liên quan. |
-| user_id | uuid | Không |  | Tài khoản liên quan. |
-| access_scope | character varying(20) | Không |  | Phạm vi clinical, nursing hoặc medsafety. |
-
-Ràng buộc bảng:
-
-- `case_access_access_scope_check`: `CHECK (((access_scope)::text = ANY ((ARRAY['clinical'::character varying, 'nursing'::character varying, 'medsafety'::character varying])::text[])))`
-- `case_access_case_id_fkey`: `FOREIGN KEY (case_id) REFERENCES patient_case(id)`
-- `case_access_pkey`: `PRIMARY KEY (case_id, user_id, access_scope)`
-- `case_access_user_id_fkey`: `FOREIGN KEY (user_id) REFERENCES app_user(id)`
-
-Index:
-
-- `CREATE UNIQUE INDEX case_access_pkey ON public.case_access USING btree (case_id, user_id, access_scope)`
-
-Trigger:
-
-- `access_audit`: `CREATE TRIGGER access_audit AFTER INSERT OR DELETE OR UPDATE ON public.case_access FOR EACH ROW EXECUTE FUNCTION audit_record_change()`
-- `case_access_validate`: `CREATE TRIGGER case_access_validate BEFORE INSERT OR UPDATE ON public.case_access FOR EACH ROW EXECUTE FUNCTION validate_case_staff()`
-
-## clinical_decision
-
-Quyết định bất biến của bác sĩ; điều chỉnh phải có nội dung và lý do (FR-31,33).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| id | uuid | Không | gen_random_uuid() | Định danh nội bộ UUID. |
-| evaluation_id | uuid | Không |  | Lần đánh giá liên quan. |
-| doctor_id | uuid | Không |  | Bác sĩ phụ trách/xác nhận. |
-| action | character varying(10) | Không |  | Hành động/quyết định. |
-| reason | text | Có |  | Lý do yêu cầu/quyết định. |
-| adjustment_details | jsonb | Có |  | Nội dung bác sĩ điều chỉnh dưới dạng JSONB, bắt buộc khi adjusted. |
-| created_at | timestamp with time zone | Không | now() | Thời điểm tạo. |
-
-Ràng buộc bảng:
-
-- `clinical_decision_action_check`: `CHECK (((action)::text = ANY ((ARRAY['accepted'::character varying, 'adjusted'::character varying, 'rejected'::character varying])::text[])))`
-- `clinical_decision_check`: `CHECK ((((action)::text = 'accepted'::text) OR (length(TRIM(BOTH FROM COALESCE(reason, ''::text))) > 0)))`
-- `clinical_decision_check1`: `CHECK (((((action)::text = 'adjusted'::text) AND (adjustment_details IS NOT NULL) AND (jsonb_typeof(adjustment_details) = 'object'::text) AND (adjustment_details <> '{}'::jsonb)) OR (((action)::text <> 'adjusted'::text) AND (adjustment_details IS NULL))))`
-- `clinical_decision_doctor_id_fkey`: `FOREIGN KEY (doctor_id) REFERENCES app_user(id)`
-- `clinical_decision_evaluation_id_fkey`: `FOREIGN KEY (evaluation_id) REFERENCES evaluation(id)`
-- `clinical_decision_evaluation_id_key`: `UNIQUE (evaluation_id)`
-- `clinical_decision_pkey`: `PRIMARY KEY (id)`
-
-Index:
-
-- `CREATE UNIQUE INDEX clinical_decision_evaluation_id_key ON public.clinical_decision USING btree (evaluation_id)`
-- `CREATE UNIQUE INDEX clinical_decision_pkey ON public.clinical_decision USING btree (id)`
-
-Trigger:
-
-- `decision_audit`: `CREATE TRIGGER decision_audit AFTER INSERT ON public.clinical_decision FOR EACH ROW EXECUTE FUNCTION audit_record_change()`
-- `decision_immutable`: `CREATE TRIGGER decision_immutable BEFORE DELETE OR UPDATE ON public.clinical_decision FOR EACH ROW EXECUTE FUNCTION prevent_mutation()`
-- `decision_validate`: `CREATE TRIGGER decision_validate BEFORE INSERT ON public.clinical_decision FOR EACH ROW EXECUTE FUNCTION validate_evaluation_decision()`
-
-## clinical_note
-
-Ghi nhận chăm sóc, khám, chẩn đoán hoặc đánh giá lão khoa theo lần khám (FR-09,10,11).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| id | uuid | Không | gen_random_uuid() | Định danh nội bộ UUID. |
-| encounter_id | uuid | Không |  | Lần khám/đợt điều trị liên quan. |
-| kind | character varying(20) | Không |  | Loại bản ghi; xem CHECK của bảng. |
-| content | text | Không |  | Nội dung ghi nhận hoặc JSONB; xem kiểu và ràng buộc của bảng. |
-| recorded_by | uuid | Không |  | Người ghi nhận dữ liệu. |
-| recorded_at | timestamp with time zone | Không | now() | Thời điểm ghi nhận dữ liệu. |
-
-Ràng buộc bảng:
-
-- `clinical_note_content_check`: `CHECK ((length(TRIM(BOTH FROM content)) > 0))`
-- `clinical_note_encounter_id_fkey`: `FOREIGN KEY (encounter_id) REFERENCES encounter(id)`
-- `clinical_note_kind_check`: `CHECK (((kind)::text = ANY ((ARRAY['nursing'::character varying, 'examination'::character varying, 'diagnosis'::character varying, 'geriatric'::character varying])::text[])))`
-- `clinical_note_pkey`: `PRIMARY KEY (id)`
-- `clinical_note_recorded_by_fkey`: `FOREIGN KEY (recorded_by) REFERENCES app_user(id)`
-
-Index:
-
-- `CREATE UNIQUE INDEX clinical_note_pkey ON public.clinical_note USING btree (id)`
-- `CREATE INDEX ix_note_encounter ON public.clinical_note USING btree (encounter_id, recorded_at DESC)`
-
-Trigger:
-
-- `note_audit`: `CREATE TRIGGER note_audit AFTER INSERT OR DELETE OR UPDATE ON public.clinical_note FOR EACH ROW EXECUTE FUNCTION audit_record_change()`
-- `note_revision`: `CREATE TRIGGER note_revision AFTER INSERT OR DELETE OR UPDATE ON public.clinical_note FOR EACH ROW EXECUTE FUNCTION bump_case_revision()`
-- `note_staff_validate`: `CREATE TRIGGER note_staff_validate BEFORE INSERT OR UPDATE ON public.clinical_note FOR EACH ROW EXECUTE FUNCTION validate_staff_record()`
-
-## department
-
-Danh mục khoa giả lập (FR-04,07).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| code | character varying(30) | Không |  | Mã danh mục/quy tắc. |
-| name | text | Không |  | Tên danh mục. |
-| active | boolean | Không | true | Trạng thái được phép sử dụng. |
-
-Ràng buộc bảng:
-
-- `department_name_check`: `CHECK ((length(TRIM(BOTH FROM name)) > 0))`
-- `department_pkey`: `PRIMARY KEY (code)`
-
-Index:
-
-- `CREATE UNIQUE INDEX department_pkey ON public.department USING btree (code)`
-
-## drug_product
-
-Danh mục sản phẩm thuốc: hoạt chất, hàm lượng và dạng bào chế (FR-04,13).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| code | character varying(60) | Không |  | Mã danh mục/quy tắc. |
-| ingredient_code | character varying(60) | Không |  | Hoạt chất liên quan. |
-| display_name | text | Không |  | Tên hiển thị danh mục. |
-| strength | numeric | Không |  | Hàm lượng sản phẩm. |
-| strength_unit | character varying(10) | Không |  | Đơn vị hàm lượng. |
-| dosage_form | character varying(30) | Không |  | Dạng bào chế. |
-| active | boolean | Không | true | Trạng thái được phép sử dụng. |
-
-Ràng buộc bảng:
-
-- `drug_product_code_ingredient_code_key`: `UNIQUE (code, ingredient_code)`
-- `drug_product_ingredient_code_fkey`: `FOREIGN KEY (ingredient_code) REFERENCES ingredient(code)`
-- `drug_product_pkey`: `PRIMARY KEY (code)`
-- `drug_product_strength_check`: `CHECK (((strength > (0)::numeric) AND ((strength)::text <> ALL (ARRAY['NaN'::text, 'Infinity'::text, '-Infinity'::text]))))`
-- `drug_product_strength_unit_check`: `CHECK (((strength_unit)::text = ANY ((ARRAY['mg'::character varying, 'mcg'::character varying, 'g'::character varying, 'mg/mL'::character varying])::text[])))`
-
-Index:
-
-- `CREATE UNIQUE INDEX drug_product_code_ingredient_code_key ON public.drug_product USING btree (code, ingredient_code)`
-- `CREATE UNIQUE INDEX drug_product_pkey ON public.drug_product USING btree (code)`
-
-## drug_reaction
-
-Chi tiết dị ứng hoặc phản ứng có hại với hoạt chất, chỉ khi trạng thái là known (FR-14).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| id | uuid | Không | gen_random_uuid() | Định danh nội bộ UUID. |
-| case_id | uuid | Không |  | Hồ sơ bệnh nhân liên quan. |
-| ingredient_code | character varying(60) | Không |  | Hoạt chất liên quan. |
-| kind | character varying(10) | Không |  | Loại bản ghi; xem CHECK của bảng. |
-| description | text | Không |  | Mô tả nội dung. |
-| recorded_by | uuid | Không |  | Người ghi nhận dữ liệu. |
-| recorded_at | timestamp with time zone | Không | now() | Thời điểm ghi nhận dữ liệu. |
-
-Ràng buộc bảng:
-
-- `drug_reaction_case_id_fkey`: `FOREIGN KEY (case_id) REFERENCES allergy_status(case_id)`
-- `drug_reaction_description_check`: `CHECK ((length(TRIM(BOTH FROM description)) > 0))`
-- `drug_reaction_ingredient_code_fkey`: `FOREIGN KEY (ingredient_code) REFERENCES ingredient(code)`
-- `drug_reaction_kind_check`: `CHECK (((kind)::text = ANY ((ARRAY['allergy'::character varying, 'adverse'::character varying])::text[])))`
-- `drug_reaction_pkey`: `PRIMARY KEY (id)`
-- `drug_reaction_recorded_by_fkey`: `FOREIGN KEY (recorded_by) REFERENCES app_user(id)`
-
-Index:
-
-- `CREATE UNIQUE INDEX drug_reaction_pkey ON public.drug_reaction USING btree (id)`
-
-Trigger:
-
-- `reaction_audit`: `CREATE TRIGGER reaction_audit AFTER INSERT OR DELETE OR UPDATE ON public.drug_reaction FOR EACH ROW EXECUTE FUNCTION audit_record_change()`
-- `reaction_revision`: `CREATE TRIGGER reaction_revision AFTER INSERT OR DELETE OR UPDATE ON public.drug_reaction FOR EACH ROW EXECUTE FUNCTION bump_case_revision()`
-- `reaction_staff_validate`: `CREATE TRIGGER reaction_staff_validate BEFORE INSERT OR UPDATE ON public.drug_reaction FOR EACH ROW EXECUTE FUNCTION validate_staff_record()`
-- `reaction_status_validate`: `CREATE TRIGGER reaction_status_validate BEFORE INSERT OR UPDATE ON public.drug_reaction FOR EACH ROW EXECUTE FUNCTION validate_allergies()`
-
-## encounter
-
-Lần khám ngoại trú/đợt nội trú, khoa, bác sĩ, trạng thái và thời điểm kết thúc (FR-07).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| id | uuid | Không | gen_random_uuid() | Định danh nội bộ UUID. |
-| case_id | uuid | Không |  | Hồ sơ bệnh nhân liên quan. |
-| occurred_at | timestamp with time zone | Không |  | Thời điểm bắt đầu lần khám/đợt điều trị. |
-| kind | character varying(12) | Không | 'outpatient'::character varying | Loại bản ghi; xem CHECK của bảng. |
-| department_code | character varying(30) | Không |  | Mã khoa. |
-| doctor_id | uuid | Không |  | Bác sĩ phụ trách/xác nhận. |
-| status | character varying(12) | Không | 'open'::character varying | Trạng thái; các giá trị hợp lệ được ghi trong CHECK bên dưới. |
-| ended_at | timestamp with time zone | Có |  | Thời điểm kết thúc. |
-| created_at | timestamp with time zone | Không | now() | Thời điểm tạo. |
-
-Ràng buộc bảng:
-
-- `encounter_case_id_fkey`: `FOREIGN KEY (case_id) REFERENCES patient_case(id)`
-- `encounter_check`: `CHECK (((ended_at IS NULL) OR (ended_at >= occurred_at)))`
-- `encounter_check1`: `CHECK (((((status)::text = 'open'::text) AND (ended_at IS NULL)) OR (((status)::text <> 'open'::text) AND (ended_at IS NOT NULL))))`
-- `encounter_department_code_fkey`: `FOREIGN KEY (department_code) REFERENCES department(code)`
-- `encounter_doctor_id_fkey`: `FOREIGN KEY (doctor_id) REFERENCES app_user(id)`
-- `encounter_id_case_id_key`: `UNIQUE (id, case_id)`
-- `encounter_kind_check`: `CHECK (((kind)::text = ANY ((ARRAY['outpatient'::character varying, 'inpatient'::character varying])::text[])))`
-- `encounter_pkey`: `PRIMARY KEY (id)`
-- `encounter_status_check`: `CHECK (((status)::text = ANY ((ARRAY['open'::character varying, 'completed'::character varying, 'cancelled'::character varying])::text[])))`
-
-Index:
-
-- `CREATE UNIQUE INDEX encounter_id_case_id_key ON public.encounter USING btree (id, case_id)`
-- `CREATE UNIQUE INDEX encounter_pkey ON public.encounter USING btree (id)`
-- `CREATE INDEX ix_encounter_case_time ON public.encounter USING btree (case_id, occurred_at DESC)`
-
-Trigger:
-
-- `encounter_audit`: `CREATE TRIGGER encounter_audit AFTER INSERT OR DELETE OR UPDATE ON public.encounter FOR EACH ROW EXECUTE FUNCTION audit_record_change()`
-- `encounter_revision`: `CREATE TRIGGER encounter_revision AFTER INSERT OR DELETE OR UPDATE ON public.encounter FOR EACH ROW EXECUTE FUNCTION bump_case_revision()`
-- `encounter_staff_validate`: `CREATE TRIGGER encounter_staff_validate BEFORE INSERT OR UPDATE ON public.encounter FOR EACH ROW EXECUTE FUNCTION validate_case_staff()`
-
-## evaluation
-
-Snapshot bất biến của một lần đánh giá cùng revision nguồn và người yêu cầu (FR-18,33).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| id | uuid | Không | gen_random_uuid() | Định danh nội bộ UUID. |
-| encounter_id | uuid | Không |  | Lần khám/đợt điều trị liên quan. |
-| input_revision | integer | Không |  | Revision của hồ sơ nguồn khi đánh giá. |
-| input_snapshot | jsonb | Không |  | Bản sao JSONB bất biến dữ liệu được dùng. |
-| requested_by | uuid | Không |  | Tài khoản yêu cầu thao tác. |
-| mode | character varying(10) | Không |  | Chế độ stub hoặc validated; seed chỉ dùng stub. |
-| created_at | timestamp with time zone | Không | now() | Thời điểm tạo. |
-
-Ràng buộc bảng:
-
-- `evaluation_encounter_id_fkey`: `FOREIGN KEY (encounter_id) REFERENCES encounter(id)`
-- `evaluation_id_encounter_id_key`: `UNIQUE (id, encounter_id)`
-- `evaluation_input_revision_check`: `CHECK ((input_revision > 0))`
-- `evaluation_input_snapshot_check`: `CHECK ((jsonb_typeof(input_snapshot) = 'object'::text))`
-- `evaluation_mode_check`: `CHECK (((mode)::text = ANY ((ARRAY['stub'::character varying, 'validated'::character varying])::text[])))`
-- `evaluation_pkey`: `PRIMARY KEY (id)`
-- `evaluation_requested_by_fkey`: `FOREIGN KEY (requested_by) REFERENCES app_user(id)`
-
-Index:
-
-- `CREATE UNIQUE INDEX evaluation_id_encounter_id_key ON public.evaluation USING btree (id, encounter_id)`
-- `CREATE UNIQUE INDEX evaluation_pkey ON public.evaluation USING btree (id)`
-- `CREATE INDEX ix_evaluation_history ON public.evaluation USING btree (encounter_id, created_at DESC)`
-
-Trigger:
-
-- `evaluation_audit`: `CREATE TRIGGER evaluation_audit AFTER INSERT ON public.evaluation FOR EACH ROW EXECUTE FUNCTION audit_record_change()`
-- `evaluation_immutable`: `CREATE TRIGGER evaluation_immutable BEFORE DELETE OR UPDATE ON public.evaluation FOR EACH ROW EXECUTE FUNCTION prevent_mutation()`
-- `evaluation_validate`: `CREATE TRIGGER evaluation_validate BEFORE INSERT ON public.evaluation FOR EACH ROW EXECUTE FUNCTION validate_evaluation_decision()`
-
-## import_batch
-
-Lần nhập file/API mô phỏng, mã nguồn, trạng thái và số dòng thành công/lỗi (FR-16,17).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| id | uuid | Không | gen_random_uuid() | Định danh nội bộ UUID. |
-| encounter_id | uuid | Không |  | Lần khám/đợt điều trị liên quan. |
-| source | character varying(30) | Không |  | Nguồn nhập giả lập hoặc nguồn mô phỏng. |
-| external_ref | text | Không |  | Mã bản tin/báo cáo/batch nguồn giả lập. |
-| status | character varying(12) | Không |  | Trạng thái; các giá trị hợp lệ được ghi trong CHECK bên dưới. |
-| accepted_rows | integer | Không | 0 | Số dòng nhập thành công. |
-| rejected_rows | integer | Không | 0 | Số dòng nhập lỗi. |
-| imported_by | uuid | Không |  | Người nhập batch. |
-| created_at | timestamp with time zone | Không | now() | Thời điểm tạo. |
-
-Ràng buộc bảng:
-
-- `import_batch_accepted_rows_check`: `CHECK ((accepted_rows >= 0))`
-- `import_batch_encounter_id_fkey`: `FOREIGN KEY (encounter_id) REFERENCES encounter(id)`
-- `import_batch_imported_by_fkey`: `FOREIGN KEY (imported_by) REFERENCES app_user(id)`
-- `import_batch_pkey`: `PRIMARY KEY (id)`
-- `import_batch_rejected_rows_check`: `CHECK ((rejected_rows >= 0))`
-- `import_batch_source_check`: `CHECK (((source)::text = ANY ((ARRAY['file'::character varying, 'mock_his'::character varying, 'mock_lis'::character varying, 'mock_pacs'::character varying, 'mock_emr'::character varying])::text[])))`
-- `import_batch_source_external_ref_key`: `UNIQUE (source, external_ref)`
-- `import_batch_status_check`: `CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'completed'::character varying, 'partial'::character varying, 'failed'::character varying])::text[])))`
-
-Index:
-
-- `CREATE UNIQUE INDEX import_batch_pkey ON public.import_batch USING btree (id)`
-- `CREATE UNIQUE INDEX import_batch_source_external_ref_key ON public.import_batch USING btree (source, external_ref)`
-
-Trigger:
-
-- `import_audit`: `CREATE TRIGGER import_audit AFTER INSERT OR UPDATE ON public.import_batch FOR EACH ROW EXECUTE FUNCTION audit_record_change()`
-- `import_staff_validate`: `CREATE TRIGGER import_staff_validate BEFORE INSERT OR UPDATE ON public.import_batch FOR EACH ROW EXECUTE FUNCTION validate_staff_record()`
-
-## import_error
-
-Lỗi nhập theo dòng, trường và thông báo (FR-16,18).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| id | uuid | Không | gen_random_uuid() | Định danh nội bộ UUID. |
-| batch_id | uuid | Không |  | Batch nhập dữ liệu liên quan. |
-| row_number | integer | Không |  | Số dòng gây lỗi. |
-| field_code | character varying(60) | Không |  | Mã chỉ số/trường dữ liệu. |
-| message | text | Không |  | Thông báo diễn giải/lỗi. |
-
-Ràng buộc bảng:
-
-- `import_error_batch_id_fkey`: `FOREIGN KEY (batch_id) REFERENCES import_batch(id)`
-- `import_error_pkey`: `PRIMARY KEY (id)`
-- `import_error_row_number_check`: `CHECK ((row_number > 0))`
-
-Index:
-
-- `CREATE UNIQUE INDEX import_error_pkey ON public.import_error USING btree (id)`
-- `CREATE INDEX ix_import_error_batch ON public.import_error USING btree (batch_id)`
-
-## ingredient
-
-Danh mục hoạt chất; seed chỉ có hoạt chất giả lập (FR-04).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| code | character varying(60) | Không |  | Mã danh mục/quy tắc. |
-| display_name | text | Không |  | Tên hiển thị danh mục. |
-
-Ràng buộc bảng:
-
-- `ingredient_pkey`: `PRIMARY KEY (code)`
-
-Index:
-
-- `CREATE UNIQUE INDEX ingredient_pkey ON public.ingredient USING btree (code)`
-
-## medication
-
-Thuốc hiện dùng/đề xuất, liều, đường dùng, tần suất, khoảng ngày và liên kết đơn (FR-13).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| id | uuid | Không | gen_random_uuid() | Định danh nội bộ UUID. |
-| encounter_id | uuid | Không |  | Lần khám/đợt điều trị liên quan. |
-| ingredient_code | character varying(60) | Không |  | Hoạt chất liên quan. |
-| drug_product_code | character varying(60) | Có |  | Sản phẩm thuốc; phải thuộc đúng hoạt chất. |
-| prescription_id | uuid | Có |  | Đơn thuốc liên quan. |
-| dose | numeric | Không |  | Liều của một lần dùng. |
-| dose_unit | character varying(10) | Không |  | Đơn vị liều. |
-| route | character varying(10) | Không |  | Đường dùng. |
-| frequency_per_day | smallint | Không |  | Số lần dùng mỗi ngày. |
-| kind | character varying(10) | Không |  | Loại bản ghi; xem CHECK của bảng. |
-| starts_on | date | Không | CURRENT_DATE | Ngày bắt đầu dùng. |
-| ends_on | date | Có |  | Ngày kết thúc nếu có. |
-| instructions | text | Không | ''::text | Hướng dẫn dạng văn bản. |
-| recorded_by | uuid | Không |  | Người ghi nhận dữ liệu. |
-| created_at | timestamp with time zone | Không | now() | Thời điểm tạo. |
-
-Ràng buộc bảng:
-
-- `medication_check`: `CHECK (((ends_on IS NULL) OR (ends_on >= starts_on)))`
-- `medication_check1`: `CHECK (((prescription_id IS NULL) OR ((kind)::text = 'current'::text)))`
-- `medication_dose_check`: `CHECK (((dose > (0)::numeric) AND ((dose)::text <> ALL (ARRAY['NaN'::text, 'Infinity'::text, '-Infinity'::text]))))`
-- `medication_dose_unit_check`: `CHECK (((dose_unit)::text = ANY ((ARRAY['mg'::character varying, 'mcg'::character varying, 'g'::character varying, 'mL'::character varying])::text[])))`
-- `medication_drug_product_code_ingredient_code_fkey`: `FOREIGN KEY (drug_product_code, ingredient_code) REFERENCES drug_product(code, ingredient_code)`
-- `medication_encounter_id_fkey`: `FOREIGN KEY (encounter_id) REFERENCES encounter(id)`
-- `medication_frequency_per_day_check`: `CHECK (((frequency_per_day >= 1) AND (frequency_per_day <= 24)))`
-- `medication_ingredient_code_fkey`: `FOREIGN KEY (ingredient_code) REFERENCES ingredient(code)`
-- `medication_kind_check`: `CHECK (((kind)::text = ANY ((ARRAY['current'::character varying, 'proposed'::character varying])::text[])))`
-- `medication_pkey`: `PRIMARY KEY (id)`
-- `medication_prescription_id_encounter_id_fkey`: `FOREIGN KEY (prescription_id, encounter_id) REFERENCES prescription(id, encounter_id)`
-- `medication_recorded_by_fkey`: `FOREIGN KEY (recorded_by) REFERENCES app_user(id)`
-- `medication_route_check`: `CHECK (((route)::text = ANY ((ARRAY['oral'::character varying, 'iv'::character varying, 'other'::character varying])::text[])))`
-
-Index:
-
-- `CREATE INDEX ix_medication_encounter ON public.medication USING btree (encounter_id)`
-- `CREATE INDEX ix_medication_prescription ON public.medication USING btree (prescription_id)`
-- `CREATE UNIQUE INDEX medication_pkey ON public.medication USING btree (id)`
-
-Trigger:
-
-- `medication_audit`: `CREATE TRIGGER medication_audit AFTER INSERT OR DELETE OR UPDATE ON public.medication FOR EACH ROW EXECUTE FUNCTION audit_record_change()`
-- `medication_revision`: `CREATE TRIGGER medication_revision AFTER INSERT OR DELETE OR UPDATE ON public.medication FOR EACH ROW EXECUTE FUNCTION bump_case_revision()`
-- `medication_staff_validate`: `CREATE TRIGGER medication_staff_validate BEFORE INSERT OR UPDATE ON public.medication FOR EACH ROW EXECUTE FUNCTION validate_staff_record()`
-- `prescribed_medication_guard`: `CREATE TRIGGER prescribed_medication_guard BEFORE INSERT OR DELETE OR UPDATE ON public.medication FOR EACH ROW EXECUTE FUNCTION guard_prescribed_medication()`
-
-RLS:
-
-- `patient_medication_read`: SELECT; USING `portal_owns_medication(id)`; WITH CHECK ``.
-
-## medication_reminder
-
-Một nhắc uống cho một giờ trong một ngày; pending/taken/skipped/cancelled (FR-P04).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| id | uuid | Không | gen_random_uuid() | Định danh nội bộ UUID. |
-| schedule_id | uuid | Không |  | Giờ uống liên quan. |
-| scheduled_on | date | Không |  | Ngày uống địa phương. |
-| due_at | timestamp with time zone | Không |  | Thời điểm nhắc thực tế có múi giờ. |
-| status | character varying(12) | Không | 'pending'::character varying | Trạng thái; các giá trị hợp lệ được ghi trong CHECK bên dưới. |
-| responded_at | timestamp with time zone | Có |  | Thời điểm đánh dấu đã uống/bỏ qua, do trigger ghi. |
-| notified_at | timestamp with time zone | Có |  | Thời điểm worker đã gửi thông báo nếu có. |
-| created_at | timestamp with time zone | Không | now() | Thời điểm tạo. |
-
-Ràng buộc bảng:
-
-- `medication_reminder_check`: `CHECK (((((status)::text = ANY ((ARRAY['pending'::character varying, 'cancelled'::character varying])::text[])) AND (responded_at IS NULL)) OR (((status)::text = ANY ((ARRAY['taken'::character varying, 'skipped'::character varying])::text[])) AND (responded_at IS NOT NULL))))`
-- `medication_reminder_pkey`: `PRIMARY KEY (id)`
-- `medication_reminder_schedule_id_fkey`: `FOREIGN KEY (schedule_id) REFERENCES medication_schedule(id)`
-- `medication_reminder_schedule_id_scheduled_on_key`: `UNIQUE (schedule_id, scheduled_on)`
-- `medication_reminder_status_check`: `CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'taken'::character varying, 'skipped'::character varying, 'cancelled'::character varying])::text[])))`
-
-Index:
-
-- `CREATE INDEX ix_reminder_due ON public.medication_reminder USING btree (due_at) WHERE ((status)::text = 'pending'::text)`
-- `CREATE UNIQUE INDEX medication_reminder_pkey ON public.medication_reminder USING btree (id)`
-- `CREATE UNIQUE INDEX medication_reminder_schedule_id_scheduled_on_key ON public.medication_reminder USING btree (schedule_id, scheduled_on)`
-
-Trigger:
-
-- `reminder_audit`: `CREATE TRIGGER reminder_audit AFTER INSERT OR UPDATE ON public.medication_reminder FOR EACH ROW EXECUTE FUNCTION audit_record_change()`
-- `reminder_validate`: `CREATE TRIGGER reminder_validate BEFORE INSERT OR UPDATE ON public.medication_reminder FOR EACH ROW EXECUTE FUNCTION validate_reminder()`
-
-RLS:
-
-- `patient_reminder_read`: SELECT; USING `portal_owns_schedule(schedule_id)`; WITH CHECK ``.
-- `patient_reminder_respond`: UPDATE; USING `(portal_owns_schedule(schedule_id) AND ((status)::text = 'pending'::text))`; WITH CHECK `(portal_owns_schedule(schedule_id) AND ((status)::text = ANY ((ARRAY['taken'::character varying, 'skipped'::character varying])::text[])))`.
-
-## medication_schedule
-
-Giờ uống hằng ngày của từng thuốc trong đơn, theo múi giờ của đơn (FR-13,FR-P04).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| id | uuid | Không | gen_random_uuid() | Định danh nội bộ UUID. |
-| medication_id | uuid | Không |  | Thuốc trong đơn liên quan. |
-| dose_time | time without time zone | Không |  | Giờ uống địa phương hằng ngày; một dòng cho mỗi lần uống. |
-| instructions | text | Không | ''::text | Hướng dẫn dạng văn bản. |
-
-Ràng buộc bảng:
-
-- `medication_schedule_dose_time_check`: `CHECK (((dose_time >= '00:00:00'::time without time zone) AND (dose_time < '24:00:00'::time without time zone)))`
-- `medication_schedule_medication_id_dose_time_key`: `UNIQUE (medication_id, dose_time)`
-- `medication_schedule_medication_id_fkey`: `FOREIGN KEY (medication_id) REFERENCES medication(id)`
-- `medication_schedule_pkey`: `PRIMARY KEY (id)`
-
-Index:
-
-- `CREATE UNIQUE INDEX medication_schedule_medication_id_dose_time_key ON public.medication_schedule USING btree (medication_id, dose_time)`
-- `CREATE UNIQUE INDEX medication_schedule_pkey ON public.medication_schedule USING btree (id)`
-
-Trigger:
-
-- `dose_time_audit`: `CREATE TRIGGER dose_time_audit AFTER INSERT OR DELETE OR UPDATE ON public.medication_schedule FOR EACH ROW EXECUTE FUNCTION audit_record_change()`
-- `medication_schedule_guard`: `CREATE TRIGGER medication_schedule_guard BEFORE INSERT OR DELETE OR UPDATE ON public.medication_schedule FOR EACH ROW EXECUTE FUNCTION guard_prescribed_medication()`
-
-RLS:
-
-- `patient_schedule_read`: SELECT; USING `portal_owns_medication(medication_id)`; WITH CHECK ``.
-
-## module_result
-
-Kết quả một module: phiên bản quy tắc, trạng thái và diễn giải (FR-19..29).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| id | uuid | Không | gen_random_uuid() | Định danh nội bộ UUID. |
-| evaluation_id | uuid | Không |  | Lần đánh giá liên quan. |
-| module | character varying(20) | Không |  | Module diagnosis, lab_test, treatment hoặc medsafety. |
-| rule_version_id | uuid | Có |  | Phiên bản quy tắc liên quan. |
-| status | character varying(30) | Không |  | Trạng thái; các giá trị hợp lệ được ghi trong CHECK bên dưới. |
-| message | text | Không |  | Thông báo diễn giải/lỗi. |
-
-Ràng buộc bảng:
-
-- `module_result_check`: `CHECK ((((status)::text = 'mock_not_evaluated'::text) OR (rule_version_id IS NOT NULL)))`
-- `module_result_evaluation_id_fkey`: `FOREIGN KEY (evaluation_id) REFERENCES evaluation(id)`
-- `module_result_evaluation_id_module_key`: `UNIQUE (evaluation_id, module)`
-- `module_result_module_check`: `CHECK (((module)::text = ANY ((ARRAY['diagnosis'::character varying, 'lab_test'::character varying, 'treatment'::character varying, 'medsafety'::character varying])::text[])))`
-- `module_result_pkey`: `PRIMARY KEY (id)`
-- `module_result_rule_version_id_fkey`: `FOREIGN KEY (rule_version_id) REFERENCES rule_version(id)`
-- `module_result_status_check`: `CHECK (((status)::text = ANY ((ARRAY['mock_not_evaluated'::character varying, 'completed'::character varying, 'insufficient_data'::character varying, 'failed'::character varying])::text[])))`
-
-Index:
-
-- `CREATE UNIQUE INDEX module_result_evaluation_id_module_key ON public.module_result USING btree (evaluation_id, module)`
-- `CREATE UNIQUE INDEX module_result_pkey ON public.module_result USING btree (id)`
-
-## observation
-
-Chỉ số theo lần khám, có loại giá trị, trạng thái thiếu, nguồn và người ghi (FR-09,11,12).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| id | uuid | Không | gen_random_uuid() | Định danh nội bộ UUID. |
-| encounter_id | uuid | Không |  | Lần khám/đợt điều trị liên quan. |
-| code | character varying(60) | Không |  | Mã danh mục/quy tắc. |
-| value_number | numeric | Có |  | Giá trị số; không nhận NaN/Infinity. |
-| value_boolean | boolean | Có |  | Giá trị có/không. |
-| value_text | text | Có |  | Giá trị văn bản. |
-| status | character varying(20) | Không |  | Trạng thái; các giá trị hợp lệ được ghi trong CHECK bên dưới. |
-| observed_at | timestamp with time zone | Không |  | Thời điểm đo/đánh giá. |
-| source | character varying(30) | Không |  | Nguồn nhập giả lập hoặc nguồn mô phỏng. |
-| recorded_by | uuid | Không |  | Người ghi nhận dữ liệu. |
-| created_at | timestamp with time zone | Không | now() | Thời điểm tạo. |
-
-Ràng buộc bảng:
-
-- `observation_check`: `CHECK (((((status)::text = 'present'::text) AND (num_nonnulls(value_number, value_boolean, value_text) = 1)) OR (((status)::text <> 'present'::text) AND (num_nonnulls(value_number, value_boolean, value_text) = 0))))`
-- `observation_code_fkey`: `FOREIGN KEY (code) REFERENCES observation_type(code)`
-- `observation_encounter_id_fkey`: `FOREIGN KEY (encounter_id) REFERENCES encounter(id)`
-- `observation_pkey`: `PRIMARY KEY (id)`
-- `observation_recorded_by_fkey`: `FOREIGN KEY (recorded_by) REFERENCES app_user(id)`
-- `observation_source_check`: `CHECK (((source)::text = ANY ((ARRAY['manual_synthetic'::character varying, 'mock_his'::character varying, 'mock_lis'::character varying, 'mock_pacs'::character varying, 'mock_emr'::character varying])::text[])))`
-- `observation_status_check`: `CHECK (((status)::text = ANY ((ARRAY['present'::character varying, 'not_measured'::character varying, 'unknown'::character varying])::text[])))`
-
-Index:
-
-- `CREATE INDEX ix_observation_latest ON public.observation USING btree (encounter_id, code, observed_at DESC)`
-- `CREATE UNIQUE INDEX observation_pkey ON public.observation USING btree (id)`
-
-Trigger:
-
-- `observation_audit`: `CREATE TRIGGER observation_audit AFTER INSERT OR DELETE OR UPDATE ON public.observation FOR EACH ROW EXECUTE FUNCTION audit_record_change()`
-- `observation_revision`: `CREATE TRIGGER observation_revision AFTER INSERT OR DELETE OR UPDATE ON public.observation FOR EACH ROW EXECUTE FUNCTION bump_case_revision()`
-- `observation_staff_validate`: `CREATE TRIGGER observation_staff_validate BEFORE INSERT OR UPDATE ON public.observation FOR EACH ROW EXECUTE FUNCTION validate_staff_record()`
-- `observation_validate`: `CREATE TRIGGER observation_validate BEFORE INSERT OR UPDATE ON public.observation FOR EACH ROW EXECUTE FUNCTION validate_observation()`
-
-## observation_type
-
-Danh mục chỉ số, kiểu và đơn vị; giới hạn biểu diễn, không phải ngưỡng cảnh báo (FR-04,18).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| code | character varying(60) | Không |  | Mã danh mục/quy tắc. |
-| label | text | Không |  | Nhãn hiển thị. |
-| value_kind | character varying(10) | Không |  | Kiểu number, boolean hoặc text. |
-| unit | character varying(40) | Có |  | Đơn vị chuẩn của chỉ số. |
-| min_value | numeric | Có |  | Giới hạn biểu diễn dưới; không phải ngưỡng y khoa. |
-| max_value | numeric | Có |  | Giới hạn biểu diễn trên nếu áp dụng. |
-
-Ràng buộc bảng:
-
-- `observation_type_check`: `CHECK (((min_value IS NULL) OR (max_value IS NULL) OR (min_value <= max_value)))`
-- `observation_type_max_value_check`: `CHECK (((max_value)::text <> ALL (ARRAY['NaN'::text, 'Infinity'::text, '-Infinity'::text])))`
-- `observation_type_min_value_check`: `CHECK (((min_value)::text <> ALL (ARRAY['NaN'::text, 'Infinity'::text, '-Infinity'::text])))`
-- `observation_type_pkey`: `PRIMARY KEY (code)`
-- `observation_type_value_kind_check`: `CHECK (((value_kind)::text = ANY ((ARRAY['number'::character varying, 'boolean'::character varying, 'text'::character varying])::text[])))`
-
-Index:
-
-- `CREATE UNIQUE INDEX observation_type_pkey ON public.observation_type USING btree (code)`
-
-Trigger:
-
-- `observation_catalog_guard`: `CREATE TRIGGER observation_catalog_guard BEFORE UPDATE ON public.observation_type FOR EACH ROW EXECUTE FUNCTION protect_observation_catalog()`
-
-## patient_account
-
-Liên kết duy nhất tài khoản patient với một hồ sơ synthetic (FR-P01).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| user_id | uuid | Không |  | Tài khoản liên quan. |
-| case_id | uuid | Không |  | Hồ sơ bệnh nhân liên quan. |
-| role_code | character varying(20) | Không | 'patient'::character varying | Mã vai trò. |
-| created_at | timestamp with time zone | Không | now() | Thời điểm tạo. |
-
-Ràng buộc bảng:
-
-- `patient_account_case_id_fkey`: `FOREIGN KEY (case_id) REFERENCES patient_case(id)`
-- `patient_account_case_id_key`: `UNIQUE (case_id)`
-- `patient_account_pkey`: `PRIMARY KEY (user_id)`
-- `patient_account_role_code_check`: `CHECK (((role_code)::text = 'patient'::text))`
-- `patient_account_user_id_fkey`: `FOREIGN KEY (user_id) REFERENCES app_user(id)`
-- `patient_account_user_id_role_code_fkey`: `FOREIGN KEY (user_id, role_code) REFERENCES user_role(user_id, role_code)`
-
-Index:
-
-- `CREATE UNIQUE INDEX patient_account_case_id_key ON public.patient_account USING btree (case_id)`
-- `CREATE UNIQUE INDEX patient_account_pkey ON public.patient_account USING btree (user_id)`
-
-Trigger:
-
-- `patient_account_immutable`: `CREATE TRIGGER patient_account_immutable BEFORE DELETE OR UPDATE ON public.patient_account FOR EACH ROW EXECUTE FUNCTION prevent_mutation()`
-
-## patient_case
-
-Hồ sơ synthetic, bác sĩ phụ trách và revision; không lưu định danh thật (FR-06).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| id | uuid | Không | gen_random_uuid() | Định danh nội bộ UUID. |
-| synthetic_code | character varying(30) | Không |  | Mã hồ sơ giả lập duy nhất bắt đầu bằng SYN-. |
-| age | smallint | Không |  | Tuổi ghi nhận trong hồ sơ. |
-| sex | character varying(10) | Không |  | Giới tính hoặc chưa rõ. |
-| owner_id | uuid | Không |  | Bác sĩ phụ trách hồ sơ. |
-| revision | integer | Không | 1 | Tăng khi dữ liệu lâm sàng liên quan thay đổi. |
-| created_at | timestamp with time zone | Không | now() | Thời điểm tạo. |
-
-Ràng buộc bảng:
-
-- `patient_case_age_check`: `CHECK (((age >= 0) AND (age <= 120)))`
-- `patient_case_owner_id_fkey`: `FOREIGN KEY (owner_id) REFERENCES app_user(id)`
-- `patient_case_pkey`: `PRIMARY KEY (id)`
-- `patient_case_revision_check`: `CHECK ((revision > 0))`
-- `patient_case_sex_check`: `CHECK (((sex)::text = ANY ((ARRAY['male'::character varying, 'female'::character varying, 'unknown'::character varying])::text[])))`
-- `patient_case_synthetic_code_check`: `CHECK (((synthetic_code)::text ~ '^SYN-[A-Z0-9-]{1,24}$'::text))`
-- `patient_case_synthetic_code_key`: `UNIQUE (synthetic_code)`
-
-Index:
-
-- `CREATE INDEX ix_case_owner ON public.patient_case USING btree (owner_id)`
-- `CREATE UNIQUE INDEX patient_case_pkey ON public.patient_case USING btree (id)`
-- `CREATE UNIQUE INDEX patient_case_synthetic_code_key ON public.patient_case USING btree (synthetic_code)`
-
-Trigger:
-
-- `case_audit`: `CREATE TRIGGER case_audit AFTER INSERT OR UPDATE ON public.patient_case FOR EACH ROW EXECUTE FUNCTION audit_record_change()`
-- `case_staff_validate`: `CREATE TRIGGER case_staff_validate BEFORE INSERT OR UPDATE ON public.patient_case FOR EACH ROW EXECUTE FUNCTION validate_case_staff()`
-- `profile_revision`: `CREATE TRIGGER profile_revision BEFORE UPDATE ON public.patient_case FOR EACH ROW EXECUTE FUNCTION guard_profile_revision()`
-
-## patient_history
-
-Tiền sử, bệnh đồng mắc, gia đình và xã hội theo hồ sơ (FR-08).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| id | uuid | Không | gen_random_uuid() | Định danh nội bộ UUID. |
-| case_id | uuid | Không |  | Hồ sơ bệnh nhân liên quan. |
-| kind | character varying(20) | Không |  | Loại bản ghi; xem CHECK của bảng. |
-| description | text | Không |  | Mô tả nội dung. |
-| recorded_by | uuid | Không |  | Người ghi nhận dữ liệu. |
-| recorded_at | timestamp with time zone | Không | now() | Thời điểm ghi nhận dữ liệu. |
-
-Ràng buộc bảng:
-
-- `patient_history_case_id_fkey`: `FOREIGN KEY (case_id) REFERENCES patient_case(id)`
-- `patient_history_description_check`: `CHECK ((length(TRIM(BOTH FROM description)) > 0))`
-- `patient_history_kind_check`: `CHECK (((kind)::text = ANY ((ARRAY['medical'::character varying, 'comorbidity'::character varying, 'family'::character varying, 'social'::character varying])::text[])))`
-- `patient_history_pkey`: `PRIMARY KEY (id)`
-- `patient_history_recorded_by_fkey`: `FOREIGN KEY (recorded_by) REFERENCES app_user(id)`
-
-Index:
-
-- `CREATE INDEX ix_history_case ON public.patient_history USING btree (case_id, recorded_at DESC)`
-- `CREATE UNIQUE INDEX patient_history_pkey ON public.patient_history USING btree (id)`
-
-Trigger:
-
-- `history_audit`: `CREATE TRIGGER history_audit AFTER INSERT OR DELETE OR UPDATE ON public.patient_history FOR EACH ROW EXECUTE FUNCTION audit_record_change()`
-- `history_revision`: `CREATE TRIGGER history_revision AFTER INSERT OR DELETE OR UPDATE ON public.patient_history FOR EACH ROW EXECUTE FUNCTION bump_case_revision()`
-- `history_staff_validate`: `CREATE TRIGGER history_staff_validate BEFORE INSERT OR UPDATE ON public.patient_history FOR EACH ROW EXECUTE FUNCTION validate_staff_record()`
-
-## patient_measurement
-
-Chỉ số tự nhập tại nhà; không tự trở thành dữ liệu đã được nhân viên xác minh (FR-P03).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| id | uuid | Không | gen_random_uuid() | Định danh nội bộ UUID. |
-| case_id | uuid | Không |  | Hồ sơ bệnh nhân liên quan. |
-| recorded_by | uuid | Không |  | Người ghi nhận dữ liệu. |
-| observed_at | timestamp with time zone | Không |  | Thời điểm đo/đánh giá. |
-| systolic_bp | numeric | Có |  | Huyết áp tâm thu, mmHg; phải nhập cùng tâm trương. |
-| diastolic_bp | numeric | Có |  | Huyết áp tâm trương, mmHg. |
-| heart_rate | numeric | Có |  | Nhịp tim, bpm. |
-| weight_kg | numeric | Có |  | Cân nặng, kg. |
-| spo2 | numeric | Có |  | Độ bão hòa oxy, %. Giới hạn biểu diễn 0–100. |
-| temperature_c | numeric | Có |  | Nhiệt độ, độ C. |
-| symptoms | character varying(500) | Có |  | Triệu chứng/ghi chú tự nhập, tối đa 500 ký tự. |
-| created_at | timestamp with time zone | Không | now() | Thời điểm tạo. |
-
-Ràng buộc bảng:
-
-- `patient_measurement_case_id_fkey`: `FOREIGN KEY (case_id) REFERENCES patient_case(id)`
-- `patient_measurement_check`: `CHECK ((num_nonnulls(systolic_bp, diastolic_bp, heart_rate, weight_kg, spo2, temperature_c, symptoms) > 0))`
-- `patient_measurement_check1`: `CHECK ((((systolic_bp IS NULL) AND (diastolic_bp IS NULL)) OR ((systolic_bp IS NOT NULL) AND (diastolic_bp IS NOT NULL) AND (systolic_bp >= diastolic_bp))))`
-- `patient_measurement_diastolic_bp_check`: `CHECK (((diastolic_bp > (0)::numeric) AND ((diastolic_bp)::text <> ALL (ARRAY['NaN'::text, 'Infinity'::text, '-Infinity'::text]))))`
-- `patient_measurement_heart_rate_check`: `CHECK (((heart_rate > (0)::numeric) AND ((heart_rate)::text <> ALL (ARRAY['NaN'::text, 'Infinity'::text, '-Infinity'::text]))))`
-- `patient_measurement_pkey`: `PRIMARY KEY (id)`
-- `patient_measurement_recorded_by_fkey`: `FOREIGN KEY (recorded_by) REFERENCES patient_account(user_id)`
-- `patient_measurement_spo2_check`: `CHECK ((((spo2 >= (0)::numeric) AND (spo2 <= (100)::numeric)) AND ((spo2)::text <> ALL (ARRAY['NaN'::text, 'Infinity'::text, '-Infinity'::text]))))`
-- `patient_measurement_symptoms_check`: `CHECK (((symptoms IS NULL) OR (length(TRIM(BOTH FROM symptoms)) > 0)))`
-- `patient_measurement_systolic_bp_check`: `CHECK (((systolic_bp > (0)::numeric) AND ((systolic_bp)::text <> ALL (ARRAY['NaN'::text, 'Infinity'::text, '-Infinity'::text]))))`
-- `patient_measurement_temperature_c_check`: `CHECK (((temperature_c > '-273.15'::numeric) AND ((temperature_c)::text <> ALL (ARRAY['NaN'::text, 'Infinity'::text, '-Infinity'::text]))))`
-- `patient_measurement_weight_kg_check`: `CHECK (((weight_kg > (0)::numeric) AND ((weight_kg)::text <> ALL (ARRAY['NaN'::text, 'Infinity'::text, '-Infinity'::text]))))`
-
-Index:
-
-- `CREATE INDEX ix_patient_measurement_time ON public.patient_measurement USING btree (case_id, observed_at DESC)`
-- `CREATE UNIQUE INDEX patient_measurement_pkey ON public.patient_measurement USING btree (id)`
-
-Trigger:
-
-- `measurement_audit`: `CREATE TRIGGER measurement_audit AFTER INSERT ON public.patient_measurement FOR EACH ROW EXECUTE FUNCTION audit_record_change()`
-- `patient_measurement_immutable`: `CREATE TRIGGER patient_measurement_immutable BEFORE DELETE OR UPDATE ON public.patient_measurement FOR EACH ROW EXECUTE FUNCTION prevent_mutation()`
-- `patient_measurement_validate`: `CREATE TRIGGER patient_measurement_validate BEFORE INSERT ON public.patient_measurement FOR EACH ROW EXECUTE FUNCTION validate_patient_measurement()`
-
-RLS:
-
-- `patient_measurement_create`: INSERT; USING ``; WITH CHECK `((case_id = portal_case_id()) AND (recorded_by = current_app_user()))`.
-- `patient_measurement_read`: SELECT; USING `(case_id = portal_case_id())`; WITH CHECK ``.
-
-## permission
-
-Danh mục quyền đặc biệt, gồm quyền phê duyệt chuyên môn rule.approve (FR-05).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| code | character varying(60) | Không |  | Mã danh mục/quy tắc. |
-| description | text | Không |  | Mô tả nội dung. |
-
-Ràng buộc bảng:
-
-- `permission_pkey`: `PRIMARY KEY (code)`
-
-Index:
-
-- `CREATE UNIQUE INDEX permission_pkey ON public.permission USING btree (code)`
-
-## pharmacist_review
-
-Nhận xét và đề xuất của dược sĩ được phân công về một lần đánh giá (FR-30).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| id | uuid | Không | gen_random_uuid() | Định danh nội bộ UUID. |
-| evaluation_id | uuid | Không |  | Lần đánh giá liên quan. |
-| pharmacist_id | uuid | Không |  | Dược sĩ nhận xét. |
-| comment | text | Không |  | Nhận xét dược sĩ. |
-| proposal | text | Có |  | Đề xuất để bác sĩ xem xét. |
-| created_at | timestamp with time zone | Không | now() | Thời điểm tạo. |
-
-Ràng buộc bảng:
-
-- `pharmacist_review_comment_check`: `CHECK ((length(TRIM(BOTH FROM comment)) > 0))`
-- `pharmacist_review_evaluation_id_fkey`: `FOREIGN KEY (evaluation_id) REFERENCES evaluation(id)`
-- `pharmacist_review_pharmacist_id_fkey`: `FOREIGN KEY (pharmacist_id) REFERENCES app_user(id)`
-- `pharmacist_review_pkey`: `PRIMARY KEY (id)`
-
-Index:
-
-- `CREATE INDEX ix_review_evaluation ON public.pharmacist_review USING btree (evaluation_id)`
-- `CREATE UNIQUE INDEX pharmacist_review_pkey ON public.pharmacist_review USING btree (id)`
-
-Trigger:
-
-- `pharmacist_review_validate`: `CREATE TRIGGER pharmacist_review_validate BEFORE INSERT OR UPDATE ON public.pharmacist_review FOR EACH ROW EXECUTE FUNCTION validate_review_plan()`
-- `review_audit`: `CREATE TRIGGER review_audit AFTER INSERT OR UPDATE ON public.pharmacist_review FOR EACH ROW EXECUTE FUNCTION audit_record_change()`
-
-## prescription
-
-Đơn thuốc do bác sĩ xác nhận; ngày dùng và múi giờ; bản xác nhận được giữ bất biến (FR-13,32,FR-P04).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| id | uuid | Không | gen_random_uuid() | Định danh nội bộ UUID. |
-| case_id | uuid | Không |  | Hồ sơ bệnh nhân liên quan. |
-| encounter_id | uuid | Không |  | Lần khám/đợt điều trị liên quan. |
-| doctor_id | uuid | Không |  | Bác sĩ phụ trách/xác nhận. |
-| status | character varying(12) | Không | 'draft'::character varying | Trạng thái; các giá trị hợp lệ được ghi trong CHECK bên dưới. |
-| starts_on | date | Không |  | Ngày bắt đầu dùng. |
-| ends_on | date | Có |  | Ngày kết thúc nếu có. |
-| timezone | character varying(60) | Không | 'Asia/Ho_Chi_Minh'::character varying | Múi giờ IANA của các giờ uống; mặc định Asia/Ho_Chi_Minh. |
-| instructions | text | Không | ''::text | Hướng dẫn dạng văn bản. |
-| confirmed_at | timestamp with time zone | Có |  | Thời điểm bác sĩ xác nhận đơn. |
-| created_at | timestamp with time zone | Không | now() | Thời điểm tạo. |
-
-Ràng buộc bảng:
-
-- `prescription_case_id_fkey`: `FOREIGN KEY (case_id) REFERENCES patient_case(id)`
-- `prescription_check`: `CHECK (((ends_on IS NULL) OR (ends_on >= starts_on)))`
-- `prescription_check1`: `CHECK (((((status)::text = 'draft'::text) AND (confirmed_at IS NULL)) OR (((status)::text <> 'draft'::text) AND (confirmed_at IS NOT NULL))))`
-- `prescription_doctor_id_fkey`: `FOREIGN KEY (doctor_id) REFERENCES app_user(id)`
-- `prescription_encounter_id_case_id_fkey`: `FOREIGN KEY (encounter_id, case_id) REFERENCES encounter(id, case_id)`
-- `prescription_id_encounter_id_key`: `UNIQUE (id, encounter_id)`
-- `prescription_pkey`: `PRIMARY KEY (id)`
-- `prescription_status_check`: `CHECK (((status)::text = ANY ((ARRAY['draft'::character varying, 'confirmed'::character varying, 'cancelled'::character varying])::text[])))`
-
-Index:
-
-- `CREATE INDEX ix_prescription_case ON public.prescription USING btree (case_id, created_at DESC)`
-- `CREATE UNIQUE INDEX prescription_id_encounter_id_key ON public.prescription USING btree (id, encounter_id)`
-- `CREATE UNIQUE INDEX prescription_pkey ON public.prescription USING btree (id)`
-
-Trigger:
-
-- `prescription_audit`: `CREATE TRIGGER prescription_audit AFTER INSERT OR UPDATE ON public.prescription FOR EACH ROW EXECUTE FUNCTION audit_record_change()`
-- `prescription_cancel_reminders`: `CREATE TRIGGER prescription_cancel_reminders AFTER UPDATE ON public.prescription FOR EACH ROW EXECUTE FUNCTION cancel_prescription_reminders()`
-- `prescription_guard`: `CREATE TRIGGER prescription_guard BEFORE INSERT OR UPDATE ON public.prescription FOR EACH ROW EXECUTE FUNCTION guard_prescription()`
-
-RLS:
-
-- `patient_prescription_read`: SELECT; USING `((case_id = portal_case_id()) AND ((status)::text = ANY ((ARRAY['confirmed'::character varying, 'cancelled'::character varying])::text[])))`; WITH CHECK ``.
-
-## recommendation
-
-Gợi ý/cảnh báo có mức độ và nguồn tham chiếu; không tự tạo y lệnh (FR-21..29).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| id | uuid | Không | gen_random_uuid() | Định danh nội bộ UUID. |
-| module_result_id | uuid | Không |  | Kết quả module liên quan. |
-| code | character varying(80) | Không |  | Mã danh mục/quy tắc. |
-| severity | character varying(12) | Không |  | Mức info, warning hoặc critical. |
-| description | text | Không |  | Mô tả nội dung. |
-| source_ref | text | Không |  | Nguồn tham chiếu của nội dung. |
-
-Ràng buộc bảng:
-
-- `recommendation_module_result_id_fkey`: `FOREIGN KEY (module_result_id) REFERENCES module_result(id)`
-- `recommendation_pkey`: `PRIMARY KEY (id)`
-- `recommendation_severity_check`: `CHECK (((severity)::text = ANY ((ARRAY['info'::character varying, 'warning'::character varying, 'critical'::character varying])::text[])))`
-
-Index:
-
-- `CREATE INDEX ix_recommendation_result ON public.recommendation USING btree (module_result_id)`
-- `CREATE UNIQUE INDEX recommendation_pkey ON public.recommendation USING btree (id)`
-
-## result_missing_field
-
-Các chỉ số còn thiếu cho một kết quả module (FR-18,29).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| module_result_id | uuid | Không |  | Kết quả module liên quan. |
-| field_code | character varying(60) | Không |  | Mã chỉ số/trường dữ liệu. |
-
-Ràng buộc bảng:
-
-- `result_missing_field_field_code_fkey`: `FOREIGN KEY (field_code) REFERENCES observation_type(code)`
-- `result_missing_field_module_result_id_fkey`: `FOREIGN KEY (module_result_id) REFERENCES module_result(id)`
-- `result_missing_field_pkey`: `PRIMARY KEY (module_result_id, field_code)`
-
-Index:
-
-- `CREATE UNIQUE INDEX result_missing_field_pkey ON public.result_missing_field USING btree (module_result_id, field_code)`
-
-## role
-
-Năm vai trò: doctor, nurse, pharmacist, admin, patient (FR-03,FR-P01).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| code | character varying(20) | Không |  | Mã danh mục/quy tắc. |
-
-Ràng buộc bảng:
-
-- `role_code_check`: `CHECK (((code)::text = ANY ((ARRAY['doctor'::character varying, 'nurse'::character varying, 'pharmacist'::character varying, 'admin'::character varying, 'patient'::character varying])::text[])))`
-- `role_pkey`: `PRIMARY KEY (code)`
-
-Index:
-
-- `CREATE UNIQUE INDEX role_pkey ON public.role USING btree (code)`
-
-## rule_approval
-
-Bằng chứng duyệt nội dung đã kiểm thử, hash, người duyệt có quyền và thời điểm (FR-05).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| rule_version_id | uuid | Không |  | Phiên bản quy tắc liên quan. |
-| approval_ref | text | Không |  | Tham chiếu bằng chứng phê duyệt. |
-| approved_content_hash | character varying(64) | Không |  | Hash của nội dung được duyệt. |
-| approved_at | timestamp with time zone | Không |  | Thời điểm duyệt. |
-| recorded_by | uuid | Không |  | Người ghi nhận dữ liệu. |
-
-Ràng buộc bảng:
-
-- `rule_approval_approval_ref_check`: `CHECK ((length(TRIM(BOTH FROM approval_ref)) > 0))`
-- `rule_approval_approved_content_hash_check`: `CHECK (((approved_content_hash)::text ~ '^[a-f0-9]{64}$'::text))`
-- `rule_approval_pkey`: `PRIMARY KEY (rule_version_id)`
-- `rule_approval_recorded_by_fkey`: `FOREIGN KEY (recorded_by) REFERENCES app_user(id)`
-- `rule_approval_rule_version_id_fkey`: `FOREIGN KEY (rule_version_id) REFERENCES rule_version(id)`
-
-Index:
-
-- `CREATE UNIQUE INDEX rule_approval_pkey ON public.rule_approval USING btree (rule_version_id)`
-
-Trigger:
-
-- `approval_audit`: `CREATE TRIGGER approval_audit AFTER INSERT ON public.rule_approval FOR EACH ROW EXECUTE FUNCTION audit_record_change()`
-- `rule_approval_immutable`: `CREATE TRIGGER rule_approval_immutable BEFORE DELETE OR UPDATE ON public.rule_approval FOR EACH ROW EXECUTE FUNCTION prevent_mutation()`
-- `rule_approval_validate`: `CREATE TRIGGER rule_approval_validate BEFORE INSERT ON public.rule_approval FOR EACH ROW EXECUTE FUNCTION validate_approval()`
-
-## rule_required_field
-
-Chỉ số bắt buộc của phiên bản quy tắc; giữ nguyên từ trạng thái tested (FR-18).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| rule_version_id | uuid | Không |  | Phiên bản quy tắc liên quan. |
-| field_code | character varying(60) | Không |  | Mã chỉ số/trường dữ liệu. |
-
-Ràng buộc bảng:
-
-- `rule_required_field_field_code_fkey`: `FOREIGN KEY (field_code) REFERENCES observation_type(code)`
-- `rule_required_field_pkey`: `PRIMARY KEY (rule_version_id, field_code)`
-- `rule_required_field_rule_version_id_fkey`: `FOREIGN KEY (rule_version_id) REFERENCES rule_version(id)`
-
-Index:
-
-- `CREATE UNIQUE INDEX rule_required_field_pkey ON public.rule_required_field USING btree (rule_version_id, field_code)`
-
-Trigger:
-
-- `required_field_guard`: `CREATE TRIGGER required_field_guard BEFORE INSERT OR DELETE OR UPDATE ON public.rule_required_field FOR EACH ROW EXECUTE FUNCTION guard_required_fields()`
-
-## rule_version
-
-Nội dung JSON, hash SHA-256, module, nguồn và vòng đời phiên bản quy tắc (FR-05).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| id | uuid | Không | gen_random_uuid() | Định danh nội bộ UUID. |
-| code | character varying(60) | Không |  | Mã danh mục/quy tắc. |
-| version | integer | Không |  | Số phiên bản quy tắc. |
-| module | character varying(20) | Không |  | Module diagnosis, lab_test, treatment hoặc medsafety. |
-| source_ref | text | Không |  | Nguồn tham chiếu của nội dung. |
-| content_hash | character varying(64) | Không |  | SHA-256 của chuỗi JSONB content chuẩn hóa bởi PostgreSQL. |
-| content | jsonb | Không | '{}'::jsonb | Nội dung ghi nhận hoặc JSONB; xem kiểu và ràng buộc của bảng. |
-| status | character varying(12) | Không | 'draft'::character varying | Trạng thái; các giá trị hợp lệ được ghi trong CHECK bên dưới. |
-| created_by | uuid | Không |  | Người tạo phiên bản. |
-| created_at | timestamp with time zone | Không | now() | Thời điểm tạo. |
-
-Ràng buộc bảng:
-
-- `rule_version_code_version_key`: `UNIQUE (code, version)`
-- `rule_version_content_check`: `CHECK ((jsonb_typeof(content) = 'object'::text))`
-- `rule_version_content_hash_check`: `CHECK (((content_hash)::text ~ '^[a-f0-9]{64}$'::text))`
-- `rule_version_created_by_fkey`: `FOREIGN KEY (created_by) REFERENCES app_user(id)`
-- `rule_version_module_check`: `CHECK (((module)::text = ANY ((ARRAY['diagnosis'::character varying, 'lab_test'::character varying, 'treatment'::character varying, 'medsafety'::character varying])::text[])))`
-- `rule_version_pkey`: `PRIMARY KEY (id)`
-- `rule_version_status_check`: `CHECK (((status)::text = ANY ((ARRAY['draft'::character varying, 'tested'::character varying, 'approved'::character varying, 'active'::character varying, 'retired'::character varying])::text[])))`
-- `rule_version_version_check`: `CHECK ((version > 0))`
-
-Index:
-
-- `CREATE UNIQUE INDEX rule_version_code_version_key ON public.rule_version USING btree (code, version)`
-- `CREATE UNIQUE INDEX rule_version_pkey ON public.rule_version USING btree (id)`
-- `CREATE UNIQUE INDEX ux_rule_active ON public.rule_version USING btree (code) WHERE ((status)::text = 'active'::text)`
-
-Trigger:
-
-- `rule_activation_guard`: `CREATE TRIGGER rule_activation_guard BEFORE INSERT OR UPDATE ON public.rule_version FOR EACH ROW EXECUTE FUNCTION guard_rule_activation()`
-- `rule_audit`: `CREATE TRIGGER rule_audit AFTER INSERT OR UPDATE ON public.rule_version FOR EACH ROW EXECUTE FUNCTION audit_record_change()`
-
-## test_report
-
-Báo cáo xét nghiệm, siêu âm, ECG hoặc thăm dò, có thời điểm và nguồn (FR-12).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| id | uuid | Không | gen_random_uuid() | Định danh nội bộ UUID. |
-| encounter_id | uuid | Không |  | Lần khám/đợt điều trị liên quan. |
-| kind | character varying(10) | Không |  | Loại bản ghi; xem CHECK của bảng. |
-| performed_at | timestamp with time zone | Không |  | Thời điểm thực hiện xét nghiệm/thăm dò. |
-| source | character varying(30) | Không |  | Nguồn nhập giả lập hoặc nguồn mô phỏng. |
-| external_ref | text | Có |  | Mã bản tin/báo cáo/batch nguồn giả lập. |
-| content | jsonb | Không |  | Nội dung ghi nhận hoặc JSONB; xem kiểu và ràng buộc của bảng. |
-| recorded_by | uuid | Không |  | Người ghi nhận dữ liệu. |
-| created_at | timestamp with time zone | Không | now() | Thời điểm tạo. |
-
-Ràng buộc bảng:
-
-- `test_report_content_check`: `CHECK ((jsonb_typeof(content) = 'object'::text))`
-- `test_report_encounter_id_fkey`: `FOREIGN KEY (encounter_id) REFERENCES encounter(id)`
-- `test_report_kind_check`: `CHECK (((kind)::text = ANY ((ARRAY['lab'::character varying, 'echo'::character varying, 'ecg'::character varying, 'other'::character varying])::text[])))`
-- `test_report_pkey`: `PRIMARY KEY (id)`
-- `test_report_recorded_by_fkey`: `FOREIGN KEY (recorded_by) REFERENCES app_user(id)`
-- `test_report_source_check`: `CHECK (((source)::text = ANY ((ARRAY['manual_synthetic'::character varying, 'mock_his'::character varying, 'mock_lis'::character varying, 'mock_pacs'::character varying, 'mock_emr'::character varying])::text[])))`
-
-Index:
-
-- `CREATE INDEX ix_test_report_encounter ON public.test_report USING btree (encounter_id, performed_at DESC)`
-- `CREATE UNIQUE INDEX test_report_pkey ON public.test_report USING btree (id)`
-
-Trigger:
-
-- `report_audit`: `CREATE TRIGGER report_audit AFTER INSERT OR DELETE OR UPDATE ON public.test_report FOR EACH ROW EXECUTE FUNCTION audit_record_change()`
-- `report_revision`: `CREATE TRIGGER report_revision AFTER INSERT OR DELETE OR UPDATE ON public.test_report FOR EACH ROW EXECUTE FUNCTION bump_case_revision()`
-- `report_staff_validate`: `CREATE TRIGGER report_staff_validate BEFORE INSERT OR UPDATE ON public.test_report FOR EACH ROW EXECUTE FUNCTION validate_staff_record()`
-
-## treatment_plan
-
-Kế hoạch điều trị, theo dõi, ra viện hoặc tái khám do bác sĩ nhập (FR-32).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| id | uuid | Không | gen_random_uuid() | Định danh nội bộ UUID. |
-| encounter_id | uuid | Không |  | Lần khám/đợt điều trị liên quan. |
-| doctor_id | uuid | Không |  | Bác sĩ phụ trách/xác nhận. |
-| decision_id | uuid | Có |  | Quyết định gốc nếu kế hoạch dùng kết quả hỗ trợ. |
-| kind | character varying(12) | Không |  | Loại bản ghi; xem CHECK của bảng. |
-| content | text | Không |  | Nội dung ghi nhận hoặc JSONB; xem kiểu và ràng buộc của bảng. |
-| follow_up_at | timestamp with time zone | Có |  | Thời điểm tái khám dự kiến. |
-| status | character varying(12) | Không | 'draft'::character varying | Trạng thái; các giá trị hợp lệ được ghi trong CHECK bên dưới. |
-| created_at | timestamp with time zone | Không | now() | Thời điểm tạo. |
-| updated_at | timestamp with time zone | Không | now() | Thời điểm cập nhật gần nhất. |
-
-Ràng buộc bảng:
-
-- `treatment_plan_content_check`: `CHECK ((length(TRIM(BOTH FROM content)) > 0))`
-- `treatment_plan_decision_id_fkey`: `FOREIGN KEY (decision_id) REFERENCES clinical_decision(id)`
-- `treatment_plan_doctor_id_fkey`: `FOREIGN KEY (doctor_id) REFERENCES app_user(id)`
-- `treatment_plan_encounter_id_fkey`: `FOREIGN KEY (encounter_id) REFERENCES encounter(id)`
-- `treatment_plan_kind_check`: `CHECK (((kind)::text = ANY ((ARRAY['treatment'::character varying, 'monitoring'::character varying, 'discharge'::character varying, 'follow_up'::character varying])::text[])))`
-- `treatment_plan_pkey`: `PRIMARY KEY (id)`
-- `treatment_plan_status_check`: `CHECK (((status)::text = ANY ((ARRAY['draft'::character varying, 'confirmed'::character varying, 'cancelled'::character varying])::text[])))`
-
-Index:
-
-- `CREATE INDEX ix_plan_encounter ON public.treatment_plan USING btree (encounter_id, created_at DESC)`
-- `CREATE UNIQUE INDEX treatment_plan_pkey ON public.treatment_plan USING btree (id)`
-
-Trigger:
-
-- `plan_audit`: `CREATE TRIGGER plan_audit AFTER INSERT OR UPDATE ON public.treatment_plan FOR EACH ROW EXECUTE FUNCTION audit_record_change()`
-- `treatment_plan_validate`: `CREATE TRIGGER treatment_plan_validate BEFORE INSERT OR UPDATE ON public.treatment_plan FOR EACH ROW EXECUTE FUNCTION validate_review_plan()`
-
-## user_permission
-
-Cấp quyền đặc biệt theo tài khoản; admin không tự có quyền phê duyệt chuyên môn (FR-05).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| user_id | uuid | Không |  | Tài khoản liên quan. |
-| permission_code | character varying(60) | Không |  | Mã quyền đặc biệt. |
-
-Ràng buộc bảng:
-
-- `user_permission_permission_code_fkey`: `FOREIGN KEY (permission_code) REFERENCES permission(code)`
-- `user_permission_pkey`: `PRIMARY KEY (user_id, permission_code)`
-- `user_permission_user_id_fkey`: `FOREIGN KEY (user_id) REFERENCES app_user(id)`
-
-Index:
-
-- `CREATE UNIQUE INDEX user_permission_pkey ON public.user_permission USING btree (user_id, permission_code)`
-
-Trigger:
-
-- `permission_audit`: `CREATE TRIGGER permission_audit AFTER INSERT OR DELETE OR UPDATE ON public.user_permission FOR EACH ROW EXECUTE FUNCTION audit_record_change()`
-
-## user_role
-
-Các vai trò tài khoản; tài khoản bệnh nhân tách khỏi tài khoản nhân viên (FR-03,FR-P01).
-
-| Trường | Kiểu | Nullable | Mặc định | Ý nghĩa |
-|---|---|---|---|---|
-| user_id | uuid | Không |  | Tài khoản liên quan. |
-| role_code | character varying(20) | Không |  | Mã vai trò. |
-
-Ràng buộc bảng:
-
-- `user_role_pkey`: `PRIMARY KEY (user_id, role_code)`
-- `user_role_role_code_fkey`: `FOREIGN KEY (role_code) REFERENCES role(code)`
-- `user_role_user_id_fkey`: `FOREIGN KEY (user_id) REFERENCES app_user(id)`
-
-Index:
-
-- `CREATE UNIQUE INDEX user_role_pkey ON public.user_role USING btree (user_id, role_code)`
-
-Trigger:
-
-- `role_audit`: `CREATE TRIGGER role_audit AFTER INSERT OR DELETE OR UPDATE ON public.user_role FOR EACH ROW EXECUTE FUNCTION audit_record_change()`
-- `user_role_validate`: `CREATE TRIGGER user_role_validate BEFORE INSERT OR UPDATE ON public.user_role FOR EACH ROW EXECUTE FUNCTION validate_roles()`
-
-## Chuẩn hóa và snapshot
-
-Vai trò, quyền, hồ sơ, lần khám, danh mục chỉ số, thuốc, giờ uống và nhắc theo ngày có bảng riêng. Ngày/giờ uống không được ghép thành chuỗi trong bản ghi thuốc. Múi giờ thuộc đơn; thời điểm nhắc được suy ra từ ngày, giờ uống và múi giờ.
-
-`evaluation.input_snapshot` là bản sao bất biến để truy vết, không phải nguồn cập nhật. `audit_event.entity_id` là liên kết đa hình, trigger ghi đối tượng đang thay đổi; không dùng FK tới một bảng duy nhất. Không tuyên bố các payload JSONB tự đạt 3NF.
+# Từ điển Dữ liệu CSDL (`data_dictionary.md`)
+
+**Phiên bản schema:** `1.0.0` (PostgreSQL 16+)  
+**Nguồn sự thật:** `CONTRACT.md`, `CR-W1-01.md`, [`schema_metadata.json`](./schema_metadata.json), `trace-table.xlsx`.  
+**Tổng quan:** `19` bảng quan hệ (`16` bảng hợp đồng + `visit_lab_result`, `visit_revision`, `visit_value_option`), `10` kiểu `ENUM`, `13` hàm PL/pgSQL, `19` trigger, `121` định nghĩa trường trong `field_definition` (`95` `mvp` + `26` `can_xac_nhan`, `0` mã từ `65` dòng đầu ra AI).
+
+---
+
+## 1. Kiểu Enum (`CONTRACT.md` Mục 4.2)
+
+| Enum | Giá trị hợp lệ (`snake_case`) | Mục đích sử dụng |
+|---|---|---|
+| `user_role` | `doctor`, `admin` | Vai trò tài khoản trong `app_user` (mỗi tài khoản 1 vai trò). |
+| `visit_status` | `draft`, `confirmed` | Trạng thái lượt khám trong `visit` (`confirmed` khóa sửa trực tiếp). |
+| `value_state` | `answered`, `unknown` | Phân biệt 'Chưa rõ' (`unknown`) với 'Có câu trả lời' (`answered`); chưa điền = không có dòng. |
+| `form_version_status` | `draft`, `published`, `retired` | Vòng đời phiên bản biểu mẫu (`published`/`retired` bất biến ở DB). |
+| `field_scope_status` | `mvp`, `can_xac_nhan` | Phân tách 95 mã `mvp` với 26 mã `can_xac_nhan`. |
+| `field_data_type` | `number`, `integer`, `text`, `boolean`, `date`, `single_choice`, `multi_choice` | 7 kiểu dữ liệu chuẩn của `field_definition`. |
+| `section_code` | `hanh_chinh`, `trieu_chung_dien_bien`, `sinh_ton_kham`, `benh_su_dong_mac`, `thuoc_di_ung`, `can_lam_sang`, `lao_khoa`, `ghi_chu` | 8 nhóm biểu mẫu UX giữ nguyên tiếng Việt từ Chặng A. |
+| `readiness_tier` | `patient_created`, `draft_saved`, `confirmed`, `ai_ready` | 4 tầng sẵn sàng tách biệt (K1): hồ sơ BN, nháp, xác nhận, đủ đầu vào AI. |
+| `bp_position` | `supine`, `sitting`, `standing` | Tư thế đo huyết áp trong `visit_orthostatic_bp` (`supine`, `sitting`, `standing`). |
+| `audit_action` | `login`, `logout`, `login_failed`, `user_create`, `user_update`, `form_version_create`, `form_version_update`, `form_version_publish`, `patient_create`, `visit_confirm` | 10 hành động kiểm toán chuẩn trong `audit_log`. |
+
+## 2. Mã 4 Module AI (`field_ai_module` — đối chiếu nguyên văn `TL06`)
+
+| `ai_module_code` | Tên nguyên văn trong `TL06` | Vai trò trong kiến trúc |
+|---|---|---|
+| `ai_diagnosis` | `Model 1 – AI Diagnosis` | Hợp đồng đầu vào tầng 4 (`ai_ready`); **không** chạy AI giả và **không** chặn xác nhận tầng 3. |
+| `ai_lab_test` | `Model 2 – AI Lab/Test` | Hợp đồng đầu vào tầng 4 (`ai_ready`); **không** chạy AI giả và **không** chặn xác nhận tầng 3. |
+| `ai_treatment` | `Model 3 – AI Treatment` | Hợp đồng đầu vào tầng 4 (`ai_ready`); **không** chạy AI giả và **không** chặn xác nhận tầng 3. |
+| `ai_medsafety` | `Model 4 – AI MedSafety` | Hợp đồng đầu vào tầng 4 (`ai_ready`); **không** chạy AI giả và **không** chặn xác nhận tầng 3. |
+
+---
+
+## 3. Từ điển 19 Bảng Quan hệ & Ràng buộc DDL
+
+### 3.1. `app_user` (`AppUser`)
+> Tài khoản người dùng hệ thống (bác sĩ hoặc quản trị viên); không chứa thông tin bệnh nhân.
+
+| Cột | Kiểu dữ liệu | Null | Mặc định | Khóa / Tham chiếu / Ràng buộc | Diễn giải |
+|---|---|---|---|---|---|
+| `id` | `uuid` | NO | `gen_random_uuid()` | PK; UNIQUE | Khóa nội bộ UUID |
+| `username` | `varchar(64)` | NO | — | UNIQUE; CHECK: `length(trim(username)) >= 3 AND username ~ '^[a-zA-Z0-9_.-]+$'` | Tên đăng nhập duy nhất |
+| `password_hash` | `text` | NO | — | CHECK: `length(trim(password_hash)) > 0` | Mật khẩu đã băm (Argon2id/bcrypt), không lưu văn bản rõ |
+| `full_name` | `varchar(120)` | NO | — | CHECK: `length(trim(full_name)) > 0` | Họ và tên hiển thị |
+| `role` | `user_role` | NO | — | — | Vai trò duy nhất của tài khoản: doctor hoặc admin |
+| `is_active` | `boolean` | NO | `true` | — | Trạng thái kích hoạt tài khoản |
+| `row_version` | `integer` | NO | `1` | CHECK: `row_version > 0` | Phiên bản lạc quan ETag chống ghi đè đồng thời (C4) |
+| `created_at` | `timestamptz` | NO | `now()` | — | Thời điểm tạo |
+| `updated_at` | `timestamptz` | NO | `now()` | — | Thời điểm cập nhật gần nhất |
+
+- **Ràng buộc bảng (`CHECK`):** `chk_app_user_username_fmt` (`length(trim(username)) >= 3 AND username ~ '^[a-zA-Z0-9_.-]+$'`); `chk_app_user_full_name_nonempty` (`length(trim(full_name)) > 0`); `chk_app_user_password_hash_nonempty` (`length(trim(password_hash)) > 0`); `chk_app_user_row_version_pos` (`row_version > 0`)
+- **Khóa duy nhất (`UNIQUE`):** `uq_app_user_username` (username)
+- **Chỉ mục (`INDEX`):** `ix_app_user_role_active` trên `(role, is_active)`
+- **Trigger bảo toàn:** `trg_app_user_row_version` (BEFORE UPDATE): Tự động tăng `row_version` và chặn giảm `row_version` (C4); `trg_app_user_updated_at` (BEFORE UPDATE): Tự động cập nhật updated_at
+
+### 3.2. `user_session` (`UserSession`)
+> Phiên đăng nhập lưu refresh token đã băm, thời hạn và trạng thái thu hồi.
+
+| Cột | Kiểu dữ liệu | Null | Mặc định | Khóa / Tham chiếu / Ràng buộc | Diễn giải |
+|---|---|---|---|---|---|
+| `id` | `uuid` | NO | `gen_random_uuid()` | PK; UNIQUE | Khóa nội bộ phiên |
+| `user_id` | `uuid` | NO | — | FK → `app_user(id)` | Tài khoản sở hữu phiên |
+| `refresh_token_hash` | `varchar(128)` | NO | — | UNIQUE; CHECK: `length(trim(refresh_token_hash)) > 0` | Refresh token đã băm SHA-256 |
+| `expires_at` | `timestamptz` | NO | — | — | Thời điểm hết hạn |
+| `revoked_at` | `timestamptz` | YES | — | — | Thời điểm thu hồi (NULL nếu còn hiệu lực) |
+| `ip` | `inet` | YES | — | — | Địa chỉ IP khởi tạo phiên |
+| `user_agent` | `varchar(255)` | YES | — | — | Thông tin trình duyệt/thiết bị |
+| `created_at` | `timestamptz` | NO | `now()` | — | Thời điểm tạo phiên |
+
+- **Ràng buộc bảng (`CHECK`):** `chk_user_session_hash_nonempty` (`length(trim(refresh_token_hash)) > 0`); `chk_user_session_expires_after_create` (`expires_at > created_at`); `chk_user_session_revoked_after_create` (`revoked_at IS NULL OR revoked_at >= created_at`)
+- **Khóa duy nhất (`UNIQUE`):** `uq_user_session_token_hash` (refresh_token_hash)
+- **Chỉ mục (`INDEX`):** `ix_user_session_user_active` trên `(user_id, expires_at)` WHERE `revoked_at IS NULL`
+
+### 3.3. `patient` (`Patient`)
+> Hồ sơ bệnh nhân hành chính tối thiểu (tầng 1); mã BN-xxxxx bất biến, không ép BHYT/ICD và không bịa ngày sinh 01/01.
+
+| Cột | Kiểu dữ liệu | Null | Mặc định | Khóa / Tham chiếu / Ràng buộc | Diễn giải |
+|---|---|---|---|---|---|
+| `id` | `uuid` | NO | `gen_random_uuid()` | PK; UNIQUE | Khóa nội bộ UUID |
+| `patient_code` | `varchar(16)` | NO | — | UNIQUE; CHECK: `patient_code ~ '^BN-[0-9]{5}$'` | Mã hồ sơ bệnh nhân chuẩn BN-xxxxx do server sinh, bất biến |
+| `external_patient_code` | `varchar(64)` | YES | — | — | Mã định danh ngoài / HIS tham chiếu nếu có (tách riêng) |
+| `full_name` | `varchar(120)` | NO | — | CHECK: `length(trim(full_name)) >= 2` | Họ tên hoặc ký hiệu hồ sơ giả lập |
+| `sex` | `varchar(16)` | NO | — | CHECK: `sex IN ('male', 'female', 'unknown')` | Giới tính sinh học (male, female, unknown) |
+| `birth_date` | `date` | YES | — | CHECK: `birth_date IS NULL OR (birth_date >= DATE '1900-01-01' AND birth_date <= CURRENT_DATE)` | Ngày sinh chính xác (NULL nếu chỉ biết năm sinh/tuổi) |
+| `birth_year` | `smallint` | YES | — | CHECK: `birth_year IS NULL OR (birth_year BETWEEN 1900 AND 2100)` | Năm sinh khi không biết ngày/tháng |
+| `declared_age` | `smallint` | YES | — | CHECK: `declared_age IS NULL OR (declared_age BETWEEN 0 AND 120)` | Tuổi khai báo/ước lượng khi không biết ngày/năm sinh |
+| `row_version` | `integer` | NO | `1` | CHECK: `row_version > 0` | Phiên bản lạc quan chống ghi đè đồng thời (ETag) |
+| `created_by` | `uuid` | NO | — | FK → `app_user(id)` | Bác sĩ tạo hồ sơ |
+| `created_at` | `timestamptz` | NO | `now()` | — | Thời điểm tạo |
+| `updated_at` | `timestamptz` | NO | `now()` | — | Thời điểm cập nhật |
+
+- **Ràng buộc bảng (`CHECK`):** `chk_patient_code_fmt` (`patient_code ~ '^BN-[0-9]{5}$'`); `chk_patient_full_name_len` (`length(trim(full_name)) >= 2`); `chk_patient_sex` (`sex IN ('male', 'female', 'unknown')`); `chk_patient_birth_date_range` (`birth_date IS NULL OR (birth_date >= DATE '1900-01-01' AND birth_date <= CURRENT_DATE)`); `chk_patient_birth_year_range` (`birth_year IS NULL OR (birth_year BETWEEN 1900 AND 2100)`); `chk_patient_declared_age_range` (`declared_age IS NULL OR (declared_age BETWEEN 0 AND 120)`); `chk_patient_age_precision_mutex` (`num_nonnulls(birth_date, birth_year, declared_age) <= 1`); `chk_patient_row_version_pos` (`row_version > 0`)
+- **Khóa duy nhất (`UNIQUE`):** `uq_patient_code` (patient_code)
+- **Chỉ mục (`INDEX`):** `ix_patient_full_name` trên `(full_name)`; `ix_patient_external_code` trên `(external_patient_code)` WHERE `external_patient_code IS NOT NULL`
+- **Trigger bảo toàn:** `trg_patient_immutable_code` (BEFORE UPDATE): Chặn sửa patient_code sau khi cấp; `trg_patient_updated_at` (BEFORE UPDATE): Tự động cập nhật updated_at
+
+### 3.4. `field_definition` (`FieldDefinition`)
+> Danh mục chuẩn hóa các trường dữ liệu trích từ trace-table.xlsx (95 mã mvp + 26 mã can_xac_nhan, 0 mã đầu ra AI).
+
+| Cột | Kiểu dữ liệu | Null | Mặc định | Khóa / Tham chiếu / Ràng buộc | Diễn giải |
+|---|---|---|---|---|---|
+| `id` | `uuid` | NO | `gen_random_uuid()` | PK; UNIQUE | Khóa nội bộ UUID |
+| `code` | `varchar(80)` | NO | — | UNIQUE; CHECK: `code ~ '^[a-z][a-z0-9_]*$'` | Mã trường ổn định trích từ trace-table.xlsx |
+| `label_vi` | `varchar(200)` | NO | — | CHECK: `length(trim(label_vi)) > 0` | Nhãn tiếng Việt hiển thị trên biểu mẫu |
+| `section_code` | `section_code` | NO | — | — | Nhóm biểu mẫu mặc định trong 8 nhóm chuẩn |
+| `data_type` | `field_data_type` | NO | — | — | Kiểu dữ liệu hợp đồng (7 giá trị enum) |
+| `canonical_unit` | `varchar(40)` | YES | — | — | Đơn vị chuẩn của trường (NULL nếu không có đơn vị) |
+| `scope_status` | `field_scope_status` | NO | — | — | Phạm vi: mvp hoặc can_xac_nhan |
+| `storage_level` | `varchar(24)` | NO | `'visit_value'` | CHECK: `storage_level IN ('patient', 'visit_value', 'computed', 'orthostatic_bp', 'medication', 'allergy', 'lab_result')` | Nơi lưu trữ vật lý trong CSDL chuẩn hóa |
+| `is_calculated` | `boolean` | NO | `false` | — | Cờ đánh dấu trường dẫn xuất/tính toán (luot_tuoi, bmi, so_luong_thuoc_dong_thoi...) |
+| `min_value` | `numeric` | YES | — | — | Ngưỡng dưới hợp lệ kỹ thuật (cho number/integer) |
+| `max_value` | `numeric` | YES | — | — | Ngưỡng trên hợp lệ kỹ thuật (cho number/integer) |
+| `validation_rule` | `jsonb` | YES | — | — | Quy tắc kiểm tra bổ sung dạng JSON (đơn vị cho phép, công thức) |
+| `help_text` | `text` | YES | — | — | Hướng dẫn nhập liệu cho bác sĩ |
+| `source_ref` | `text` | NO | — | CHECK: `length(trim(source_ref)) > 0` | Truy vết nguồn TL01-TL06/XLS |
+| `created_at` | `timestamptz` | NO | `now()` | — | Thời điểm tạo |
+| `updated_at` | `timestamptz` | NO | `now()` | — | Thời điểm cập nhật |
+
+- **Ràng buộc bảng (`CHECK`):** `chk_field_def_code_fmt` (`code ~ '^[a-z][a-z0-9_]*$'`); `chk_field_def_label_nonempty` (`length(trim(label_vi)) > 0`); `chk_field_def_source_nonempty` (`length(trim(source_ref)) > 0`); `chk_field_def_storage_level` (`storage_level IN ('patient', 'visit_value', 'computed', 'orthostatic_bp', 'medication', 'allergy', 'lab_result')`); `chk_field_def_min_max` (`min_value IS NULL OR max_value IS NULL OR min_value <= max_value`); `chk_field_def_bounds_numeric_only` (`data_type IN ('number', 'integer') OR (min_value IS NULL AND max_value IS NULL)`)
+- **Khóa duy nhất (`UNIQUE`):** `uq_field_definition_code` (code)
+- **Chỉ mục (`INDEX`):** `ix_field_def_scope_section` trên `(scope_status, section_code)`
+- **Trigger bảo toàn:** `trg_field_definition_updated_at` (BEFORE UPDATE): Tự động cập nhật updated_at
+
+### 3.5. `field_option` (`FieldOption`)
+> Tập lựa chọn hợp lệ cho các trường kiểu single_choice hoặc multi_choice.
+
+| Cột | Kiểu dữ liệu | Null | Mặc định | Khóa / Tham chiếu / Ràng buộc | Diễn giải |
+|---|---|---|---|---|---|
+| `id` | `uuid` | NO | `gen_random_uuid()` | PK; UNIQUE | Khóa nội bộ UUID |
+| `field_definition_id` | `uuid` | NO | — | FK → `field_definition(id)` | Trường sở hữu lựa chọn |
+| `option_code` | `varchar(64)` | NO | — | CHECK: `option_code ~ '^[a-z0-9_]+$'` | Mã lựa chọn snake_case |
+| `label_vi` | `varchar(160)` | NO | — | CHECK: `length(trim(label_vi)) > 0` | Nhãn tiếng Việt hiển thị |
+| `display_order` | `smallint` | NO | — | CHECK: `display_order > 0` | Thứ tự hiển thị trong trường |
+| `is_active` | `boolean` | NO | `true` | — | Trạng thái sử dụng của lựa chọn |
+
+- **Ràng buộc bảng (`CHECK`):** `chk_field_option_code_fmt` (`option_code ~ '^[a-z0-9_]+$'`); `chk_field_option_label_nonempty` (`length(trim(label_vi)) > 0`); `chk_field_option_order_pos` (`display_order > 0`)
+- **Khóa duy nhất (`UNIQUE`):** `uq_field_option_code` (field_definition_id, option_code); `uq_field_option_order` (field_definition_id, display_order); `uq_field_option_id_field` (id, field_definition_id)
+
+### 3.6. `field_ai_module` (`FieldAiModule`)
+> Bảng nối n-n giữa định nghĩa trường và 4 module AI tương lai (tính sẵn sàng tầng 4, không chặn confirm tầng 3).
+
+| Cột | Kiểu dữ liệu | Null | Mặc định | Khóa / Tham chiếu / Ràng buộc | Diễn giải |
+|---|---|---|---|---|---|
+| `field_definition_id` | `uuid` | NO | — | PK; FK → `field_definition(id)` | Khóa ngoại tới field_definition |
+| `ai_module_code` | `varchar(32)` | NO | — | PK; CHECK: `ai_module_code IN ('ai_diagnosis', 'ai_lab_test', 'ai_treatment', 'ai_medsafety')` | Mã module AI trong 4 module TL06 |
+| `is_required` | `boolean` | NO | `false` | — | Mức độ cần thiết cho module AI (chỉ dùng cho tầng 4 ai_ready) |
+| `source_stt_refs` | `text` | YES | — | — | Danh sách STT trong TL06 tham chiếu tới module này |
+
+- **Ràng buộc bảng (`CHECK`):** `chk_field_ai_module_code` (`ai_module_code IN ('ai_diagnosis', 'ai_lab_test', 'ai_treatment', 'ai_medsafety')`)
+- **Chỉ mục (`INDEX`):** `ix_field_ai_module_code` trên `(ai_module_code)`
+
+### 3.7. `form_template` (`FormTemplate`)
+> Biểu mẫu logic ở mức sản phẩm (MVP có 1 biểu mẫu khám suy tim).
+
+| Cột | Kiểu dữ liệu | Null | Mặc định | Khóa / Tham chiếu / Ràng buộc | Diễn giải |
+|---|---|---|---|---|---|
+| `id` | `uuid` | NO | `gen_random_uuid()` | PK; UNIQUE | Khóa nội bộ UUID |
+| `code` | `varchar(64)` | NO | — | UNIQUE; CHECK: `code ~ '^[a-z][a-z0-9_]*$'` | Mã biểu mẫu ổn định |
+| `name` | `varchar(160)` | NO | — | CHECK: `length(trim(name)) > 0` | Tên hiển thị của biểu mẫu |
+| `description` | `text` | YES | — | — | Mô tả phạm vi biểu mẫu |
+| `is_active` | `boolean` | NO | `true` | — | Trạng thái hoạt động |
+| `created_at` | `timestamptz` | NO | `now()` | — | Thời điểm tạo |
+
+- **Ràng buộc bảng (`CHECK`):** `chk_form_template_code_fmt` (`code ~ '^[a-z][a-z0-9_]*$'`); `chk_form_template_name_nonempty` (`length(trim(name)) > 0`)
+- **Khóa duy nhất (`UNIQUE`):** `uq_form_template_code` (code)
+
+### 3.8. `form_version` (`FormVersion`)
+> Phiên bản cụ thể của biểu mẫu; bất biến ở mức DB khi đã published hoặc đã có visit sử dụng.
+
+| Cột | Kiểu dữ liệu | Null | Mặc định | Khóa / Tham chiếu / Ràng buộc | Diễn giải |
+|---|---|---|---|---|---|
+| `id` | `uuid` | NO | `gen_random_uuid()` | PK; UNIQUE | Khóa nội bộ UUID |
+| `form_template_id` | `uuid` | NO | — | FK → `form_template(id)` | Khóa ngoại tới form_template |
+| `version_no` | `integer` | NO | — | CHECK: `version_no > 0` | Số thứ tự phiên bản tăng dần (1, 2, 3...) |
+| `version_label` | `varchar(32)` | NO | — | CHECK: `length(trim(version_label)) > 0` | Nhãn phiên bản hiển thị (vd: v1.0) |
+| `status` | `form_version_status` | NO | `'draft'` | — | Trạng thái: draft, published, retired |
+| `based_on_version_id` | `uuid` | YES | — | FK → `form_version(id)` | Phiên bản gốc dùng để sao chép sang bản nháp mới |
+| `change_note` | `text` | YES | — | — | Ghi chú thay đổi khi tạo/phát hành phiên bản |
+| `created_by` | `uuid` | NO | — | FK → `app_user(id)` | Admin tạo phiên bản |
+| `created_at` | `timestamptz` | NO | `now()` | — | Thời điểm tạo |
+| `published_at` | `timestamptz` | YES | — | — | Thời điểm phát hành (bắt buộc khi published/retired) |
+| `published_by` | `uuid` | YES | — | FK → `app_user(id)` | Admin phát hành phiên bản |
+| `row_version` | `integer` | NO | `1` | CHECK: `row_version > 0` | Phiên bản lạc quan ETag cho updateFormVersion |
+
+- **Ràng buộc bảng (`CHECK`):** `chk_form_version_no_pos` (`version_no > 0`); `chk_form_version_label_nonempty` (`length(trim(version_label)) > 0`); `chk_form_version_not_self_based` (`based_on_version_id IS NULL OR based_on_version_id <> id`); `chk_form_version_publish_meta` (`(status = 'draft' AND published_at IS NULL AND published_by IS NULL) OR (status IN ('published', 'retired') AND published_at IS NOT NULL AND published_by IS NOT NULL)`); `chk_form_version_row_version_pos` (`row_version > 0`)
+- **Khóa duy nhất (`UNIQUE`):** `uq_form_version_template_no` (form_template_id, version_no)
+- **Chỉ mục (`INDEX`):** `ux_form_version_one_published` trên `(form_template_id)` WHERE `status = 'published'`
+- **Trigger bảo toàn:** `trg_form_version_immutable` (BEFORE UPDATE/DELETE): Chặn sửa hoặc xóa phiên bản đã published/retired hoặc đã có visit dùng
+
+### 3.9. `form_section` (`FormSection`)
+> Nhóm biểu mẫu thuộc một form_version (đủ 8 mã nhóm chuẩn).
+
+| Cột | Kiểu dữ liệu | Null | Mặc định | Khóa / Tham chiếu / Ràng buộc | Diễn giải |
+|---|---|---|---|---|---|
+| `id` | `uuid` | NO | `gen_random_uuid()` | PK; UNIQUE | Khóa nội bộ UUID |
+| `form_version_id` | `uuid` | NO | — | FK → `form_version(id)` | Phiên bản biểu mẫu sở hữu nhóm |
+| `section_code` | `section_code` | NO | — | — | Mã nhóm thuộc 8 mã chuẩn |
+| `title_vi` | `varchar(160)` | NO | — | CHECK: `length(trim(title_vi)) > 0` | Tiêu đề tiếng Việt hiển thị trên form |
+| `description` | `text` | YES | — | — | Mô tả nhóm |
+| `display_order` | `smallint` | NO | — | CHECK: `display_order > 0` | Thứ tự hiển thị nhóm trong form_version |
+
+- **Ràng buộc bảng (`CHECK`):** `chk_form_section_title_nonempty` (`length(trim(title_vi)) > 0`); `chk_form_section_order_pos` (`display_order > 0`)
+- **Khóa duy nhất (`UNIQUE`):** `uq_form_section_version_code` (form_version_id, section_code); `uq_form_section_version_order` (form_version_id, display_order); `uq_form_section_id_version` (id, form_version_id)
+- **Trigger bảo toàn:** `trg_form_section_immutable` (BEFORE INSERT/UPDATE/DELETE): Chặn thay đổi nhóm của form_version không còn ở trạng thái draft hoặc đã có visit
+
+### 3.10. `form_field` (`FormField`)
+> Ánh xạ trường từ field_definition vào một form_section cụ thể của một form_version.
+
+| Cột | Kiểu dữ liệu | Null | Mặc định | Khóa / Tham chiếu / Ràng buộc | Diễn giải |
+|---|---|---|---|---|---|
+| `id` | `uuid` | NO | `gen_random_uuid()` | PK; UNIQUE | Khóa nội bộ UUID |
+| `form_version_id` | `uuid` | NO | — | FK → `form_version(id)` | Phiên bản biểu mẫu |
+| `form_section_id` | `uuid` | NO | — | FK → `form_section(id)` | Nhóm chứa trường trong cùng form_version |
+| `field_definition_id` | `uuid` | NO | — | FK → `field_definition(id)` | Định nghĩa trường gốc |
+| `display_order` | `smallint` | NO | — | CHECK: `display_order > 0` | Thứ tự trường trong nhóm |
+| `required_for_confirm` | `boolean` | NO | `false` | — | Quy tắc bắt buộc tầng 3 khi confirm (mặc định false cho các trường lâm sàng/can_xac_nhan) |
+| `is_visible` | `boolean` | NO | `true` | — | Hiển thị trên biểu mẫu nhập tay (false cho trường can_xac_nhan chưa kích hoạt) |
+| `is_readonly` | `boolean` | NO | `false` | — | Chỉ đọc trên giao diện (vd: trường tự tính toán) |
+| `custom_label_vi` | `varchar(200)` | YES | — | — | Nhãn tùy chỉnh riêng trong phiên bản này (NULL dùng label_vi gốc) |
+| `custom_help_text` | `text` | YES | — | — | Gợi ý tùy chỉnh riêng trong phiên bản này |
+
+- **Ràng buộc bảng (`CHECK`):** `chk_form_field_order_pos` (`display_order > 0`)
+- **Khóa duy nhất (`UNIQUE`):** `uq_form_field_version_def` (form_version_id, field_definition_id); `uq_form_field_section_order` (form_section_id, display_order)
+- **Chỉ mục (`INDEX`):** `ix_form_field_def` trên `(field_definition_id)`
+- **Trigger bảo toàn:** `trg_form_field_immutable` (BEFORE INSERT/UPDATE/DELETE): Chặn thay đổi trường của form_version không còn ở trạng thái draft hoặc đã có visit
+
+### 3.11. `visit` (`Visit`)
+> Lượt khám lâm sàng độc lập gắn cứng một patient và một form_version đã published; khóa cứng khi confirmed.
+
+| Cột | Kiểu dữ liệu | Null | Mặc định | Khóa / Tham chiếu / Ràng buộc | Diễn giải |
+|---|---|---|---|---|---|
+| `id` | `uuid` | NO | `gen_random_uuid()` | PK; UNIQUE | Khóa nội bộ UUID |
+| `visit_code` | `varchar(24)` | NO | — | UNIQUE; CHECK: `visit_code ~ '^LK-[A-Z0-9-]+$'` | Mã lượt khám duy nhất (LK-...) |
+| `external_visit_code` | `varchar(64)` | YES | — | — | Mã lượt khám ngoài / HIS tham chiếu nếu có |
+| `patient_id` | `uuid` | NO | — | FK → `patient(id)` | Bệnh nhân của lượt khám |
+| `form_version_id` | `uuid` | NO | — | FK → `form_version(id)` | Phiên bản biểu mẫu gắn cứng lúc tạo lượt |
+| `visit_date` | `timestamptz` | NO | — | — | Thời điểm khám / tiếp nhận |
+| `visit_type` | `varchar(32)` | NO | `'outpatient_new'` | CHECK: `visit_type IN ('outpatient_new', 'follow_up', 'acute_inpatient')` | Loại lượt khám |
+| `chief_complaint` | `text` | YES | — | — | Lý do khám ngắn gọn |
+| `clinical_note` | `text` | YES | — | — | Ghi chú lâm sàng của bác sĩ (nhóm 8) |
+| `info_source` | `varchar(64)` | YES | — | — | Nguồn thông tin lâm sàng (người bệnh, người nhà, hồ sơ cũ) |
+| `status` | `visit_status` | NO | `'draft'` | — | Trạng thái lượt: draft hoặc confirmed |
+| `current_revision_no` | `integer` | NO | `1` | CHECK: `current_revision_no > 0` | Số thứ tự bản xác nhận/sửa đổi trong visit_revision |
+| `created_by` | `uuid` | NO | — | FK → `app_user(id)` | Bác sĩ tạo và phụ trách lượt khám |
+| `created_at` | `timestamptz` | NO | `now()` | — | Thời điểm tạo |
+| `updated_at` | `timestamptz` | NO | `now()` | — | Thời điểm cập nhật gần nhất |
+| `confirmed_at` | `timestamptz` | YES | — | — | Thời điểm bác sĩ xác nhận dữ liệu |
+| `confirmed_by` | `uuid` | YES | — | FK → `app_user(id)` | Bác sĩ xác nhận dữ liệu lượt khám |
+| `confirm_note` | `text` | YES | — | — | Ghi chú khi xác nhận dữ liệu |
+| `row_version` | `integer` | NO | `1` | CHECK: `row_version > 0` | Phiên bản lạc quan ETag chống ghi đè đồng thời |
+
+- **Ràng buộc bảng (`CHECK`):** `chk_visit_code_fmt` (`visit_code ~ '^LK-[A-Z0-9-]+$'`); `chk_visit_type` (`visit_type IN ('outpatient_new', 'follow_up', 'acute_inpatient')`); `chk_visit_confirm_meta` (`(status = 'draft' AND confirmed_at IS NULL AND confirmed_by IS NULL) OR (status = 'confirmed' AND confirmed_at IS NOT NULL AND confirmed_by IS NOT NULL)`); `chk_visit_revision_pos` (`current_revision_no > 0`); `chk_visit_row_version_pos` (`row_version > 0`)
+- **Khóa duy nhất (`UNIQUE`):** `uq_visit_code` (visit_code)
+- **Chỉ mục (`INDEX`):** `ix_visit_patient_date` trên `(patient_id, visit_date DESC)`; `ix_visit_form_version` trên `(form_version_id)`; `ix_visit_status` trên `(status)`
+- **Trigger bảo toàn:** `trg_visit_lifecycle_guard` (BEFORE INSERT/UPDATE/DELETE): Kiểm tra form_version phải là published khi tạo; chặn sửa/xóa trực tiếp lượt đã confirmed; chặn đổi patient_id/form_version_id/visit_code; `trg_visit_updated_at` (BEFORE UPDATE): Tự động cập nhật updated_at
+
+### 3.12. `visit_value` (`VisitValue`)
+> Giá trị trường đơn trong lượt khám; thiếu dòng = chưa điền, value_state='unknown' = Chưa rõ, 'answered' = có giá trị kể cả 0/false.
+
+| Cột | Kiểu dữ liệu | Null | Mặc định | Khóa / Tham chiếu / Ràng buộc | Diễn giải |
+|---|---|---|---|---|---|
+| `visit_id` | `uuid` | NO | — | PK; FK → `visit(id)` | Khóa ngoại tới visit |
+| `field_definition_id` | `uuid` | NO | — | PK; FK → `field_definition(id)` | Khóa ngoại tới field_definition |
+| `value_state` | `value_state` | NO | — | — | Trạng thái trả lời: answered hoặc unknown |
+| `value_num` | `numeric` | YES | — | — | Giá trị số (number hoặc integer) |
+| `value_text` | `text` | YES | — | — | Giá trị văn bản (text) |
+| `value_bool` | `boolean` | YES | — | — | Giá trị logic Có/Không (boolean) |
+| `value_date` | `date` | YES | — | — | Giá trị ngày (date) |
+| `field_option_id` | `uuid` | YES | — | FK → `field_option(id)` | Giá trị lựa chọn đơn (single_choice) |
+| `unit` | `varchar(40)` | YES | — | — | Đơn vị đi kèm giá trị số nếu có |
+| `updated_at` | `timestamptz` | NO | `now()` | — | Thời điểm cập nhật giá trị |
+
+- **Ràng buộc bảng (`CHECK`):** `chk_visit_value_state_cols` (`(value_state = 'unknown' AND value_num IS NULL AND value_text IS NULL AND value_bool IS NULL AND value_date IS NULL AND field_option_id IS NULL AND unit IS NULL) OR (value_state = 'answered' AND num_nonnulls(value_num, value_text, value_bool, value_date, field_option_id) <= 1)`)
+- **Chỉ mục (`INDEX`):** `ix_visit_value_field` trên `(field_definition_id)`
+- **Trigger bảo toàn:** `trg_visit_value_guard` (BEFORE INSERT/UPDATE/DELETE): Chặn sửa khi visit đã confirmed; kiểm tra trường thuộc form_version của visit và khớp đúng data_type + min/max; `trg_visit_value_multichoice_deferred` (AFTER (DEFERRABLE) INSERT/UPDATE): Đảm bảo multi_choice ở trạng thái answered có ít nhất 1 lựa chọn trong visit_value_option khi commit; `trg_visit_value_updated_at` (BEFORE UPDATE): Tự động cập nhật updated_at
+
+### 3.13. `visit_value_option` (`VisitValueOption`)
+> Bảng con đạt 3NF cho các trường multi_choice trong visit_value (CR-W1-01).
+
+| Cột | Kiểu dữ liệu | Null | Mặc định | Khóa / Tham chiếu / Ràng buộc | Diễn giải |
+|---|---|---|---|---|---|
+| `visit_id` | `uuid` | NO | — | PK; FK → `visit_value(visit_id)` | Khóa ngoại phần visit_id |
+| `field_definition_id` | `uuid` | NO | — | PK; FK → `visit_value(field_definition_id)` | Khóa ngoại phần field_definition_id |
+| `field_option_id` | `uuid` | NO | — | PK; FK → `field_option(id)` | Lựa chọn được chọn |
+- **Chỉ mục (`INDEX`):** `ix_visit_value_option_opt` trên `(field_option_id)`
+- **Trigger bảo toàn:** `trg_visit_value_option_guard` (BEFORE INSERT/UPDATE/DELETE): Chặn sửa khi visit đã confirmed; xác minh trường có data_type='multi_choice' và value_state='answered'
+
+### 3.14. `visit_orthostatic_bp` (`OrthostaticBpMeasurement`)
+> Bảng lặp các lần đo huyết áp theo tư thế (nằm/ngồi/đứng) và thời điểm đo.
+
+| Cột | Kiểu dữ liệu | Null | Mặc định | Khóa / Tham chiếu / Ràng buộc | Diễn giải |
+|---|---|---|---|---|---|
+| `id` | `uuid` | NO | `gen_random_uuid()` | PK; UNIQUE | Khóa nội bộ UUID |
+| `visit_id` | `uuid` | NO | — | FK → `visit(id)` | Lượt khám sở hữu lần đo |
+| `position` | `bp_position` | NO | — | — | Tư thế đo: supine, sitting hoặc standing |
+| `minute_after` | `smallint` | YES | — | CHECK: `minute_after IS NULL OR minute_after BETWEEN 0 AND 60` | Số phút sau khi đổi tư thế (vd: sau đứng 1-3 phút) |
+| `systolic` | `smallint` | NO | — | CHECK: `systolic BETWEEN 40 AND 300` | Huyết áp tâm thu (mmHg) |
+| `diastolic` | `smallint` | NO | — | CHECK: `diastolic BETWEEN 20 AND 200` | Huyết áp tâm trương (mmHg) |
+| `heart_rate` | `smallint` | YES | — | CHECK: `heart_rate IS NULL OR heart_rate BETWEEN 20 AND 300` | Tần số tim đo cùng thời điểm (lần/phút) |
+| `measured_at` | `timestamptz` | NO | — | — | Thời điểm đo huyết áp |
+| `note` | `text` | YES | — | — | Ghi chú thêm (vd: chóng mặt khi đứng) |
+| `created_at` | `timestamptz` | NO | `now()` | — | Thời điểm ghi nhận bản ghi |
+
+- **Ràng buộc bảng (`CHECK`):** `chk_bp_minute_after` (`minute_after IS NULL OR minute_after BETWEEN 0 AND 60`); `chk_bp_systolic_range` (`systolic BETWEEN 40 AND 300`); `chk_bp_diastolic_range` (`diastolic BETWEEN 20 AND 200`); `chk_bp_sys_gt_dia` (`systolic > diastolic`); `chk_bp_hr_range` (`heart_rate IS NULL OR heart_rate BETWEEN 20 AND 300`)
+- **Chỉ mục (`INDEX`):** `ix_visit_bp_visit_time` trên `(visit_id, measured_at)`
+- **Trigger bảo toàn:** `trg_visit_bp_confirmed_guard` (BEFORE INSERT/UPDATE/DELETE): Chặn thay đổi khi visit đã confirmed
+
+### 3.15. `visit_medication` (`VisitMedication`)
+> Bảng lặp thuốc đang dùng (thuốc kê đơn & OTC/TPCN/YHCT) gắn với lượt khám.
+
+| Cột | Kiểu dữ liệu | Null | Mặc định | Khóa / Tham chiếu / Ràng buộc | Diễn giải |
+|---|---|---|---|---|---|
+| `id` | `uuid` | NO | `gen_random_uuid()` | PK; UNIQUE | Khóa nội bộ UUID |
+| `visit_id` | `uuid` | NO | — | FK → `visit(id)` | Lượt khám ghi nhận |
+| `medication_group` | `varchar(32)` | NO | `'prescribed'` | CHECK: `medication_group IN ('prescribed', 'otc_supplement_tcm')` | Phân nhóm: thuốc kê đơn hay OTC/TPCN/YHCT |
+| `drug_name` | `varchar(160)` | NO | — | CHECK: `length(trim(drug_name)) > 0` | Tên thuốc hoặc chế phẩm |
+| `active_ingredient` | `varchar(160)` | YES | — | — | Hoạt chất chính |
+| `strength` | `varchar(64)` | YES | — | — | Hàm lượng viên/ống |
+| `dose` | `numeric` | YES | — | CHECK: `dose IS NULL OR dose > 0` | Liều mỗi lần dùng |
+| `unit` | `varchar(32)` | YES | — | — | Đơn vị liều (mg, mcg, viên, ml...) |
+| `frequency` | `varchar(80)` | YES | — | — | Tần suất dùng (vd: 1 lần/ngày) |
+| `route` | `varchar(32)` | YES | — | CHECK: `route IS NULL OR route IN ('oral', 'iv', 'subcutaneous', 'inhaled', 'topical', 'other')` | Đường dùng |
+| `status` | `varchar(24)` | NO | `'active'` | CHECK: `status IN ('active', 'stopped', 'proposed')` | Tình trạng dùng thuốc |
+| `started_at` | `date` | YES | — | — | Ngày bắt đầu dùng nếu biết |
+| `note` | `text` | YES | — | — | Ghi chú thêm |
+| `created_at` | `timestamptz` | NO | `now()` | — | Thời điểm ghi nhận |
+
+- **Ràng buộc bảng (`CHECK`):** `chk_med_group` (`medication_group IN ('prescribed', 'otc_supplement_tcm')`); `chk_med_drug_name_nonempty` (`length(trim(drug_name)) > 0`); `chk_med_dose_pos` (`dose IS NULL OR dose > 0`); `chk_med_route` (`route IS NULL OR route IN ('oral', 'iv', 'subcutaneous', 'inhaled', 'topical', 'other')`); `chk_med_status` (`status IN ('active', 'stopped', 'proposed')`)
+- **Chỉ mục (`INDEX`):** `ix_visit_med_visit_status` trên `(visit_id, status)`
+- **Trigger bảo toàn:** `trg_visit_med_confirmed_guard` (BEFORE INSERT/UPDATE/DELETE): Chặn thay đổi khi visit đã confirmed
+
+### 3.16. `visit_allergy` (`VisitAllergy`)
+> Bảng lặp dị ứng thuốc (kể cả thuốc cản quang), phản ứng có hại (ADR) và không dung nạp thuốc.
+
+| Cột | Kiểu dữ liệu | Null | Mặc định | Khóa / Tham chiếu / Ràng buộc | Diễn giải |
+|---|---|---|---|---|---|
+| `id` | `uuid` | NO | `gen_random_uuid()` | PK; UNIQUE | Khóa nội bộ UUID |
+| `visit_id` | `uuid` | NO | — | FK → `visit(id)` | Lượt khám ghi nhận |
+| `kind` | `varchar(24)` | NO | — | CHECK: `kind IN ('allergy', 'adr', 'intolerance')` | Phân loại phản ứng: allergy, adr, hoặc intolerance |
+| `agent_category` | `varchar(32)` | NO | `'therapeutic_drug'` | CHECK: `agent_category IN ('therapeutic_drug', 'contrast_media', 'other')` | Nhóm tác nhân: thuốc điều trị, thuốc cản quang, hoặc khác |
+| `allergen` | `varchar(160)` | NO | — | CHECK: `length(trim(allergen)) > 0` | Tên tác nhân / hoạt chất gây phản ứng |
+| `reaction` | `text` | YES | — | — | Biểu hiện lâm sàng (phát ban, phù mạch, ho khan, tăng kali...) |
+| `severity` | `varchar(24)` | NO | `'unknown'` | CHECK: `severity IN ('mild', 'moderate', 'severe', 'unknown')` | Mức độ nặng |
+| `recorded_at` | `timestamptz` | YES | — | — | Thời điểm xảy ra/ghi nhận phản ứng |
+| `note` | `text` | YES | — | — | Ghi chú thêm |
+| `created_at` | `timestamptz` | NO | `now()` | — | Thời điểm lưu bản ghi |
+
+- **Ràng buộc bảng (`CHECK`):** `chk_allergy_kind` (`kind IN ('allergy', 'adr', 'intolerance')`); `chk_allergy_agent_cat` (`agent_category IN ('therapeutic_drug', 'contrast_media', 'other')`); `chk_allergy_allergen_nonempty` (`length(trim(allergen)) > 0`); `chk_allergy_severity` (`severity IN ('mild', 'moderate', 'severe', 'unknown')`)
+- **Chỉ mục (`INDEX`):** `ix_visit_allergy_visit_kind` trên `(visit_id, kind)`
+- **Trigger bảo toàn:** `trg_visit_allergy_confirmed_guard` (BEFORE INSERT/UPDATE/DELETE): Chặn thay đổi khi visit đã confirmed
+
+### 3.17. `visit_lab_result` (`VisitLabResult`)
+> Bảng lặp kết quả cận lâm sàng & chẩn đoán hình ảnh có loại tách biệt (BNP vs NT-proBNP, Creatinin vs eGFR, LVEF...), đơn vị và thời điểm.
+
+| Cột | Kiểu dữ liệu | Null | Mặc định | Khóa / Tham chiếu / Ràng buộc | Diễn giải |
+|---|---|---|---|---|---|
+| `id` | `uuid` | NO | `gen_random_uuid()` | PK; UNIQUE | Khóa nội bộ UUID |
+| `visit_id` | `uuid` | NO | — | FK → `visit(id)` | Lượt khám sở hữu kết quả |
+| `lab_code` | `varchar(80)` | NO | — | FK → `field_definition(code)` | Mã loại xét nghiệm/thăm dò tham chiếu field_definition(code) có storage_level='lab_result' |
+| `lab_subtype` | `varchar(64)` | YES | — | — | Phân loại chi tiết (vd: hs_troponin_t, hs_troponin_i) |
+| `value_num` | `numeric` | YES | — | CHECK: `value_num IS NULL OR value_num >= 0` | Giá trị định lượng (>= 0) |
+| `value_text` | `text` | YES | — | — | Kết luận mô tả (Siêu âm tim, ECG, X-quang) |
+| `unit` | `varchar(40)` | YES | — | — | Đơn vị đo (bắt buộc không rỗng khi có value_num) |
+| `measured_at` | `timestamptz` | NO | — | — | Thời điểm lấy mẫu hoặc thực hiện thăm dò |
+| `note` | `text` | YES | — | — | Ghi chú nguồn phiếu hoặc diễn giải thêm |
+| `created_at` | `timestamptz` | NO | `now()` | — | Thời điểm ghi nhận bản ghi |
+
+- **Ràng buộc bảng (`CHECK`):** `chk_lab_has_value` (`value_num IS NOT NULL OR (value_text IS NOT NULL AND length(trim(value_text)) > 0)`); `chk_lab_value_num_nonneg` (`value_num IS NULL OR value_num >= 0`); `chk_lab_unit_required_for_num` (`value_num IS NULL OR (unit IS NOT NULL AND length(trim(unit)) > 0)`)
+- **Chỉ mục (`INDEX`):** `ix_visit_lab_visit_code_time` trên `(visit_id, lab_code, measured_at DESC)`
+- **Trigger bảo toàn:** `trg_visit_lab_guard` (BEFORE INSERT/UPDATE/DELETE): Chặn thay đổi khi visit đã confirmed; xác minh lab_code thuộc nhóm storage_level='lab_result'
+
+### 3.18. `visit_revision` (`VisitRevision`)
+> Lịch sử snapshot bất biến (append-only) của các bản xác nhận và sửa đổi sau xác nhận; bảo đảm không mất bản đã dùng cho AI.
+
+| Cột | Kiểu dữ liệu | Null | Mặc định | Khóa / Tham chiếu / Ràng buộc | Diễn giải |
+|---|---|---|---|---|---|
+| `id` | `uuid` | NO | `gen_random_uuid()` | PK; UNIQUE | Khóa nội bộ UUID |
+| `visit_id` | `uuid` | NO | — | FK → `visit(id)` | Lượt khám tương ứng |
+| `revision_no` | `integer` | NO | — | CHECK: `revision_no > 0` | Số thứ tự phiên bản dữ liệu (1, 2...) |
+| `form_version_id` | `uuid` | NO | — | FK → `form_version(id)` | Phiên bản biểu mẫu tại thời điểm snapshot |
+| `revision_type` | `varchar(32)` | NO | `'confirmed_snapshot'` | CHECK: `revision_type IN ('confirmed_snapshot', 'post_confirm_amendment')` | Loại bản ghi: xác nhận ban đầu hay sửa bổ sung sau xác nhận |
+| `change_reason` | `text` | NO | — | CHECK: `length(trim(change_reason)) > 0` | Lý do xác nhận hoặc lý do sửa sau xác nhận |
+| `snapshot_data` | `jsonb` | NO | — | CHECK: `jsonb_typeof(snapshot_data) = 'object'` | Ảnh chụp toàn bộ dữ liệu chuẩn hóa của lượt khám tại revision này (tách khỏi audit_log) |
+| `created_by` | `uuid` | NO | — | FK → `app_user(id)` | Bác sĩ thực hiện |
+| `created_at` | `timestamptz` | NO | `now()` | — | Thời điểm ghi snapshot |
+
+- **Ràng buộc bảng (`CHECK`):** `chk_visit_rev_no_pos` (`revision_no > 0`); `chk_visit_rev_type` (`revision_type IN ('confirmed_snapshot', 'post_confirm_amendment')`); `chk_visit_rev_reason_nonempty` (`length(trim(change_reason)) > 0`); `chk_visit_rev_snapshot_obj` (`jsonb_typeof(snapshot_data) = 'object'`)
+- **Khóa duy nhất (`UNIQUE`):** `uq_visit_revision_visit_no` (visit_id, revision_no)
+- **Chỉ mục (`INDEX`):** `ix_visit_revision_visit_time` trên `(visit_id, created_at DESC)`
+- **Trigger bảo toàn:** `trg_visit_revision_append_only` (BEFORE UPDATE/DELETE): Bảo đảm visit_revision chỉ cho phép INSERT (append-only), cấm UPDATE/DELETE
+
+### 3.19. `audit_log` (`AuditLog`)
+> Nhật ký kiểm toán hệ thống (append-only); tuyệt đối không chứa mật khẩu hay nội dung lâm sàng bệnh nhân.
+
+| Cột | Kiểu dữ liệu | Null | Mặc định | Khóa / Tham chiếu / Ràng buộc | Diễn giải |
+|---|---|---|---|---|---|
+| `id` | `uuid` | NO | `gen_random_uuid()` | PK; UNIQUE | Khóa nội bộ UUID |
+| `actor_user_id` | `uuid` | YES | — | FK → `app_user(id)` | Tài khoản thực hiện hành động (NULL chỉ khi login_failed không rõ user) |
+| `action` | `audit_action` | NO | — | — | Hành động kiểm toán thuộc enum audit_action |
+| `entity_type` | `varchar(64)` | NO | — | CHECK: `length(trim(entity_type)) > 0` | Loại đối tượng tác động (app_user, patient, form_version, visit...) |
+| `entity_id` | `uuid` | YES | — | — | ID đối tượng tác động |
+| `occurred_at` | `timestamptz` | NO | `now()` | — | Thời điểm phát sinh sự kiện |
+| `ip` | `inet` | YES | — | — | Địa chỉ IP nguồn |
+| `request_id` | `varchar(64)` | YES | — | — | Mã truy vết request |
+| `outcome` | `varchar(16)` | NO | `'success'` | CHECK: `outcome IN ('success', 'denied', 'failure')` | Kết quả thực hiện: success, denied, failure |
+| `detail` | `jsonb` | NO | `'{}'::jsonb` | CHECK: `jsonb_typeof(detail) = 'object'` | Siêu dữ liệu kỹ thuật (không chứa dữ liệu lâm sàng hay mật khẩu) |
+
+- **Ràng buộc bảng (`CHECK`):** `chk_audit_entity_type_nonempty` (`length(trim(entity_type)) > 0`); `chk_audit_outcome` (`outcome IN ('success', 'denied', 'failure')`); `chk_audit_detail_object` (`jsonb_typeof(detail) = 'object'`)
+- **Chỉ mục (`INDEX`):** `ix_audit_occurred_at` trên `(occurred_at DESC)`; `ix_audit_actor_time` trên `(actor_user_id, occurred_at DESC)`; `ix_audit_entity_time` trên `(entity_type, entity_id, occurred_at DESC)`
+- **Trigger bảo toàn:** `trg_audit_log_no_clinical_data` (BEFORE INSERT): Chặn các khóa chứa dữ liệu lâm sàng/mật khẩu lọt vào detail JSONB; `trg_audit_log_append_only` (BEFORE UPDATE/DELETE): Bảo đảm audit_log chỉ ghi nối (append-only), cấm sửa/xóa
+
+---
+
+## 4. Danh mục 121 Trường Cấu hình (`field_definition`: `95` `mvp` + `26` `can_xac_nhan`)
+
+> Ghi chú: Các trường thuộc `storage_level` khác `visit_value` (`patient`, `computed`, `orthostatic_bp`, `medication`, `allergy`, `lab_result`) vẫn nằm trong danh mục `field_definition` và `form_field` để đồng bộ nhãn, đơn vị, kiểm tra và ánh xạ 4 module AI, còn giá trị runtime lưu tại bảng chuẩn hóa tương ứng.
+
+### 4.1. Nhóm `hanh_chinh` — Hành chính và Thông tin nền (`2` `mvp` + `0` `can_xac_nhan`)
+
+| # | `code` | Nhãn tiếng Việt | Phạm vi | Kiểu (`data_type`) | Đơn vị chuẩn | Nơi lưu (`storage_level`) | Miền giá trị / Lựa chọn | Module AI | Nguồn (`source_ref`) |
+|---:|---|---|---|---|---|---|---|---|---|
+| 1 | `luot_tuoi` | Tuổi tại thời điểm khám | `mvp` | `integer` | tuổi | `computed` | [0 .. 120] | `ai_diagnosis` | TL06 R2/STT 1 (tuoi) |
+| 2 | `bn_gioi_tinh` | Giới tính sinh học | `mvp` | `single_choice` | — | `patient` | `male` (Nam), `female` (Nữ), `unknown` (Chưa rõ) | `ai_diagnosis` | TL06 R3/STT 2 (gioi_tinh) |
+
+### 4.2. Nhóm `trieu_chung_dien_bien` — Triệu chứng cơ năng và Diễn biến (`20` `mvp` + `5` `can_xac_nhan`)
+
+| # | `code` | Nhãn tiếng Việt | Phạm vi | Kiểu (`data_type`) | Đơn vị chuẩn | Nơi lưu (`storage_level`) | Miền giá trị / Lựa chọn | Module AI | Nguồn (`source_ref`) |
+|---:|---|---|---|---|---|---|---|---|---|
+| 1 | `kho_tho_khi_gang_suc` | Khó thở khi gắng sức | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis`, `ai_lab_test` | TL06 R7/STT 6 (kho_tho_khi_gang_suc); TL06 R107/STT 111 (trieu_chung_dau_hieu) |
+| 2 | `kho_tho_khi_nam` | Khó thở khi nằm (Orthopnea) | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R8/STT 7 (kho_tho_khi_nam) |
+| 3 | `kho_tho_kich_phat_ve_dem` | Cơn khó thở kịch phát về đêm (PND) | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R9/STT 8 (kho_tho_kich_phat_ve_dem) |
+| 4 | `met_moi` | Mệt mỏi | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R10/STT 9 (met_moi) |
+| 5 | `giam_kha_nang_gang_suc` | Giảm khả năng gắng sức | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R11/STT 10 (giam_kha_nang_gang_suc) |
+| 6 | `phu_hai_chi_duoi` | Phù hai chi dưới (cơ năng) | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R12/STT 11 (phu_hai_chi_duoi) |
+| 7 | `tang_can_nhanh` | Tăng cân nhanh | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R13/STT 12 (tang_can_nhanh) |
+| 8 | `dau_nguc` | Đau ngực | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R14/STT 13 (dau_nguc) |
+| 9 | `hoi_hop` | Hồi hộp, đánh trống ngực | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R15/STT 14 (hoi_hop) |
+| 10 | `ngat` | Ngất hoặc tiền sử ngất | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis`, `ai_medsafety` | TL06 R16/STT 15 (ngat); TL06 R188/STT 192 (tien_su_te_nga_ngat) |
+| 11 | `lu_lan_sang` | Lú lẫn hoặc sảng | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R17/STT 16 (lu_lan_sang) |
+| 12 | `te_nga` | Té ngã hoặc tiền sử té ngã | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis`, `ai_medsafety` | TL06 R18/STT 17 (te_nga); TL06 R188/STT 192 (tien_su_te_nga_ngat) |
+| 13 | `chan_an` | Chán ăn | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R19/STT 18 (chan_an) |
+| 14 | `mat_ngu` | Mất ngủ | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R20/STT 19 (mat_ngu) |
+| 15 | `giam_van_dong` | Giảm vận động | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R21/STT 20 (giam_van_dong) |
+| 16 | `giam_kha_nang_tu_cham_soc` | Giảm khả năng tự chăm sóc | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R22/STT 21 (giam_kha_nang_tu_cham_soc) |
+| 17 | `suy_giam_chuc_nang_khong_giai_thich` | Suy giảm chức năng không giải thích được | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R23/STT 22 (suy_giam_chuc_nang_khong_giai_thich) |
+| 18 | `thay_doi_trieu_chung` | Diễn biến thay đổi triệu chứng | `mvp` | `single_choice` | — | `visit_value` | `cai_thien` (Cải thiện), `khong_doi` (Không đổi), `nang_len` (Nặng lên) | `ai_diagnosis` | TL06 R77/STT 81 (thay_doi_trieu_chung) |
+| 19 | `nyha_hien_tai` | Phân độ chức năng NYHA hiện tại | `mvp` | `single_choice` | — | `visit_value` | `nyha_i` (Độ I), `nyha_ii` (Độ II), `nyha_iii` (Độ III), `nyha_iv` (Độ IV) | `ai_diagnosis`, `ai_treatment` | TL06 R79/STT 83 (thay_doi_nyha); TL06 R149/STT 153 (nyha) |
+| 20 | `nhu_cau_tang_lieu_loi_tieu` | Nhu cầu tăng liều lợi tiểu gần đây | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R82/STT 86 (nhu_cau_tang_lieu_loi_tieu) |
+| 21 | `thay_doi_can_nang_kg` | Mức thay đổi cân nặng | `can_xac_nhan` | `number` | kg | `visit_value` | [-50 .. 50] | `ai_diagnosis` | TL06 R78/STT 82 (thay_doi_can_nang) |
+| 22 | `thay_doi_can_nang_khoang_thoi_gian` | Khoảng thời gian theo dõi thay đổi cân nặng | `can_xac_nhan` | `integer` | ngày | `visit_value` | [1 .. 365] | `ai_diagnosis` | TL06 R78/STT 82 (thay_doi_can_nang) |
+| 23 | `thay_doi_nyha` | Thay đổi phân độ NYHA | `can_xac_nhan` | `single_choice` | — | `visit_value` | `nyha_i` (Độ I), `nyha_ii` (Độ II), `nyha_iii` (Độ III), `nyha_iv` (Độ IV) | `ai_diagnosis` | TL06 R79/STT 83 (thay_doi_nyha) |
+| 24 | `so_lan_cap_cuu_nhap_vien` | Số lần cấp cứu / nhập viện vì suy tim | `can_xac_nhan` | `integer` | lần | `visit_value` | [0 .. 100] | `ai_diagnosis` | TL06 R81/STT 85 (so_lan_cap_cuu_nhap_vien) |
+| 25 | `tinh_trang_worsening_decompensated` | Tình trạng worsening / decompensated | `can_xac_nhan` | `text` | — | `visit_value` | — | `ai_treatment` | TL06 R150/STT 154 (worsening_decompensated) |
+
+### 4.3. Nhóm `sinh_ton_kham` — Dấu hiệu sinh tồn, Nhân trắc và Khám thực thể (`18` `mvp` + `1` `can_xac_nhan`)
+
+| # | `code` | Nhãn tiếng Việt | Phạm vi | Kiểu (`data_type`) | Đơn vị chuẩn | Nơi lưu (`storage_level`) | Miền giá trị / Lựa chọn | Module AI | Nguồn (`source_ref`) |
+|---:|---|---|---|---|---|---|---|---|---|
+| 1 | `chieu_cao_cm` | Chiều cao | `mvp` | `number` | cm | `visit_value` | [50 .. 250] | `ai_diagnosis` | TL06 R4/STT 3 (chieu_cao) |
+| 2 | `can_nang_kg` | Cân nặng hiện tại | `mvp` | `number` | kg | `visit_value` | [15 .. 250] | `ai_diagnosis`, `ai_medsafety` | TL06 R5/STT 4 (can_nang); TL06 R190/STT 194 (dinh_duong_can_nang_sarcopenia) |
+| 3 | `bmi` | Chỉ số khối cơ thể (BMI) | `mvp` | `number` | kg/m² | `computed` | [10 .. 80] | `ai_diagnosis` | TL06 R6/STT 5 (bmi) |
+| 4 | `huyet_ap_tam_thu` | Huyết áp tâm thu | `mvp` | `integer` | mmHg | `orthostatic_bp` | [40 .. 300] | `ai_diagnosis`, `ai_medsafety`, `ai_treatment` | TL06 R24/STT 23 (ha_t_the_nam_ngoi); TL06 R25/STT 24 (ha_t_the_dung); TL06 R152/STT 156 (ha_treatment); TL06 R165/STT 169 (nguy_co_te_nga_hha); +1 dòng khác |
+| 5 | `huyet_ap_tam_truong` | Huyết áp tâm trương | `mvp` | `integer` | mmHg | `orthostatic_bp` | [20 .. 200] | `ai_diagnosis`, `ai_medsafety`, `ai_treatment` | TL06 R24/STT 23 (ha_t_the_nam_ngoi); TL06 R25/STT 24 (ha_t_the_dung); TL06 R152/STT 156 (ha_treatment); TL06 R165/STT 169 (nguy_co_te_nga_hha); +1 dòng khác |
+| 6 | `thoi_diem_do_ha` | Thời điểm đo huyết áp | `mvp` | `text` | — | `orthostatic_bp` | — | `ai_diagnosis`, `ai_medsafety`, `ai_treatment` | TL06 R24/STT 23 (ha_t_the_nam_ngoi); TL06 R25/STT 24 (ha_t_the_dung); TL06 R152/STT 156 (ha_treatment); TL06 R184/STT 188 (ha_nam_ngoi_dung) |
+| 7 | `tu_the_do_ha` | Tư thế đo huyết áp | `mvp` | `single_choice` | — | `orthostatic_bp` | `supine` (Nằm), `sitting` (Ngồi), `standing` (Đứng) | `ai_diagnosis`, `ai_medsafety`, `ai_treatment` | TL06 R24/STT 23 (ha_t_the_nam_ngoi); TL06 R25/STT 24 (ha_t_the_dung); TL06 R152/STT 156 (ha_treatment); TL06 R165/STT 169 (nguy_co_te_nga_hha); +1 dòng khác |
+| 8 | `mach` | Mạch / Tần số tim | `mvp` | `integer` | lần/phút | `visit_value` | [20 .. 300] | `ai_diagnosis`, `ai_medsafety`, `ai_treatment` | TL06 R26/STT 25 (mach); TL06 R153/STT 157 (mach_treatment); TL06 R185/STT 189 (nhip_tim_ecg) |
+| 9 | `nhip_tho` | Nhịp thở | `mvp` | `integer` | lần/phút | `visit_value` | [4 .. 80] | `ai_diagnosis` | TL06 R27/STT 26 (nhip_tho) |
+| 10 | `spo2` | Độ bão hòa oxy máu ngoại vi (SpO₂) | `mvp` | `number` | % | `visit_value` | [30 .. 100] | `ai_diagnosis`, `ai_treatment` | TL06 R28/STT 27 (spo2); TL06 R154/STT 158 (spo2_treatment) |
+| 11 | `tinh_mach_co_noi` | Tĩnh mạch cổ nổi | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis`, `ai_lab_test` | TL06 R29/STT 28 (tinh_mach_co_noi); TL06 R107/STT 111 (trieu_chung_dau_hieu) |
+| 12 | `phan_hoi_gan_tinh_mach_co` | Phản hồi gan – tĩnh mạch cổ dương tính | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R30/STT 29 (phan_hoi_gan_tinh_mach_co) |
+| 13 | `tieng_tim_t3` | Tiếng tim T3 (ngựa phi) | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R31/STT 30 (tieng_tim_t3) |
+| 14 | `ran_am_phoi` | Ran ẩm ở phổi | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R32/STT 31 (ran_am_phoi) |
+| 15 | `phu_ngoai_bien` | Phù ngoại biên (khám thực thể) | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis`, `ai_lab_test` | TL06 R33/STT 32 (phu_ngoai_bien); TL06 R107/STT 111 (trieu_chung_dau_hieu) |
+| 16 | `gan_to` | Gan to | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R34/STT 33 (gan_to) |
+| 17 | `co_truong` | Cổ trướng | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R35/STT 34 (co_truong) |
+| 18 | `giam_tuoi_mau_ngoai_vi` | Dấu hiệu giảm tưới máu ngoại vi | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis`, `ai_treatment` | TL06 R36/STT 35 (giam_tuoi_mau_ngoai_vi); TL06 R151/STT 155 (sung_huyet_tuoi_mau) |
+| 19 | `tinh_trang_sung_huyet` | Kết luận tình trạng sung huyết lâm sàng | `can_xac_nhan` | `text` | — | `visit_value` | — | `ai_treatment` | TL06 R151/STT 155 (sung_huyet_tuoi_mau) |
+
+### 4.4. Nhóm `benh_su_dong_mac` — Bệnh sử, Yếu tố nguy cơ, Nguyên nhân và Bệnh đồng mắc (`24` `mvp` + `2` `can_xac_nhan`)
+
+| # | `code` | Nhãn tiếng Việt | Phạm vi | Kiểu (`data_type`) | Đơn vị chuẩn | Nơi lưu (`storage_level`) | Miền giá trị / Lựa chọn | Module AI | Nguồn (`source_ref`) |
+|---:|---|---|---|---|---|---|---|---|---|
+| 1 | `ts_benh_mach_vanh_nmct` | Bệnh mạch vành / Nhồi máu cơ tim | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis`, `ai_treatment` | TL06 R44/STT 45 (benh_mach_vanh_nhoi_mau_co_tim); TL06 R161/STT 165 (benh_dong_mac_treatment) |
+| 2 | `ts_dai_thao_duong` | Đái tháo đường | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis`, `ai_lab_test`, `ai_treatment` | TL06 R45/STT 46 (dai_thao_duong); TL06 R111/STT 115 (benh_dong_mac_lab); TL06 R161/STT 165 (benh_dong_mac_treatment) |
+| 3 | `ts_beo_phi` | Béo phì (ghi nhận lâm sàng) | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R46/STT 47 (beo_phi) |
+| 4 | `ts_benh_than_man` | Bệnh thận mạn (CKD) | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis`, `ai_lab_test`, `ai_treatment` | TL06 R47/STT 48 (benh_than_man); TL06 R111/STT 115 (benh_dong_mac_lab); TL06 R161/STT 165 (benh_dong_mac_treatment) |
+| 5 | `ts_hoa_tri_thuoc_doc_tim` | Tiền sử hóa trị / thuốc độc tim | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R48/STT 49 (tien_su_hoa_tri_thuoc_doc_tim) |
+| 6 | `ts_benh_co_tim_cau_truc` | Tiền sử bệnh cơ tim / tim cấu trúc | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R49/STT 50 (tien_su_benh_co_tim_cau_truc) |
+| 7 | `ts_tang_huyet_ap` | Tăng huyết áp | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R50/STT 52 (tang_huyet_ap_nguyen_nhan) |
+| 8 | `ts_benh_van_tim` | Bệnh van tim | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R51/STT 53 (benh_van_tim) |
+| 9 | `ts_rung_nhi_roi_loan_nhip` | Rung nhĩ / Rối loạn nhịp khác | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis`, `ai_treatment` | TL06 R52/STT 54 (rung_nhi_roi_loan_nhip); TL06 R161/STT 165 (benh_dong_mac_treatment) |
+| 10 | `ts_benh_co_tim` | Bệnh cơ tim (giãn, phì đại, hạn chế...) | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R53/STT 55 (benh_co_tim) |
+| 11 | `ts_amyloidosis_tim` | Bệnh cơ tim Amyloid (Amyloidosis tim) | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R54/STT 56 (amyloidosis_tim) |
+| 12 | `ts_viem_co_tim` | Viêm cơ tim | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R55/STT 57 (viem_co_tim) |
+| 13 | `ts_thuoc_doc_chat` | Suy tim do thuốc hoặc độc chất | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R56/STT 58 (thuoc_doc_chat) |
+| 14 | `ts_takotsubo` | Bệnh cơ tim Takotsubo | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R57/STT 59 (takotsubo) |
+| 15 | `ts_benh_noi_tiet_chuyen_hoa` | Bệnh nội tiết – chuyển hóa | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R58/STT 60 (benh_noi_tiet_chuyen_hoa) |
+| 16 | `ts_suy_tim_cung_luong_cao` | Suy tim cung lượng cao | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R59/STT 61 (suy_tim_cung_luong_cao) |
+| 17 | `ts_copd` | Bệnh phổi tắc nghẽn mạn tính (COPD) | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis`, `ai_lab_test`, `ai_treatment` | TL06 R60/STT 64 (copd); TL06 R111/STT 115 (benh_dong_mac_lab); TL06 R161/STT 165 (benh_dong_mac_treatment) |
+| 18 | `ts_thieu_mau` | Thiếu máu | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis`, `ai_lab_test` | TL06 R61/STT 65 (thieu_mau); TL06 R111/STT 115 (benh_dong_mac_lab) |
+| 19 | `ts_benh_gan` | Bệnh gan | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R62/STT 66 (benh_gan) |
+| 20 | `ts_roi_loan_tuyen_giap` | Rối loạn tuyến giáp | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R63/STT 67 (roi_loan_tuyen_giap) |
+| 21 | `ts_sa_sut_tri_tue` | Sa sút trí tuệ | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R64/STT 68 (sa_sut_tri_tue) |
+| 22 | `ts_tram_cam` | Trầm cảm | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R65/STT 69 (tram_cam) |
+| 23 | `ts_benh_mach_mau_nao` | Bệnh mạch máu não (đột quỵ / TIA) | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R66/STT 70 (benh_mach_mau_nao) |
+| 24 | `ts_ung_thu` | Ung thư | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis` | TL06 R67/STT 71 (ung_thu) |
+| 25 | `ts_benh_mach_vanh_chi_tiet` | Chi tiết mức độ hẹp / can thiệp ĐMV | `can_xac_nhan` | `text` | — | `visit_value` | — | `ai_diagnosis` | TL06 R44/STT 45 (benh_mach_vanh_nhoi_mau_co_tim) |
+| 26 | `ts_thiet_bi_cay_ghep_chong_chi_dinh_mri` | Thiết bị cấy ghép và chống chỉ định MRI | `can_xac_nhan` | `text` | — | `visit_value` | — | `ai_lab_test` | TL06 R114/STT 118 (thiet_bi_cay_ghep) |
+
+### 4.5. Nhóm `thuoc_di_ung` — Thuốc hiện dùng và Dị ứng / ADR (`4` `mvp` + `2` `can_xac_nhan`)
+
+| # | `code` | Nhãn tiếng Việt | Phạm vi | Kiểu (`data_type`) | Đơn vị chuẩn | Nơi lưu (`storage_level`) | Miền giá trị / Lựa chọn | Module AI | Nguồn (`source_ref`) |
+|---:|---|---|---|---|---|---|---|---|---|
+| 1 | `thuoc_ghi_nhan` | Danh sách thuốc đang sử dụng | `mvp` | `text` | — | `medication` | — | `ai_diagnosis`, `ai_lab_test`, `ai_medsafety`, `ai_treatment` | TL06 R68/STT 72 (danh_sach_thuoc); TL06 R112/STT 116 (thuoc_dang_su_dung_lab); TL06 R159/STT 163 (thuoc_lieu_tuan_thu); TL06 R177/STT 181 (don_thuoc_moi); +1 dòng khác |
+| 2 | `so_luong_thuoc_dong_thoi` | Số lượng thuốc sử dụng đồng thời | `mvp` | `integer` | thuốc | `computed` | [0 .. 50] | `ai_diagnosis`, `ai_medsafety` | TL06 R69/STT 73 (da_thuoc); TL06 R179/STT 183 (so_luong_thuoc_dong_thoi) |
+| 3 | `di_ung_adr` | Dị ứng thuốc, ADR và không dung nạp | `mvp` | `text` | — | `allergy` | — | `ai_lab_test`, `ai_medsafety`, `ai_treatment` | TL06 R113/STT 117 (di_ung_thuoc_can_quang); TL06 R160/STT 164 (khong_dung_nap_thuoc); TL06 R180/STT 184 (di_ung_phan_ung_co_hai) |
+| 4 | `di_ung_thuoc_can_quang` | Dị ứng thuốc cản quang | `mvp` | `boolean` | — | `allergy` | — | `ai_lab_test` | TL06 R113/STT 117 (di_ung_thuoc_can_quang) |
+| 5 | `co_da_thuoc` | Cờ tình trạng đa thuốc | `can_xac_nhan` | `boolean` | — | `computed` | — | `ai_diagnosis` | TL06 R69/STT 73 (da_thuoc) |
+| 6 | `thuoc_muc_do_tuan_thu` | Mức độ tuân thủ dùng thuốc | `can_xac_nhan` | `text` | — | `medication` | — | `ai_treatment` | TL06 R159/STT 163 (thuoc_lieu_tuan_thu) |
+
+### 4.6. Nhóm `can_lam_sang` — Kết quả Cận lâm sàng đã có (`18` `mvp` + `2` `can_xac_nhan`)
+
+| # | `code` | Nhãn tiếng Việt | Phạm vi | Kiểu (`data_type`) | Đơn vị chuẩn | Nơi lưu (`storage_level`) | Miền giá trị / Lựa chọn | Module AI | Nguồn (`source_ref`) |
+|---:|---|---|---|---|---|---|---|---|---|
+| 1 | `cls_ecg_ket_luan` | Kết quả đọc Điện tâm đồ (ECG 12 chuyển đạo) | `mvp` | `text` | — | `lab_result` | — | `ai_diagnosis`, `ai_lab_test`, `ai_medsafety` | TL06 R70/STT 74 (ecg_12_chuyen_dao); TL06 R109/STT 113 (xet_nghiem_da_co); TL06 R185/STT 189 (nhip_tim_ecg) |
+| 2 | `cls_ecg_thoi_diem` | Thời điểm đo ECG | `mvp` | `text` | — | `lab_result` | — | `ai_diagnosis`, `ai_medsafety` | TL06 R70/STT 74 (ecg_12_chuyen_dao); TL06 R185/STT 189 (nhip_tim_ecg) |
+| 3 | `cls_bnp` | Xét nghiệm BNP | `mvp` | `number` | pg/mL | `lab_result` | [0 .. 50000] | `ai_diagnosis`, `ai_lab_test`, `ai_treatment` | TL06 R71/STT 75 (bnp_ntprobnp); TL06 R109/STT 113 (xet_nghiem_da_co); TL06 R156/STT 160 (bnp_treatment) |
+| 4 | `cls_don_vi` | Đơn vị xét nghiệm cận lâm sàng | `mvp` | `text` | — | `lab_result` | — | `ai_diagnosis`, `ai_medsafety`, `ai_treatment` | TL06 R71/STT 75 (bnp_ntprobnp); TL06 R72/STT 76 (troponin); TL06 R75/STT 79 (creatinin_egfr); TL06 R76/STT 80 (dien_giai); +6 dòng khác |
+| 5 | `cls_nt_probnp` | Xét nghiệm NT-proBNP | `mvp` | `number` | pg/mL | `lab_result` | [0 .. 200000] | `ai_diagnosis`, `ai_lab_test`, `ai_treatment` | TL06 R71/STT 75 (bnp_ntprobnp); TL06 R109/STT 113 (xet_nghiem_da_co); TL06 R156/STT 160 (bnp_treatment) |
+| 6 | `cls_thoi_diem` | Thời điểm thực hiện / lấy mẫu CLS | `mvp` | `text` | — | `lab_result` | — | `ai_diagnosis`, `ai_medsafety`, `ai_treatment` | TL06 R71/STT 75 (bnp_ntprobnp); TL06 R72/STT 76 (troponin); TL06 R75/STT 79 (creatinin_egfr); TL06 R76/STT 80 (dien_giai); +6 dòng khác |
+| 7 | `cls_troponin` | Xét nghiệm Troponin | `mvp` | `number` | ng/L | `lab_result` | [0 .. 100000] | `ai_diagnosis` | TL06 R72/STT 76 (troponin) |
+| 8 | `cls_troponin_loai` | Loại xét nghiệm Troponin | `mvp` | `single_choice` | — | `lab_result` | `hs_troponin_t` (hs-Troponin T), `hs_troponin_i` (hs-Troponin I), `troponin_t` (Troponin T), `troponin_i` (Troponin I) | `ai_diagnosis` | TL06 R72/STT 76 (troponin) |
+| 9 | `cls_lvef` | Phân suất tống máu thất trái (LVEF) | `mvp` | `number` | % | `lab_result` | [5 .. 95] | `ai_diagnosis`, `ai_lab_test`, `ai_treatment` | TL06 R73/STT 77 (sieu_am_tim_ef); TL06 R109/STT 113 (xet_nghiem_da_co); TL06 R155/STT 159 (ef_hien_tai) |
+| 10 | `cls_sieu_am_tim_ket_luan` | Kết luận siêu âm tim | `mvp` | `text` | — | `lab_result` | — | `ai_diagnosis` | TL06 R73/STT 77 (sieu_am_tim_ef) |
+| 11 | `cls_sieu_am_tim_thoi_diem` | Thời điểm siêu âm tim | `mvp` | `text` | — | `lab_result` | — | `ai_diagnosis`, `ai_treatment` | TL06 R73/STT 77 (sieu_am_tim_ef); TL06 R155/STT 159 (ef_hien_tai) |
+| 12 | `cls_xquang_ket_luan` | Kết quả X-quang tim phổi | `mvp` | `text` | — | `lab_result` | — | `ai_diagnosis`, `ai_lab_test` | TL06 R74/STT 78 (xquang_tim_phoi); TL06 R109/STT 113 (xet_nghiem_da_co) |
+| 13 | `cls_xquang_thoi_diem` | Thời điểm chụp X-quang tim phổi | `mvp` | `text` | — | `lab_result` | — | `ai_diagnosis` | TL06 R74/STT 78 (xquang_tim_phoi) |
+| 14 | `cls_creatinin` | Creatinin huyết thanh | `mvp` | `number` | umol/L | `lab_result` | [10 .. 3000] | `ai_diagnosis`, `ai_lab_test`, `ai_medsafety`, `ai_treatment` | TL06 R75/STT 79 (creatinin_egfr); TL06 R110/STT 114 (chuc_nang_than_gan_dien_giai); TL06 R157/STT 161 (creatinin_egfr_treatment); TL06 R181/STT 185 (creatinin_egfr_medsafety) |
+| 15 | `cls_egfr` | Mức lọc cầu thận ước tính (eGFR) | `mvp` | `number` | mL/phút/1.73m² | `lab_result` | [1 .. 200] | `ai_diagnosis`, `ai_lab_test`, `ai_medsafety`, `ai_treatment` | TL06 R75/STT 79 (creatinin_egfr); TL06 R110/STT 114 (chuc_nang_than_gan_dien_giai); TL06 R157/STT 161 (creatinin_egfr_treatment); TL06 R181/STT 185 (creatinin_egfr_medsafety) |
+| 16 | `cls_clo` | Clo máu (Cl-) | `mvp` | `number` | mmol/L | `lab_result` | [60 .. 150] | `ai_diagnosis`, `ai_medsafety` | TL06 R76/STT 80 (dien_giai); TL06 R182/STT 186 (kali_natri_dien_giai_medsafety) |
+| 17 | `cls_kali` | Kali máu (K+) | `mvp` | `number` | mmol/L | `lab_result` | [1.0 .. 10.0] | `ai_diagnosis`, `ai_lab_test`, `ai_medsafety`, `ai_treatment` | TL06 R76/STT 80 (dien_giai); TL06 R110/STT 114 (chuc_nang_than_gan_dien_giai); TL06 R158/STT 162 (kali_natri_gan); TL06 R182/STT 186 (kali_natri_dien_giai_medsafety) |
+| 18 | `cls_natri` | Natri máu (Na+) | `mvp` | `number` | mmol/L | `lab_result` | [90 .. 190] | `ai_diagnosis`, `ai_lab_test`, `ai_medsafety`, `ai_treatment` | TL06 R76/STT 80 (dien_giai); TL06 R110/STT 114 (chuc_nang_than_gan_dien_giai); TL06 R158/STT 162 (kali_natri_gan); TL06 R182/STT 186 (kali_natri_dien_giai_medsafety) |
+| 19 | `thay_doi_bnp_ntprobnp_ef` | Biến thiên BNP/NT-proBNP và EF | `can_xac_nhan` | `number` | % | `computed` | [-100 .. 10000] | `ai_diagnosis` | TL06 R80/STT 84 (thay_doi_bnp_ntprobnp) |
+| 20 | `cls_chuc_nang_gan` | Kết quả chức năng gan | `can_xac_nhan` | `text` | — | `lab_result` | — | `ai_lab_test`, `ai_medsafety`, `ai_treatment` | TL06 R110/STT 114 (chuc_nang_than_gan_dien_giai); TL06 R158/STT 162 (kali_natri_gan); TL06 R183/STT 187 (chuc_nang_gan_medsafety) |
+
+### 4.7. Nhóm `lao_khoa` — Đánh giá Lão khoa và Hỗ trợ Xã hội (`9` `mvp` + `10` `can_xac_nhan`)
+
+| # | `code` | Nhãn tiếng Việt | Phạm vi | Kiểu (`data_type`) | Đơn vị chuẩn | Nơi lưu (`storage_level`) | Miền giá trị / Lựa chọn | Module AI | Nguồn (`source_ref`) |
+|---:|---|---|---|---|---|---|---|---|---|
+| 1 | `lao_khoa_tien_su_sang` | Tiền sử sảng (Delirium) | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis`, `ai_medsafety` | TL06 R39/STT 39 (tien_su_sang); TL06 R187/STT 191 (nhan_thuc_tien_su_sang) |
+| 2 | `lao_khoa_sarcopenia` | Suy giảm khối cơ / lực cơ (Sarcopenia) | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis`, `ai_medsafety`, `ai_treatment` | TL06 R42/STT 42 (sarcopenia); TL06 R166/STT 170 (dinh_duong_sarcopenia); TL06 R190/STT 194 (dinh_duong_can_nang_sarcopenia) |
+| 3 | `lao_khoa_tu_su_dung_thuoc` | Khả năng tự sử dụng và quản lý thuốc | `mvp` | `single_choice` | — | `visit_value` | `tu_su_dung_duoc` (Tự sử dụng được), `can_ho_tro` (Cần hỗ trợ), `khong_tu_su_dung` (Không tự sử dụng) | `ai_diagnosis`, `ai_medsafety`, `ai_treatment` | TL06 R43/STT 43 (tu_su_dung_thuoc); TL06 R167/STT 171 (tu_quan_ly_thuoc); TL06 R189/STT 193 (kha_nang_nuot_tu_dung_thuoc) |
+| 4 | `xh_co_nguoi_cham_soc` | Có người chăm sóc hỗ trợ | `mvp` | `boolean` | — | `visit_value` | — | `ai_diagnosis`, `ai_medsafety`, `ai_treatment` | TL06 R83/STT 87 (nguoi_cham_soc); TL06 R167/STT 171 (tu_quan_ly_thuoc); TL06 R191/STT 195 (ho_tro_nguoi_cham_soc_medsafety) |
+| 5 | `xh_quan_he_nguoi_cham_soc` | Quan hệ người chăm sóc | `mvp` | `text` | — | `visit_value` | — | `ai_diagnosis` | TL06 R83/STT 87 (nguoi_cham_soc) |
+| 6 | `xh_kha_nang_chi_tra` | Khả năng chi trả | `mvp` | `single_choice` | — | `visit_value` | `du` (Đủ), `han_che` (Hạn chế), `khong_du` (Không đủ) | `ai_diagnosis`, `ai_lab_test`, `ai_medsafety` | TL06 R84/STT 88 (kha_nang_chi_tra); TL06 R116/STT 120 (muc_tieu_kha_nang_xet_nghiem); TL06 R192/STT 196 (chi_tra_tai_kham_medsafety) |
+| 7 | `xh_kha_nang_tai_kham` | Khả năng tái khám | `mvp` | `single_choice` | — | `visit_value` | `co` (Có), `han_che` (Hạn chế), `khong` (Không) | `ai_diagnosis`, `ai_medsafety` | TL06 R85/STT 89 (kha_nang_tai_kham); TL06 R192/STT 196 (chi_tra_tai_kham_medsafety) |
+| 8 | `xh_kha_nang_mua_su_dung_thuoc` | Khả năng mua và sử dụng thuốc | `mvp` | `single_choice` | — | `visit_value` | `tot` (Tốt), `han_che` (Hạn chế), `khong` (Không) | `ai_diagnosis` | TL06 R86/STT 90 (kha_nang_mua_su_dung_thuoc) |
+| 9 | `xh_ho_tro_gia_dinh` | Mức độ hỗ trợ của gia đình | `mvp` | `single_choice` | — | `visit_value` | `tot` (Tốt), `trung_binh` (Trung bình), `it_khong` (Ít/Không) | `ai_diagnosis`, `ai_medsafety` | TL06 R88/STT 92 (ho_tro_gia_dinh); TL06 R191/STT 195 (ho_tro_nguoi_cham_soc_medsafety) |
+| 10 | `lao_khoa_frailty` | Đánh giá suy yếu (Frailty) | `can_xac_nhan` | `text` | — | `visit_value` | — | `ai_diagnosis`, `ai_lab_test`, `ai_medsafety`, `ai_treatment` | TL06 R37/STT 36 (frailty); TL06 R108/STT 112 (frailty_hop_tac_xet_nghiem); TL06 R162/STT 166 (frailty_treatment); TL06 R186/STT 190 (frailty_medsafety) |
+| 11 | `lao_khoa_chuc_nang_nhan_thuc` | Chức năng nhận thức | `can_xac_nhan` | `text` | — | `visit_value` | — | `ai_diagnosis`, `ai_lab_test`, `ai_medsafety`, `ai_treatment` | TL06 R38/STT 38 (chuc_nang_nhan_thuc); TL06 R108/STT 112 (frailty_hop_tac_xet_nghiem); TL06 R163/STT 167 (nhan_thuc_treatment); TL06 R187/STT 191 (nhan_thuc_tien_su_sang) |
+| 12 | `lao_khoa_nguy_co_te_nga` | Nguy cơ té ngã | `can_xac_nhan` | `text` | — | `visit_value` | — | `ai_diagnosis`, `ai_treatment` | TL06 R40/STT 40 (nguy_co_te_nga); TL06 R165/STT 169 (nguy_co_te_nga_hha) |
+| 13 | `lao_khoa_tinh_trang_dinh_duong` | Tình trạng dinh dưỡng | `can_xac_nhan` | `text` | — | `visit_value` | — | `ai_diagnosis`, `ai_medsafety`, `ai_treatment` | TL06 R41/STT 41 (tinh_trang_dinh_duong); TL06 R166/STT 170 (dinh_duong_sarcopenia); TL06 R190/STT 194 (dinh_duong_can_nang_sarcopenia) |
+| 14 | `xh_khoang_cach_co_so_y_te` | Khoảng cách đến cơ sở y tế | `can_xac_nhan` | `number` | km | `visit_value` | [0 .. 1000] | `ai_diagnosis` | TL06 R87/STT 91 (khoang_cach_co_so_y_te) |
+| 15 | `kha_nang_hop_tac_xet_nghiem` | Khả năng hợp tác thực hiện xét nghiệm | `can_xac_nhan` | `text` | — | `visit_value` | — | `ai_lab_test` | TL06 R108/STT 112 (frailty_hop_tac_xet_nghiem) |
+| 16 | `kha_nang_gang_suc_tham_do_xam_lan` | Khả năng chịu đựng nghiệm pháp gắng sức / xâm lấn | `can_xac_nhan` | `text` | — | `visit_value` | — | `ai_lab_test` | TL06 R115/STT 119 (kha_nang_gang_suc_tham_do) |
+| 17 | `kha_nang_thuc_hien_xet_nghiem` | Khả năng thực hiện xét nghiệm tại cơ sở | `can_xac_nhan` | `text` | — | `visit_value` | — | `ai_lab_test` | TL06 R116/STT 120 (muc_tieu_kha_nang_xet_nghiem) |
+| 18 | `lao_khoa_adl_iadl` | Khả năng thực hiện ADL/IADL | `can_xac_nhan` | `text` | — | `visit_value` | — | `ai_treatment` | TL06 R164/STT 168 (adl_iadl_treatment) |
+| 19 | `lao_khoa_kha_nang_nuot` | Khả năng nuốt | `can_xac_nhan` | `text` | — | `visit_value` | — | `ai_medsafety` | TL06 R189/STT 193 (kha_nang_nuot_tu_dung_thuoc) |
+
+### 4.8. Nhóm `ghi_chu` — Ghi chú bác sĩ và Kết luận trước điều trị (`0` `mvp` + `4` `can_xac_nhan`)
+
+| # | `code` | Nhãn tiếng Việt | Phạm vi | Kiểu (`data_type`) | Đơn vị chuẩn | Nơi lưu (`storage_level`) | Miền giá trị / Lựa chọn | Module AI | Nguồn (`source_ref`) |
+|---:|---|---|---|---|---|---|---|---|---|
+| 1 | `muc_tieu_dieu_tri` | Mục tiêu điều trị ưu tiên | `can_xac_nhan` | `multi_choice` | — | `visit_value` | `keo_dai_song` (Kéo dài thời gian sống), `giam_nhap_vien` (Giảm nhập viện), `giam_trieu_chung` (Giảm triệu chứng), `duy_tri_chuc_nang` (Duy trì chức năng), `nang_cao_chat_luong_song` (Nâng cao chất lượng sống), `cham_soc_giam_nhe` (Chăm sóc giảm nhẹ) | `ai_lab_test`, `ai_treatment` | TL06 R116/STT 120 (muc_tieu_kha_nang_xet_nghiem); TL06 R168/STT 172 (muc_tieu_dieu_tri) |
+| 2 | `chan_doan_stage_suy_tim` | Giai đoạn suy tim (Stage A–D) | `can_xac_nhan` | `single_choice` | — | `visit_value` | `stage_a` (Stage A), `stage_b` (Stage B), `stage_c` (Stage C), `stage_d` (Stage D) | `ai_treatment` | TL06 R146/STT 150 (stage_suy_tim) |
+| 3 | `chan_doan_kieu_hinh_ef` | Kiểu hình suy tim theo EF | `can_xac_nhan` | `single_choice` | — | `visit_value` | `hfref` (EF giảm), `hfpef` (EF bảo tồn), `hfimef` (EF cải thiện), `unclassified` (Chưa phân loại do thiếu EF) | `ai_treatment` | TL06 R147/STT 151 (ef_treatment) |
+| 4 | `chan_doan_nguyen_nhan_suy_tim` | Nguyên nhân suy tim trước điều trị | `can_xac_nhan` | `text` | — | `visit_value` | — | `ai_treatment` | TL06 R148/STT 152 (nguyen_nhan_treatment) |

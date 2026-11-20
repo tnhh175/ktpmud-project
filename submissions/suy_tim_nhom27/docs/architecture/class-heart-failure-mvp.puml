@@ -1,0 +1,390 @@
+@startuml class-heart-failure-mvp
+skinparam linetype ortho
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam shadowing false
+skinparam roundcorner 6
+skinparam class {
+  BackgroundColor #FFFFFF
+  HeaderBackgroundColor #DBEAFE
+  BorderColor #1D4ED8
+  FontColor #1E3A8A
+  AttributeFontColor #0F172A
+  ArrowColor #1D4ED8
+}
+skinparam entity {
+  BackgroundColor #FFFFFF
+  HeaderBackgroundColor #DBEAFE
+  BorderColor #1D4ED8
+  FontColor #1E3A8A
+}
+skinparam package {
+  BackgroundColor #F8FAFC
+  BorderColor #93C5FD
+  FontColor #1E3A8A
+}
+skinparam sequence {
+  ArrowColor #1D4ED8
+  LifeLineBorderColor #64748B
+  LifeLineBackgroundColor #DBEAFE
+  ParticipantBorderColor #1D4ED8
+  ParticipantBackgroundColor #DBEAFE
+  ParticipantFontColor #1E3A8A
+  ActorBorderColor #1D4ED8
+  ActorBackgroundColor #DBEAFE
+  ActorFontColor #1E3A8A
+  GroupBorderColor #1D4ED8
+  GroupHeaderFontColor #1E3A8A
+  GroupBackgroundColor #DBEAFE
+  BoxBorderColor #93C5FD
+  BoxBackgroundColor #F8FAFC
+}
+skinparam note {
+  BackgroundColor #EFF6FF
+  BorderColor #2563EB
+  FontColor #1E3A8A
+}
+
+title UML Class Diagram — Mô hình Lớp Miền Nghiệp vụ Suy tim Trước AI (MVP)
+
+package "Identity, RBAC & Audit (M1, M6, M8)" {
+  class AppUser <<Aggregate Root>> {
+    - id: UUID
+    - username: String
+    - passwordHash: String
+    - fullName: String
+    - role: UserRole
+    - isActive: Boolean
+    - createdAt: Instant
+    - updatedAt: Instant
+    + authenticate(rawPassword: String): Boolean
+    + hasRole(role: UserRole): Boolean
+    + canAccessClinicalData(): Boolean
+    + deactivate(reason: String, actor: AppUser): void
+    + previewPermissions(role: UserRole): PermissionPreviewResponse
+  }
+
+  class UserSession <<Entity>> {
+    - id: UUID
+    - userId: UUID
+    - refreshTokenHash: String
+    - expiresAt: Instant
+    - revokedAt: Instant?
+    - ip: InetAddress?
+    - userAgent: String?
+    + isActive(now: Instant): Boolean
+    + verifyRefreshToken(rawToken: String): Boolean
+    + rotate(newTokenHash: String, ttl): UserSession
+    + revoke(now: Instant): void
+  }
+
+  class AuditLog <<Immutable Audit>> {
+    - id: UUID
+    - actorUserId: UUID?
+    - action: AuditAction
+    - entityType: String
+    - entityId: UUID?
+    - occurredAt: Instant
+    - ip: InetAddress?
+    - requestId: String?
+    - outcome: String
+    - detail: Map<String, Any>
+    + {static} record(actor, action, entity, outcome, detail): AuditLog
+    + assertNoClinicalOrSecretPayload(): void
+  }
+}
+
+package "Dynamic Form Versioning & Field Catalog (M7)" {
+  class FormTemplate <<Entity>> {
+    - id: UUID
+    - code: String
+    - name: String
+    - description: String?
+    - isActive: Boolean
+    + getActivePublishedVersion(): FormVersion?
+    + createDraftFrom(base: FormVersion, admin: AppUser): FormVersion
+  }
+
+  class FormVersion <<Aggregate Root>> {
+    - id: UUID
+    - formTemplateId: UUID
+    - versionNo: Integer
+    - versionLabel: String
+    - status: FormVersionStatus
+    - basedOnVersionId: UUID?
+    - changeNote: String?
+    - publishedAt: Instant?
+    - publishedBy: UUID?
+    - rowVersion: Integer
+    + assertDraftEditable(): void
+    + upsertSection(spec): FormSection
+    + upsertField(sectionId, spec): FormField
+    + renderPreview(): FormVersionPreviewResponse
+    + diffAgainst(base: FormVersion): FormVersionDiffResponse
+    + publish(admin: AppUser, expectedRowVersion: Int): void
+    + retire(): void
+  }
+
+  class FormSection <<Entity>> {
+    - id: UUID
+    - formVersionId: UUID
+    - sectionCode: SectionCode
+    - titleVi: String
+    - displayOrder: SmallInt
+    + getOrderedFields(): List<FormField>
+    + addField(def: FieldDefinition, order: Int, reqT3: Boolean): FormField
+  }
+
+  class FormField <<Entity>> {
+    - id: UUID
+    - formVersionId: UUID
+    - formSectionId: UUID
+    - fieldDefinitionId: UUID
+    - displayOrder: SmallInt
+    - requiredForConfirm: Boolean
+    - isVisible: Boolean
+    - isReadonly: Boolean
+    - customLabelVi: String?
+    + isRequiredAtTier3(): Boolean
+    + validateValue(v: VisitValue): List<FieldError>
+  }
+
+  class FieldDefinition <<Catalog Entity>> {
+    - id: UUID
+    - code: String
+    - labelVi: String
+    - sectionCode: SectionCode
+    - dataType: FieldDataType
+    - canonicalUnit: String?
+    - scopeStatus: FieldScopeStatus
+    - storageLevel: String
+    - isCalculated: Boolean
+    - minValue: Decimal?
+    - maxValue: Decimal?
+    - sourceRef: String
+    + isTriState(): Boolean
+    + validateBounds(rawValue): List<FieldError>
+    + getActiveOptions(): List<FieldOption>
+    + getLinkedAiModules(): List<FieldAiModule>
+  }
+
+  class FieldOption <<Entity>> {
+    - id: UUID
+    - fieldDefinitionId: UUID
+    - optionCode: String
+    - labelVi: String
+    - displayOrder: SmallInt
+    - isActive: Boolean
+    + belongsTo(def: FieldDefinition): Boolean
+    + deactivate(): void
+  }
+
+  class FieldAiModule <<Entity>> {
+    - fieldDefinitionId: UUID
+    - aiModuleCode: String
+    - isRequired: Boolean
+    - sourceSttRefs: String?
+    + isSatisfiedBy(values: Map<String, VisitValue>): Boolean
+  }
+}
+
+package "Clinical Patient & Visit Aggregate (M2–M5)" {
+  class Patient <<Aggregate Root>> {
+    - id: UUID
+    - patientCode: String
+    - externalPatientCode: String?
+    - fullName: String
+    - sex: String
+    - birthDate: Date?
+    - birthYear: SmallInt?
+    - declaredAge: SmallInt?
+    - rowVersion: Integer
+    + hasValidBirthInfo(): Boolean
+    + calculateAgeAt(visitDate: Instant): Integer?
+    + updateDemographics(patch, expectedRowVersion: Int): void
+    + openVisit(publishedVer: FormVersion, doctor: AppUser): Visit
+  }
+
+  class "Visit (Encounter)" as Visit <<Aggregate Root>> {
+    - id: UUID
+    - visitCode: String
+    - externalVisitCode: String?
+    - patientId: UUID
+    - formVersionId: UUID
+    - visitDate: Instant
+    - visitType: String
+    - status: VisitStatus
+    - currentRevisionNo: Integer
+    - confirmedAt: Instant?
+    - confirmedBy: UUID?
+    - rowVersion: Integer
+    + assertDraftEditable(expectedRowVersion: Int): void
+    + saveDraft(payload, expectedRowVersion: Int): void
+    + computeBmi(): Decimal?
+    + buildReviewSummary(): VisitReviewResponse
+    + confirm(doctor: AppUser, expectedRowVersion: Int): VisitRevision
+    + createRevision(doctor: AppUser, changeReason: String): VisitRevision
+    + exportAiInput(): AiInputPayload
+  }
+
+  class VisitRevision <<Immutable Snapshot>> {
+    - id: UUID
+    - visitId: UUID
+    - revisionNo: Integer
+    - formVersionId: UUID
+    - revisionType: String
+    - changeReason: String
+    - snapshotData: JSONB
+    - createdBy: UUID
+    - createdAt: Instant
+    + {static} captureSnapshot(visit: Visit, actor: AppUser, reason: String): VisitRevision
+    + verifyIntegrity(): Boolean
+  }
+
+  class VisitValue <<Entity>> {
+    - visitId: UUID
+    - fieldDefinitionId: UUID
+    - valueState: ValueState
+    - valueNum: Decimal?
+    - valueText: String?
+    - valueBool: Boolean?
+    - valueDate: Date?
+    - fieldOptionId: UUID?
+    - unit: String?
+    + setAnswered(typedVal, unit?): void
+    + markUnknown(): void
+    + validateAgainst(def: FieldDefinition): List<FieldError>
+  }
+
+  class VisitValueOption <<Entity · CR-W1-01>> {
+    - visitId: UUID
+    - fieldDefinitionId: UUID
+    - fieldOptionId: UUID
+    + assertOptionMatchesField(opt: FieldOption): void
+    + assertParentAnswered(parent: VisitValue): void
+  }
+
+  class OrthostaticBpMeasurement <<Entity>> {
+    - id: UUID
+    - visitId: UUID
+    - position: BpPosition
+    - minuteAfter: SmallInt?
+    - systolic: SmallInt
+    - diastolic: SmallInt
+    - heartRate: SmallInt?
+    - measuredAt: Instant
+    + validatePressures(): Boolean
+    + hasOrthostaticDrop(baseline: OrthostaticBpMeasurement): Boolean
+  }
+
+  class VisitMedication <<Entity>> {
+    - id: UUID
+    - visitId: UUID
+    - medicationGroup: String
+    - drugName: String
+    - activeIngredient: String?
+    - dose: Decimal?
+    - unit: String?
+    - frequency: String?
+    - route: String?
+    - status: String
+    + isCompleteForConfirm(): Boolean
+    + isCurrentlyActive(): Boolean
+  }
+
+  class VisitAllergy <<Entity>> {
+    - id: UUID
+    - visitId: UUID
+    - kind: String
+    - agentCategory: String
+    - allergen: String
+    - reaction: String?
+    - severity: String
+    + isContrastAgentAllergy(): Boolean
+    + isCompleteForConfirm(): Boolean
+  }
+
+  class VisitLabResult <<Entity>> {
+    - id: UUID
+    - visitId: UUID
+    - labCode: String
+    - labSubtype: String?
+    - valueNum: Decimal?
+    - valueText: String?
+    - unit: String?
+    - measuredAt: Instant
+    + matchesCanonicalUnit(def: FieldDefinition): Boolean
+    + isCompleteForConfirm(): Boolean
+  }
+}
+
+package "Computed Read Models & Contracts (Non-Persistent)" {
+  class AiInputPayload <<Value Object>> {
+    + visitId: UUID
+    + patientCode: String
+    + formVersionId: UUID
+    + confirmedAt: Instant
+    + values: Map<String, TypedValueItem>
+    + orthostaticBp: List<OrthostaticBpMeasurement>
+    + medications: List<VisitMedication>
+    + allergies: List<VisitAllergy>
+    + labResults: List<VisitLabResult>
+    + modules: List<AiModuleReadiness>
+    + omitUnfilledFields(): void
+    + isModuleReady(code: String): Boolean
+  }
+
+  class VisitReviewResponse <<Value Object>> {
+    + visitId: UUID
+    + formVersionId: UUID
+    + rowVersion: Integer
+    + readinessTier: ReadinessTier
+    + canConfirm: Boolean
+    + tier3ConfirmErrors: List<FieldValidationError>
+    + tier4AiModules: List<AiModuleReadiness>
+  }
+
+  class FormVersionDiffResponse <<Value Object>> {
+    + baseVersionId: UUID
+    + targetVersionId: UUID
+    + hasChanges: Boolean
+    + addedFields: List<FormFieldDiffItem>
+    + modifiedFields: List<FormFieldDiffItem>
+    + removedFields: List<FormFieldDiffItem>
+    + isPublishable(): Boolean
+  }
+}
+
+AppUser "1" *-- "0..*" UserSession : owns
+AppUser "0..1" -- "0..*" AuditLog : actor
+AppUser "1" -- "0..*" Patient : createdBy
+AppUser "1" -- "0..*" Visit : createdBy / confirmedBy
+AppUser "1" -- "0..*" FormVersion : publishedBy
+
+FormTemplate "1" *-- "0..*" FormVersion : versions
+FormVersion "0..*" --> "0..1" FormVersion : basedOnVersion
+FormVersion "1" *-- "1..8" FormSection : sections
+FormSection "1" *-- "0..*" FormField : fields
+FormField "0..*" --> "1" FieldDefinition : definition
+FieldDefinition "1" *-- "0..*" FieldOption : options
+FieldDefinition "1" *-- "0..*" FieldAiModule : aiModules
+
+Patient "1" -- "0..*" Visit : encounters
+Visit "0..*" --> "1" FormVersion : boundFormVersion
+Visit "1" *-- "0..*" VisitRevision : revisions
+Visit "1" *-- "0..*" VisitValue : values
+VisitValue "1" *-- "0..*" VisitValueOption : selectedOptions
+VisitValue "0..*" --> "1" FieldDefinition : field
+VisitValue "0..*" --> "0..1" FieldOption : selectedOption
+VisitValueOption "0..*" --> "1" FieldOption : option
+Visit "1" *-- "0..*" OrthostaticBpMeasurement : orthostaticBp
+Visit "1" *-- "0..*" VisitMedication : medications
+Visit "1" *-- "0..*" VisitAllergy : allergies
+Visit "1" *-- "0..*" VisitLabResult : labResults
+VisitLabResult "0..*" --> "1" FieldDefinition : labCode
+
+Visit ..> AiInputPayload : exports
+Visit ..> VisitReviewResponse : produces
+FormVersion ..> FormVersionDiffResponse : computes
+@enduml

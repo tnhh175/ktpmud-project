@@ -1,936 +1,920 @@
--- PostgreSQL 16+. Fresh database bootstrap, not an in-place migration.
--- SRS FR-01..34 plus the minimal patient portal extension FR-P01..04.
+-- =============================================================================
+-- PostgreSQL 16+ DDL: Web Thu Thap Du Lieu Lam Sang Suy Tim (MVP Nhom 1, 2, 6)
+-- Source of truth: CONTRACT.md & CR-W1-01.md
+-- Run once on a clean database. No DROP statements.
+-- =============================================================================
 
 BEGIN;
 
-CREATE TABLE department (
-  code varchar(30) PRIMARY KEY,
-  name text NOT NULL CHECK (length(trim(name)) > 0),
-  active boolean NOT NULL DEFAULT true
-);
+-- -----------------------------------------------------------------------------
+-- 1. ENUM TYPES (CONTRACT.md Section 4.2)
+-- -----------------------------------------------------------------------------
+CREATE TYPE user_role AS ENUM ('doctor', 'admin');
+CREATE TYPE visit_status AS ENUM ('draft', 'confirmed');
+CREATE TYPE value_state AS ENUM ('answered', 'unknown');
+CREATE TYPE form_version_status AS ENUM ('draft', 'published', 'retired');
+CREATE TYPE field_scope_status AS ENUM ('mvp', 'can_xac_nhan');
+CREATE TYPE field_data_type AS ENUM ('number', 'integer', 'text', 'boolean', 'date', 'single_choice', 'multi_choice');
+CREATE TYPE section_code AS ENUM ('hanh_chinh', 'trieu_chung_dien_bien', 'sinh_ton_kham', 'benh_su_dong_mac', 'thuoc_di_ung', 'can_lam_sang', 'lao_khoa', 'ghi_chu');
+CREATE TYPE readiness_tier AS ENUM ('patient_created', 'draft_saved', 'confirmed', 'ai_ready');
+CREATE TYPE bp_position AS ENUM ('supine', 'sitting', 'standing');
+CREATE TYPE audit_action AS ENUM ('login', 'logout', 'login_failed', 'user_create', 'user_update', 'form_version_create', 'form_version_update', 'form_version_publish', 'patient_create', 'visit_confirm');
+
+-- -----------------------------------------------------------------------------
+-- 2. TABLES (19 tables in 3NF: 16 CONTRACT + visit_lab_result, visit_revision, visit_value_option)
+-- -----------------------------------------------------------------------------
 
 CREATE TABLE app_user (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  username varchar(80) NOT NULL UNIQUE,
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  username varchar(64) NOT NULL,
   password_hash text NOT NULL,
-  active boolean NOT NULL DEFAULT true,
-  department_code varchar(30) REFERENCES department(code),
-  created_at timestamptz NOT NULL DEFAULT now()
+  full_name varchar(120) NOT NULL,
+  role user_role NOT NULL,
+  is_active boolean NOT NULL DEFAULT true,
+  row_version integer NOT NULL DEFAULT 1,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT pk_app_user PRIMARY KEY (id),
+  CONSTRAINT uq_app_user_username UNIQUE (username),
+  CONSTRAINT chk_app_user_username_fmt CHECK (length(trim(username)) >= 3 AND username ~ '^[a-zA-Z0-9_.-]+$'),
+  CONSTRAINT chk_app_user_full_name_nonempty CHECK (length(trim(full_name)) > 0),
+  CONSTRAINT chk_app_user_password_hash_nonempty CHECK (length(trim(password_hash)) > 0),
+  CONSTRAINT chk_app_user_row_version_pos CHECK (row_version > 0)
 );
+CREATE INDEX ix_app_user_role_active ON app_user (role, is_active);
 
-CREATE TABLE role (
-  code varchar(20) PRIMARY KEY CHECK (code IN ('doctor','nurse','pharmacist','admin','patient'))
-);
-
-CREATE TABLE user_role (
-  user_id uuid NOT NULL REFERENCES app_user(id),
-  role_code varchar(20) NOT NULL REFERENCES role(code) ,
-  PRIMARY KEY(user_id,role_code)
-);
-
-CREATE TABLE permission (
-  code varchar(60) PRIMARY KEY,
-  description text NOT NULL
-);
-
-CREATE TABLE user_permission (
-  user_id uuid NOT NULL REFERENCES app_user(id),
-  permission_code varchar(60) NOT NULL REFERENCES permission(code),
-  PRIMARY KEY (user_id, permission_code)
-);
-
-CREATE TABLE auth_session (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES app_user(id),
-  token_hash varchar(64) NOT NULL UNIQUE CHECK (token_hash ~ '^[a-f0-9]{64}$'),
+CREATE TABLE user_session (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  refresh_token_hash varchar(128) NOT NULL,
   expires_at timestamptz NOT NULL,
   revoked_at timestamptz,
+  ip inet,
+  user_agent varchar(255),
   created_at timestamptz NOT NULL DEFAULT now(),
-  CHECK (expires_at > created_at)
+  CONSTRAINT pk_user_session PRIMARY KEY (id),
+  CONSTRAINT uq_user_session_token_hash UNIQUE (refresh_token_hash),
+  FOREIGN KEY (user_id) REFERENCES app_user(id) ON DELETE CASCADE,
+  CONSTRAINT chk_user_session_hash_nonempty CHECK (length(trim(refresh_token_hash)) > 0),
+  CONSTRAINT chk_user_session_expires_after_create CHECK (expires_at > created_at),
+  CONSTRAINT chk_user_session_revoked_after_create CHECK (revoked_at IS NULL OR revoked_at >= created_at)
 );
-CREATE INDEX ix_auth_session_user ON auth_session(user_id, expires_at);
+CREATE INDEX ix_user_session_user_active ON user_session (user_id, expires_at) WHERE revoked_at IS NULL;
 
-CREATE TABLE patient_case (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  synthetic_code varchar(30) NOT NULL UNIQUE CHECK (synthetic_code ~ '^SYN-[A-Z0-9-]{1,24}$'),
-  age smallint NOT NULL CHECK (age BETWEEN 0 AND 120),
-  sex varchar(10) NOT NULL CHECK (sex IN ('male','female','unknown')),
-  owner_id uuid NOT NULL REFERENCES app_user(id),
-  revision integer NOT NULL DEFAULT 1 CHECK(revision>0),
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE INDEX ix_case_owner ON patient_case(owner_id);
-
--- One patient account owns one synthetic profile; staff access uses case_access.
-CREATE TABLE patient_account (
-  user_id uuid PRIMARY KEY REFERENCES app_user(id),
-  case_id uuid NOT NULL UNIQUE REFERENCES patient_case(id),
-  role_code varchar(20) NOT NULL DEFAULT 'patient' CHECK (role_code = 'patient'),
+CREATE TABLE patient (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  patient_code varchar(16) NOT NULL,
+  external_patient_code varchar(64),
+  full_name varchar(120) NOT NULL,
+  sex varchar(16) NOT NULL,
+  birth_date date,
+  birth_year smallint,
+  declared_age smallint,
+  row_version integer NOT NULL DEFAULT 1,
+  created_by uuid NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
-  FOREIGN KEY (user_id, role_code) REFERENCES user_role(user_id, role_code)
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT pk_patient PRIMARY KEY (id),
+  CONSTRAINT uq_patient_code UNIQUE (patient_code),
+  FOREIGN KEY (created_by) REFERENCES app_user(id) ON DELETE RESTRICT,
+  CONSTRAINT chk_patient_code_fmt CHECK (patient_code ~ '^BN-[0-9]{5}$'),
+  CONSTRAINT chk_patient_full_name_len CHECK (length(trim(full_name)) >= 2),
+  CONSTRAINT chk_patient_sex CHECK (sex IN ('male', 'female', 'unknown')),
+  CONSTRAINT chk_patient_birth_date_range CHECK (birth_date IS NULL OR (birth_date >= DATE '1900-01-01' AND birth_date <= CURRENT_DATE)),
+  CONSTRAINT chk_patient_birth_year_range CHECK (birth_year IS NULL OR (birth_year BETWEEN 1900 AND 2100)),
+  CONSTRAINT chk_patient_declared_age_range CHECK (declared_age IS NULL OR (declared_age BETWEEN 0 AND 120)),
+  CONSTRAINT chk_patient_age_precision_mutex CHECK (num_nonnulls(birth_date, birth_year, declared_age) <= 1),
+  CONSTRAINT chk_patient_row_version_pos CHECK (row_version > 0)
 );
+CREATE INDEX ix_patient_full_name ON patient (full_name);
+CREATE INDEX ix_patient_external_code ON patient (external_patient_code) WHERE external_patient_code IS NOT NULL;
 
-CREATE TABLE case_access (
-  case_id uuid NOT NULL REFERENCES patient_case(id),
-  user_id uuid NOT NULL REFERENCES app_user(id),
-  access_scope varchar(20) NOT NULL CHECK(access_scope IN ('clinical','nursing','medsafety')) ,
-  PRIMARY KEY(case_id,user_id,access_scope)
-);
-
-CREATE TABLE encounter (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  case_id uuid NOT NULL REFERENCES patient_case(id),
-  occurred_at timestamptz NOT NULL,
-  kind varchar(12) NOT NULL DEFAULT 'outpatient' CHECK (kind IN ('outpatient','inpatient')),
-  department_code varchar(30) NOT NULL REFERENCES department(code),
-  doctor_id uuid NOT NULL REFERENCES app_user(id),
-  status varchar(12) NOT NULL DEFAULT 'open' CHECK (status IN ('open','completed','cancelled')),
-  ended_at timestamptz,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (id, case_id),
-  CHECK (ended_at IS NULL OR ended_at >= occurred_at),
-  CHECK ((status = 'open' AND ended_at IS NULL) OR (status <> 'open' AND ended_at IS NOT NULL))
-);
-
-CREATE INDEX ix_encounter_case_time ON encounter(case_id,occurred_at DESC);
-
-CREATE TABLE observation_type (
-  code varchar(60) PRIMARY KEY,
-  label text NOT NULL,
-  value_kind varchar(10) NOT NULL CHECK(value_kind IN ('number','boolean','text')),
-  unit varchar(40) ,
-  min_value numeric ,
-  max_value numeric  ,
-  CHECK(min_value IS NULL OR max_value IS NULL OR min_value<=max_value),
-  CHECK(min_value::text NOT IN ('NaN','Infinity','-Infinity')),
-  CHECK(max_value::text NOT IN ('NaN','Infinity','-Infinity'))
-);
-
-CREATE TABLE observation (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  encounter_id uuid NOT NULL REFERENCES encounter(id),
-  code varchar(60) NOT NULL REFERENCES observation_type(code),
-  value_number numeric ,
-  value_boolean boolean ,
-  value_text text ,
-  status varchar(20) NOT NULL CHECK(status IN ('present','not_measured','unknown')),
-  observed_at timestamptz NOT NULL,
-  source varchar(30) NOT NULL CHECK(source IN ('manual_synthetic','mock_his','mock_lis','mock_pacs','mock_emr')),
-  recorded_by uuid NOT NULL REFERENCES app_user(id),
-  created_at timestamptz NOT NULL DEFAULT now() ,
-  CHECK ((status = 'present' AND num_nonnulls(value_number,value_boolean,value_text)=1) OR (status<>'present' AND num_nonnulls(value_number,value_boolean,value_text)=0))
-);
-
-CREATE INDEX ix_observation_latest ON observation(encounter_id,code,observed_at DESC);
-
-CREATE TABLE ingredient (
-  code varchar(60) PRIMARY KEY,
-  display_name text NOT NULL
-);
-
-CREATE TABLE drug_product (
-  code varchar(60) PRIMARY KEY,
-  ingredient_code varchar(60) NOT NULL REFERENCES ingredient(code),
-  display_name text NOT NULL,
-  strength numeric NOT NULL CHECK (strength > 0 AND strength::text NOT IN ('NaN','Infinity','-Infinity')),
-  strength_unit varchar(10) NOT NULL CHECK (strength_unit IN ('mg','mcg','g','mg/mL')),
-  dosage_form varchar(30) NOT NULL,
-  active boolean NOT NULL DEFAULT true,
-  UNIQUE (code, ingredient_code)
-);
-
-CREATE TABLE prescription (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  case_id uuid NOT NULL REFERENCES patient_case(id),
-  encounter_id uuid NOT NULL,
-  doctor_id uuid NOT NULL REFERENCES app_user(id),
-  status varchar(12) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','confirmed','cancelled')),
-  starts_on date NOT NULL,
-  ends_on date,
-  timezone varchar(60) NOT NULL DEFAULT 'Asia/Ho_Chi_Minh',
-  instructions text NOT NULL DEFAULT '',
-  confirmed_at timestamptz,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  FOREIGN KEY (encounter_id, case_id) REFERENCES encounter(id, case_id),
-  UNIQUE (id, encounter_id),
-  CHECK (ends_on IS NULL OR ends_on >= starts_on),
-  CHECK ((status = 'draft' AND confirmed_at IS NULL) OR (status <> 'draft' AND confirmed_at IS NOT NULL))
-);
-CREATE INDEX ix_prescription_case ON prescription(case_id, created_at DESC);
-
-CREATE TABLE medication (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  encounter_id uuid NOT NULL REFERENCES encounter(id),
-  ingredient_code varchar(60) NOT NULL REFERENCES ingredient(code),
-  drug_product_code varchar(60),
-  prescription_id uuid,
-  dose numeric NOT NULL CHECK(dose>0 AND dose::text NOT IN ('NaN','Infinity','-Infinity')),
-  dose_unit varchar(10) NOT NULL CHECK(dose_unit IN ('mg','mcg','g','mL')),
-  route varchar(10) NOT NULL CHECK(route IN ('oral','iv','other')),
-  frequency_per_day smallint NOT NULL CHECK(frequency_per_day BETWEEN 1 AND 24),
-  kind varchar(10) NOT NULL CHECK(kind IN ('current','proposed')),
-  starts_on date NOT NULL DEFAULT CURRENT_DATE,
-  ends_on date,
-  instructions text NOT NULL DEFAULT '',
-  recorded_by uuid NOT NULL REFERENCES app_user(id),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  FOREIGN KEY (drug_product_code, ingredient_code) REFERENCES drug_product(code, ingredient_code),
-  FOREIGN KEY (prescription_id, encounter_id) REFERENCES prescription(id, encounter_id),
-  CHECK (ends_on IS NULL OR ends_on >= starts_on),
-  CHECK (prescription_id IS NULL OR kind = 'current')
-);
-
-CREATE INDEX ix_medication_encounter ON medication(encounter_id);
-CREATE INDEX ix_medication_prescription ON medication(prescription_id);
-
--- Daily local clock times, one row per dose. The prescription supplies timezone.
-CREATE TABLE medication_schedule (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  medication_id uuid NOT NULL REFERENCES medication(id),
-  dose_time time NOT NULL CHECK (dose_time >= TIME '00:00' AND dose_time < TIME '24:00'),
-  instructions text NOT NULL DEFAULT '',
-  UNIQUE (medication_id, dose_time)
-);
-
-CREATE TABLE medication_reminder (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  schedule_id uuid NOT NULL REFERENCES medication_schedule(id),
-  scheduled_on date NOT NULL,
-  due_at timestamptz NOT NULL,
-  status varchar(12) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','taken','skipped','cancelled')),
-  responded_at timestamptz,
-  notified_at timestamptz,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (schedule_id, scheduled_on),
-  CHECK ((status IN ('pending','cancelled') AND responded_at IS NULL) OR
-         (status IN ('taken','skipped') AND responded_at IS NOT NULL))
-);
-CREATE INDEX ix_reminder_due ON medication_reminder(due_at) WHERE status = 'pending';
-
-CREATE TABLE rule_version (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  code varchar(60) NOT NULL,
-  version integer NOT NULL CHECK(version>0),
-  module varchar(20) NOT NULL CHECK(module IN ('diagnosis','lab_test','treatment','medsafety')),
-  source_ref text NOT NULL,
-  content_hash varchar(64) NOT NULL CHECK(content_hash ~ '^[a-f0-9]{64}$'),
-  content jsonb NOT NULL DEFAULT '{}' CHECK (jsonb_typeof(content) = 'object'),
-  status varchar(12) NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','tested','approved','active','retired')),
-  created_by uuid NOT NULL REFERENCES app_user(id),
-  created_at timestamptz NOT NULL DEFAULT now() ,
-  UNIQUE(code,version)
-);
-
-CREATE UNIQUE INDEX ux_rule_active ON rule_version(code) WHERE status='active';
-
-CREATE TABLE rule_required_field (
-  rule_version_id uuid NOT NULL REFERENCES rule_version(id),
-  field_code varchar(60) NOT NULL REFERENCES observation_type(code),
-  PRIMARY KEY (rule_version_id, field_code)
-);
-
-CREATE TABLE rule_approval (
-  rule_version_id uuid PRIMARY KEY REFERENCES rule_version(id),
-  approval_ref text NOT NULL CHECK(length(trim(approval_ref))>0),
-  approved_content_hash varchar(64) NOT NULL CHECK(approved_content_hash ~ '^[a-f0-9]{64}$'),
-  approved_at timestamptz NOT NULL,
-  recorded_by uuid NOT NULL REFERENCES app_user(id)
-);
-
-CREATE TABLE evaluation (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  encounter_id uuid NOT NULL REFERENCES encounter(id),
-  input_revision integer NOT NULL CHECK(input_revision>0),
-  input_snapshot jsonb NOT NULL CHECK(jsonb_typeof(input_snapshot)='object'),
-  requested_by uuid NOT NULL REFERENCES app_user(id),
-  mode varchar(10) NOT NULL CHECK(mode IN ('stub','validated')),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (id, encounter_id)
-);
-
-CREATE INDEX ix_evaluation_history ON evaluation(encounter_id,created_at DESC);
-
-CREATE TABLE module_result (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  evaluation_id uuid NOT NULL REFERENCES evaluation(id),
-  module varchar(20) NOT NULL CHECK(module IN ('diagnosis','lab_test','treatment','medsafety')),
-  rule_version_id uuid REFERENCES rule_version(id),
-  status varchar(30) NOT NULL CHECK(status IN ('mock_not_evaluated','completed','insufficient_data','failed')),
-  message text NOT NULL ,
-  UNIQUE(evaluation_id,module),
-  CHECK(status='mock_not_evaluated' OR rule_version_id IS NOT NULL)
-);
-
-CREATE TABLE recommendation (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  module_result_id uuid NOT NULL REFERENCES module_result(id),
+CREATE TABLE field_definition (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
   code varchar(80) NOT NULL,
-  severity varchar(12) NOT NULL CHECK(severity IN ('info','warning','critical')),
-  description text NOT NULL,
-  source_ref text NOT NULL
-);
-
-CREATE INDEX ix_recommendation_result ON recommendation(module_result_id);
-
-CREATE TABLE result_missing_field (
-  module_result_id uuid NOT NULL REFERENCES module_result(id),
-  field_code varchar(60) NOT NULL REFERENCES observation_type(code) ,
-  PRIMARY KEY(module_result_id,field_code)
-);
-
-CREATE TABLE clinical_decision (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  evaluation_id uuid NOT NULL UNIQUE REFERENCES evaluation(id),
-  doctor_id uuid NOT NULL REFERENCES app_user(id),
-  action varchar(10) NOT NULL CHECK(action IN ('accepted','adjusted','rejected')),
-  reason text ,
-  adjustment_details jsonb,
-  created_at timestamptz NOT NULL DEFAULT now() ,
-  CHECK(action='accepted' OR length(trim(coalesce(reason,'')))>0),
-  CHECK ((action = 'adjusted' AND adjustment_details IS NOT NULL AND
-          jsonb_typeof(adjustment_details) = 'object' AND adjustment_details <> '{}') OR
-         (action <> 'adjusted' AND adjustment_details IS NULL))
-);
-
-CREATE TABLE patient_history (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  case_id uuid NOT NULL REFERENCES patient_case(id),
-  kind varchar(20) NOT NULL CHECK (kind IN ('medical','comorbidity','family','social')),
-  description text NOT NULL CHECK (length(trim(description)) > 0),
-  recorded_by uuid NOT NULL REFERENCES app_user(id),
-  recorded_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX ix_history_case ON patient_history(case_id, recorded_at DESC);
-
-CREATE TABLE clinical_note (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  encounter_id uuid NOT NULL REFERENCES encounter(id),
-  kind varchar(20) NOT NULL CHECK (kind IN ('nursing','examination','diagnosis','geriatric')),
-  content text NOT NULL CHECK (length(trim(content)) > 0),
-  recorded_by uuid NOT NULL REFERENCES app_user(id),
-  recorded_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX ix_note_encounter ON clinical_note(encounter_id, recorded_at DESC);
-
--- Distinguish unknown, confirmed-none and known reactions at the profile level.
-CREATE TABLE allergy_status (
-  case_id uuid PRIMARY KEY REFERENCES patient_case(id),
-  status varchar(10) NOT NULL CHECK (status IN ('unknown','none','known')),
-  recorded_by uuid NOT NULL REFERENCES app_user(id),
-  recorded_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE TABLE drug_reaction (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  case_id uuid NOT NULL REFERENCES allergy_status(case_id),
-  ingredient_code varchar(60) NOT NULL REFERENCES ingredient(code),
-  kind varchar(10) NOT NULL CHECK (kind IN ('allergy','adverse')),
-  description text NOT NULL CHECK (length(trim(description)) > 0),
-  recorded_by uuid NOT NULL REFERENCES app_user(id),
-  recorded_at timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE TABLE test_report (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  encounter_id uuid NOT NULL REFERENCES encounter(id),
-  kind varchar(10) NOT NULL CHECK (kind IN ('lab','echo','ecg','other')),
-  performed_at timestamptz NOT NULL,
-  source varchar(30) NOT NULL CHECK (source IN ('manual_synthetic','mock_his','mock_lis','mock_pacs','mock_emr')),
-  external_ref text,
-  content jsonb NOT NULL CHECK (jsonb_typeof(content) = 'object'),
-  recorded_by uuid NOT NULL REFERENCES app_user(id),
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX ix_test_report_encounter ON test_report(encounter_id, performed_at DESC);
-
-CREATE TABLE import_batch (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  encounter_id uuid NOT NULL REFERENCES encounter(id),
-  source varchar(30) NOT NULL CHECK (source IN ('file','mock_his','mock_lis','mock_pacs','mock_emr')),
-  external_ref text NOT NULL,
-  status varchar(12) NOT NULL CHECK (status IN ('pending','completed','partial','failed')),
-  accepted_rows integer NOT NULL DEFAULT 0 CHECK (accepted_rows >= 0),
-  rejected_rows integer NOT NULL DEFAULT 0 CHECK (rejected_rows >= 0),
-  imported_by uuid NOT NULL REFERENCES app_user(id),
+  label_vi varchar(200) NOT NULL,
+  section_code section_code NOT NULL,
+  data_type field_data_type NOT NULL,
+  canonical_unit varchar(40),
+  scope_status field_scope_status NOT NULL,
+  storage_level varchar(24) NOT NULL DEFAULT 'visit_value',
+  is_calculated boolean NOT NULL DEFAULT false,
+  min_value numeric,
+  max_value numeric,
+  validation_rule jsonb,
+  help_text text,
+  source_ref text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (source, external_ref)
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT pk_field_definition PRIMARY KEY (id),
+  CONSTRAINT uq_field_definition_code UNIQUE (code),
+  CONSTRAINT chk_field_def_code_fmt CHECK (code ~ '^[a-z][a-z0-9_]*$'),
+  CONSTRAINT chk_field_def_label_nonempty CHECK (length(trim(label_vi)) > 0),
+  CONSTRAINT chk_field_def_source_nonempty CHECK (length(trim(source_ref)) > 0),
+  CONSTRAINT chk_field_def_storage_level CHECK (storage_level IN ('patient', 'visit_value', 'computed', 'orthostatic_bp', 'medication', 'allergy', 'lab_result')),
+  CONSTRAINT chk_field_def_min_max CHECK (min_value IS NULL OR max_value IS NULL OR min_value <= max_value),
+  CONSTRAINT chk_field_def_bounds_numeric_only CHECK (data_type IN ('number', 'integer') OR (min_value IS NULL AND max_value IS NULL))
 );
-CREATE TABLE import_error (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  batch_id uuid NOT NULL REFERENCES import_batch(id),
-  row_number integer NOT NULL CHECK (row_number > 0),
-  field_code varchar(60) NOT NULL,
-  message text NOT NULL
-);
-CREATE INDEX ix_import_error_batch ON import_error(batch_id);
+CREATE INDEX ix_field_def_scope_section ON field_definition (scope_status, section_code);
 
-CREATE TABLE pharmacist_review (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  evaluation_id uuid NOT NULL REFERENCES evaluation(id),
-  pharmacist_id uuid NOT NULL REFERENCES app_user(id),
-  comment text NOT NULL CHECK (length(trim(comment)) > 0),
-  proposal text,
-  created_at timestamptz NOT NULL DEFAULT now()
+CREATE TABLE field_option (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  field_definition_id uuid NOT NULL,
+  option_code varchar(64) NOT NULL,
+  label_vi varchar(160) NOT NULL,
+  display_order smallint NOT NULL,
+  is_active boolean NOT NULL DEFAULT true,
+  CONSTRAINT pk_field_option PRIMARY KEY (id),
+  CONSTRAINT uq_field_option_code UNIQUE (field_definition_id, option_code),
+  CONSTRAINT uq_field_option_order UNIQUE (field_definition_id, display_order),
+  CONSTRAINT uq_field_option_id_field UNIQUE (id, field_definition_id),
+  FOREIGN KEY (field_definition_id) REFERENCES field_definition(id) ON DELETE CASCADE,
+  CONSTRAINT chk_field_option_code_fmt CHECK (option_code ~ '^[a-z0-9_]+$'),
+  CONSTRAINT chk_field_option_label_nonempty CHECK (length(trim(label_vi)) > 0),
+  CONSTRAINT chk_field_option_order_pos CHECK (display_order > 0)
 );
-CREATE INDEX ix_review_evaluation ON pharmacist_review(evaluation_id);
 
-CREATE TABLE treatment_plan (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  encounter_id uuid NOT NULL REFERENCES encounter(id),
-  doctor_id uuid NOT NULL REFERENCES app_user(id),
-  decision_id uuid REFERENCES clinical_decision(id),
-  kind varchar(12) NOT NULL CHECK (kind IN ('treatment','monitoring','discharge','follow_up')),
-  content text NOT NULL CHECK (length(trim(content)) > 0),
-  follow_up_at timestamptz,
-  status varchar(12) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','confirmed','cancelled')),
+CREATE TABLE field_ai_module (
+  field_definition_id uuid NOT NULL,
+  ai_module_code varchar(32) NOT NULL,
+  is_required boolean NOT NULL DEFAULT false,
+  source_stt_refs text,
+  CONSTRAINT pk_field_ai_module PRIMARY KEY (field_definition_id, ai_module_code),
+  FOREIGN KEY (field_definition_id) REFERENCES field_definition(id) ON DELETE CASCADE,
+  CONSTRAINT chk_field_ai_module_code CHECK (ai_module_code IN ('ai_diagnosis', 'ai_lab_test', 'ai_treatment', 'ai_medsafety'))
+);
+CREATE INDEX ix_field_ai_module_code ON field_ai_module (ai_module_code);
+
+CREATE TABLE form_template (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  code varchar(64) NOT NULL,
+  name varchar(160) NOT NULL,
+  description text,
+  is_active boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  CONSTRAINT pk_form_template PRIMARY KEY (id),
+  CONSTRAINT uq_form_template_code UNIQUE (code),
+  CONSTRAINT chk_form_template_code_fmt CHECK (code ~ '^[a-z][a-z0-9_]*$'),
+  CONSTRAINT chk_form_template_name_nonempty CHECK (length(trim(name)) > 0)
 );
-CREATE INDEX ix_plan_encounter ON treatment_plan(encounter_id, created_at DESC);
 
--- Fixed 30-minute slots make concurrent booking conflicts enforceable by UNIQUE.
-CREATE TABLE appointment (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  case_id uuid NOT NULL REFERENCES patient_case(id),
-  doctor_id uuid NOT NULL REFERENCES app_user(id),
-  slot_at timestamptz NOT NULL CHECK (extract(epoch FROM slot_at) % 1800 = 0),
-  reason varchar(500) NOT NULL CHECK (length(trim(reason)) > 0),
-  status varchar(12) NOT NULL DEFAULT 'requested' CHECK (status IN ('requested','confirmed','completed','cancelled')),
-  requested_by uuid NOT NULL REFERENCES app_user(id),
-  encounter_id uuid,
+CREATE TABLE form_version (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  form_template_id uuid NOT NULL,
+  version_no integer NOT NULL,
+  version_label varchar(32) NOT NULL,
+  status form_version_status NOT NULL DEFAULT 'draft',
+  based_on_version_id uuid,
+  change_note text,
+  created_by uuid NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
-  FOREIGN KEY (encounter_id, case_id) REFERENCES encounter(id, case_id)
+  published_at timestamptz,
+  published_by uuid,
+  row_version integer NOT NULL DEFAULT 1,
+  CONSTRAINT pk_form_version PRIMARY KEY (id),
+  CONSTRAINT uq_form_version_template_no UNIQUE (form_template_id, version_no),
+  FOREIGN KEY (form_template_id) REFERENCES form_template(id) ON DELETE RESTRICT,
+  FOREIGN KEY (based_on_version_id) REFERENCES form_version(id) ON DELETE RESTRICT,
+  FOREIGN KEY (created_by) REFERENCES app_user(id) ON DELETE RESTRICT,
+  FOREIGN KEY (published_by) REFERENCES app_user(id) ON DELETE RESTRICT,
+  CONSTRAINT chk_form_version_no_pos CHECK (version_no > 0),
+  CONSTRAINT chk_form_version_label_nonempty CHECK (length(trim(version_label)) > 0),
+  CONSTRAINT chk_form_version_not_self_based CHECK (based_on_version_id IS NULL OR based_on_version_id <> id),
+  CONSTRAINT chk_form_version_publish_meta CHECK ((status = 'draft' AND published_at IS NULL AND published_by IS NULL) OR (status IN ('published', 'retired') AND published_at IS NOT NULL AND published_by IS NOT NULL)),
+  CONSTRAINT chk_form_version_row_version_pos CHECK (row_version > 0)
 );
-CREATE UNIQUE INDEX ux_appointment_doctor_slot ON appointment(doctor_id, slot_at)
-  WHERE status IN ('requested','confirmed');
-CREATE UNIQUE INDEX ux_appointment_patient_slot ON appointment(case_id, slot_at)
-  WHERE status IN ('requested','confirmed');
-CREATE INDEX ix_appointment_case ON appointment(case_id, slot_at DESC);
+CREATE UNIQUE INDEX ux_form_version_one_published ON form_version (form_template_id) WHERE status = 'published';
 
--- Home entries stay separate from clinician-verified encounter observations.
-CREATE TABLE patient_measurement (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  case_id uuid NOT NULL REFERENCES patient_case(id),
-  recorded_by uuid NOT NULL REFERENCES patient_account(user_id),
-  observed_at timestamptz NOT NULL,
-  systolic_bp numeric,
-  diastolic_bp numeric,
-  heart_rate numeric,
-  weight_kg numeric,
-  spo2 numeric,
-  temperature_c numeric,
-  symptoms varchar(500),
+CREATE TABLE form_section (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  form_version_id uuid NOT NULL,
+  section_code section_code NOT NULL,
+  title_vi varchar(160) NOT NULL,
+  description text,
+  display_order smallint NOT NULL,
+  CONSTRAINT pk_form_section PRIMARY KEY (id),
+  CONSTRAINT uq_form_section_version_code UNIQUE (form_version_id, section_code),
+  CONSTRAINT uq_form_section_version_order UNIQUE (form_version_id, display_order),
+  CONSTRAINT uq_form_section_id_version UNIQUE (id, form_version_id),
+  FOREIGN KEY (form_version_id) REFERENCES form_version(id) ON DELETE CASCADE,
+  CONSTRAINT chk_form_section_title_nonempty CHECK (length(trim(title_vi)) > 0),
+  CONSTRAINT chk_form_section_order_pos CHECK (display_order > 0)
+);
+
+CREATE TABLE form_field (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  form_version_id uuid NOT NULL,
+  form_section_id uuid NOT NULL,
+  field_definition_id uuid NOT NULL,
+  display_order smallint NOT NULL,
+  required_for_confirm boolean NOT NULL DEFAULT false,
+  is_visible boolean NOT NULL DEFAULT true,
+  is_readonly boolean NOT NULL DEFAULT false,
+  custom_label_vi varchar(200),
+  custom_help_text text,
+  CONSTRAINT pk_form_field PRIMARY KEY (id),
+  CONSTRAINT uq_form_field_version_def UNIQUE (form_version_id, field_definition_id),
+  CONSTRAINT uq_form_field_section_order UNIQUE (form_section_id, display_order),
+  FOREIGN KEY (form_section_id, form_version_id) REFERENCES form_section(id, form_version_id) ON DELETE CASCADE,
+  FOREIGN KEY (field_definition_id) REFERENCES field_definition(id) ON DELETE RESTRICT,
+  CONSTRAINT chk_form_field_order_pos CHECK (display_order > 0)
+);
+CREATE INDEX ix_form_field_def ON form_field (field_definition_id);
+
+CREATE TABLE visit (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  visit_code varchar(24) NOT NULL,
+  external_visit_code varchar(64),
+  patient_id uuid NOT NULL,
+  form_version_id uuid NOT NULL,
+  visit_date timestamptz NOT NULL,
+  visit_type varchar(32) NOT NULL DEFAULT 'outpatient_new',
+  chief_complaint text,
+  clinical_note text,
+  info_source varchar(64),
+  status visit_status NOT NULL DEFAULT 'draft',
+  current_revision_no integer NOT NULL DEFAULT 1,
+  created_by uuid NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
-  CHECK (num_nonnulls(systolic_bp, diastolic_bp, heart_rate, weight_kg, spo2, temperature_c, symptoms) > 0),
-  CHECK ((systolic_bp IS NULL AND diastolic_bp IS NULL) OR
-         (systolic_bp IS NOT NULL AND diastolic_bp IS NOT NULL AND systolic_bp >= diastolic_bp)),
-  CHECK (systolic_bp > 0 AND systolic_bp::text NOT IN ('NaN','Infinity','-Infinity')),
-  CHECK (diastolic_bp > 0 AND diastolic_bp::text NOT IN ('NaN','Infinity','-Infinity')),
-  CHECK (heart_rate > 0 AND heart_rate::text NOT IN ('NaN','Infinity','-Infinity')),
-  CHECK (weight_kg > 0 AND weight_kg::text NOT IN ('NaN','Infinity','-Infinity')),
-  CHECK (spo2 BETWEEN 0 AND 100 AND spo2::text NOT IN ('NaN','Infinity','-Infinity')),
-  CHECK (temperature_c > -273.15 AND temperature_c::text NOT IN ('NaN','Infinity','-Infinity')),
-  CHECK (symptoms IS NULL OR length(trim(symptoms)) > 0)
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  confirmed_at timestamptz,
+  confirmed_by uuid,
+  confirm_note text,
+  row_version integer NOT NULL DEFAULT 1,
+  CONSTRAINT pk_visit PRIMARY KEY (id),
+  CONSTRAINT uq_visit_code UNIQUE (visit_code),
+  FOREIGN KEY (patient_id) REFERENCES patient(id) ON DELETE RESTRICT,
+  FOREIGN KEY (form_version_id) REFERENCES form_version(id) ON DELETE RESTRICT,
+  FOREIGN KEY (created_by) REFERENCES app_user(id) ON DELETE RESTRICT,
+  FOREIGN KEY (confirmed_by) REFERENCES app_user(id) ON DELETE RESTRICT,
+  CONSTRAINT chk_visit_code_fmt CHECK (visit_code ~ '^LK-[A-Z0-9-]+$'),
+  CONSTRAINT chk_visit_type CHECK (visit_type IN ('outpatient_new', 'follow_up', 'acute_inpatient')),
+  CONSTRAINT chk_visit_confirm_meta CHECK ((status = 'draft' AND confirmed_at IS NULL AND confirmed_by IS NULL) OR (status = 'confirmed' AND confirmed_at IS NOT NULL AND confirmed_by IS NOT NULL)),
+  CONSTRAINT chk_visit_revision_pos CHECK (current_revision_no > 0),
+  CONSTRAINT chk_visit_row_version_pos CHECK (row_version > 0)
 );
-CREATE INDEX ix_patient_measurement_time ON patient_measurement(case_id, observed_at DESC);
+CREATE INDEX ix_visit_patient_date ON visit (patient_id, visit_date DESC);
+CREATE INDEX ix_visit_form_version ON visit (form_version_id);
+CREATE INDEX ix_visit_status ON visit (status);
 
-CREATE TABLE audit_event (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  actor_id uuid REFERENCES app_user(id),
-  actor_kind varchar(10) NOT NULL DEFAULT 'user' CHECK (actor_kind IN ('user','system')),
-  action varchar(80) NOT NULL,
-  entity_type varchar(40) NOT NULL,
-  entity_id uuid NOT NULL,
+CREATE TABLE visit_value (
+  visit_id uuid NOT NULL,
+  field_definition_id uuid NOT NULL,
+  value_state value_state NOT NULL,
+  value_num numeric,
+  value_text text,
+  value_bool boolean,
+  value_date date,
+  field_option_id uuid,
+  unit varchar(40),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT pk_visit_value PRIMARY KEY (visit_id, field_definition_id),
+  FOREIGN KEY (visit_id) REFERENCES visit(id) ON DELETE CASCADE,
+  FOREIGN KEY (field_definition_id) REFERENCES field_definition(id) ON DELETE RESTRICT,
+  FOREIGN KEY (field_option_id, field_definition_id) REFERENCES field_option(id, field_definition_id) ON DELETE RESTRICT,
+  CONSTRAINT chk_visit_value_state_cols CHECK ((value_state = 'unknown' AND value_num IS NULL AND value_text IS NULL AND value_bool IS NULL AND value_date IS NULL AND field_option_id IS NULL AND unit IS NULL) OR (value_state = 'answered' AND num_nonnulls(value_num, value_text, value_bool, value_date, field_option_id) <= 1))
+);
+CREATE INDEX ix_visit_value_field ON visit_value (field_definition_id);
+
+CREATE TABLE visit_value_option (
+  visit_id uuid NOT NULL,
+  field_definition_id uuid NOT NULL,
+  field_option_id uuid NOT NULL,
+  CONSTRAINT pk_visit_value_option PRIMARY KEY (visit_id, field_definition_id, field_option_id),
+  FOREIGN KEY (visit_id, field_definition_id) REFERENCES visit_value(visit_id, field_definition_id) ON DELETE CASCADE,
+  FOREIGN KEY (field_option_id, field_definition_id) REFERENCES field_option(id, field_definition_id) ON DELETE RESTRICT
+);
+CREATE INDEX ix_visit_value_option_opt ON visit_value_option (field_option_id);
+
+CREATE TABLE visit_orthostatic_bp (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  visit_id uuid NOT NULL,
+  position bp_position NOT NULL,
+  minute_after smallint,
+  systolic smallint NOT NULL,
+  diastolic smallint NOT NULL,
+  heart_rate smallint,
+  measured_at timestamptz NOT NULL,
+  note text,
   created_at timestamptz NOT NULL DEFAULT now(),
-  CHECK ((actor_kind = 'user' AND actor_id IS NOT NULL) OR (actor_kind = 'system' AND actor_id IS NULL))
+  CONSTRAINT pk_visit_orthostatic_bp PRIMARY KEY (id),
+  FOREIGN KEY (visit_id) REFERENCES visit(id) ON DELETE CASCADE,
+  CONSTRAINT chk_bp_minute_after CHECK (minute_after IS NULL OR minute_after BETWEEN 0 AND 60),
+  CONSTRAINT chk_bp_systolic_range CHECK (systolic BETWEEN 40 AND 300),
+  CONSTRAINT chk_bp_diastolic_range CHECK (diastolic BETWEEN 20 AND 200),
+  CONSTRAINT chk_bp_sys_gt_dia CHECK (systolic > diastolic),
+  CONSTRAINT chk_bp_hr_range CHECK (heart_rate IS NULL OR heart_rate BETWEEN 20 AND 300)
 );
+CREATE INDEX ix_visit_bp_visit_time ON visit_orthostatic_bp (visit_id, measured_at);
 
-CREATE INDEX ix_audit_entity_time ON audit_event(entity_type,entity_id,created_at DESC);
+CREATE TABLE visit_medication (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  visit_id uuid NOT NULL,
+  medication_group varchar(32) NOT NULL DEFAULT 'prescribed',
+  drug_name varchar(160) NOT NULL,
+  active_ingredient varchar(160),
+  strength varchar(64),
+  dose numeric,
+  unit varchar(32),
+  frequency varchar(80),
+  route varchar(32),
+  status varchar(24) NOT NULL DEFAULT 'active',
+  started_at date,
+  note text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT pk_visit_medication PRIMARY KEY (id),
+  FOREIGN KEY (visit_id) REFERENCES visit(id) ON DELETE CASCADE,
+  CONSTRAINT chk_med_group CHECK (medication_group IN ('prescribed', 'otc_supplement_tcm')),
+  CONSTRAINT chk_med_drug_name_nonempty CHECK (length(trim(drug_name)) > 0),
+  CONSTRAINT chk_med_dose_pos CHECK (dose IS NULL OR dose > 0),
+  CONSTRAINT chk_med_route CHECK (route IS NULL OR route IN ('oral', 'iv', 'subcutaneous', 'inhaled', 'topical', 'other')),
+  CONSTRAINT chk_med_status CHECK (status IN ('active', 'stopped', 'proposed'))
+);
+CREATE INDEX ix_visit_med_visit_status ON visit_medication (visit_id, status);
 
-CREATE FUNCTION validate_observation() RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE t observation_type;
-BEGIN
- SELECT * INTO STRICT t FROM observation_type WHERE code=NEW.code;
- IF NEW.status='present' THEN
-  IF (t.value_kind='number' AND NEW.value_number IS NULL) OR
-     (t.value_kind='boolean' AND NEW.value_boolean IS NULL) OR
-     (t.value_kind='text' AND NEW.value_text IS NULL) THEN RAISE EXCEPTION 'Observation type mismatch'; END IF;
-  IF NEW.value_number::text IN ('NaN','Infinity','-Infinity') THEN RAISE EXCEPTION 'Non-finite observation'; END IF;
-  IF NEW.value_number<t.min_value OR NEW.value_number>t.max_value THEN RAISE EXCEPTION 'Invalid observation domain'; END IF;
- END IF;
- RETURN NEW;
-END $$;
-CREATE TRIGGER observation_validate BEFORE INSERT OR UPDATE ON observation FOR EACH ROW EXECUTE FUNCTION validate_observation();
-CREATE FUNCTION prevent_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN RAISE EXCEPTION 'Append-only record'; END $$;
-CREATE TRIGGER audit_immutable BEFORE UPDATE OR DELETE ON audit_event FOR EACH ROW EXECUTE FUNCTION prevent_mutation();
-CREATE TRIGGER evaluation_immutable BEFORE UPDATE OR DELETE ON evaluation FOR EACH ROW EXECUTE FUNCTION prevent_mutation();
-CREATE TRIGGER decision_immutable BEFORE UPDATE OR DELETE ON clinical_decision FOR EACH ROW EXECUTE FUNCTION prevent_mutation();
-CREATE TRIGGER patient_account_immutable BEFORE UPDATE OR DELETE ON patient_account FOR EACH ROW EXECUTE FUNCTION prevent_mutation();
-CREATE FUNCTION guard_profile_revision() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
- IF (NEW.age, NEW.sex, NEW.synthetic_code, NEW.owner_id) IS DISTINCT FROM
-    (OLD.age, OLD.sex, OLD.synthetic_code, OLD.owner_id) THEN NEW.revision := OLD.revision + 1; END IF;
- RETURN NEW;
-END $$;
-CREATE TRIGGER profile_revision BEFORE UPDATE ON patient_case FOR EACH ROW EXECUTE FUNCTION guard_profile_revision();
+CREATE TABLE visit_allergy (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  visit_id uuid NOT NULL,
+  kind varchar(24) NOT NULL,
+  agent_category varchar(32) NOT NULL DEFAULT 'therapeutic_drug',
+  allergen varchar(160) NOT NULL,
+  reaction text,
+  severity varchar(24) NOT NULL DEFAULT 'unknown',
+  recorded_at timestamptz,
+  note text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT pk_visit_allergy PRIMARY KEY (id),
+  FOREIGN KEY (visit_id) REFERENCES visit(id) ON DELETE CASCADE,
+  CONSTRAINT chk_allergy_kind CHECK (kind IN ('allergy', 'adr', 'intolerance')),
+  CONSTRAINT chk_allergy_agent_cat CHECK (agent_category IN ('therapeutic_drug', 'contrast_media', 'other')),
+  CONSTRAINT chk_allergy_allergen_nonempty CHECK (length(trim(allergen)) > 0),
+  CONSTRAINT chk_allergy_severity CHECK (severity IN ('mild', 'moderate', 'severe', 'unknown'))
+);
+CREATE INDEX ix_visit_allergy_visit_kind ON visit_allergy (visit_id, kind);
 
-CREATE FUNCTION protect_observation_catalog() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
- IF (NEW.value_kind, NEW.unit, NEW.min_value, NEW.max_value) IS DISTINCT FROM
-    (OLD.value_kind, OLD.unit, OLD.min_value, OLD.max_value) AND
-    EXISTS (SELECT 1 FROM observation WHERE code = OLD.code) THEN
-   RAISE EXCEPTION 'Create a new observation code to change a catalog definition with recorded values'; END IF;
- RETURN NEW;
-END $$;
-CREATE TRIGGER observation_catalog_guard BEFORE UPDATE ON observation_type FOR EACH ROW EXECUTE FUNCTION protect_observation_catalog();
-CREATE FUNCTION guard_rule_activation() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
- IF TG_OP='INSERT' AND NEW.status <> 'draft' THEN RAISE EXCEPTION 'New rules start draft'; END IF;
- IF TG_OP='UPDATE' AND NEW.status <> OLD.status AND NOT
- ((OLD.status='draft' AND NEW.status='tested') OR
-  (OLD.status='tested' AND NEW.status IN ('draft','approved')) OR
-  (OLD.status='approved' AND NEW.status IN ('active','retired')) OR
-  (OLD.status='active' AND NEW.status='retired')) THEN RAISE EXCEPTION 'Invalid rule status transition'; END IF;
- IF TG_OP='UPDATE' AND OLD.status IN ('tested','approved','active','retired') AND
- (NEW.content_hash<>OLD.content_hash OR NEW.content<>OLD.content OR NEW.source_ref<>OLD.source_ref OR NEW.module<>OLD.module OR NEW.code<>OLD.code OR NEW.version<>OLD.version) THEN
- RAISE EXCEPTION 'Create a new version for changed rule content'; END IF;
- IF NEW.content_hash <> encode(sha256(convert_to(NEW.content::text, 'UTF8')), 'hex') THEN
- RAISE EXCEPTION 'Rule content hash mismatch'; END IF;
- IF NEW.status IN ('approved','active') AND NOT EXISTS
- (SELECT 1 FROM rule_approval WHERE rule_version_id=NEW.id AND approved_content_hash=NEW.content_hash)
- THEN RAISE EXCEPTION 'Verified approval required'; END IF;
- RETURN NEW;
-END $$;
-CREATE TRIGGER rule_activation_guard BEFORE INSERT OR UPDATE ON rule_version FOR EACH ROW EXECUTE FUNCTION guard_rule_activation();
+CREATE TABLE visit_lab_result (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  visit_id uuid NOT NULL,
+  lab_code varchar(80) NOT NULL,
+  lab_subtype varchar(64),
+  value_num numeric,
+  value_text text,
+  unit varchar(40),
+  measured_at timestamptz NOT NULL,
+  note text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT pk_visit_lab_result PRIMARY KEY (id),
+  FOREIGN KEY (visit_id) REFERENCES visit(id) ON DELETE CASCADE,
+  FOREIGN KEY (lab_code) REFERENCES field_definition(code) ON DELETE RESTRICT,
+  CONSTRAINT chk_lab_has_value CHECK (value_num IS NOT NULL OR (value_text IS NOT NULL AND length(trim(value_text)) > 0)),
+  CONSTRAINT chk_lab_value_num_nonneg CHECK (value_num IS NULL OR value_num >= 0),
+  CONSTRAINT chk_lab_unit_required_for_num CHECK (value_num IS NULL OR (unit IS NOT NULL AND length(trim(unit)) > 0))
+);
+CREATE INDEX ix_visit_lab_visit_code_time ON visit_lab_result (visit_id, lab_code, measured_at DESC);
 
-CREATE FUNCTION has_role(p_user uuid, p_role text) RETURNS boolean
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
- SELECT EXISTS (SELECT 1 FROM app_user u JOIN user_role r ON r.user_id = u.id
-                WHERE u.id = p_user AND u.active AND r.role_code = p_role);
+CREATE TABLE visit_revision (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  visit_id uuid NOT NULL,
+  revision_no integer NOT NULL,
+  form_version_id uuid NOT NULL,
+  revision_type varchar(32) NOT NULL DEFAULT 'confirmed_snapshot',
+  change_reason text NOT NULL,
+  snapshot_data jsonb NOT NULL,
+  created_by uuid NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT pk_visit_revision PRIMARY KEY (id),
+  CONSTRAINT uq_visit_revision_visit_no UNIQUE (visit_id, revision_no),
+  FOREIGN KEY (visit_id) REFERENCES visit(id) ON DELETE RESTRICT,
+  FOREIGN KEY (form_version_id) REFERENCES form_version(id) ON DELETE RESTRICT,
+  FOREIGN KEY (created_by) REFERENCES app_user(id) ON DELETE RESTRICT,
+  CONSTRAINT chk_visit_rev_no_pos CHECK (revision_no > 0),
+  CONSTRAINT chk_visit_rev_type CHECK (revision_type IN ('confirmed_snapshot', 'post_confirm_amendment')),
+  CONSTRAINT chk_visit_rev_reason_nonempty CHECK (length(trim(change_reason)) > 0),
+  CONSTRAINT chk_visit_rev_snapshot_obj CHECK (jsonb_typeof(snapshot_data) = 'object')
+);
+CREATE INDEX ix_visit_revision_visit_time ON visit_revision (visit_id, created_at DESC);
+
+CREATE TABLE audit_log (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_user_id uuid,
+  action audit_action NOT NULL,
+  entity_type varchar(64) NOT NULL,
+  entity_id uuid,
+  occurred_at timestamptz NOT NULL DEFAULT now(),
+  ip inet,
+  request_id varchar(64),
+  outcome varchar(16) NOT NULL DEFAULT 'success',
+  detail jsonb NOT NULL DEFAULT '{}'::jsonb,
+  CONSTRAINT pk_audit_log PRIMARY KEY (id),
+  FOREIGN KEY (actor_user_id) REFERENCES app_user(id) ON DELETE RESTRICT,
+  CONSTRAINT chk_audit_entity_type_nonempty CHECK (length(trim(entity_type)) > 0),
+  CONSTRAINT chk_audit_outcome CHECK (outcome IN ('success', 'denied', 'failure')),
+  CONSTRAINT chk_audit_detail_object CHECK (jsonb_typeof(detail) = 'object')
+);
+CREATE INDEX ix_audit_occurred_at ON audit_log (occurred_at DESC);
+CREATE INDEX ix_audit_actor_time ON audit_log (actor_user_id, occurred_at DESC);
+CREATE INDEX ix_audit_entity_time ON audit_log (entity_type, entity_id, occurred_at DESC);
+
+-- -----------------------------------------------------------------------------
+-- 3. TRIGGER FUNCTIONS & TRIGGERS (Immutability, 3-state & type validation, Audit guard)
+-- -----------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION fn_set_updated_at()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.updated_at := now();
+  RETURN NEW;
+END;
 $$;
 
-CREATE FUNCTION can_access_case(p_user uuid, p_case uuid, p_scope text) RETURNS boolean
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
- SELECT (has_role(p_user, 'doctor') AND EXISTS
-         (SELECT 1 FROM patient_case WHERE id = p_case AND owner_id = p_user))
- OR (EXISTS (SELECT 1 FROM case_access WHERE case_id = p_case AND user_id = p_user
-             AND access_scope = p_scope) AND
-     ((p_scope = 'clinical' AND has_role(p_user, 'doctor')) OR
-      (p_scope = 'nursing' AND has_role(p_user, 'nurse')) OR
-      (p_scope = 'medsafety' AND (has_role(p_user, 'doctor') OR has_role(p_user, 'pharmacist')))));
+CREATE OR REPLACE FUNCTION fn_bump_row_version()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.row_version < OLD.row_version THEN
+    RAISE EXCEPTION 'row_version cannot decrease (% -> %)', OLD.row_version, NEW.row_version
+      USING ERRCODE = 'check_violation';
+  END IF;
+  IF NEW.row_version = OLD.row_version THEN
+    NEW.row_version := OLD.row_version + 1;
+  END IF;
+  RETURN NEW;
+END;
 $$;
 
-CREATE FUNCTION validate_roles() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
- IF (NEW.role_code = 'patient' AND EXISTS
-     (SELECT 1 FROM user_role WHERE user_id = NEW.user_id AND role_code <> 'patient')) OR
-    (NEW.role_code <> 'patient' AND EXISTS
-     (SELECT 1 FROM user_role WHERE user_id = NEW.user_id AND role_code = 'patient')) THEN
-   RAISE EXCEPTION 'A patient account must be separate from staff accounts';
- END IF;
- RETURN NEW;
-END $$;
-CREATE TRIGGER user_role_validate BEFORE INSERT OR UPDATE ON user_role
- FOR EACH ROW EXECUTE FUNCTION validate_roles();
+CREATE TRIGGER trg_app_user_row_version
+  BEFORE UPDATE ON app_user
+  FOR EACH ROW EXECUTE FUNCTION fn_bump_row_version();
 
-CREATE FUNCTION validate_case_staff() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
- IF TG_TABLE_NAME = 'patient_case' THEN
-   IF NOT has_role(NEW.owner_id, 'doctor') THEN RAISE EXCEPTION 'Case owner must be an active doctor'; END IF;
- ELSIF TG_TABLE_NAME = 'encounter' THEN
-   IF NOT can_access_case(NEW.doctor_id, NEW.case_id, 'clinical') THEN
-     RAISE EXCEPTION 'Encounter doctor has no clinical access to this case'; END IF;
- ELSIF TG_TABLE_NAME = 'case_access' THEN
-   IF NOT ((NEW.access_scope = 'clinical' AND has_role(NEW.user_id, 'doctor')) OR
-           (NEW.access_scope = 'nursing' AND has_role(NEW.user_id, 'nurse')) OR
-           (NEW.access_scope = 'medsafety' AND (has_role(NEW.user_id, 'doctor') OR has_role(NEW.user_id, 'pharmacist')))) THEN
-     RAISE EXCEPTION 'Role does not match case access scope'; END IF;
- END IF;
- RETURN NEW;
-END $$;
-CREATE TRIGGER case_staff_validate BEFORE INSERT OR UPDATE ON patient_case
- FOR EACH ROW EXECUTE FUNCTION validate_case_staff();
-CREATE TRIGGER encounter_staff_validate BEFORE INSERT OR UPDATE ON encounter
- FOR EACH ROW EXECUTE FUNCTION validate_case_staff();
-CREATE TRIGGER case_access_validate BEFORE INSERT OR UPDATE ON case_access
- FOR EACH ROW EXECUTE FUNCTION validate_case_staff();
+CREATE TRIGGER trg_app_user_updated_at
+  BEFORE UPDATE ON app_user
+  FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
-CREATE FUNCTION validate_staff_record() RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE v_case uuid; v_actor uuid;
-BEGIN
- v_actor := COALESCE((to_jsonb(NEW)->>'recorded_by')::uuid, (to_jsonb(NEW)->>'imported_by')::uuid);
- IF TG_TABLE_NAME IN ('patient_history','allergy_status','drug_reaction') THEN
-   v_case := NEW.case_id;
- ELSE
-   SELECT case_id INTO v_case FROM encounter WHERE id = NEW.encounter_id;
- END IF;
- IF can_access_case(v_actor, v_case, 'clinical') THEN RETURN NEW; END IF;
- IF TG_TABLE_NAME IN ('observation','test_report','import_batch') AND can_access_case(v_actor, v_case, 'nursing') THEN RETURN NEW; END IF;
- IF TG_TABLE_NAME = 'clinical_note' THEN
-   IF NEW.kind = 'nursing' AND can_access_case(v_actor, v_case, 'nursing') THEN RETURN NEW; END IF;
- END IF;
- RAISE EXCEPTION 'Staff member has no write access for this clinical record';
- RETURN NEW;
-END $$;
-CREATE TRIGGER observation_staff_validate BEFORE INSERT OR UPDATE ON observation FOR EACH ROW EXECUTE FUNCTION validate_staff_record();
-CREATE TRIGGER medication_staff_validate BEFORE INSERT OR UPDATE ON medication FOR EACH ROW EXECUTE FUNCTION validate_staff_record();
-CREATE TRIGGER history_staff_validate BEFORE INSERT OR UPDATE ON patient_history FOR EACH ROW EXECUTE FUNCTION validate_staff_record();
-CREATE TRIGGER note_staff_validate BEFORE INSERT OR UPDATE ON clinical_note FOR EACH ROW EXECUTE FUNCTION validate_staff_record();
-CREATE TRIGGER allergy_staff_validate BEFORE INSERT OR UPDATE ON allergy_status FOR EACH ROW EXECUTE FUNCTION validate_staff_record();
-CREATE TRIGGER reaction_staff_validate BEFORE INSERT OR UPDATE ON drug_reaction FOR EACH ROW EXECUTE FUNCTION validate_staff_record();
-CREATE TRIGGER report_staff_validate BEFORE INSERT OR UPDATE ON test_report FOR EACH ROW EXECUTE FUNCTION validate_staff_record();
-CREATE TRIGGER import_staff_validate BEFORE INSERT OR UPDATE ON import_batch FOR EACH ROW EXECUTE FUNCTION validate_staff_record();
+CREATE TRIGGER trg_field_definition_updated_at
+  BEFORE UPDATE ON field_definition
+  FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
-CREATE FUNCTION validate_allergies() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
- IF TG_TABLE_NAME = 'drug_reaction' THEN
-   IF NOT EXISTS (SELECT 1 FROM allergy_status WHERE case_id = NEW.case_id AND status = 'known') THEN
-     RAISE EXCEPTION 'Reaction requires known allergy/reaction status'; END IF;
- ELSE
-   IF NEW.status <> 'known' AND EXISTS (SELECT 1 FROM drug_reaction WHERE case_id = NEW.case_id) THEN
-     RAISE EXCEPTION 'Existing reactions cannot be marked none or unknown'; END IF;
- END IF;
- RETURN NEW;
-END $$;
-CREATE TRIGGER reaction_status_validate BEFORE INSERT OR UPDATE ON drug_reaction FOR EACH ROW EXECUTE FUNCTION validate_allergies();
-CREATE TRIGGER allergy_status_validate BEFORE INSERT OR UPDATE ON allergy_status FOR EACH ROW EXECUTE FUNCTION validate_allergies();
+CREATE TRIGGER trg_visit_value_updated_at
+  BEFORE UPDATE ON visit_value
+  FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
-CREATE FUNCTION validate_approval() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION fn_patient_immutable_code()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
 BEGIN
- IF NOT EXISTS (SELECT 1 FROM user_permission p JOIN app_user u ON u.id = p.user_id
-                WHERE p.user_id = NEW.recorded_by AND u.active AND p.permission_code = 'rule.approve') THEN
-   RAISE EXCEPTION 'Explicit clinical rule approval permission required'; END IF;
- IF NOT EXISTS (SELECT 1 FROM rule_version WHERE id = NEW.rule_version_id AND status = 'tested'
-                AND content_hash = NEW.approved_content_hash) THEN
-   RAISE EXCEPTION 'Approval must match the tested rule content'; END IF;
- RETURN NEW;
-END $$;
-CREATE TRIGGER rule_approval_validate BEFORE INSERT ON rule_approval FOR EACH ROW EXECUTE FUNCTION validate_approval();
-CREATE TRIGGER rule_approval_immutable BEFORE UPDATE OR DELETE ON rule_approval FOR EACH ROW EXECUTE FUNCTION prevent_mutation();
-
-CREATE FUNCTION guard_required_fields() RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE v_id uuid;
-BEGIN
- v_id := CASE WHEN TG_OP = 'DELETE' THEN OLD.rule_version_id ELSE NEW.rule_version_id END;
- IF EXISTS (SELECT 1 FROM rule_version WHERE id = v_id AND status IN ('tested','approved','active','retired')) OR
-    (TG_OP = 'UPDATE' AND EXISTS (SELECT 1 FROM rule_version WHERE id = OLD.rule_version_id AND status IN ('tested','approved','active','retired'))) THEN
-   RAISE EXCEPTION 'Create a new rule version to change required fields'; END IF;
- IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
- RETURN NEW;
-END $$;
-CREATE TRIGGER required_field_guard BEFORE INSERT OR UPDATE OR DELETE ON rule_required_field FOR EACH ROW EXECUTE FUNCTION guard_required_fields();
-
-CREATE FUNCTION bump_case_revision() RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE v_new uuid; v_old uuid;
-BEGIN
- IF TG_OP <> 'DELETE' THEN
-   IF TG_TABLE_NAME IN ('patient_history','allergy_status','drug_reaction') THEN v_new := NEW.case_id;
-   ELSIF TG_TABLE_NAME = 'encounter' THEN v_new := NEW.case_id;
-   ELSE SELECT case_id INTO v_new FROM encounter WHERE id = NEW.encounter_id; END IF;
- END IF;
- IF TG_OP <> 'INSERT' THEN
-   IF TG_TABLE_NAME IN ('patient_history','allergy_status','drug_reaction','encounter') THEN v_old := OLD.case_id;
-   ELSE SELECT case_id INTO v_old FROM encounter WHERE id = OLD.encounter_id; END IF;
- END IF;
- UPDATE patient_case SET revision = revision + 1 WHERE id = v_new OR id = v_old;
- IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
- RETURN NEW;
-END $$;
-CREATE TRIGGER encounter_revision AFTER INSERT OR UPDATE OR DELETE ON encounter FOR EACH ROW EXECUTE FUNCTION bump_case_revision();
-CREATE TRIGGER observation_revision AFTER INSERT OR UPDATE OR DELETE ON observation FOR EACH ROW EXECUTE FUNCTION bump_case_revision();
-CREATE TRIGGER medication_revision AFTER INSERT OR UPDATE OR DELETE ON medication FOR EACH ROW EXECUTE FUNCTION bump_case_revision();
-CREATE TRIGGER note_revision AFTER INSERT OR UPDATE OR DELETE ON clinical_note FOR EACH ROW EXECUTE FUNCTION bump_case_revision();
-CREATE TRIGGER history_revision AFTER INSERT OR UPDATE OR DELETE ON patient_history FOR EACH ROW EXECUTE FUNCTION bump_case_revision();
-CREATE TRIGGER allergy_revision AFTER INSERT OR UPDATE OR DELETE ON allergy_status FOR EACH ROW EXECUTE FUNCTION bump_case_revision();
-CREATE TRIGGER reaction_revision AFTER INSERT OR UPDATE OR DELETE ON drug_reaction FOR EACH ROW EXECUTE FUNCTION bump_case_revision();
-CREATE TRIGGER report_revision AFTER INSERT OR UPDATE OR DELETE ON test_report FOR EACH ROW EXECUTE FUNCTION bump_case_revision();
-
-CREATE FUNCTION validate_evaluation_decision() RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE v_case uuid; v_revision integer; v_encounter uuid;
-BEGIN
- IF TG_TABLE_NAME = 'evaluation' THEN
-   v_encounter := NEW.encounter_id;
- ELSE SELECT encounter_id INTO v_encounter FROM evaluation WHERE id = NEW.evaluation_id; END IF;
- SELECT c.id, c.revision INTO v_case, v_revision FROM patient_case c
- JOIN encounter e ON e.case_id = c.id WHERE e.id = v_encounter FOR UPDATE OF c;
- IF TG_TABLE_NAME = 'evaluation' THEN
-   IF NEW.input_revision <> v_revision THEN RAISE EXCEPTION 'Stale evaluation input revision'; END IF;
-   IF NOT can_access_case(NEW.requested_by, v_case, 'clinical') AND NOT can_access_case(NEW.requested_by, v_case, 'medsafety') THEN
-     RAISE EXCEPTION 'No evaluation access'; END IF;
- ELSE
-   IF NOT can_access_case(NEW.doctor_id, v_case, 'clinical') THEN RAISE EXCEPTION 'Doctor clinical access required'; END IF;
-   IF (SELECT input_revision FROM evaluation WHERE id = NEW.evaluation_id) <> v_revision THEN
-     RAISE EXCEPTION 'Stale evaluation: evaluate again before deciding'; END IF;
- END IF;
- RETURN NEW;
-END $$;
-CREATE TRIGGER evaluation_validate BEFORE INSERT ON evaluation FOR EACH ROW EXECUTE FUNCTION validate_evaluation_decision();
-CREATE TRIGGER decision_validate BEFORE INSERT ON clinical_decision FOR EACH ROW EXECUTE FUNCTION validate_evaluation_decision();
-
-CREATE FUNCTION validate_review_plan() RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE v_case uuid; v_encounter uuid;
-BEGIN
- IF TG_TABLE_NAME = 'pharmacist_review' THEN
-   SELECT e.case_id INTO v_case FROM evaluation v JOIN encounter e ON e.id = v.encounter_id WHERE v.id = NEW.evaluation_id;
-   IF NOT has_role(NEW.pharmacist_id, 'pharmacist') OR NOT can_access_case(NEW.pharmacist_id, v_case, 'medsafety') THEN
-     RAISE EXCEPTION 'Assigned pharmacist required'; END IF;
- ELSE
-   SELECT case_id INTO v_case FROM encounter WHERE id = NEW.encounter_id;
-   IF NOT can_access_case(NEW.doctor_id, v_case, 'clinical') THEN RAISE EXCEPTION 'Assigned doctor required'; END IF;
-   IF NEW.decision_id IS NOT NULL THEN
-     SELECT v.encounter_id INTO v_encounter FROM clinical_decision d JOIN evaluation v ON v.id = d.evaluation_id
-       WHERE d.id = NEW.decision_id AND d.action <> 'rejected';
-     IF v_encounter IS DISTINCT FROM NEW.encounter_id THEN RAISE EXCEPTION 'Plan decision must belong to this encounter and not be rejected'; END IF;
-   END IF;
-   NEW.updated_at := now();
- END IF;
- RETURN NEW;
-END $$;
-CREATE TRIGGER pharmacist_review_validate BEFORE INSERT OR UPDATE ON pharmacist_review FOR EACH ROW EXECUTE FUNCTION validate_review_plan();
-CREATE TRIGGER treatment_plan_validate BEFORE INSERT OR UPDATE ON treatment_plan FOR EACH ROW EXECUTE FUNCTION validate_review_plan();
-
-CREATE FUNCTION guard_prescription() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
- IF NOT can_access_case(NEW.doctor_id, NEW.case_id, 'clinical') THEN RAISE EXCEPTION 'Prescription requires an assigned doctor'; END IF;
- IF NOT EXISTS (SELECT 1 FROM pg_timezone_names WHERE name = NEW.timezone) THEN RAISE EXCEPTION 'Unknown prescription timezone'; END IF;
- IF TG_OP = 'INSERT' AND NEW.status <> 'draft' THEN RAISE EXCEPTION 'Create a draft prescription first'; END IF;
- IF TG_OP = 'UPDATE' THEN
-   IF OLD.status <> 'draft' THEN
-     IF NEW.status <> 'cancelled' OR OLD.status <> 'confirmed' OR
-        (to_jsonb(NEW) - 'status') IS DISTINCT FROM (to_jsonb(OLD) - 'status') THEN
-       RAISE EXCEPTION 'Confirmed prescription is immutable; cancel and issue a new prescription'; END IF;
-   ELSIF NEW.status = 'cancelled' THEN RAISE EXCEPTION 'Delete or finish a draft instead of cancelling it';
-   END IF;
-   IF OLD.status = 'draft' AND NEW.status = 'confirmed' THEN
-     IF NOT EXISTS (SELECT 1 FROM medication WHERE prescription_id = NEW.id) OR EXISTS
-        (SELECT 1 FROM medication m WHERE m.prescription_id = NEW.id AND
-         (m.starts_on < NEW.starts_on OR (NEW.ends_on IS NOT NULL AND (m.ends_on IS NULL OR m.ends_on > NEW.ends_on)) OR
-          (SELECT count(*) FROM medication_schedule s WHERE s.medication_id = m.id) <> m.frequency_per_day)) THEN
-       RAISE EXCEPTION 'Each prescribed medication needs dates within the prescription and one clock time per daily dose'; END IF;
-     NEW.confirmed_at := now();
-   END IF;
- END IF;
- RETURN NEW;
-END $$;
-CREATE TRIGGER prescription_guard BEFORE INSERT OR UPDATE ON prescription FOR EACH ROW EXECUTE FUNCTION guard_prescription();
-
-CREATE FUNCTION guard_prescribed_medication() RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE v_rx uuid; v_old_rx uuid;
-BEGIN
- IF TG_TABLE_NAME = 'medication' THEN
-   IF TG_OP <> 'DELETE' THEN v_rx := NEW.prescription_id; END IF;
-   IF TG_OP <> 'INSERT' THEN v_old_rx := OLD.prescription_id; END IF;
- ELSE
-   IF TG_OP <> 'DELETE' THEN SELECT prescription_id INTO v_rx FROM medication WHERE id = NEW.medication_id; END IF;
-   IF TG_OP <> 'INSERT' THEN SELECT prescription_id INTO v_old_rx FROM medication WHERE id = OLD.medication_id; END IF;
-   IF TG_OP <> 'DELETE' AND v_rx IS NULL THEN RAISE EXCEPTION 'Clock times require a prescription medication'; END IF;
- END IF;
- -- Lock the parent so confirming a draft cannot race an item/schedule edit.
- PERFORM id FROM prescription WHERE id IN (v_rx, v_old_rx) ORDER BY id FOR UPDATE;
- IF EXISTS (SELECT 1 FROM prescription WHERE id IN (v_rx, v_old_rx) AND status <> 'draft') THEN
-   RAISE EXCEPTION 'Confirmed prescription items and clock times are immutable'; END IF;
- IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
- RETURN NEW;
-END $$;
-CREATE TRIGGER prescribed_medication_guard BEFORE INSERT OR UPDATE OR DELETE ON medication FOR EACH ROW EXECUTE FUNCTION guard_prescribed_medication();
-CREATE TRIGGER medication_schedule_guard BEFORE INSERT OR UPDATE OR DELETE ON medication_schedule FOR EACH ROW EXECUTE FUNCTION guard_prescribed_medication();
-
--- Only the trusted service sets this identity after checking its auth session.
-CREATE FUNCTION current_app_user() RETURNS uuid LANGUAGE sql STABLE AS $$
- SELECT NULLIF(current_setting('app.user_id', true), '')::uuid;
-$$;
-CREATE FUNCTION portal_case_id() RETURNS uuid
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
- SELECT case_id FROM patient_account WHERE user_id = current_app_user() AND has_role(user_id, 'patient');
-$$;
-CREATE FUNCTION portal_owns_medication(p_medication uuid) RETURNS boolean
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
- SELECT EXISTS (SELECT 1 FROM medication m JOIN prescription p ON p.id = m.prescription_id
-                WHERE m.id = p_medication AND p.case_id = portal_case_id() AND p.status IN ('confirmed','cancelled'));
-$$;
-CREATE FUNCTION portal_owns_schedule(p_schedule uuid) RETURNS boolean
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
- SELECT EXISTS (SELECT 1 FROM medication_schedule WHERE id = p_schedule AND portal_owns_medication(medication_id));
-$$;
-CREATE FUNCTION portal_doctors() RETURNS TABLE (doctor_id uuid, label text, department_code varchar, department_name text)
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
- SELECT u.id, u.username::text, d.code, d.name FROM app_user u JOIN department d ON d.code = u.department_code
- WHERE u.active AND d.active AND has_role(u.id, 'doctor') AND portal_case_id() IS NOT NULL;
+  IF NEW.patient_code IS DISTINCT FROM OLD.patient_code THEN
+    RAISE EXCEPTION 'patient_code (%) is immutable and cannot be modified', OLD.patient_code
+      USING ERRCODE = 'check_violation';
+  END IF;
+  NEW.updated_at := now();
+  RETURN NEW;
+END;
 $$;
 
-CREATE FUNCTION validate_patient_measurement() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE TRIGGER trg_patient_immutable_code
+  BEFORE UPDATE ON patient
+  FOR EACH ROW EXECUTE FUNCTION fn_patient_immutable_code();
+
+CREATE OR REPLACE FUNCTION fn_form_version_immutable()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_has_visits boolean;
 BEGIN
- IF NOT EXISTS (SELECT 1 FROM patient_account WHERE user_id = NEW.recorded_by AND case_id = NEW.case_id)
- OR NOT has_role(NEW.recorded_by, 'patient') THEN RAISE EXCEPTION 'Patient can only record measurements for their own profile'; END IF;
- IF NEW.observed_at > now() + INTERVAL '5 minutes' THEN RAISE EXCEPTION 'Measurement time is in the future'; END IF;
- RETURN NEW;
-END $$;
-CREATE TRIGGER patient_measurement_validate BEFORE INSERT ON patient_measurement FOR EACH ROW EXECUTE FUNCTION validate_patient_measurement();
-ALTER FUNCTION validate_patient_measurement() SECURITY DEFINER;
-ALTER FUNCTION validate_patient_measurement() SET search_path = pg_catalog, public;
-CREATE TRIGGER patient_measurement_immutable BEFORE UPDATE OR DELETE ON patient_measurement FOR EACH ROW EXECUTE FUNCTION prevent_mutation();
+  IF TG_OP = 'DELETE' THEN
+    IF OLD.status <> 'draft' THEN
+      RAISE EXCEPTION 'Cannot delete non-draft form_version % (status=%)', OLD.id, OLD.status
+        USING ERRCODE = 'check_violation';
+    END IF;
+    SELECT EXISTS (SELECT 1 FROM visit WHERE form_version_id = OLD.id) INTO v_has_visits;
+    IF v_has_visits THEN
+      RAISE EXCEPTION 'Cannot delete form_version % already referenced by visit', OLD.id
+        USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN OLD;
+  END IF;
 
-CREATE FUNCTION validate_appointment() RETURNS trigger LANGUAGE plpgsql AS $$
+  IF OLD.status = 'retired' THEN
+    RAISE EXCEPTION 'Retired form_version % is immutable', OLD.id
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  IF OLD.status = 'published' THEN
+    IF NEW.status = 'retired'
+       AND NEW.form_template_id = OLD.form_template_id
+       AND NEW.version_no = OLD.version_no
+       AND NEW.version_label = OLD.version_label
+       AND NEW.based_on_version_id IS NOT DISTINCT FROM OLD.based_on_version_id
+       AND NEW.change_note IS NOT DISTINCT FROM OLD.change_note
+       AND NEW.created_by = OLD.created_by
+       AND NEW.created_at = OLD.created_at
+       AND NEW.published_at = OLD.published_at
+       AND NEW.published_by = OLD.published_by
+    THEN
+      RETURN NEW;
+    END IF;
+    RAISE EXCEPTION 'Published form_version % is immutable; only transition published -> retired is permitted', OLD.id
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  SELECT EXISTS (SELECT 1 FROM visit WHERE form_version_id = OLD.id) INTO v_has_visits;
+  IF v_has_visits THEN
+    RAISE EXCEPTION 'Form version % already used by visits cannot be modified', OLD.id
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  IF NEW.status = 'published' THEN
+    IF NOT EXISTS (SELECT 1 FROM form_section WHERE form_version_id = NEW.id) THEN
+      RAISE EXCEPTION 'Cannot publish form_version % without form_section rows', NEW.id
+        USING ERRCODE = 'check_violation';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_form_version_immutable
+  BEFORE UPDATE OR DELETE ON form_version
+  FOR EACH ROW EXECUTE FUNCTION fn_form_version_immutable();
+
+CREATE OR REPLACE FUNCTION fn_form_structure_immutable()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_version_id uuid;
+  v_status text;
+  v_has_visits boolean;
 BEGIN
- IF NOT has_role(NEW.doctor_id, 'doctor') THEN RAISE EXCEPTION 'Appointment requires an active doctor'; END IF;
- IF NOT EXISTS (SELECT 1 FROM patient_account WHERE user_id = NEW.requested_by AND case_id = NEW.case_id)
-    OR NOT has_role(NEW.requested_by, 'patient') THEN RAISE EXCEPTION 'Appointment requester must own the patient profile'; END IF;
- IF TG_OP = 'INSERT' THEN
-   IF NEW.status <> 'requested' OR NEW.slot_at <= now() THEN RAISE EXCEPTION 'Request a future appointment slot'; END IF;
- ELSIF TG_OP = 'UPDATE' THEN
-   IF (to_jsonb(NEW) - ARRAY['status','encounter_id']) IS DISTINCT FROM (to_jsonb(OLD) - ARRAY['status','encounter_id']) THEN
-     RAISE EXCEPTION 'Appointment details are immutable; cancel and book another slot'; END IF;
-   IF NOT ((OLD.status = 'requested' AND NEW.status IN ('confirmed','cancelled')) OR
-           (OLD.status = 'confirmed' AND NEW.status IN ('completed','cancelled'))) THEN RAISE EXCEPTION 'Invalid appointment status transition'; END IF;
-   IF NEW.encounter_id IS NOT NULL AND NEW.status <> 'completed' THEN RAISE EXCEPTION 'Link encounter when appointment is completed'; END IF;
- END IF;
- RETURN NEW;
-END $$;
-CREATE TRIGGER appointment_validate BEFORE INSERT OR UPDATE ON appointment FOR EACH ROW EXECUTE FUNCTION validate_appointment();
-ALTER FUNCTION validate_appointment() SECURITY DEFINER;
-ALTER FUNCTION validate_appointment() SET search_path = pg_catalog, public;
+  v_version_id := COALESCE(NEW.form_version_id, OLD.form_version_id);
+  SELECT status::text INTO v_status FROM form_version WHERE id = v_version_id;
+  IF TG_OP = 'DELETE' AND v_status IS NULL THEN
+    RETURN OLD;
+  END IF;
+  IF v_status IS NULL THEN
+    RAISE EXCEPTION 'Referenced form_version % does not exist', v_version_id
+      USING ERRCODE = 'foreign_key_violation';
+  END IF;
+  IF v_status <> 'draft' THEN
+    RAISE EXCEPTION 'Cannot modify structure of form_version % (status=%)', v_version_id, v_status
+      USING ERRCODE = 'check_violation';
+  END IF;
+  SELECT EXISTS (SELECT 1 FROM visit WHERE form_version_id = v_version_id) INTO v_has_visits;
+  IF v_has_visits THEN
+    RAISE EXCEPTION 'Cannot modify structure of form_version % already referenced by visits', v_version_id
+      USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN COALESCE(NEW, OLD);
+END;
+$$;
 
-CREATE FUNCTION validate_reminder() RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE v_rx prescription; v_med medication; v_time time;
+CREATE TRIGGER trg_form_section_immutable
+  BEFORE INSERT OR UPDATE OR DELETE ON form_section
+  FOR EACH ROW EXECUTE FUNCTION fn_form_structure_immutable();
+
+CREATE TRIGGER trg_form_field_immutable
+  BEFORE INSERT OR UPDATE OR DELETE ON form_field
+  FOR EACH ROW EXECUTE FUNCTION fn_form_structure_immutable();
+
+CREATE OR REPLACE FUNCTION fn_visit_lifecycle_guard()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_form_status text;
 BEGIN
- IF TG_OP = 'INSERT' THEN
-   SELECT m.* INTO v_med FROM medication m JOIN medication_schedule s ON s.medication_id = m.id WHERE s.id = NEW.schedule_id;
-   SELECT * INTO v_rx FROM prescription WHERE id = v_med.prescription_id;
-   SELECT dose_time INTO v_time FROM medication_schedule WHERE id = NEW.schedule_id;
-   IF v_rx.id IS NULL OR v_rx.status <> 'confirmed' OR NEW.scheduled_on < v_rx.starts_on OR
-      NEW.scheduled_on < v_med.starts_on OR NEW.scheduled_on > v_rx.ends_on OR NEW.scheduled_on > v_med.ends_on THEN
-     RAISE EXCEPTION 'Reminder must fall within a confirmed prescription'; END IF;
-   NEW.due_at := (NEW.scheduled_on + v_time) AT TIME ZONE v_rx.timezone;
-   IF NEW.status <> 'pending' THEN RAISE EXCEPTION 'New reminders start pending'; END IF;
- ELSE
-   IF (to_jsonb(NEW) - ARRAY['status','responded_at','notified_at']) IS DISTINCT FROM
-      (to_jsonb(OLD) - ARRAY['status','responded_at','notified_at']) THEN RAISE EXCEPTION 'Reminder identity and due time are immutable'; END IF;
-   IF NEW.status <> OLD.status THEN
-     IF OLD.status <> 'pending' OR NEW.status NOT IN ('taken','skipped','cancelled') THEN RAISE EXCEPTION 'Reminder already resolved'; END IF;
-     NEW.responded_at := CASE WHEN NEW.status IN ('taken','skipped') THEN now() ELSE NULL END;
-   ELSIF NEW.responded_at IS DISTINCT FROM OLD.responded_at THEN RAISE EXCEPTION 'Cannot rewrite reminder response time'; END IF;
- END IF;
- RETURN NEW;
-END $$;
-CREATE TRIGGER reminder_validate BEFORE INSERT OR UPDATE ON medication_reminder FOR EACH ROW EXECUTE FUNCTION validate_reminder();
+  IF TG_OP = 'INSERT' THEN
+    SELECT status::text INTO v_form_status FROM form_version WHERE id = NEW.form_version_id;
+    IF v_form_status IS DISTINCT FROM 'published' THEN
+      RAISE EXCEPTION 'Visit must bind to a published form_version (got status=%)', v_form_status
+        USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NEW;
+  END IF;
 
-CREATE FUNCTION generate_medication_reminders(p_from date, p_to date) RETURNS integer LANGUAGE plpgsql AS $$
-DECLARE v_count integer;
+  IF TG_OP = 'DELETE' THEN
+    IF OLD.status = 'confirmed' THEN
+      RAISE EXCEPTION 'Confirmed visit % cannot be deleted', OLD.id
+        USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN OLD;
+  END IF;
+
+  IF OLD.status = 'confirmed' THEN
+    RAISE EXCEPTION 'Confirmed visit % is read-only; create a visit_revision instead of direct update', OLD.id
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  IF NEW.patient_id IS DISTINCT FROM OLD.patient_id
+     OR NEW.form_version_id IS DISTINCT FROM OLD.form_version_id
+     OR NEW.visit_code IS DISTINCT FROM OLD.visit_code
+     OR NEW.created_by IS DISTINCT FROM OLD.created_by
+     OR NEW.created_at IS DISTINCT FROM OLD.created_at
+  THEN
+    RAISE EXCEPTION 'Immutable visit header columns cannot be altered'
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  NEW.updated_at := now();
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_visit_lifecycle_guard
+  BEFORE INSERT OR UPDATE OR DELETE ON visit
+  FOR EACH ROW EXECUTE FUNCTION fn_visit_lifecycle_guard();
+
+CREATE OR REPLACE FUNCTION fn_visit_child_confirmed_guard()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_visit_id uuid;
+  v_status text;
 BEGIN
- IF p_from IS NULL OR p_to IS NULL OR p_to < p_from OR p_to - p_from > 30 THEN RAISE EXCEPTION 'Generate between 1 and 31 days per batch'; END IF;
- INSERT INTO medication_reminder (schedule_id, scheduled_on, due_at)
- SELECT s.id, day::date, (day::date + s.dose_time) AT TIME ZONE p.timezone
- FROM medication_schedule s JOIN medication m ON m.id = s.medication_id JOIN prescription p ON p.id = m.prescription_id
- JOIN patient_account a ON a.case_id = p.case_id JOIN app_user u ON u.id = a.user_id
- CROSS JOIN generate_series(p_from::timestamp, p_to::timestamp, INTERVAL '1 day') day
- WHERE p.status = 'confirmed' AND u.active AND day::date >= p.starts_on AND day::date >= m.starts_on
-   AND (p.ends_on IS NULL OR day::date <= p.ends_on) AND (m.ends_on IS NULL OR day::date <= m.ends_on)
- ON CONFLICT (schedule_id, scheduled_on) DO NOTHING;
- GET DIAGNOSTICS v_count = ROW_COUNT;
- RETURN v_count;
-END $$;
-REVOKE ALL ON FUNCTION generate_medication_reminders(date, date) FROM PUBLIC;
+  v_visit_id := COALESCE(NEW.visit_id, OLD.visit_id);
+  SELECT status::text INTO v_status FROM visit WHERE id = v_visit_id;
+  IF v_status = 'confirmed' THEN
+    RAISE EXCEPTION 'Cannot modify child records of confirmed visit %', v_visit_id
+      USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN COALESCE(NEW, OLD);
+END;
+$$;
 
-CREATE FUNCTION cancel_prescription_reminders() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE TRIGGER trg_visit_bp_confirmed_guard
+  BEFORE INSERT OR UPDATE OR DELETE ON visit_orthostatic_bp
+  FOR EACH ROW EXECUTE FUNCTION fn_visit_child_confirmed_guard();
+
+CREATE TRIGGER trg_visit_med_confirmed_guard
+  BEFORE INSERT OR UPDATE OR DELETE ON visit_medication
+  FOR EACH ROW EXECUTE FUNCTION fn_visit_child_confirmed_guard();
+
+CREATE TRIGGER trg_visit_allergy_confirmed_guard
+  BEFORE INSERT OR UPDATE OR DELETE ON visit_allergy
+  FOR EACH ROW EXECUTE FUNCTION fn_visit_child_confirmed_guard();
+
+CREATE OR REPLACE FUNCTION fn_visit_value_guard()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_visit_status text;
+  v_form_version_id uuid;
+  v_data_type text;
+  v_min_val numeric;
+  v_max_val numeric;
+  v_storage_level varchar(24);
+  v_in_form boolean;
 BEGIN
- IF NEW.status = 'cancelled' AND OLD.status = 'confirmed' THEN
-   UPDATE medication_reminder r SET status = 'cancelled' FROM medication_schedule s JOIN medication m ON m.id = s.medication_id
-   WHERE r.schedule_id = s.id AND m.prescription_id = NEW.id AND r.status = 'pending';
- END IF;
- RETURN NEW;
-END $$;
-CREATE TRIGGER prescription_cancel_reminders AFTER UPDATE ON prescription FOR EACH ROW EXECUTE FUNCTION cancel_prescription_reminders();
+  IF TG_OP = 'DELETE' THEN
+    SELECT status::text INTO v_visit_status FROM visit WHERE id = OLD.visit_id;
+    IF v_visit_status = 'confirmed' THEN
+      RAISE EXCEPTION 'Cannot delete visit_value of confirmed visit %', OLD.visit_id
+        USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN OLD;
+  END IF;
 
-CREATE FUNCTION audit_record_change() RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE v_actor uuid; v_row jsonb; v_entity uuid;
+  SELECT status::text, form_version_id INTO v_visit_status, v_form_version_id
+  FROM visit WHERE id = NEW.visit_id;
+
+  IF v_visit_status = 'confirmed' THEN
+    RAISE EXCEPTION 'Cannot modify visit_value of confirmed visit %', NEW.visit_id
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  SELECT EXISTS (
+    SELECT 1 FROM form_field
+    WHERE form_version_id = v_form_version_id
+      AND field_definition_id = NEW.field_definition_id
+  ) INTO v_in_form;
+
+  IF NOT v_in_form THEN
+    RAISE EXCEPTION 'Field % is not registered in visit form_version %', NEW.field_definition_id, v_form_version_id
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  SELECT data_type::text, min_value, max_value, storage_level
+  INTO v_data_type, v_min_val, v_max_val, v_storage_level
+  FROM field_definition
+  WHERE id = NEW.field_definition_id;
+
+  IF v_storage_level IN ('orthostatic_bp', 'medication', 'allergy', 'lab_result', 'patient') THEN
+    RAISE EXCEPTION 'Field % uses storage_level=% and cannot be stored in visit_value', NEW.field_definition_id, v_storage_level
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  IF NEW.value_state = 'unknown' THEN
+    IF num_nonnulls(NEW.value_num, NEW.value_text, NEW.value_bool, NEW.value_date, NEW.field_option_id) <> 0
+       OR NEW.unit IS NOT NULL
+    THEN
+      RAISE EXCEPTION 'When value_state=unknown, all value columns and unit must be NULL'
+        USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  IF v_data_type = 'multi_choice' THEN
+    IF num_nonnulls(NEW.value_num, NEW.value_text, NEW.value_bool, NEW.value_date, NEW.field_option_id) <> 0 THEN
+      RAISE EXCEPTION 'multi_choice visit_value must store options in visit_value_option with NULL scalar columns'
+        USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  IF num_nonnulls(NEW.value_num, NEW.value_text, NEW.value_bool, NEW.value_date, NEW.field_option_id) <> 1 THEN
+    RAISE EXCEPTION 'When value_state=answered for %, exactly one scalar value column must be non-NULL', v_data_type
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  IF v_data_type = 'number' THEN
+    IF NEW.value_num IS NULL THEN
+      RAISE EXCEPTION 'data_type=number requires value_num' USING ERRCODE = 'check_violation';
+    END IF;
+    IF v_min_val IS NOT NULL AND NEW.value_num < v_min_val THEN
+      RAISE EXCEPTION 'value_num % < min_value %', NEW.value_num, v_min_val USING ERRCODE = 'check_violation';
+    END IF;
+    IF v_max_val IS NOT NULL AND NEW.value_num > v_max_val THEN
+      RAISE EXCEPTION 'value_num % > max_value %', NEW.value_num, v_max_val USING ERRCODE = 'check_violation';
+    END IF;
+  ELSIF v_data_type = 'integer' THEN
+    IF NEW.value_num IS NULL OR NEW.value_num <> trunc(NEW.value_num) THEN
+      RAISE EXCEPTION 'data_type=integer requires integer value_num' USING ERRCODE = 'check_violation';
+    END IF;
+    IF v_min_val IS NOT NULL AND NEW.value_num < v_min_val THEN
+      RAISE EXCEPTION 'value_num % < min_value %', NEW.value_num, v_min_val USING ERRCODE = 'check_violation';
+    END IF;
+    IF v_max_val IS NOT NULL AND NEW.value_num > v_max_val THEN
+      RAISE EXCEPTION 'value_num % > max_value %', NEW.value_num, v_max_val USING ERRCODE = 'check_violation';
+    END IF;
+  ELSIF v_data_type = 'text' THEN
+    IF NEW.value_text IS NULL OR length(trim(NEW.value_text)) = 0 THEN
+      RAISE EXCEPTION 'data_type=text requires non-empty value_text' USING ERRCODE = 'check_violation';
+    END IF;
+  ELSIF v_data_type = 'boolean' THEN
+    IF NEW.value_bool IS NULL THEN
+      RAISE EXCEPTION 'data_type=boolean requires value_bool' USING ERRCODE = 'check_violation';
+    END IF;
+  ELSIF v_data_type = 'date' THEN
+    IF NEW.value_date IS NULL THEN
+      RAISE EXCEPTION 'data_type=date requires value_date' USING ERRCODE = 'check_violation';
+    END IF;
+  ELSIF v_data_type = 'single_choice' THEN
+    IF NEW.field_option_id IS NULL THEN
+      RAISE EXCEPTION 'data_type=single_choice requires field_option_id' USING ERRCODE = 'check_violation';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_visit_value_guard
+  BEFORE INSERT OR UPDATE OR DELETE ON visit_value
+  FOR EACH ROW EXECUTE FUNCTION fn_visit_value_guard();
+
+CREATE OR REPLACE FUNCTION fn_visit_value_multichoice_deferred()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_data_type text;
+  v_opt_count integer;
 BEGIN
- v_row := CASE WHEN TG_OP = 'DELETE' THEN to_jsonb(OLD) ELSE to_jsonb(NEW) END;
- v_entity := COALESCE((v_row->>'id')::uuid, (v_row->>'case_id')::uuid,
-                      (v_row->>'user_id')::uuid, (v_row->>'rule_version_id')::uuid);
- v_actor := current_app_user();
- IF v_actor IS NULL THEN
-   v_actor := COALESCE((v_row->>'recorded_by')::uuid, (v_row->>'requested_by')::uuid,
-                       (v_row->>'doctor_id')::uuid, (v_row->>'created_by')::uuid,
-                       (v_row->>'pharmacist_id')::uuid, (v_row->>'imported_by')::uuid,
-                       (v_row->>'owner_id')::uuid);
-   IF TG_TABLE_NAME = 'medication_schedule' THEN
-     SELECT recorded_by INTO v_actor FROM medication WHERE id = (v_row->>'medication_id')::uuid;
-   END IF;
- END IF;
- INSERT INTO audit_event(actor_id, actor_kind, action, entity_type, entity_id)
- VALUES (v_actor, CASE WHEN v_actor IS NULL THEN 'system' ELSE 'user' END,
-         TG_TABLE_NAME || '.' || lower(TG_OP), TG_TABLE_NAME, v_entity);
- IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
- RETURN NEW;
-END $$;
--- Definer permits a constrained patient DB role to append audit rows, never edit them.
-ALTER FUNCTION audit_record_change() SECURITY DEFINER;
-ALTER FUNCTION audit_record_change() SET search_path = pg_catalog, public;
-CREATE TRIGGER appointment_audit AFTER INSERT OR UPDATE ON appointment FOR EACH ROW EXECUTE FUNCTION audit_record_change();
-CREATE TRIGGER measurement_audit AFTER INSERT ON patient_measurement FOR EACH ROW EXECUTE FUNCTION audit_record_change();
-CREATE TRIGGER prescription_audit AFTER INSERT OR UPDATE ON prescription FOR EACH ROW EXECUTE FUNCTION audit_record_change();
-CREATE TRIGGER reminder_audit AFTER INSERT OR UPDATE ON medication_reminder FOR EACH ROW EXECUTE FUNCTION audit_record_change();
-CREATE TRIGGER user_audit AFTER INSERT OR UPDATE OR DELETE ON app_user FOR EACH ROW EXECUTE FUNCTION audit_record_change();
-CREATE TRIGGER role_audit AFTER INSERT OR UPDATE OR DELETE ON user_role FOR EACH ROW EXECUTE FUNCTION audit_record_change();
-CREATE TRIGGER permission_audit AFTER INSERT OR UPDATE OR DELETE ON user_permission FOR EACH ROW EXECUTE FUNCTION audit_record_change();
-CREATE TRIGGER access_audit AFTER INSERT OR UPDATE OR DELETE ON case_access FOR EACH ROW EXECUTE FUNCTION audit_record_change();
-CREATE TRIGGER case_audit AFTER INSERT OR UPDATE ON patient_case FOR EACH ROW EXECUTE FUNCTION audit_record_change();
-CREATE TRIGGER encounter_audit AFTER INSERT OR UPDATE OR DELETE ON encounter FOR EACH ROW EXECUTE FUNCTION audit_record_change();
-CREATE TRIGGER observation_audit AFTER INSERT OR UPDATE OR DELETE ON observation FOR EACH ROW EXECUTE FUNCTION audit_record_change();
-CREATE TRIGGER medication_audit AFTER INSERT OR UPDATE OR DELETE ON medication FOR EACH ROW EXECUTE FUNCTION audit_record_change();
-CREATE TRIGGER dose_time_audit AFTER INSERT OR UPDATE OR DELETE ON medication_schedule FOR EACH ROW EXECUTE FUNCTION audit_record_change();
-CREATE TRIGGER history_audit AFTER INSERT OR UPDATE OR DELETE ON patient_history FOR EACH ROW EXECUTE FUNCTION audit_record_change();
-CREATE TRIGGER note_audit AFTER INSERT OR UPDATE OR DELETE ON clinical_note FOR EACH ROW EXECUTE FUNCTION audit_record_change();
-CREATE TRIGGER allergy_audit AFTER INSERT OR UPDATE OR DELETE ON allergy_status FOR EACH ROW EXECUTE FUNCTION audit_record_change();
-CREATE TRIGGER reaction_audit AFTER INSERT OR UPDATE OR DELETE ON drug_reaction FOR EACH ROW EXECUTE FUNCTION audit_record_change();
-CREATE TRIGGER report_audit AFTER INSERT OR UPDATE OR DELETE ON test_report FOR EACH ROW EXECUTE FUNCTION audit_record_change();
-CREATE TRIGGER import_audit AFTER INSERT OR UPDATE ON import_batch FOR EACH ROW EXECUTE FUNCTION audit_record_change();
-CREATE TRIGGER evaluation_audit AFTER INSERT ON evaluation FOR EACH ROW EXECUTE FUNCTION audit_record_change();
-CREATE TRIGGER decision_audit AFTER INSERT ON clinical_decision FOR EACH ROW EXECUTE FUNCTION audit_record_change();
-CREATE TRIGGER review_audit AFTER INSERT OR UPDATE ON pharmacist_review FOR EACH ROW EXECUTE FUNCTION audit_record_change();
-CREATE TRIGGER plan_audit AFTER INSERT OR UPDATE ON treatment_plan FOR EACH ROW EXECUTE FUNCTION audit_record_change();
-CREATE TRIGGER rule_audit AFTER INSERT OR UPDATE ON rule_version FOR EACH ROW EXECUTE FUNCTION audit_record_change();
-CREATE TRIGGER approval_audit AFTER INSERT ON rule_approval FOR EACH ROW EXECUTE FUNCTION audit_record_change();
+  SELECT data_type::text INTO v_data_type FROM field_definition WHERE id = NEW.field_definition_id;
+  IF v_data_type = 'multi_choice' AND NEW.value_state = 'answered' THEN
+    SELECT count(*) INTO v_opt_count
+    FROM visit_value_option
+    WHERE visit_id = NEW.visit_id AND field_definition_id = NEW.field_definition_id;
+    IF v_opt_count = 0 THEN
+      RAISE EXCEPTION 'multi_choice answered visit_value (visit=%, field=%) requires at least one visit_value_option row', NEW.visit_id, NEW.field_definition_id
+        USING ERRCODE = 'check_violation';
+    END IF;
+  END IF;
+  RETURN NULL;
+END;
+$$;
 
-ALTER TABLE appointment ENABLE ROW LEVEL SECURITY;
-CREATE POLICY patient_appointment_read ON appointment FOR SELECT USING (case_id = portal_case_id());
-CREATE POLICY patient_appointment_create ON appointment FOR INSERT
- WITH CHECK (case_id = portal_case_id() AND requested_by = current_app_user() AND status = 'requested' AND encounter_id IS NULL);
-CREATE POLICY patient_appointment_cancel ON appointment FOR UPDATE
- USING (case_id = portal_case_id() AND status IN ('requested','confirmed'))
- WITH CHECK (case_id = portal_case_id() AND status = 'cancelled');
-ALTER TABLE patient_measurement ENABLE ROW LEVEL SECURITY;
-CREATE POLICY patient_measurement_read ON patient_measurement FOR SELECT USING (case_id = portal_case_id());
-CREATE POLICY patient_measurement_create ON patient_measurement FOR INSERT
- WITH CHECK (case_id = portal_case_id() AND recorded_by = current_app_user());
-ALTER TABLE prescription ENABLE ROW LEVEL SECURITY;
-CREATE POLICY patient_prescription_read ON prescription FOR SELECT
- USING (case_id = portal_case_id() AND status IN ('confirmed','cancelled'));
-ALTER TABLE medication ENABLE ROW LEVEL SECURITY;
-CREATE POLICY patient_medication_read ON medication FOR SELECT USING (portal_owns_medication(id));
-ALTER TABLE medication_schedule ENABLE ROW LEVEL SECURITY;
-CREATE POLICY patient_schedule_read ON medication_schedule FOR SELECT USING (portal_owns_medication(medication_id));
-ALTER TABLE medication_reminder ENABLE ROW LEVEL SECURITY;
-CREATE POLICY patient_reminder_read ON medication_reminder FOR SELECT USING (portal_owns_schedule(schedule_id));
-CREATE POLICY patient_reminder_respond ON medication_reminder FOR UPDATE
- USING (portal_owns_schedule(schedule_id) AND status = 'pending')
- WITH CHECK (portal_owns_schedule(schedule_id) AND status IN ('taken','skipped'));
+CREATE CONSTRAINT TRIGGER trg_visit_value_multichoice_deferred
+  AFTER INSERT OR UPDATE ON visit_value
+  DEFERRABLE INITIALLY DEFERRED
+  FOR EACH ROW EXECUTE FUNCTION fn_visit_value_multichoice_deferred();
 
-CREATE VIEW patient_prescription_view WITH (security_invoker = true) AS
- SELECT p.id AS prescription_id, p.case_id, p.status, p.starts_on, p.ends_on, p.timezone,
-        p.instructions AS prescription_instructions, m.id AS medication_id, i.display_name AS ingredient,
-        d.display_name AS drug_product, m.dose, m.dose_unit, m.route, m.frequency_per_day,
-        m.starts_on AS medication_starts_on, m.ends_on AS medication_ends_on, m.instructions,
-        ARRAY(SELECT dose_time FROM medication_schedule WHERE medication_id = m.id ORDER BY dose_time) AS dose_times
- FROM prescription p JOIN medication m ON m.prescription_id = p.id JOIN ingredient i ON i.code = m.ingredient_code
- LEFT JOIN drug_product d ON d.code = m.drug_product_code;
+CREATE OR REPLACE FUNCTION fn_visit_value_option_guard()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_visit_id uuid;
+  v_field_id uuid;
+  v_visit_status text;
+  v_val_state text;
+  v_data_type text;
+BEGIN
+  v_visit_id := COALESCE(NEW.visit_id, OLD.visit_id);
+  v_field_id := COALESCE(NEW.field_definition_id, OLD.field_definition_id);
+  SELECT status::text INTO v_visit_status FROM visit WHERE id = v_visit_id;
+  IF v_visit_status = 'confirmed' THEN
+    RAISE EXCEPTION 'Cannot modify visit_value_option of confirmed visit %', v_visit_id
+      USING ERRCODE = 'check_violation';
+  END IF;
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+  SELECT data_type::text INTO v_data_type FROM field_definition WHERE id = v_field_id;
+  IF v_data_type <> 'multi_choice' THEN
+    RAISE EXCEPTION 'visit_value_option only allows fields with data_type=multi_choice (got %)', v_data_type
+      USING ERRCODE = 'check_violation';
+  END IF;
+  SELECT value_state::text INTO v_val_state FROM visit_value
+  WHERE visit_id = v_visit_id AND field_definition_id = v_field_id;
+  IF v_val_state IS DISTINCT FROM 'answered' THEN
+    RAISE EXCEPTION 'visit_value_option requires parent visit_value.value_state=answered'
+      USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END;
+$$;
 
-CREATE VIEW patient_reminder_view WITH (security_invoker = true) AS
- SELECT r.id, p.case_id, p.id AS prescription_id, m.id AS medication_id, i.display_name AS ingredient,
-        m.dose, m.dose_unit, m.instructions, s.dose_time, s.instructions AS dose_instructions, p.timezone,
-        r.scheduled_on, r.due_at, r.status, r.responded_at
- FROM medication_reminder r JOIN medication_schedule s ON s.id = r.schedule_id
- JOIN medication m ON m.id = s.medication_id JOIN prescription p ON p.id = m.prescription_id
- JOIN ingredient i ON i.code = m.ingredient_code;
+CREATE TRIGGER trg_visit_value_option_guard
+  BEFORE INSERT OR UPDATE OR DELETE ON visit_value_option
+  FOR EACH ROW EXECUTE FUNCTION fn_visit_value_option_guard();
+
+CREATE OR REPLACE FUNCTION fn_visit_lab_guard()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_visit_id uuid;
+  v_status text;
+  v_storage_level varchar(24);
+BEGIN
+  v_visit_id := COALESCE(NEW.visit_id, OLD.visit_id);
+  SELECT status::text INTO v_status FROM visit WHERE id = v_visit_id;
+  IF v_status = 'confirmed' THEN
+    RAISE EXCEPTION 'Cannot modify visit_lab_result of confirmed visit %', v_visit_id
+      USING ERRCODE = 'check_violation';
+  END IF;
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+  SELECT storage_level INTO v_storage_level FROM field_definition WHERE code = NEW.lab_code;
+  IF v_storage_level IS DISTINCT FROM 'lab_result' THEN
+    RAISE EXCEPTION 'lab_code % must map to a field_definition with storage_level=lab_result', NEW.lab_code
+      USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_visit_lab_guard
+  BEFORE INSERT OR UPDATE OR DELETE ON visit_lab_result
+  FOR EACH ROW EXECUTE FUNCTION fn_visit_lab_guard();
+
+CREATE OR REPLACE FUNCTION fn_append_only_immutable()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RAISE EXCEPTION 'Table % is append-only; % is forbidden', TG_TABLE_NAME, TG_OP
+    USING ERRCODE = 'check_violation';
+END;
+$$;
+
+CREATE TRIGGER trg_visit_revision_append_only
+  BEFORE UPDATE OR DELETE ON visit_revision
+  FOR EACH ROW EXECUTE FUNCTION fn_append_only_immutable();
+
+CREATE TRIGGER trg_audit_log_append_only
+  BEFORE UPDATE OR DELETE ON audit_log
+  FOR EACH ROW EXECUTE FUNCTION fn_append_only_immutable();
+
+CREATE OR REPLACE FUNCTION fn_audit_log_no_clinical_data()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.detail ?| ARRAY[
+    'values', 'visit_values', 'orthostatic_bp', 'medications',
+    'allergies', 'lab_results', 'clinical_note', 'snapshot_data',
+    'password', 'password_hash'
+  ] THEN
+    RAISE EXCEPTION 'audit_log.detail must never store clinical payload or credentials (Contract K8)'
+      USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_audit_log_no_clinical_data
+  BEFORE INSERT ON audit_log
+  FOR EACH ROW EXECUTE FUNCTION fn_audit_log_no_clinical_data();
+
 COMMIT;

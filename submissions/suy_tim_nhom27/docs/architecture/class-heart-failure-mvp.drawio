@@ -1,0 +1,341 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mxfile host="app.diagrams.net" modified="2026-11-21T02:00:00.000Z" agent="uml-architect" version="24.7.0" type="device">
+  <diagram id="class-heart-failure-mvp" name="UML Class Diagram — Mô hình Miền Nghiệp vụ Suy tim Trước AI (MVP)">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2780" pageHeight="2110" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="diagram_title" value="&lt;div style='font-size:18px;font-weight:700;color:#1E3A8A'&gt;UML Class Diagram — Mô hình Lớp Miền Nghiệp vụ (Heart Failure Pre-AI MVP)&lt;/div&gt;&lt;div style='font-size:12px;font-weight:400;color:#475569;margin-top:3px'&gt;Gồm 19 lớp thực thể khớp 100% schema_metadata.json &amp;amp; openapi.yaml (bao gồm VisitValueOption theo CR-W1-01) + 3 Value Object tính động (AiInputPayload, VisitReviewResponse, FormVersionDiffResponse) — đầy đủ thuộc tính, phương thức &amp;amp; multiplicity&lt;/div&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=2;fontColor=#1E3A8A;fontFamily=Segoe UI;align=left;verticalAlign=middle;spacingLeft=18;spacingRight=18;" vertex="1" parent="1">
+          <mxGeometry x="30" y="16" width="2720" height="62" as="geometry"/>
+        </mxCell>
+        <mxCell id="pkg_iam" value="Package: Identity, RBAC &amp;amp; Audit (M1, M6, M8)" style="rounded=1;arcSize=4;whiteSpace=wrap;html=1;dashed=1;dashPattern=6 4;fillColor=#F8FAFC;strokeColor=#93C5FD;strokeWidth=1.5;verticalAlign=top;align=left;spacingTop=8;spacingLeft=12;fontFamily=Segoe UI;fontSize=13;fontStyle=1;fontColor=#1E3A8A;" vertex="1" parent="1">
+          <mxGeometry x="30" y="94" width="790" height="645" as="geometry"/>
+        </mxCell>
+        <mxCell id="pkg_form" value="Package: Dynamic Form Versioning &amp;amp; Field Catalog (M7)" style="rounded=1;arcSize=4;whiteSpace=wrap;html=1;dashed=1;dashPattern=6 4;fillColor=#F8FAFC;strokeColor=#93C5FD;strokeWidth=1.5;verticalAlign=top;align=left;spacingTop=8;spacingLeft=12;fontFamily=Segoe UI;fontSize=13;fontStyle=1;fontColor=#1E3A8A;" vertex="1" parent="1">
+          <mxGeometry x="850" y="94" width="1900" height="760" as="geometry"/>
+        </mxCell>
+        <mxCell id="pkg_clinical" value="Package: Clinical Patient &amp;amp; Visit Aggregate (M2–M5)" style="rounded=1;arcSize=4;whiteSpace=wrap;html=1;dashed=1;dashPattern=6 4;fillColor=#F8FAFC;strokeColor=#93C5FD;strokeWidth=1.5;verticalAlign=top;align=left;spacingTop=8;spacingLeft=12;fontFamily=Segoe UI;fontSize=13;fontStyle=1;fontColor=#1E3A8A;" vertex="1" parent="1">
+          <mxGeometry x="30" y="765" width="1800" height="1310" as="geometry"/>
+        </mxCell>
+        <mxCell id="pkg_vo" value="Package: Computed Read Models, Contracts &amp;amp; Enums (Non-Persistent)" style="rounded=1;arcSize=4;whiteSpace=wrap;html=1;dashed=1;dashPattern=6 4;fillColor=#F8FAFC;strokeColor=#93C5FD;strokeWidth=1.5;verticalAlign=top;align=left;spacingTop=8;spacingLeft=12;fontFamily=Segoe UI;fontSize=13;fontStyle=1;fontColor=#1E3A8A;" vertex="1" parent="1">
+          <mxGeometry x="1860" y="880" width="890" height="1195" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_AppUser" value="&lt;div style='font-size:10.5px;font-weight:400;color:#1E40AF'&gt;&amp;laquo;Aggregate Root&amp;raquo;&lt;/div&gt;&lt;div style='font-size:13px;font-weight:700;color:#1E3A8A'&gt;AppUser&lt;/div&gt;" style="swimlane;fontStyle=0;align=center;verticalAlign=middle;startSize=44;collapsible=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.8;fontColor=#1E3A8A;fontFamily=Segoe UI;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="50" y="134" width="365" height="282.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_AppUser_attrs" value="&lt;div style='line-height:1.38'&gt;- id: UUID&lt;br/&gt;- username: String {unique}&lt;br/&gt;- passwordHash: String&lt;br/&gt;- fullName: String&lt;br/&gt;- role: UserRole {doctor|admin}&lt;br/&gt;- isActive: Boolean&lt;br/&gt;- createdAt / updatedAt: Instant&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#FFFFFF;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#0F172A;" vertex="1" parent="cls_AppUser">
+          <mxGeometry x="0" y="44" width="365" height="136.5" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_AppUser_meths" value="&lt;div style='line-height:1.38'&gt;+ authenticate(rawPassword: String): Boolean&lt;br/&gt;+ hasRole(role: UserRole): Boolean&lt;br/&gt;+ canAccessClinicalData(): Boolean  // role == doctor&lt;br/&gt;+ deactivate(reason: String, actor: AppUser): void&lt;br/&gt;+ previewPermissions(role: UserRole): PermissionPreviewResponse&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#F8FAFC;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#1E3A8A;" vertex="1" parent="cls_AppUser">
+          <mxGeometry x="0" y="180.5" width="365" height="101.5" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_UserSession" value="&lt;div style='font-size:10.5px;font-weight:400;color:#1E40AF'&gt;&amp;laquo;Entity&amp;raquo;&lt;/div&gt;&lt;div style='font-size:13px;font-weight:700;color:#1E3A8A'&gt;UserSession&lt;/div&gt;" style="swimlane;fontStyle=0;align=center;verticalAlign=middle;startSize=44;collapsible=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.8;fontColor=#1E3A8A;fontFamily=Segoe UI;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="445" y="134" width="355" height="264.5" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_UserSession_attrs" value="&lt;div style='line-height:1.38'&gt;- id: UUID&lt;br/&gt;- userId: UUID&lt;br/&gt;- refreshTokenHash: String {unique}&lt;br/&gt;- expiresAt: Instant&lt;br/&gt;- revokedAt: Instant?&lt;br/&gt;- ip: InetAddress?&lt;br/&gt;- userAgent: String?&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#FFFFFF;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#0F172A;" vertex="1" parent="cls_UserSession">
+          <mxGeometry x="0" y="44" width="355" height="136.5" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_UserSession_meths" value="&lt;div style='line-height:1.38'&gt;+ isActive(now: Instant): Boolean&lt;br/&gt;+ verifyRefreshToken(rawToken: String): Boolean&lt;br/&gt;+ rotate(newTokenHash: String, ttl): UserSession&lt;br/&gt;+ revoke(now: Instant): void&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#F8FAFC;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#1E3A8A;" vertex="1" parent="cls_UserSession">
+          <mxGeometry x="0" y="180.5" width="355" height="84.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_AuditLog" value="&lt;div style='font-size:10.5px;font-weight:400;color:#1E40AF'&gt;&amp;laquo;Immutable Audit&amp;raquo;&lt;/div&gt;&lt;div style='font-size:13px;font-weight:700;color:#1E3A8A'&gt;AuditLog&lt;/div&gt;" style="swimlane;fontStyle=0;align=center;verticalAlign=middle;startSize=44;collapsible=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.8;fontColor=#1E3A8A;fontFamily=Segoe UI;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="50" y="452" width="750" height="264.5" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_AuditLog_attrs" value="&lt;div style='line-height:1.38'&gt;- id: UUID&lt;br/&gt;- actorUserId: UUID?&lt;br/&gt;- action: AuditAction&lt;br/&gt;- entityType: String&lt;br/&gt;- entityId: UUID?&lt;br/&gt;- occurredAt: Instant&lt;br/&gt;- ip: InetAddress? / requestId: String?&lt;br/&gt;- outcome: String {success|denied|failure}&lt;br/&gt;- detail: Map&amp;lt;String, Any&amp;gt;  // 0 PHI, 0 password&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#FFFFFF;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#0F172A;" vertex="1" parent="cls_AuditLog">
+          <mxGeometry x="0" y="44" width="750" height="171.5" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_AuditLog_meths" value="&lt;div style='line-height:1.38'&gt;+ {static} record(actor, action, entity, outcome, detail): AuditLog&lt;br/&gt;+ assertNoClinicalOrSecretPayload(): void&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#F8FAFC;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#1E3A8A;" vertex="1" parent="cls_AuditLog">
+          <mxGeometry x="0" y="215.5" width="750" height="49.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_FormTemplate" value="&lt;div style='font-size:10.5px;font-weight:400;color:#1E40AF'&gt;&amp;laquo;Entity&amp;raquo;&lt;/div&gt;&lt;div style='font-size:13px;font-weight:700;color:#1E3A8A'&gt;FormTemplate&lt;/div&gt;" style="swimlane;fontStyle=0;align=center;verticalAlign=middle;startSize=44;collapsible=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.8;fontColor=#1E3A8A;fontFamily=Segoe UI;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="875" y="134" width="360" height="212.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_FormTemplate_attrs" value="&lt;div style='line-height:1.38'&gt;- id: UUID&lt;br/&gt;- code: String {unique}&lt;br/&gt;- name: String&lt;br/&gt;- description: String?&lt;br/&gt;- isActive: Boolean&lt;br/&gt;- createdAt: Instant&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#FFFFFF;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#0F172A;" vertex="1" parent="cls_FormTemplate">
+          <mxGeometry x="0" y="44" width="360" height="119.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_FormTemplate_meths" value="&lt;div style='line-height:1.38'&gt;+ getActivePublishedVersion(): FormVersion?&lt;br/&gt;+ createDraftFrom(base: FormVersion, admin: AppUser): FormVersion&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#F8FAFC;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#1E3A8A;" vertex="1" parent="cls_FormTemplate">
+          <mxGeometry x="0" y="163.0" width="360" height="49.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_FormVersion" value="&lt;div style='font-size:10.5px;font-weight:400;color:#1E40AF'&gt;&amp;laquo;Aggregate Root&amp;raquo;&lt;/div&gt;&lt;div style='font-size:13px;font-weight:700;color:#1E3A8A'&gt;FormVersion&lt;/div&gt;" style="swimlane;fontStyle=0;align=center;verticalAlign=middle;startSize=44;collapsible=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.8;fontColor=#1E3A8A;fontFamily=Segoe UI;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="1275" y="134" width="415" height="334.5" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_FormVersion_attrs" value="&lt;div style='line-height:1.38'&gt;- id: UUID&lt;br/&gt;- formTemplateId: UUID&lt;br/&gt;- versionNo: Integer / versionLabel: String&lt;br/&gt;- status: FormVersionStatus {draft|published|retired}&lt;br/&gt;- basedOnVersionId: UUID?&lt;br/&gt;- changeNote: String?&lt;br/&gt;- publishedAt: Instant? / publishedBy: UUID?&lt;br/&gt;- rowVersion: Integer {ETag}&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#FFFFFF;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#0F172A;" vertex="1" parent="cls_FormVersion">
+          <mxGeometry x="0" y="44" width="415" height="154.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_FormVersion_meths" value="&lt;div style='line-height:1.38'&gt;+ assertDraftEditable(): void  // 409 nếu published/retired&lt;br/&gt;+ upsertSection(sectionSpec): FormSection&lt;br/&gt;+ upsertField(sectionId, fieldSpec): FormField&lt;br/&gt;+ renderPreview(): FormVersionPreviewResponse&lt;br/&gt;+ diffAgainst(base: FormVersion): FormVersionDiffResponse&lt;br/&gt;+ publish(admin: AppUser, expectedRowVersion: Int): void&lt;br/&gt;+ retire(): void&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#F8FAFC;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#1E3A8A;" vertex="1" parent="cls_FormVersion">
+          <mxGeometry x="0" y="198.0" width="415" height="136.5" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_FormSection" value="&lt;div style='font-size:10.5px;font-weight:400;color:#1E40AF'&gt;&amp;laquo;Entity&amp;raquo;&lt;/div&gt;&lt;div style='font-size:13px;font-weight:700;color:#1E3A8A'&gt;FormSection&lt;/div&gt;" style="swimlane;fontStyle=0;align=center;verticalAlign=middle;startSize=44;collapsible=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.8;fontColor=#1E3A8A;fontFamily=Segoe UI;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="1730" y="134" width="370" height="194.5" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_FormSection_attrs" value="&lt;div style='line-height:1.38'&gt;- id: UUID&lt;br/&gt;- formVersionId: UUID&lt;br/&gt;- sectionCode: SectionCode {8 nhóm UX}&lt;br/&gt;- titleVi: String&lt;br/&gt;- displayOrder: SmallInt&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#FFFFFF;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#0F172A;" vertex="1" parent="cls_FormSection">
+          <mxGeometry x="0" y="44" width="370" height="101.5" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_FormSection_meths" value="&lt;div style='line-height:1.38'&gt;+ getOrderedFields(): List&amp;lt;FormField&amp;gt;&lt;br/&gt;+ addField(def: FieldDefinition, order: Int, reqT3: Bool): FormField&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#F8FAFC;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#1E3A8A;" vertex="1" parent="cls_FormSection">
+          <mxGeometry x="0" y="145.5" width="370" height="49.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_FormField" value="&lt;div style='font-size:10.5px;font-weight:400;color:#1E40AF'&gt;&amp;laquo;Entity&amp;raquo;&lt;/div&gt;&lt;div style='font-size:13px;font-weight:700;color:#1E3A8A'&gt;FormField&lt;/div&gt;" style="swimlane;fontStyle=0;align=center;verticalAlign=middle;startSize=44;collapsible=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.8;fontColor=#1E3A8A;fontFamily=Segoe UI;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="2140" y="134" width="365" height="229.5" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_FormField_attrs" value="&lt;div style='line-height:1.38'&gt;- id: UUID&lt;br/&gt;- formVersionId: UUID / formSectionId: UUID&lt;br/&gt;- fieldDefinitionId: UUID&lt;br/&gt;- displayOrder: SmallInt&lt;br/&gt;- requiredForConfirm: Boolean  // Tầng 3&lt;br/&gt;- isVisible: Boolean / isReadonly: Boolean&lt;br/&gt;- customLabelVi: String? / customHelpText: String?&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#FFFFFF;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#0F172A;" vertex="1" parent="cls_FormField">
+          <mxGeometry x="0" y="44" width="365" height="136.5" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_FormField_meths" value="&lt;div style='line-height:1.38'&gt;+ isRequiredAtTier3(): Boolean&lt;br/&gt;+ validateValue(v: VisitValue): List&amp;lt;FieldError&amp;gt;&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#F8FAFC;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#1E3A8A;" vertex="1" parent="cls_FormField">
+          <mxGeometry x="0" y="180.5" width="365" height="49.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_FieldDefinition" value="&lt;div style='font-size:10.5px;font-weight:400;color:#1E40AF'&gt;&amp;laquo;Catalog Entity&amp;raquo;&lt;/div&gt;&lt;div style='font-size:13px;font-weight:700;color:#1E3A8A'&gt;FieldDefinition&lt;/div&gt;" style="swimlane;fontStyle=0;align=center;verticalAlign=middle;startSize=44;collapsible=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.8;fontColor=#1E3A8A;fontFamily=Segoe UI;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="1420" y="502" width="430" height="317.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_FieldDefinition_attrs" value="&lt;div style='line-height:1.38'&gt;- id: UUID&lt;br/&gt;- code: String {unique, 121 mã}&lt;br/&gt;- labelVi: String&lt;br/&gt;- sectionCode: SectionCode&lt;br/&gt;- dataType: FieldDataType&lt;br/&gt;- canonicalUnit: String?&lt;br/&gt;- scopeStatus: FieldScopeStatus {mvp|can_xac_nhan}&lt;br/&gt;- storageLevel: String / isCalculated: Boolean&lt;br/&gt;- minValue / maxValue: Decimal?&lt;br/&gt;- validationRule: JSON / sourceRef: String&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#FFFFFF;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#0F172A;" vertex="1" parent="cls_FieldDefinition">
+          <mxGeometry x="0" y="44" width="430" height="189.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_FieldDefinition_meths" value="&lt;div style='line-height:1.38'&gt;+ isTriState(): Boolean&lt;br/&gt;+ validateBounds(rawValue): List&amp;lt;FieldError&amp;gt;&lt;br/&gt;+ getActiveOptions(): List&amp;lt;FieldOption&amp;gt;&lt;br/&gt;+ getLinkedAiModules(): List&amp;lt;FieldAiModule&amp;gt;&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#F8FAFC;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#1E3A8A;" vertex="1" parent="cls_FieldDefinition">
+          <mxGeometry x="0" y="233.0" width="430" height="84.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_FieldOption" value="&lt;div style='font-size:10.5px;font-weight:400;color:#1E40AF'&gt;&amp;laquo;Entity&amp;raquo;&lt;/div&gt;&lt;div style='font-size:13px;font-weight:700;color:#1E3A8A'&gt;FieldOption&lt;/div&gt;" style="swimlane;fontStyle=0;align=center;verticalAlign=middle;startSize=44;collapsible=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.8;fontColor=#1E3A8A;fontFamily=Segoe UI;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="1910" y="508" width="365" height="212.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_FieldOption_attrs" value="&lt;div style='line-height:1.38'&gt;- id: UUID&lt;br/&gt;- fieldDefinitionId: UUID&lt;br/&gt;- optionCode: String&lt;br/&gt;- labelVi: String&lt;br/&gt;- displayOrder: SmallInt&lt;br/&gt;- isActive: Boolean&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#FFFFFF;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#0F172A;" vertex="1" parent="cls_FieldOption">
+          <mxGeometry x="0" y="44" width="365" height="119.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_FieldOption_meths" value="&lt;div style='line-height:1.38'&gt;+ belongsTo(def: FieldDefinition): Boolean&lt;br/&gt;+ deactivate(): void&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#F8FAFC;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#1E3A8A;" vertex="1" parent="cls_FieldOption">
+          <mxGeometry x="0" y="163.0" width="365" height="49.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_FieldAiModule" value="&lt;div style='font-size:10.5px;font-weight:400;color:#1E40AF'&gt;&amp;laquo;Entity&amp;raquo;&lt;/div&gt;&lt;div style='font-size:13px;font-weight:700;color:#1E3A8A'&gt;FieldAiModule&lt;/div&gt;" style="swimlane;fontStyle=0;align=center;verticalAlign=middle;startSize=44;collapsible=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.8;fontColor=#1E3A8A;fontFamily=Segoe UI;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="2325" y="508" width="395" height="160.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_FieldAiModule_attrs" value="&lt;div style='line-height:1.38'&gt;- fieldDefinitionId: UUID&lt;br/&gt;- aiModuleCode: String {4 module AI}&lt;br/&gt;- isRequired: Boolean&lt;br/&gt;- sourceSttRefs: String?&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#FFFFFF;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#0F172A;" vertex="1" parent="cls_FieldAiModule">
+          <mxGeometry x="0" y="44" width="395" height="84.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_FieldAiModule_meths" value="&lt;div style='line-height:1.38'&gt;+ isSatisfiedBy(values: Map&amp;lt;Code, VisitValue&amp;gt;): Boolean&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#F8FAFC;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#1E3A8A;" vertex="1" parent="cls_FieldAiModule">
+          <mxGeometry x="0" y="128.0" width="395" height="32" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_Patient" value="&lt;div style='font-size:10.5px;font-weight:400;color:#1E40AF'&gt;&amp;laquo;Aggregate Root&amp;raquo;&lt;/div&gt;&lt;div style='font-size:13px;font-weight:700;color:#1E3A8A'&gt;Patient&lt;/div&gt;" style="swimlane;fontStyle=0;align=center;verticalAlign=middle;startSize=44;collapsible=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.8;fontColor=#1E3A8A;fontFamily=Segoe UI;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="50" y="815" width="390" height="282.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_Patient_attrs" value="&lt;div style='line-height:1.38'&gt;- id: UUID&lt;br/&gt;- patientCode: String {^BN-\d{5}$, immutable}&lt;br/&gt;- externalPatientCode: String?&lt;br/&gt;- fullName: String&lt;br/&gt;- sex: String {male|female|unknown}&lt;br/&gt;- birthDate: Date? / birthYear: Int? / declaredAge: Int?&lt;br/&gt;- rowVersion: Integer {ETag}&lt;br/&gt;- createdBy: UUID / createdAt / updatedAt: Instant&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#FFFFFF;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#0F172A;" vertex="1" parent="cls_Patient">
+          <mxGeometry x="0" y="44" width="390" height="154.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_Patient_meths" value="&lt;div style='line-height:1.38'&gt;+ hasValidBirthInfo(): Boolean  // Tầng 1, không bịa 01/01&lt;br/&gt;+ calculateAgeAt(visitDate: Instant): Integer?&lt;br/&gt;+ updateDemographics(patch, expectedRowVersion: Int): void&lt;br/&gt;+ openVisit(publishedVer: FormVersion, doctor: AppUser): Visit&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#F8FAFC;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#1E3A8A;" vertex="1" parent="cls_Patient">
+          <mxGeometry x="0" y="198.0" width="390" height="84.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_Visit" value="&lt;div style='font-size:10.5px;font-weight:400;color:#1E40AF'&gt;&amp;laquo;Aggregate Root&amp;raquo;&lt;/div&gt;&lt;div style='font-size:13px;font-weight:700;color:#1E3A8A'&gt;Visit (Encounter)&lt;/div&gt;" style="swimlane;fontStyle=0;align=center;verticalAlign=middle;startSize=44;collapsible=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.8;fontColor=#1E3A8A;fontFamily=Segoe UI;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="500" y="815" width="465" height="387.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_Visit_attrs" value="&lt;div style='line-height:1.38'&gt;- id: UUID&lt;br/&gt;- visitCode: String {LK-..., unique}&lt;br/&gt;- externalVisitCode: String?&lt;br/&gt;- patientId: UUID&lt;br/&gt;- formVersionId: UUID {immutable binding}&lt;br/&gt;- visitDate: Instant / visitType: String&lt;br/&gt;- chiefComplaint / clinicalNote / infoSource: String?&lt;br/&gt;- status: VisitStatus {draft|confirmed}&lt;br/&gt;- currentRevisionNo: Integer&lt;br/&gt;- createdBy: UUID / confirmedBy: UUID? / confirmedAt: Instant?&lt;br/&gt;- rowVersion: Integer {ETag}&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#FFFFFF;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#0F172A;" vertex="1" parent="cls_Visit">
+          <mxGeometry x="0" y="44" width="465" height="206.5" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_Visit_meths" value="&lt;div style='line-height:1.38'&gt;+ assertDraftEditable(expectedRowVersion: Int): void&lt;br/&gt;+ saveDraft(payload: DraftInput, expectedRowVersion: Int): void&lt;br/&gt;+ computeBmi(): Decimal?  // NULL nếu thiếu chiều cao/cân nặng&lt;br/&gt;+ buildReviewSummary(): VisitReviewResponse  // Tầng 3 + Tầng 4&lt;br/&gt;+ confirm(doctor: AppUser, expectedRowVersion: Int): VisitRevision&lt;br/&gt;+ createRevision(doctor: AppUser, changeReason: String): VisitRevision&lt;br/&gt;+ exportAiInput(): AiInputPayload  // 409 nếu chưa confirmed&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#F8FAFC;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#1E3A8A;" vertex="1" parent="cls_Visit">
+          <mxGeometry x="0" y="250.5" width="465" height="136.5" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_VisitRevision" value="&lt;div style='font-size:10.5px;font-weight:400;color:#1E40AF'&gt;&amp;laquo;Immutable Snapshot&amp;raquo;&lt;/div&gt;&lt;div style='font-size:13px;font-weight:700;color:#1E3A8A'&gt;VisitRevision&lt;/div&gt;" style="swimlane;fontStyle=0;align=center;verticalAlign=middle;startSize=44;collapsible=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.8;fontColor=#1E3A8A;fontFamily=Segoe UI;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="1030" y="965" width="425" height="247.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_VisitRevision_attrs" value="&lt;div style='line-height:1.38'&gt;- id: UUID&lt;br/&gt;- visitId: UUID&lt;br/&gt;- revisionNo: Integer&lt;br/&gt;- formVersionId: UUID&lt;br/&gt;- revisionType: String {confirmed_snapshot|post_confirm_amendment}&lt;br/&gt;- changeReason: String&lt;br/&gt;- snapshotData: JSONB&lt;br/&gt;- createdBy: UUID / createdAt: Instant&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#FFFFFF;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#0F172A;" vertex="1" parent="cls_VisitRevision">
+          <mxGeometry x="0" y="44" width="425" height="154.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_VisitRevision_meths" value="&lt;div style='line-height:1.38'&gt;+ {static} captureSnapshot(visit: Visit, actor: AppUser, reason: String): VisitRevision&lt;br/&gt;+ verifyIntegrity(): Boolean&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#F8FAFC;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#1E3A8A;" vertex="1" parent="cls_VisitRevision">
+          <mxGeometry x="0" y="198.0" width="425" height="49.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_VisitValue" value="&lt;div style='font-size:10.5px;font-weight:400;color:#1E40AF'&gt;&amp;laquo;Entity&amp;raquo;&lt;/div&gt;&lt;div style='font-size:13px;font-weight:700;color:#1E3A8A'&gt;VisitValue&lt;/div&gt;" style="swimlane;fontStyle=0;align=center;verticalAlign=middle;startSize=44;collapsible=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.8;fontColor=#1E3A8A;fontFamily=Segoe UI;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="50" y="1215" width="395" height="229.5" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_VisitValue_attrs" value="&lt;div style='line-height:1.38'&gt;- visitId: UUID / fieldDefinitionId: UUID&lt;br/&gt;- valueState: ValueState {answered|unknown}&lt;br/&gt;- valueNum: Decimal? / valueText: String?&lt;br/&gt;- valueBool: Boolean? / valueDate: Date?&lt;br/&gt;- fieldOptionId: UUID?&lt;br/&gt;- unit: String? / updatedAt: Instant&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#FFFFFF;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#0F172A;" vertex="1" parent="cls_VisitValue">
+          <mxGeometry x="0" y="44" width="395" height="119.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_VisitValue_meths" value="&lt;div style='line-height:1.38'&gt;+ setAnswered(typedVal, unit?): void  // giữ nguyên 0 &amp;amp; false&lt;br/&gt;+ markUnknown(): void  // xóa sạch 5 cột giá trị + options&lt;br/&gt;+ validateAgainst(def: FieldDefinition): List&amp;lt;FieldError&amp;gt;&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#F8FAFC;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#1E3A8A;" vertex="1" parent="cls_VisitValue">
+          <mxGeometry x="0" y="163.0" width="395" height="66.5" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_VisitValueOption" value="&lt;div style='font-size:10.5px;font-weight:400;color:#1E40AF'&gt;&amp;laquo;Entity · CR-W1-01&amp;raquo;&lt;/div&gt;&lt;div style='font-size:13px;font-weight:700;color:#1E3A8A'&gt;VisitValueOption&lt;/div&gt;" style="swimlane;fontStyle=0;align=center;verticalAlign=middle;startSize=44;collapsible=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.8;fontColor=#1E3A8A;fontFamily=Segoe UI;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="50" y="1495" width="395" height="159.5" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_VisitValueOption_attrs" value="&lt;div style='line-height:1.38'&gt;- visitId: UUID&lt;br/&gt;- fieldDefinitionId: UUID&lt;br/&gt;- fieldOptionId: UUID&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#FFFFFF;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#0F172A;" vertex="1" parent="cls_VisitValueOption">
+          <mxGeometry x="0" y="44" width="395" height="66.5" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_VisitValueOption_meths" value="&lt;div style='line-height:1.38'&gt;+ assertOptionMatchesField(opt: FieldOption): void&lt;br/&gt;+ assertParentAnswered(parent: VisitValue): void&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#F8FAFC;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#1E3A8A;" vertex="1" parent="cls_VisitValueOption">
+          <mxGeometry x="0" y="110.5" width="395" height="49.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_OrthostaticBpMeasurement" value="&lt;div style='font-size:10.5px;font-weight:400;color:#1E40AF'&gt;&amp;laquo;Entity&amp;raquo;&lt;/div&gt;&lt;div style='font-size:13px;font-weight:700;color:#1E3A8A'&gt;OrthostaticBpMeasurement&lt;/div&gt;" style="swimlane;fontStyle=0;align=center;verticalAlign=middle;startSize=44;collapsible=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.8;fontColor=#1E3A8A;fontFamily=Segoe UI;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="500" y="1345" width="440" height="212.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_OrthostaticBpMeasurement_attrs" value="&lt;div style='line-height:1.38'&gt;- id: UUID / visitId: UUID&lt;br/&gt;- position: BpPosition {supine|sitting|standing}&lt;br/&gt;- minuteAfter: SmallInt?&lt;br/&gt;- systolic: SmallInt / diastolic: SmallInt&lt;br/&gt;- heartRate: SmallInt?&lt;br/&gt;- measuredAt: Instant / note: String?&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#FFFFFF;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#0F172A;" vertex="1" parent="cls_OrthostaticBpMeasurement">
+          <mxGeometry x="0" y="44" width="440" height="119.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_OrthostaticBpMeasurement_meths" value="&lt;div style='line-height:1.38'&gt;+ validatePressures(): Boolean  // systolic &amp;gt; diastolic&lt;br/&gt;+ hasOrthostaticDrop(baseline: OrthostaticBpMeasurement): Boolean&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#F8FAFC;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#1E3A8A;" vertex="1" parent="cls_OrthostaticBpMeasurement">
+          <mxGeometry x="0" y="163.0" width="440" height="49.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_VisitMedication" value="&lt;div style='font-size:10.5px;font-weight:400;color:#1E40AF'&gt;&amp;laquo;Entity&amp;raquo;&lt;/div&gt;&lt;div style='font-size:13px;font-weight:700;color:#1E3A8A'&gt;VisitMedication&lt;/div&gt;" style="swimlane;fontStyle=0;align=center;verticalAlign=middle;startSize=44;collapsible=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.8;fontColor=#1E3A8A;fontFamily=Segoe UI;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="990" y="1345" width="405" height="212.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_VisitMedication_attrs" value="&lt;div style='line-height:1.38'&gt;- id: UUID / visitId: UUID&lt;br/&gt;- medicationGroup: String {prescription|otc_supplement_tcm}&lt;br/&gt;- drugName: String / activeIngredient: String?&lt;br/&gt;- strength: String? / dose: Decimal? / unit: String?&lt;br/&gt;- frequency: String? / route: String?&lt;br/&gt;- status: String / startedAt: Date?&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#FFFFFF;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#0F172A;" vertex="1" parent="cls_VisitMedication">
+          <mxGeometry x="0" y="44" width="405" height="119.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_VisitMedication_meths" value="&lt;div style='line-height:1.38'&gt;+ isCompleteForConfirm(): Boolean&lt;br/&gt;+ isCurrentlyActive(): Boolean&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#F8FAFC;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#1E3A8A;" vertex="1" parent="cls_VisitMedication">
+          <mxGeometry x="0" y="163.0" width="405" height="49.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_VisitAllergy" value="&lt;div style='font-size:10.5px;font-weight:400;color:#1E40AF'&gt;&amp;laquo;Entity&amp;raquo;&lt;/div&gt;&lt;div style='font-size:13px;font-weight:700;color:#1E3A8A'&gt;VisitAllergy&lt;/div&gt;" style="swimlane;fontStyle=0;align=center;verticalAlign=middle;startSize=44;collapsible=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.8;fontColor=#1E3A8A;fontFamily=Segoe UI;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="500" y="1690" width="440" height="194.5" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_VisitAllergy_attrs" value="&lt;div style='line-height:1.38'&gt;- id: UUID / visitId: UUID&lt;br/&gt;- kind: String {allergy|adr}&lt;br/&gt;- agentCategory: String&lt;br/&gt;- allergen: String / reaction: String?&lt;br/&gt;- severity: String / recordedAt: Instant?&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#FFFFFF;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#0F172A;" vertex="1" parent="cls_VisitAllergy">
+          <mxGeometry x="0" y="44" width="440" height="101.5" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_VisitAllergy_meths" value="&lt;div style='line-height:1.38'&gt;+ isContrastAgentAllergy(): Boolean&lt;br/&gt;+ isCompleteForConfirm(): Boolean&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#F8FAFC;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#1E3A8A;" vertex="1" parent="cls_VisitAllergy">
+          <mxGeometry x="0" y="145.5" width="440" height="49.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_VisitLabResult" value="&lt;div style='font-size:10.5px;font-weight:400;color:#1E40AF'&gt;&amp;laquo;Entity&amp;raquo;&lt;/div&gt;&lt;div style='font-size:13px;font-weight:700;color:#1E3A8A'&gt;VisitLabResult&lt;/div&gt;" style="swimlane;fontStyle=0;align=center;verticalAlign=middle;startSize=44;collapsible=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=1.8;fontColor=#1E3A8A;fontFamily=Segoe UI;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="990" y="1690" width="405" height="212.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_VisitLabResult_attrs" value="&lt;div style='line-height:1.38'&gt;- id: UUID / visitId: UUID&lt;br/&gt;- labCode: String  // cls_bnp != cls_nt_probnp&lt;br/&gt;- labSubtype: String?&lt;br/&gt;- valueNum: Decimal? / valueText: String?&lt;br/&gt;- unit: String? / measuredAt: Instant&lt;br/&gt;- note: String?&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#FFFFFF;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#0F172A;" vertex="1" parent="cls_VisitLabResult">
+          <mxGeometry x="0" y="44" width="405" height="119.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_VisitLabResult_meths" value="&lt;div style='line-height:1.38'&gt;+ matchesCanonicalUnit(def: FieldDefinition): Boolean&lt;br/&gt;+ isCompleteForConfirm(): Boolean&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#F8FAFC;strokeColor=#1D4ED8;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#1E3A8A;" vertex="1" parent="cls_VisitLabResult">
+          <mxGeometry x="0" y="163.0" width="405" height="49.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_AiInputPayload" value="&lt;div style='font-size:10.5px;font-weight:400;color:#1E40AF'&gt;&amp;laquo;Value Object · Output Contract&amp;raquo;&lt;/div&gt;&lt;div style='font-size:13px;font-weight:700;color:#1E3A8A'&gt;AiInputPayload&lt;/div&gt;" style="swimlane;fontStyle=0;align=center;verticalAlign=middle;startSize=44;collapsible=0;whiteSpace=wrap;html=1;fillColor=#EFF6FF;strokeColor=#2563EB;strokeWidth=1.8;fontColor=#1E3A8A;fontFamily=Segoe UI;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="1890" y="930" width="415" height="282.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_AiInputPayload_attrs" value="&lt;div style='line-height:1.38'&gt;+ visitId: UUID&lt;br/&gt;+ patientCode: String&lt;br/&gt;+ formVersionId: UUID&lt;br/&gt;+ confirmedAt: Instant / revisionNo: Integer&lt;br/&gt;+ values: Map&amp;lt;FieldCode, TypedValueItem&amp;gt;&lt;br/&gt;+ orthostaticBp: List&amp;lt;OrthostaticBpMeasurement&amp;gt;&lt;br/&gt;+ medications: List&amp;lt;VisitMedication&amp;gt;&lt;br/&gt;+ allergies: List&amp;lt;VisitAllergy&amp;gt;&lt;br/&gt;+ labResults: List&amp;lt;VisitLabResult&amp;gt;&lt;br/&gt;+ modules: List&amp;lt;AiModuleReadiness&amp;gt;&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#FFFFFF;strokeColor=#2563EB;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#0F172A;" vertex="1" parent="cls_AiInputPayload">
+          <mxGeometry x="0" y="44" width="415" height="189.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_AiInputPayload_meths" value="&lt;div style='line-height:1.38'&gt;+ omitUnfilledFields(): void  // chỉ xuất answered &amp;amp; unknown&lt;br/&gt;+ isModuleReady(code: String): Boolean&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#F8FAFC;strokeColor=#2563EB;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#1E3A8A;" vertex="1" parent="cls_AiInputPayload">
+          <mxGeometry x="0" y="233.0" width="415" height="49.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_VisitReviewResponse" value="&lt;div style='font-size:10.5px;font-weight:400;color:#1E40AF'&gt;&amp;laquo;Value Object · On-Demand&amp;raquo;&lt;/div&gt;&lt;div style='font-size:13px;font-weight:700;color:#1E3A8A'&gt;VisitReviewResponse&lt;/div&gt;" style="swimlane;fontStyle=0;align=center;verticalAlign=middle;startSize=44;collapsible=0;whiteSpace=wrap;html=1;fillColor=#EFF6FF;strokeColor=#2563EB;strokeWidth=1.8;fontColor=#1E3A8A;fontFamily=Segoe UI;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="2330" y="930" width="405" height="195.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_VisitReviewResponse_attrs" value="&lt;div style='line-height:1.38'&gt;+ visitId: UUID / formVersionId: UUID / rowVersion: Int&lt;br/&gt;+ readinessTier: ReadinessTier / canConfirm: Boolean&lt;br/&gt;+ totalAnswered / totalUnfilled / totalUnknown / totalErrors: Int&lt;br/&gt;+ sections: List&amp;lt;SectionReviewSummary&amp;gt;&lt;br/&gt;+ tier3ConfirmErrors: List&amp;lt;FieldValidationError&amp;gt;&lt;br/&gt;+ tier4AiModules: List&amp;lt;AiModuleReadiness&amp;gt;&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#FFFFFF;strokeColor=#2563EB;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#0F172A;" vertex="1" parent="cls_VisitReviewResponse">
+          <mxGeometry x="0" y="44" width="405" height="119.0" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_VisitReviewResponse_meths" value="&lt;div style='line-height:1.38'&gt;+ hasBlockingTier3Errors(): Boolean&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#F8FAFC;strokeColor=#2563EB;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#1E3A8A;" vertex="1" parent="cls_VisitReviewResponse">
+          <mxGeometry x="0" y="163.0" width="405" height="32" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_FormVersionDiffResponse" value="&lt;div style='font-size:10.5px;font-weight:400;color:#1E40AF'&gt;&amp;laquo;Value Object · On-Demand&amp;raquo;&lt;/div&gt;&lt;div style='font-size:13px;font-weight:700;color:#1E3A8A'&gt;FormVersionDiffResponse&lt;/div&gt;" style="swimlane;fontStyle=0;align=center;verticalAlign=middle;startSize=44;collapsible=0;whiteSpace=wrap;html=1;fillColor=#EFF6FF;strokeColor=#2563EB;strokeWidth=1.8;fontColor=#1E3A8A;fontFamily=Segoe UI;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="1890" y="1280" width="415" height="177.5" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_FormVersionDiffResponse_attrs" value="&lt;div style='line-height:1.38'&gt;+ targetVersionId: UUID / baseVersionId: UUID&lt;br/&gt;+ hasChanges: Boolean&lt;br/&gt;+ addedFields: List&amp;lt;FormFieldDiffItem&amp;gt;&lt;br/&gt;+ modifiedFields: List&amp;lt;FormFieldDiffItem&amp;gt;&lt;br/&gt;+ removedFields: List&amp;lt;FormFieldDiffItem&amp;gt;&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#FFFFFF;strokeColor=#2563EB;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#0F172A;" vertex="1" parent="cls_FormVersionDiffResponse">
+          <mxGeometry x="0" y="44" width="415" height="101.5" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_FormVersionDiffResponse_meths" value="&lt;div style='line-height:1.38'&gt;+ isPublishable(): Boolean&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#F8FAFC;strokeColor=#2563EB;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#1E3A8A;" vertex="1" parent="cls_FormVersionDiffResponse">
+          <mxGeometry x="0" y="145.5" width="415" height="32" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_DomainEnums" value="&lt;div style='font-size:10.5px;font-weight:400;color:#1E40AF'&gt;&amp;laquo;Enumeration Set&amp;raquo;&lt;/div&gt;&lt;div style='font-size:13px;font-weight:700;color:#1E3A8A'&gt;DomainEnums (CONTRACT §4.2)&lt;/div&gt;" style="swimlane;fontStyle=0;align=center;verticalAlign=middle;startSize=44;collapsible=0;whiteSpace=wrap;html=1;fillColor=#EFF6FF;strokeColor=#2563EB;strokeWidth=1.8;fontColor=#1E3A8A;fontFamily=Segoe UI;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="1890" y="1520" width="835" height="317.5" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_DomainEnums_attrs" value="&lt;div style='line-height:1.38'&gt;UserRole = {doctor, admin}&lt;br/&gt;VisitStatus = {draft, confirmed}&lt;br/&gt;ValueState = {answered, unknown}&lt;br/&gt;FormVersionStatus = {draft, published, retired}&lt;br/&gt;FieldScopeStatus = {mvp, can_xac_nhan}&lt;br/&gt;FieldDataType = {number, integer, text, boolean, date, single_choice, multi_choice}&lt;br/&gt;SectionCode = {hanh_chinh, trieu_chung_dien_bien, sinh_ton_kham,&lt;br/&gt;   benh_su_dong_mac, thuoc_di_ung, can_lam_sang, lao_khoa, ghi_chu}&lt;br/&gt;ReadinessTier = {patient_created, draft_saved, confirmed, ai_ready}&lt;br/&gt;BpPosition = {supine, sitting, standing}&lt;br/&gt;AuditAction = {login, logout, login_failed, user_create, user_update,&lt;br/&gt;   form_version_create, form_version_update, form_version_publish,&lt;br/&gt;   patient_create, visit_confirm}&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#FFFFFF;strokeColor=#2563EB;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#0F172A;" vertex="1" parent="cls_DomainEnums">
+          <mxGeometry x="0" y="44" width="835" height="241.5" as="geometry"/>
+        </mxCell>
+        <mxCell id="cls_DomainEnums_meths" value="&lt;div style='line-height:1.38'&gt;AI Module Codes = {ai_diagnosis, ai_lab_test, ai_treatment, ai_medsafety}&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingRight=6;spacingTop=5;whiteSpace=wrap;overflow=hidden;fillColor=#F8FAFC;strokeColor=#2563EB;strokeWidth=1;fontFamily=Segoe UI;fontSize=11;fontColor=#1E3A8A;" vertex="1" parent="cls_DomainEnums">
+          <mxGeometry x="0" y="285.5" width="835" height="32" as="geometry"/>
+        </mxCell>
+        <mxCell id="r_usr_ses" value="1 ◆— 0..* owns" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;startArrow=diamondThin;startFill=1;endArrow=none;endFill=0;strokeColor=#1D4ED8;strokeWidth=1.5;exitX=1.0;exitY=0.45;exitDx=0;exitDy=0;entryX=0.0;entryY=0.45;entryDx=0;entryDy=0;fontFamily=Segoe UI;fontSize=10.5;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls_AppUser" target="cls_UserSession">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="r_usr_aud" value="0..1 — 0..* actor" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;startArrow=none;startFill=0;endArrow=open;endFill=0;strokeColor=#1D4ED8;strokeWidth=1.5;exitX=0.4;exitY=1.0;exitDx=0;exitDy=0;entryX=0.2;entryY=0.0;entryDx=0;entryDy=0;fontFamily=Segoe UI;fontSize=10.5;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls_AppUser" target="cls_AuditLog">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="r_tpl_ver" value="1 ◆— 0..* versions" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;startArrow=diamondThin;startFill=1;endArrow=none;endFill=0;strokeColor=#1D4ED8;strokeWidth=1.5;exitX=1.0;exitY=0.45;exitDx=0;exitDy=0;entryX=0.0;entryY=0.3;entryDx=0;entryDy=0;fontFamily=Segoe UI;fontSize=10.5;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls_FormTemplate" target="cls_FormVersion">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="r_ver_sec" value="1 ◆— 1..8 sections" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;startArrow=diamondThin;startFill=1;endArrow=none;endFill=0;strokeColor=#1D4ED8;strokeWidth=1.5;exitX=1.0;exitY=0.3;exitDx=0;exitDy=0;entryX=0.0;entryY=0.45;entryDx=0;entryDy=0;fontFamily=Segoe UI;fontSize=10.5;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls_FormVersion" target="cls_FormSection">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="r_sec_fld" value="1 ◆— 0..* fields" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;startArrow=diamondThin;startFill=1;endArrow=none;endFill=0;strokeColor=#1D4ED8;strokeWidth=1.5;exitX=1.0;exitY=0.45;exitDx=0;exitDy=0;entryX=0.0;entryY=0.35;entryDx=0;entryDy=0;fontFamily=Segoe UI;fontSize=10.5;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls_FormSection" target="cls_FormField">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="r_fld_def" value="0..* —&amp;gt; 1 definition" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;startArrow=none;startFill=0;endArrow=open;endFill=0;strokeColor=#1D4ED8;strokeWidth=1.5;exitX=0.25;exitY=1.0;exitDx=0;exitDy=0;entryX=0.65;entryY=0.0;entryDx=0;entryDy=0;fontFamily=Segoe UI;fontSize=10.5;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls_FormField" target="cls_FieldDefinition">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2231" y="476"/>
+              <mxPoint x="1700" y="476"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_def_opt" value="1 ◆— 0..* options" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;startArrow=diamondThin;startFill=1;endArrow=none;endFill=0;strokeColor=#1D4ED8;strokeWidth=1.5;exitX=1.0;exitY=0.45;exitDx=0;exitDy=0;entryX=0.0;entryY=0.45;entryDx=0;entryDy=0;fontFamily=Segoe UI;fontSize=10.5;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls_FieldDefinition" target="cls_FieldOption">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="r_def_ai" value="1 ◆— 0..* aiModules" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;startArrow=diamondThin;startFill=1;endArrow=none;endFill=0;strokeColor=#1D4ED8;strokeWidth=1.5;exitX=0.85;exitY=1.0;exitDx=0;exitDy=0;entryX=0.5;entryY=1.0;entryDx=0;entryDy=0;fontFamily=Segoe UI;fontSize=10.5;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls_FieldDefinition" target="cls_FieldAiModule">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1785" y="838"/>
+              <mxPoint x="2522" y="838"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_pat_vis" value="1 — 0..* encounters" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;startArrow=none;startFill=0;endArrow=open;endFill=0;strokeColor=#1D4ED8;strokeWidth=1.5;exitX=1.0;exitY=0.35;exitDx=0;exitDy=0;entryX=0.0;entryY=0.25;entryDx=0;entryDy=0;fontFamily=Segoe UI;fontSize=10.5;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls_Patient" target="cls_Visit">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="r_vis_fver" value="0..* —&amp;gt; 1 boundVersion (K3)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;startArrow=none;startFill=0;endArrow=open;endFill=0;strokeColor=#1D4ED8;strokeWidth=1.5;exitX=0.75;exitY=0.0;exitDx=0;exitDy=0;entryX=0.25;entryY=1.0;entryDx=0;entryDy=0;fontFamily=Segoe UI;fontSize=10.5;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls_Visit" target="cls_FormVersion">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="848" y="750"/>
+              <mxPoint x="1378" y="750"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_vis_rev" value="1 ◆— 0..* revisions (K5)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;startArrow=diamondThin;startFill=1;endArrow=none;endFill=0;strokeColor=#1D4ED8;strokeWidth=1.5;exitX=1.0;exitY=0.65;exitDx=0;exitDy=0;entryX=0.0;entryY=0.45;entryDx=0;entryDy=0;fontFamily=Segoe UI;fontSize=10.5;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls_Visit" target="cls_VisitRevision">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="r_vis_val" value="1 ◆— 0..* values (K2)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;startArrow=diamondThin;startFill=1;endArrow=none;endFill=0;strokeColor=#1D4ED8;strokeWidth=1.5;exitX=0.0;exitY=0.85;exitDx=0;exitDy=0;entryX=1.0;entryY=0.25;entryDx=0;entryDy=0;fontFamily=Segoe UI;fontSize=10.5;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls_Visit" target="cls_VisitValue">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="r_val_opt" value="1 ◆— 0..* selectedOptions" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;startArrow=diamondThin;startFill=1;endArrow=none;endFill=0;strokeColor=#1D4ED8;strokeWidth=1.5;exitX=0.5;exitY=1.0;exitDx=0;exitDy=0;entryX=0.5;entryY=0.0;entryDx=0;entryDy=0;fontFamily=Segoe UI;fontSize=10.5;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls_VisitValue" target="cls_VisitValueOption">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="r_vis_bp" value="1 ◆— 0..*" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;startArrow=diamondThin;startFill=1;endArrow=none;endFill=0;strokeColor=#1D4ED8;strokeWidth=1.5;exitX=0.45;exitY=1.0;exitDx=0;exitDy=0;entryX=0.5;entryY=0.0;entryDx=0;entryDy=0;fontFamily=Segoe UI;fontSize=10.5;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls_Visit" target="cls_OrthostaticBpMeasurement">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="r_vis_med" value="1 ◆— 0..*" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;startArrow=diamondThin;startFill=1;endArrow=none;endFill=0;strokeColor=#1D4ED8;strokeWidth=1.5;exitX=0.8;exitY=1.0;exitDx=0;exitDy=0;entryX=0.35;entryY=0.0;entryDx=0;entryDy=0;fontFamily=Segoe UI;fontSize=10.5;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls_Visit" target="cls_VisitMedication">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="872" y="1300"/>
+              <mxPoint x="1132" y="1300"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_vis_alg" value="1 ◆— 0..*" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;startArrow=diamondThin;startFill=1;endArrow=none;endFill=0;strokeColor=#1D4ED8;strokeWidth=1.5;exitX=0.15;exitY=1.0;exitDx=0;exitDy=0;entryX=0.0;entryY=0.5;entryDx=0;entryDy=0;fontFamily=Segoe UI;fontSize=10.5;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls_Visit" target="cls_VisitAllergy">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="570" y="1300"/>
+              <mxPoint x="470" y="1300"/>
+              <mxPoint x="470" y="1805"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_vis_lab" value="1 ◆— 0..*" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;startArrow=diamondThin;startFill=1;endArrow=none;endFill=0;strokeColor=#1D4ED8;strokeWidth=1.5;exitX=0.92;exitY=1.0;exitDx=0;exitDy=0;entryX=1.0;entryY=0.45;entryDx=0;entryDy=0;fontFamily=Segoe UI;fontSize=10.5;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls_Visit" target="cls_VisitLabResult">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="928" y="1285"/>
+              <mxPoint x="1440" y="1285"/>
+              <mxPoint x="1440" y="1805"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_vis_ai" value="«exports»" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;startArrow=none;startFill=0;endArrow=open;endFill=0;strokeColor=#2563EB;strokeWidth=1.5;dashed=1;dashPattern=5 3;exitX=1.0;exitY=0.3;exitDx=0;exitDy=0;entryX=0.0;entryY=0.3;entryDx=0;entryDy=0;fontFamily=Segoe UI;fontSize=10.5;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls_Visit" target="cls_AiInputPayload">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1490" y="930"/>
+              <mxPoint x="1490" y="1035"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_vis_rev_vo" value="«produces»" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;startArrow=none;startFill=0;endArrow=open;endFill=0;strokeColor=#2563EB;strokeWidth=1.5;dashed=1;dashPattern=5 3;exitX=1.0;exitY=0.22;exitDx=0;exitDy=0;entryX=0.5;entryY=0.0;entryDx=0;entryDy=0;fontFamily=Segoe UI;fontSize=10.5;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls_Visit" target="cls_VisitReviewResponse">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2532" y="868"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_fver_diff" value="«computes»" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;startArrow=none;startFill=0;endArrow=open;endFill=0;strokeColor=#2563EB;strokeWidth=1.5;dashed=1;dashPattern=5 3;exitX=0.0;exitY=0.9;exitDx=0;exitDy=0;entryX=0.0;entryY=0.5;entryDx=0;entryDy=0;fontFamily=Segoe UI;fontSize=10.5;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cls_FormVersion" target="cls_FormVersionDiffResponse">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1245" y="450"/>
+              <mxPoint x="1245" y="868"/>
+              <mxPoint x="1850" y="868"/>
+              <mxPoint x="1850" y="1365"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

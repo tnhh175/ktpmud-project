@@ -1,0 +1,186 @@
+@startuml sequence-doctor-visit-confirm
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam shadowing false
+skinparam roundcorner 6
+skinparam class {
+  BackgroundColor #FFFFFF
+  HeaderBackgroundColor #DBEAFE
+  BorderColor #1D4ED8
+  FontColor #1E3A8A
+  AttributeFontColor #0F172A
+  ArrowColor #1D4ED8
+}
+skinparam entity {
+  BackgroundColor #FFFFFF
+  HeaderBackgroundColor #DBEAFE
+  BorderColor #1D4ED8
+  FontColor #1E3A8A
+}
+skinparam package {
+  BackgroundColor #F8FAFC
+  BorderColor #93C5FD
+  FontColor #1E3A8A
+}
+skinparam sequence {
+  ArrowColor #1D4ED8
+  LifeLineBorderColor #64748B
+  LifeLineBackgroundColor #DBEAFE
+  ParticipantBorderColor #1D4ED8
+  ParticipantBackgroundColor #DBEAFE
+  ParticipantFontColor #1E3A8A
+  ActorBorderColor #1D4ED8
+  ActorBackgroundColor #DBEAFE
+  ActorFontColor #1E3A8A
+  GroupBorderColor #1D4ED8
+  GroupHeaderFontColor #1E3A8A
+  GroupBackgroundColor #DBEAFE
+  BoxBorderColor #93C5FD
+  BoxBackgroundColor #F8FAFC
+}
+skinparam note {
+  BackgroundColor #EFF6FF
+  BorderColor #2563EB
+  FontColor #1E3A8A
+}
+
+title Sequence 1 — Bác sĩ: Tạo lượt → Lưu nháp → Xem lại → Xác nhận → Xuất AiInputPayload
+
+actor "Bác sĩ (Doctor)" as Doc
+participant "Web UI (M3–M5)" as UI
+participant "API Gateway & RBAC\n(/api/v1)" as API
+participant "VisitService &\nValidationEngine" as Svc
+database "PostgreSQL 16\n(Clinical & Audit)" as DB
+
+== Giai đoạn 1: Tạo lượt khám & Tải cấu trúc biểu mẫu gắn cứng form_version_id (K3) ==
+Doc -> UI : Bấm [+ Tạo lượt khám mới] (visitDate, visitType)
+activate UI
+UI -> API : POST /api/v1/patients/{patientId}/visits [createVisit]\n(Bearer JWT)
+activate API
+alt RBAC Guard: role != 'doctor' (vd. admin cố truy cập bệnh án — K8)
+  API -> DB : INSERT audit_log(outcome='denied', detail={path}) — không lộ PHI
+  API --> UI : 403 Forbidden (CLINICAL_DATA_SEPARATION_ENFORCED)
+else role == 'doctor'
+  API -> Svc : createVisit(patientId, doctor, dto)
+  activate Svc
+  Svc -> DB : SELECT active published form_version;\nINSERT visit(status='draft', form_version_id, row_version=1)
+  activate DB
+  DB --> Svc : visit(id, visit_code, form_version_id, row_version=1)
+  deactivate DB
+  Svc --> API : VisitCreated
+  deactivate Svc
+  API --> UI : 201 Created + ETag: "1"
+end
+deactivate API
+UI -> API : GET /api/v1/visits/{visitId}/form [getVisitForm]
+activate API
+API --> UI : 200 OK (Cấu trúc 8 nhóm theo đúng form_version_id đã gắn)
+deactivate API
+deactivate UI
+
+== Giai đoạn 2: Nhập tay & Lưu nháp Tầng 2 (saveVisitDraft) ==
+Doc -> UI : Nhập 8 nhóm (3 trạng thái K2 + 4 bảng lặp K6) -> [Lưu nháp]
+activate UI
+UI -> API : PUT /api/v1/visits/{visitId}/draft [saveVisitDraft]\n(If-Match: "1", role=doctor)
+activate API
+API -> Svc : saveVisitDraft(visitId, expectedRowVersion=1, payload)
+activate Svc
+Svc -> Svc : Validate Tầng 2 (kiểu, miền sinh học, CHECK 3 trạng thái;\ncho phép thiếu trường lâm sàng, giữ nguyên 0/false)
+alt Lỗi kiểu dữ liệu / miền kỹ thuật (SpO2 > 100, diastolic >= systolic...)
+  Svc --> API : ValidationError(fieldErrors[])
+  API --> UI : 422 Unprocessable Entity (ProblemDetails + errors[])\n(UI tô đỏ ô sai, giữ nguyên dữ liệu hợp lệ)
+else row_version != If-Match HOẶC visit.status == 'confirmed' (K5)
+  Svc --> API : ConflictError(currentRowVersion)
+  API --> UI : 409 Conflict (CONCURRENCY_ROW_VERSION_MISMATCH / VISIT_ALREADY_CONFIRMED)
+else Hợp lệ — Giao dịch nguyên tử
+  group critical [BEGIN ... COMMIT]
+    Svc -> DB : UPSERT visit_value & visit_value_option;\nSYNC visit_orthostatic_bp, visit_medication, visit_allergy, visit_lab_result
+    activate DB
+    Svc -> DB : UPDATE visit SET row_version=row_version+1, updated_at=NOW()\nWHERE id=? AND row_version=1
+    DB --> Svc : COMMIT OK (row_version=2)
+    deactivate DB
+  end
+  Svc --> API : DraftSaved(rowVersion=2)
+  API --> UI : 200 OK + ETag: "2"
+end
+deactivate Svc
+deactivate API
+deactivate UI
+
+== Giai đoạn 3: Xem lại theo nhóm — Tách Tầng 3 & Tầng 4 (getVisitReview) ==
+Doc -> UI : Chuyển sang Màn 5 [Xem lại & Xác nhận]
+activate UI
+UI -> API : GET /api/v1/visits/{visitId}/review [getVisitReview]
+activate API
+API -> Svc : buildReviewSummary(visitId)
+activate Svc
+Svc -> DB : SELECT visit, form_field(required_for_confirm),\nvisit_value, 4 bảng lặp, field_ai_module
+activate DB
+DB --> Svc : Dữ liệu lượt + quy tắc Tầng 3 + ánh xạ 4 module AI
+deactivate DB
+Svc -> Svc : Tính tier3ConfirmErrors[] riêng với tier4AiModules[] (Tầng 4 không chặn xác nhận — K1)
+Svc --> API : VisitReviewResponse
+deactivate Svc
+API --> UI : 200 OK (VisitReviewResponse)
+deactivate API
+deactivate UI
+
+== Giai đoạn 4: Xác nhận dữ liệu lượt khám (confirmVisit) ==
+Doc -> UI : Bấm [Xác nhận dữ liệu lượt khám]
+activate UI
+UI -> API : POST /api/v1/visits/{visitId}/confirm [confirmVisit]\n(If-Match: "2", confirmNote)
+activate API
+API -> Svc : confirmVisit(visitId, doctor, expectedRowVersion=2)
+activate Svc
+alt Còn lỗi Tầng 3 (required_for_confirm hoặc bản ghi lặp dở dang)
+  Svc --> API : Tier3ValidationFailed(errors[])
+  API --> UI : 422 Unprocessable Entity (TIER3_CONFIRM_REQUIREMENTS_UNMET)
+else Lệch ETag HOẶC đã confirmed
+  Svc --> API : ConflictError
+  API --> UI : 409 Conflict (ProblemDetails)
+else Đạt điều kiện Tầng 3 — Giao dịch nguyên tử
+  group critical [BEGIN ... COMMIT]
+    Svc -> DB : SELECT visit ... FOR UPDATE (status='draft' & row_version=2)
+    activate DB
+    Svc -> DB : UPDATE visit SET status='confirmed', confirmed_at=NOW(),\nconfirmed_by=doctor, current_revision_no=1, row_version=3
+    Svc -> DB : INSERT visit_revision(revision_no=1, revision_type='confirmed_snapshot', snapshot_data)
+    Svc -> DB : INSERT audit_log(action='visit_confirm', entity_type='visit',\nentity_id=visitId, detail={formVersionId, rev:1})
+    DB --> Svc : COMMIT OK
+    deactivate DB
+  end
+  Svc --> API : VisitConfirmed(status='confirmed', rev=1, rowVersion=3)
+  API --> UI : 200 OK + ETag: "3" (Chuyển M4 sang chỉ đọc)
+end
+deactivate Svc
+deactivate API
+deactivate UI
+
+== Giai đoạn 5: Xuất hợp đồng dữ liệu đầu vào chuẩn AI (getVisitAiInput) ==
+Doc -> UI : Yêu cầu xuất đầu vào chuẩn AI
+activate UI
+UI -> API : GET /api/v1/visits/{visitId}/ai-input [getVisitAiInput]
+activate API
+API -> Svc : exportAiInput(visitId)
+activate Svc
+alt visit.status != 'confirmed'
+  Svc --> API : VisitNotConfirmedError
+  API --> UI : 409 Conflict (VISIT_NOT_CONFIRMED_FOR_AI_INPUT)
+else visit.status == 'confirmed'
+  Svc -> DB : SELECT visit, patient.patient_code, visit_value,\nvisit_value_option, 4 bảng lặp, field_ai_module
+  activate DB
+  DB --> Svc : Dữ liệu đã xác nhận + cấu hình 4 module AI
+  deactivate DB
+  Svc --> API : AiInputPayload (bỏ trường chưa điền, giữ unknown/0/false, kèm modules[])
+  API --> UI : 200 OK (AiInputPayload — chỉ hợp đồng dữ liệu, không chạy AI giả)
+end
+deactivate Svc
+deactivate API
+deactivate UI
+
+note over UI, DB
+  Ghi chú K5/Q3: Lượt đã confirmed khóa sửa trực tiếp.
+  Nếu cần sửa/bổ sung CLS sau xác nhận, bác sĩ gọi POST /api/v1/visits/{visitId}/revisions [createVisitRevision]
+  (kèm If-Match & changeReason) để tạo VisitRevision kế tiếp mà không ghi đè bản cũ.
+end note
+@enduml

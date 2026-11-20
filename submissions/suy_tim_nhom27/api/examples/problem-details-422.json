@@ -1,0 +1,24 @@
+{
+  "type": "https://errors.ktpmud.nhom27.local/validation-error",
+  "title": "Dữ liệu trường không hợp lệ",
+  "status": 422,
+  "detail": "Phát hiện 2 trường có giá trị vượt miền kỹ thuật cho phép. Các trường hợp lệ khác đã được giữ nguyên trên giao diện.",
+  "instance": "/api/v1/visits/9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d/draft",
+  "code": "FIELD_VALIDATION_FAILED",
+  "correlationId": "req-20261119-00142",
+  "currentRowVersion": 1,
+  "errors": [
+    {
+      "fieldCode": "spo2",
+      "sectionCode": "sinh_ton_kham",
+      "message": "Giá trị SpO2 không được vượt quá 100%.",
+      "rejectedValue": 140
+    },
+    {
+      "fieldCode": "cls_lvef",
+      "sectionCode": "can_lam_sang",
+      "message": "Phân suất tống máu thất trái LVEF (%) không được nhỏ hơn 0%.",
+      "rejectedValue": -5
+    }
+  ]
+}

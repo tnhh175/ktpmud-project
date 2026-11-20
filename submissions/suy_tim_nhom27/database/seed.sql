@@ -1,138 +1,566 @@
--- Synthetic fixtures only. Run after schema.sql; safe to replay (existing rows are preserved).
--- Password hashes: PBKDF2-SHA256, 600,000 iterations, per-account demo salts.
--- These DB accounts do not change the existing in-memory Gateway login.
+-- =============================================================================
+-- Seed Data: Web Thu Thap Du Lieu Lam Sang Suy Tim (MVP Nhom 1, 2, 6)
+-- Generated deterministically from trace-table.xlsx
+-- Contents: 2 sample users, 1 form_template, 1 form_version (v1, published),
+--           8 form_section, 121 field_definition (95 mvp + 26 can_xac_nhan),
+--           field_option, field_ai_module, and 121 form_field rows.
+-- =============================================================================
+
 BEGIN;
-SET LOCAL TIME ZONE 'Asia/Ho_Chi_Minh';
 
-INSERT INTO department(code, name) VALUES
- ('cardiology', 'Khoa Tim mạch giả lập'), ('geriatrics', 'Khoa Lão khoa giả lập') ON CONFLICT DO NOTHING;
-INSERT INTO role(code) VALUES ('doctor'), ('nurse'), ('pharmacist'), ('admin'), ('patient') ON CONFLICT DO NOTHING;
-INSERT INTO permission(code, description) VALUES ('rule.approve', 'Phê duyệt chuyên môn nội dung quy tắc') ON CONFLICT DO NOTHING;
-INSERT INTO app_user(id, username, password_hash, department_code) VALUES
- ('00000000-0000-4000-8000-000000000001', 'doctor_demo', 'pbkdf2_sha256$600000$c3V5dGltLWRlbW8tZG9jdG9y$n51i+8XHfNP98jCWGcjOH13tHQ/ogUe/P9ez8roAdZE=', 'cardiology'),
- ('00000000-0000-4000-8000-000000000002', 'nurse_demo', 'pbkdf2_sha256$600000$c3V5dGltLWRlbW8tbnVyc2U=$/tufb8aU1yehthTksR9FAwyf9pfPLKSKfXxFUiH/df4=', 'cardiology'),
- ('00000000-0000-4000-8000-000000000003', 'pharmacist_demo', 'pbkdf2_sha256$600000$c3V5dGltLWRlbW8tcGhhcm1hY2lzdA==$MLPvoECm3gR4nYZVbh9jIg4VsQA99IpuYXAZE9drUrA=', 'cardiology'),
- ('00000000-0000-4000-8000-000000000004', 'admin_demo', 'pbkdf2_sha256$600000$c3V5dGltLWRlbW8tYWRtaW4=$2dRekQ5bS+V7Y21lxH9Vy/eKMQZZPf3fR3d/ENMRszg=', NULL),
- ('00000000-0000-4000-8000-000000000005', 'patient_demo', 'pbkdf2_sha256$600000$c3V5dGltLWRlbW8tcGF0aWVudA==$Fxr8Qe48xCKdtapu8OcEdLz5vyjvwIxi8qBiOt8fr4Q=', NULL) ON CONFLICT DO NOTHING;
-INSERT INTO user_role(user_id, role_code) VALUES
- ('00000000-0000-4000-8000-000000000001', 'doctor'), ('00000000-0000-4000-8000-000000000002', 'nurse'),
- ('00000000-0000-4000-8000-000000000003', 'pharmacist'), ('00000000-0000-4000-8000-000000000004', 'admin'),
- ('00000000-0000-4000-8000-000000000005', 'patient') ON CONFLICT DO NOTHING;
--- Explicit approval permission; never implied by the admin role.
-INSERT INTO user_permission(user_id, permission_code) VALUES ('00000000-0000-4000-8000-000000000001', 'rule.approve') ON CONFLICT DO NOTHING;
+-- 1. Sample Users (2 roles: doctor & admin; non-production placeholder hashes)
+INSERT INTO app_user (id, username, password_hash, full_name, role, is_active)
+VALUES
+  ('3259a713-567a-585f-ad0e-fc200f0ed954', 'doctor_demo', '$argon2id$v=19$m=65536,t=3,p=4$cGxhY2Vob2xkZXJfc2FsdF8x$placeholder_hash_only_not_for_prod_doctor_01', 'BS. Nguyễn Minh Tâm (Mẫu)', 'doctor', true),
+  ('fb65ae24-3f49-5dc1-8b5a-b08957ac449e', 'admin_demo', '$argon2id$v=19$m=65536,t=3,p=4$cGxhY2Vob2xkZXJfc2FsdF8y$placeholder_hash_only_not_for_prod_admin_02', 'Quản trị viên Hệ thống (Mẫu)', 'admin', true);
 
--- Representation domains, not diagnostic or alert thresholds.
-INSERT INTO observation_type(code, label, value_kind, unit, min_value, max_value) VALUES
- ('ef', 'Phân suất tống máu', 'number', '%', 0, 100),
- ('potassium', 'Kali', 'number', 'mmol/L', 0, NULL), ('sodium', 'Natri', 'number', 'mmol/L', 0, NULL),
- ('egfr', 'eGFR', 'number', 'mL/min/1.73m2', 0, NULL), ('creatinine', 'Creatinin', 'number', 'umol/L', 0, NULL),
- ('bnp', 'BNP', 'number', 'pg/mL', 0, NULL), ('nt_probnp', 'NT-proBNP', 'number', 'pg/mL', 0, NULL),
- ('systolic_bp', 'Huyết áp tâm thu', 'number', 'mmHg', 0, NULL), ('diastolic_bp', 'Huyết áp tâm trương', 'number', 'mmHg', 0, NULL),
- ('heart_rate', 'Nhịp tim', 'number', 'bpm', 0, NULL), ('weight_kg', 'Cân nặng', 'number', 'kg', 0, NULL),
- ('height_cm', 'Chiều cao', 'number', 'cm', 0, NULL), ('spo2', 'Độ bão hòa oxy', 'number', '%', 0, 100),
- ('temperature_c', 'Nhiệt độ', 'number', 'degC', -273.15, NULL),
- ('dyspnea', 'Khó thở', 'boolean', NULL, NULL, NULL), ('edema', 'Phù', 'boolean', NULL, NULL, NULL),
- ('fatigue', 'Mệt mỏi', 'boolean', NULL, NULL, NULL), ('frailty', 'Đánh giá frailty', 'text', NULL, NULL, NULL),
- ('cognition', 'Đánh giá nhận thức', 'text', NULL, NULL, NULL), ('adl', 'Sinh hoạt hằng ngày ADL', 'text', NULL, NULL, NULL),
- ('iadl', 'Sinh hoạt có sử dụng công cụ IADL', 'text', NULL, NULL, NULL), ('nutrition', 'Đánh giá dinh dưỡng', 'text', NULL, NULL, NULL),
- ('fall_risk', 'Đánh giá nguy cơ ngã', 'text', NULL, NULL, NULL), ('comorbidity', 'Bệnh đồng mắc', 'text', NULL, NULL, NULL)
-ON CONFLICT DO NOTHING;
--- Fictional drugs have no clinical meaning and are not treatment guidance.
-INSERT INTO ingredient(code, display_name) VALUES ('synthetic_drug_a', 'Hoạt chất giả lập A'), ('synthetic_drug_b', 'Hoạt chất giả lập B') ON CONFLICT DO NOTHING;
-INSERT INTO drug_product(code, ingredient_code, display_name, strength, strength_unit, dosage_form) VALUES
- ('demo_tablet_a', 'synthetic_drug_a', 'Viên thuốc demo A', 1, 'mg', 'tablet'),
- ('demo_tablet_b', 'synthetic_drug_b', 'Viên thuốc demo B', 1, 'mg', 'tablet') ON CONFLICT DO NOTHING;
-INSERT INTO patient_case(id, synthetic_code, age, sex, owner_id) VALUES
- ('10000000-0000-4000-8000-000000000001', 'SYN-DEMO-001', 75, 'female', '00000000-0000-4000-8000-000000000001'),
- ('10000000-0000-4000-8000-000000000002', 'SYN-DEMO-002', 80, 'male', '00000000-0000-4000-8000-000000000001') ON CONFLICT DO NOTHING;
-INSERT INTO patient_account(user_id, case_id) VALUES ('00000000-0000-4000-8000-000000000005', '10000000-0000-4000-8000-000000000001') ON CONFLICT DO NOTHING;
-INSERT INTO case_access(case_id, user_id, access_scope) VALUES
- ('10000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002', 'nursing'),
- ('10000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000003', 'medsafety') ON CONFLICT DO NOTHING;
-INSERT INTO encounter(id, case_id, occurred_at, kind, department_code, doctor_id) VALUES
- ('20000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', now() - INTERVAL '2 days', 'outpatient', 'cardiology', '00000000-0000-4000-8000-000000000001'),
- ('20000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000002', now() - INTERVAL '1 day', 'inpatient', 'geriatrics', '00000000-0000-4000-8000-000000000001') ON CONFLICT DO NOTHING;
-INSERT INTO patient_history(id, case_id, kind, description, recorded_by) VALUES
- ('30000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', 'medical', 'Tiền sử giả lập phục vụ luồng demo.', '00000000-0000-4000-8000-000000000001') ON CONFLICT DO NOTHING;
-INSERT INTO allergy_status(case_id, status, recorded_by) VALUES
- ('10000000-0000-4000-8000-000000000001', 'unknown', '00000000-0000-4000-8000-000000000001'),
- ('10000000-0000-4000-8000-000000000002', 'none', '00000000-0000-4000-8000-000000000001') ON CONFLICT DO NOTHING;
-INSERT INTO clinical_note(id, encounter_id, kind, content, recorded_by) VALUES
- ('31000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', 'nursing', 'Ghi nhận chăm sóc giả lập; các chỉ số được nhập riêng.', '00000000-0000-4000-8000-000000000002'),
- ('31000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000001', 'examination', 'Khám giả lập, chưa sử dụng để kết luận y khoa.', '00000000-0000-4000-8000-000000000001') ON CONFLICT DO NOTHING;
-INSERT INTO observation(id, encounter_id, code, value_number, status, observed_at, source, recorded_by) VALUES
- ('32000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', 'systolic_bp', 120, 'present', now() - INTERVAL '2 days', 'manual_synthetic', '00000000-0000-4000-8000-000000000002'),
- ('32000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000001', 'diastolic_bp', 80, 'present', now() - INTERVAL '2 days', 'manual_synthetic', '00000000-0000-4000-8000-000000000002'),
- ('32000000-0000-4000-8000-000000000003', '20000000-0000-4000-8000-000000000001', 'heart_rate', 72, 'present', now() - INTERVAL '2 days', 'manual_synthetic', '00000000-0000-4000-8000-000000000002'),
- ('32000000-0000-4000-8000-000000000004', '20000000-0000-4000-8000-000000000001', 'weight_kg', 60, 'present', now() - INTERVAL '2 days', 'manual_synthetic', '00000000-0000-4000-8000-000000000002') ON CONFLICT DO NOTHING;
-INSERT INTO test_report(id, encounter_id, kind, performed_at, source, external_ref, content, recorded_by) VALUES
- ('33000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', 'echo', now() - INTERVAL '2 days', 'mock_pacs', 'SYN-ECHO-001', '{"note":"Báo cáo siêu âm giả lập, chưa có kết luận"}', '00000000-0000-4000-8000-000000000001') ON CONFLICT DO NOTHING;
-INSERT INTO import_batch(id, encounter_id, source, external_ref, status, accepted_rows, rejected_rows, imported_by) VALUES
- ('34000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', 'file', 'SYN-IMPORT-001', 'partial', 4, 1, '00000000-0000-4000-8000-000000000002') ON CONFLICT DO NOTHING;
-INSERT INTO import_error(id, batch_id, row_number, field_code, message) VALUES
- ('35000000-0000-4000-8000-000000000001', '34000000-0000-4000-8000-000000000001', 5, 'weight_kg', 'Dòng giả lập thiếu đơn vị kg.') ON CONFLICT DO NOTHING;
+-- 2. Form Template (1 MVP template)
+INSERT INTO form_template (id, code, name, description, is_active)
+VALUES
+  ('fba1cd0d-dfb0-5dd3-91bb-8e9fa87bf381', 'heart_failure_intake', 'Biểu mẫu thu thập dữ liệu lâm sàng suy tim', 'Biểu mẫu nhập tay chuẩn hóa dữ liệu bệnh nhân suy tim trước AI (MVP Nhóm 1, 2, 6).', true);
 
-INSERT INTO prescription(id, case_id, encounter_id, doctor_id, starts_on, ends_on, instructions)
-SELECT '40000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001',
- '00000000-0000-4000-8000-000000000001', CURRENT_DATE, CURRENT_DATE + 13, 'Đơn thuốc giả lập để kiểm thử xem đơn và giờ uống; không dùng điều trị.'
-WHERE NOT EXISTS (SELECT 1 FROM prescription WHERE id = '40000000-0000-4000-8000-000000000001');
-INSERT INTO medication(id, encounter_id, ingredient_code, drug_product_code, prescription_id, dose, dose_unit, route, frequency_per_day, kind, starts_on, ends_on, instructions, recorded_by)
-SELECT '41000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', 'synthetic_drug_a', 'demo_tablet_a',
- '40000000-0000-4000-8000-000000000001', 1, 'mg', 'oral', 2, 'current', CURRENT_DATE, CURRENT_DATE + 13,
- 'Ví dụ lịch hai lần mỗi ngày cho thuốc giả lập A.', '00000000-0000-4000-8000-000000000001'
-WHERE NOT EXISTS (SELECT 1 FROM medication WHERE id = '41000000-0000-4000-8000-000000000001');
-INSERT INTO medication(id, encounter_id, ingredient_code, drug_product_code, prescription_id, dose, dose_unit, route, frequency_per_day, kind, starts_on, ends_on, instructions, recorded_by)
-SELECT '41000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000001', 'synthetic_drug_b', 'demo_tablet_b',
- '40000000-0000-4000-8000-000000000001', 1, 'mg', 'oral', 1, 'current', CURRENT_DATE, CURRENT_DATE + 13,
- 'Ví dụ lịch một lần mỗi ngày cho thuốc giả lập B.', '00000000-0000-4000-8000-000000000001'
-WHERE NOT EXISTS (SELECT 1 FROM medication WHERE id = '41000000-0000-4000-8000-000000000002');
-INSERT INTO medication_schedule(id, medication_id, dose_time, instructions)
-SELECT v.id::uuid, v.medication_id::uuid, v.dose_time::time, v.instructions FROM (VALUES
- ('42000000-0000-4000-8000-000000000001', '41000000-0000-4000-8000-000000000001', '08:00', 'Giờ uống sáng demo'),
- ('42000000-0000-4000-8000-000000000002', '41000000-0000-4000-8000-000000000001', '20:00', 'Giờ uống tối demo'),
- ('42000000-0000-4000-8000-000000000003', '41000000-0000-4000-8000-000000000002', '12:00', 'Giờ uống trưa demo')
-) v(id, medication_id, dose_time, instructions) WHERE NOT EXISTS (SELECT 1 FROM medication_schedule WHERE id = v.id::uuid);
-UPDATE prescription SET status = 'confirmed' WHERE id = '40000000-0000-4000-8000-000000000001' AND status = 'draft';
+-- 3. Form Version v1 (inserted as draft first, populated, then published cleanly)
+INSERT INTO form_version (id, form_template_id, version_no, version_label, status, based_on_version_id, change_note, created_by)
+VALUES
+  ('9965b491-5b78-5865-9220-53f7bc2c29fe', 'fba1cd0d-dfb0-5dd3-91bb-8e9fa87bf381', 1, 'v1.0', 'draft', NULL, 'Phiên bản khởi tạo từ bảng truy vết Chặng A (95 mã MVP + 26 mã can_xac_nhan).', 'fb65ae24-3f49-5dc1-8b5a-b08957ac449e');
 
--- Draft rules and mock results demonstrate persistence, not clinical correctness.
-INSERT INTO rule_version(id, code, version, module, source_ref, content, content_hash, created_by)
-SELECT '50000000-0000-4000-8000-000000000001', 'SYN_DEMO_DIAGNOSIS', 1, 'diagnosis', 'Synthetic fixture; no clinical rule',
- '{"mode":"stub","description":"Not clinically evaluated"}'::jsonb,
- encode(sha256(convert_to('{"mode":"stub","description":"Not clinically evaluated"}'::jsonb::text, 'UTF8')), 'hex'), '00000000-0000-4000-8000-000000000004'
-WHERE NOT EXISTS (SELECT 1 FROM rule_version WHERE id = '50000000-0000-4000-8000-000000000001');
-INSERT INTO rule_required_field(rule_version_id, field_code)
-SELECT '50000000-0000-4000-8000-000000000001', 'ef'
-WHERE NOT EXISTS (SELECT 1 FROM rule_required_field WHERE rule_version_id = '50000000-0000-4000-8000-000000000001' AND field_code = 'ef');
-INSERT INTO evaluation(id, encounter_id, input_revision, input_snapshot, requested_by, mode)
-SELECT '51000000-0000-4000-8000-000000000001', e.id, c.revision,
- jsonb_build_object('case', to_jsonb(c), 'encounter', to_jsonb(e),
-   'observations', (SELECT coalesce(jsonb_agg(to_jsonb(o)), '[]') FROM observation o WHERE o.encounter_id = e.id),
-   'medications', (SELECT coalesce(jsonb_agg(to_jsonb(m)), '[]') FROM medication m WHERE m.encounter_id = e.id)), '00000000-0000-4000-8000-000000000001', 'stub'
-FROM encounter e JOIN patient_case c ON c.id = e.case_id WHERE e.id = '20000000-0000-4000-8000-000000000001'
-AND NOT EXISTS (SELECT 1 FROM evaluation WHERE id = '51000000-0000-4000-8000-000000000001');
-INSERT INTO module_result(id, evaluation_id, module, status, message) VALUES
- ('52000000-0000-4000-8000-000000000001', '51000000-0000-4000-8000-000000000001', 'diagnosis', 'mock_not_evaluated', 'Stub; không có kết luận chẩn đoán.'),
- ('52000000-0000-4000-8000-000000000002', '51000000-0000-4000-8000-000000000001', 'lab_test', 'mock_not_evaluated', 'Stub; chưa gợi ý cận lâm sàng.'),
- ('52000000-0000-4000-8000-000000000003', '51000000-0000-4000-8000-000000000001', 'treatment', 'mock_not_evaluated', 'Stub; không tự tạo đơn thuốc.'),
- ('52000000-0000-4000-8000-000000000004', '51000000-0000-4000-8000-000000000001', 'medsafety', 'mock_not_evaluated', 'Stub; chưa đánh giá an toàn thuốc.') ON CONFLICT DO NOTHING;
-INSERT INTO result_missing_field(module_result_id, field_code) VALUES ('52000000-0000-4000-8000-000000000001', 'ef') ON CONFLICT DO NOTHING;
-INSERT INTO pharmacist_review(id, evaluation_id, pharmacist_id, comment, proposal) VALUES
- ('53000000-0000-4000-8000-000000000001', '51000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000003',
- 'Nhận xét giả lập; chưa xác nhận đánh giá thuốc.', 'Bác sĩ xem xét hồ sơ trước khi đưa ra quyết định.') ON CONFLICT DO NOTHING;
-INSERT INTO clinical_decision(id, evaluation_id, doctor_id, action, reason)
-SELECT '54000000-0000-4000-8000-000000000001', '51000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000001', 'rejected', 'Kết quả stub chưa được đánh giá chuyên môn.'
-WHERE NOT EXISTS (SELECT 1 FROM clinical_decision WHERE id = '54000000-0000-4000-8000-000000000001');
-INSERT INTO treatment_plan(id, encounter_id, doctor_id, kind, content, follow_up_at, status) VALUES
- ('55000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000001',
- 'follow_up', 'Kế hoạch giả lập do bác sĩ nhập: theo dõi chỉ số tại nhà và đặt lịch tái khám.',
- (CURRENT_DATE + 7 + TIME '09:00') AT TIME ZONE 'Asia/Ho_Chi_Minh', 'confirmed') ON CONFLICT DO NOTHING;
+-- 4. 8 Form Sections (section_code enum)
+INSERT INTO form_section (id, form_version_id, section_code, title_vi, description, display_order)
+VALUES
+  ('0e42a24c-e371-5fda-8614-336f73caecc5', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'hanh_chinh', 'Hành chính và Thông tin nền', 'Định danh hồ sơ, giới tính và tuổi tại thời điểm khám.', 1),
+  ('0f86f0b1-6d55-5ab6-8aaa-026a2977dc76', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'trieu_chung_dien_bien', 'Triệu chứng cơ năng và Diễn biến', 'Triệu chứng suy tim điển hình, biểu hiện lão khoa không điển hình và diễn biến theo dõi.', 2),
+  ('a106728a-1c3b-529e-a2a7-0e627ecf5215', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'sinh_ton_kham', 'Dấu hiệu sinh tồn, Nhân trắc và Khám thực thể', 'Nhân trắc, huyết áp theo tư thế (bảng lặp), sinh hiệu và dấu hiệu khám lâm sàng.', 3),
+  ('c3f5dfea-7550-5661-8c3a-ee83b2f71042', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'benh_su_dong_mac', 'Bệnh sử, Yếu tố nguy cơ, Nguyên nhân và Bệnh đồng mắc', 'Tiền sử, nguyên nhân nền và các bệnh đồng mắc tim mạch/ngoài tim mạch.', 4),
+  ('49cec672-b6ef-550c-9804-9e0bc58e9044', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'thuoc_di_ung', 'Thuốc hiện dùng và Dị ứng / ADR', 'Danh sách thuốc đang sử dụng (kê đơn & OTC/TPCN/YHCT) và tiền sử dị ứng/ADR/thuốc cản quang.', 5),
+  ('455f1c7e-fefa-5403-9df4-12bf6d55cfcd', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'can_lam_sang', 'Kết quả Cận lâm sàng đã có', 'Xét nghiệm sinh hóa/dấu ấn tim tách loại (BNP vs NT-proBNP, Creatinin vs eGFR), Siêu âm tim/LVEF, ECG, X-quang.', 6),
+  ('96a671fc-0a26-53dc-a80a-6377abf2d1a8', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'lao_khoa', 'Đánh giá Lão khoa và Hỗ trợ Xã hội', 'Đánh giá lão khoa toàn diện và hoàn cảnh hỗ trợ xã hội của người bệnh.', 7),
+  ('f56f8bdb-f959-5e9e-83c5-4cce895df20b', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'ghi_chu', 'Ghi chú bác sĩ và Kết luận trước điều trị', 'Ghi chú lâm sàng bổ sung của bác sĩ và các mục tiêu/phân tầng chờ xác nhận.', 8);
 
-INSERT INTO patient_measurement(id, case_id, recorded_by, observed_at, systolic_bp, diastolic_bp, heart_rate, weight_kg, spo2, symptoms) VALUES
- ('60000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000005', now() - INTERVAL '1 day', 122, 80, 74, 60.2, 97, 'Ghi chú giả lập tại nhà.'),
- ('60000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000005', now() - INTERVAL '1 hour', 120, 78, 72, 60, 98, NULL) ON CONFLICT DO NOTHING;
-INSERT INTO appointment(id, case_id, doctor_id, slot_at, reason, requested_by)
-SELECT '61000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000001',
- (CURRENT_DATE + 7 + TIME '09:00') AT TIME ZONE 'Asia/Ho_Chi_Minh', 'Tái khám demo.', '00000000-0000-4000-8000-000000000005'
-WHERE NOT EXISTS (SELECT 1 FROM appointment WHERE id = '61000000-0000-4000-8000-000000000001');
-SELECT generate_medication_reminders(CURRENT_DATE, CURRENT_DATE + 6);
+-- 5. 121 Field Definitions (95 mvp + 26 can_xac_nhan; 0 AI output codes)
+INSERT INTO field_definition (id, code, label_vi, section_code, data_type, canonical_unit, scope_status, storage_level, is_calculated, min_value, max_value, help_text, source_ref)
+VALUES
+  ('170072c5-c444-5903-a04d-f7ed0b0e54af', 'luot_tuoi', 'Tuổi tại thời điểm khám', 'hanh_chinh', 'integer', 'tuổi', 'mvp', 'computed', true, 0, 120, 'Tự động tính từ ngày sinh/năm sinh/tuổi khai báo tại thời điểm khám (0–120 tuổi).', 'TL06 R2/STT 1 (tuoi)'),
+  ('39f17379-aabd-5e93-aafa-2646e07d867b', 'bn_gioi_tinh', 'Giới tính sinh học', 'hanh_chinh', 'single_choice', NULL, 'mvp', 'patient', false, NULL, NULL, 'Giới tính sinh học của bệnh nhân (lưu ở bảng patient).', 'TL06 R3/STT 2 (gioi_tinh)'),
+  ('a499185d-1672-5aca-b817-91623acbc877', 'kho_tho_khi_gang_suc', 'Khó thở khi gắng sức', 'trieu_chung_dien_bien', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Triệu chứng cơ năng điển hình của suy tim (TL01 Bảng 3).', 'TL06 R7/STT 6 (kho_tho_khi_gang_suc); TL06 R107/STT 111 (trieu_chung_dau_hieu)'),
+  ('f6858393-ef73-5968-b109-60f469f2a936', 'kho_tho_khi_nam', 'Khó thở khi nằm (Orthopnea)', 'trieu_chung_dien_bien', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Triệu chứng sung huyết phổi khi nằm đầu thấp (TL01 Bảng 3).', 'TL06 R8/STT 7 (kho_tho_khi_nam)'),
+  ('dbb35cfc-0cf8-5fc0-ace7-b4b9132495e2', 'kho_tho_kich_phat_ve_dem', 'Cơn khó thở kịch phát về đêm (PND)', 'trieu_chung_dien_bien', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Cơn khó thở đột ngột đánh thức người bệnh ban đêm (TL01 Bảng 3).', 'TL06 R9/STT 8 (kho_tho_kich_phat_ve_dem)'),
+  ('35f96590-807f-5448-af94-5b0584b67bc3', 'met_moi', 'Mệt mỏi', 'trieu_chung_dien_bien', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Mệt mỏi cơ năng do giảm cung lượng tim (TL01 Bảng 3).', 'TL06 R10/STT 9 (met_moi)'),
+  ('25e8b0b5-1b6a-5dc4-9d20-f7962af8bcd8', 'giam_kha_nang_gang_suc', 'Giảm khả năng gắng sức', 'trieu_chung_dien_bien', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Giảm khả năng vận động thể lực hoặc tăng thời gian hồi phục (TL01 Bảng 3).', 'TL06 R11/STT 10 (giam_kha_nang_gang_suc)'),
+  ('3dc51dcb-e37d-5056-b340-45cbc638ddac', 'phu_hai_chi_duoi', 'Phù hai chi dưới (cơ năng)', 'trieu_chung_dien_bien', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Sưng/phù mắt cá chân hoặc hai chân do người bệnh ghi nhận.', 'TL06 R12/STT 11 (phu_hai_chi_duoi)'),
+  ('a768cbca-16ed-5214-a7e5-359606f06031', 'tang_can_nhanh', 'Tăng cân nhanh', 'trieu_chung_dien_bien', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Dấu hiệu giữ nước tiến triển (> 2 kg/tuần theo TL01 Bảng 3).', 'TL06 R13/STT 12 (tang_can_nhanh)'),
+  ('2cd0ff9d-2835-54ac-aced-302304306ad5', 'dau_nguc', 'Đau ngực', 'trieu_chung_dien_bien', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Đau ngực gợi ý thiếu máu cơ tim hoặc bệnh mạch vành kèm theo.', 'TL06 R14/STT 13 (dau_nguc)'),
+  ('d2c7e4e0-f942-5dcd-9bfb-a2002e635ed3', 'hoi_hop', 'Hồi hộp, đánh trống ngực', 'trieu_chung_dien_bien', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Triệu chứng gợi ý rối loạn nhịp tim.', 'TL06 R15/STT 14 (hoi_hop)'),
+  ('91da2089-39d9-57be-9f87-bfefdac357a9', 'ngat', 'Ngất hoặc tiền sử ngất', 'trieu_chung_dien_bien', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Ngất do rối loạn nhịp, hẹp van tim hoặc hạ huyết áp tư thế.', 'TL06 R16/STT 15 (ngat); TL06 R188/STT 192 (tien_su_te_nga_ngat)'),
+  ('691b1ac3-3915-52b8-b765-d937c338b47a', 'lu_lan_sang', 'Lú lẫn hoặc sảng', 'trieu_chung_dien_bien', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Biểu hiện suy tim không điển hình ở người cao tuổi (TL02 Mục 2.1).', 'TL06 R17/STT 16 (lu_lan_sang)'),
+  ('5eb5ccb5-6980-597f-9f70-8352b9ba6975', 'te_nga', 'Té ngã hoặc tiền sử té ngã', 'trieu_chung_dien_bien', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Biểu hiện không điển hình ở người cao tuổi và nguy cơ khi dùng thuốc.', 'TL06 R18/STT 17 (te_nga); TL06 R188/STT 192 (tien_su_te_nga_ngat)'),
+  ('80192ec2-7569-587e-8e31-310464bea9d2', 'chan_an', 'Chán ăn', 'trieu_chung_dien_bien', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Biểu hiện không điển hình ở người cao tuổi hoặc suy tim sung huyết.', 'TL06 R19/STT 18 (chan_an)'),
+  ('91b0c4e9-14da-5e8f-91bd-b69482daec6c', 'mat_ngu', 'Mất ngủ', 'trieu_chung_dien_bien', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Mất ngủ hoặc kích thích về đêm ở người cao tuổi (TL02 Mục 2.1).', 'TL06 R20/STT 19 (mat_ngu)'),
+  ('515a7beb-6424-5d66-84a8-2645b376c193', 'giam_van_dong', 'Giảm vận động', 'trieu_chung_dien_bien', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Suy giảm khả năng vận động ở người cao tuổi (TL02 Mục 2.1).', 'TL06 R21/STT 20 (giam_van_dong)'),
+  ('e848869f-cf00-5a84-8978-f7653c7afbd3', 'giam_kha_nang_tu_cham_soc', 'Giảm khả năng tự chăm sóc', 'trieu_chung_dien_bien', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Suy giảm khả năng sinh hoạt độc lập (TL02 Mục 2.1).', 'TL06 R22/STT 21 (giam_kha_nang_tu_cham_soc)'),
+  ('7b160361-acb0-5599-a565-97ce33f4b615', 'suy_giam_chuc_nang_khong_giai_thich', 'Suy giảm chức năng không giải thích được', 'trieu_chung_dien_bien', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Biểu hiện khởi phát suy tim kín đáo ở người cao tuổi.', 'TL06 R23/STT 22 (suy_giam_chuc_nang_khong_giai_thich)'),
+  ('66f54ba3-cb1c-510d-ba02-6c4b2f68c4e7', 'thay_doi_trieu_chung', 'Diễn biến thay đổi triệu chứng', 'trieu_chung_dien_bien', 'single_choice', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Đánh giá xu hướng triệu chứng khi tái khám/theo dõi.', 'TL06 R77/STT 81 (thay_doi_trieu_chung)'),
+  ('0ba20ca4-592a-5a46-9faf-7e66a2337912', 'nyha_hien_tai', 'Phân độ chức năng NYHA hiện tại', 'trieu_chung_dien_bien', 'single_choice', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Phân độ suy tim theo Hội Tim New York (TL01 Bảng 2).', 'TL06 R79/STT 83 (thay_doi_nyha); TL06 R149/STT 153 (nyha)'),
+  ('c240a5e9-11e2-5872-9e53-bb7625d44f80', 'nhu_cau_tang_lieu_loi_tieu', 'Nhu cầu tăng liều lợi tiểu gần đây', 'trieu_chung_dien_bien', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Dấu hiệu gợi ý suy tim diễn biến xấu hoặc ứ dịch tái phát.', 'TL06 R82/STT 86 (nhu_cau_tang_lieu_loi_tieu)'),
+  ('3f227d05-a518-561e-99f9-cd9ae90d2997', 'thay_doi_can_nang_kg', 'Mức thay đổi cân nặng', 'trieu_chung_dien_bien', 'number', 'kg', 'can_xac_nhan', 'visit_value', false, -50, 50, 'Chờ xác nhận khung thời gian chuẩn với nhóm AI (Q-AI-16).', 'TL06 R78/STT 82 (thay_doi_can_nang)'),
+  ('ac9f9bcc-52d3-55db-9e2d-a7b83b42b92c', 'thay_doi_can_nang_khoang_thoi_gian', 'Khoảng thời gian theo dõi thay đổi cân nặng', 'trieu_chung_dien_bien', 'integer', 'ngày', 'can_xac_nhan', 'visit_value', false, 1, 365, 'Chờ xác nhận mốc 3–7 ngày hay giữa hai lượt khám (Q-AI-16).', 'TL06 R78/STT 82 (thay_doi_can_nang)'),
+  ('ff7258a6-6c28-5834-a841-228e81b5b89b', 'thay_doi_nyha', 'Thay đổi phân độ NYHA', 'trieu_chung_dien_bien', 'single_choice', NULL, 'can_xac_nhan', 'visit_value', false, NULL, NULL, 'Chờ xác nhận là phân độ tĩnh I–IV hay chiều thay đổi (Q-AI-17).', 'TL06 R79/STT 83 (thay_doi_nyha)'),
+  ('d040189c-1f1c-5e9e-a6bb-87734d1cf3e6', 'so_lan_cap_cuu_nhap_vien', 'Số lần cấp cứu / nhập viện vì suy tim', 'trieu_chung_dien_bien', 'integer', 'lần', 'can_xac_nhan', 'visit_value', false, 0, 100, 'Cho phép nhập 0 hợp lệ; chờ xác nhận cửa sổ 6 hay 12 tháng (Q-AI-19).', 'TL06 R81/STT 85 (so_lan_cap_cuu_nhap_vien)'),
+  ('a8822ab3-3f8f-5ea2-af96-d94932cd4330', 'tinh_trang_worsening_decompensated', 'Tình trạng worsening / decompensated', 'trieu_chung_dien_bien', 'text', NULL, 'can_xac_nhan', 'visit_value', false, NULL, NULL, 'Chờ xác nhận danh mục phân loại của Model 3 (Q-AI-25).', 'TL06 R150/STT 154 (worsening_decompensated)'),
+  ('87be28ab-1899-5738-94ba-79c0a26f7ec9', 'chieu_cao_cm', 'Chiều cao', 'sinh_ton_kham', 'number', 'cm', 'mvp', 'visit_value', false, 50, 250, 'Đo chiều cao (cm), không chấp nhận giá trị 0.', 'TL06 R4/STT 3 (chieu_cao)'),
+  ('8e5d891f-c0db-528c-9875-568adaa2837c', 'can_nang_kg', 'Cân nặng hiện tại', 'sinh_ton_kham', 'number', 'kg', 'mvp', 'visit_value', false, 15, 250, 'Cân nặng tại lượt khám (kg), không tự chép từ lượt cũ.', 'TL06 R5/STT 4 (can_nang); TL06 R190/STT 194 (dinh_duong_can_nang_sarcopenia)'),
+  ('81d6bc40-74fd-5b35-a9d2-480d4a499937', 'bmi', 'Chỉ số khối cơ thể (BMI)', 'sinh_ton_kham', 'number', 'kg/m²', 'mvp', 'computed', true, 10, 80, 'Tự động tính từ chiều cao và cân nặng cùng lượt; NULL nếu thiếu một trong hai.', 'TL06 R6/STT 5 (bmi)'),
+  ('76142158-0458-58ee-a5b7-41f6eb881c57', 'huyet_ap_tam_thu', 'Huyết áp tâm thu', 'sinh_ton_kham', 'integer', 'mmHg', 'mvp', 'orthostatic_bp', false, 40, 300, 'Lưu trong bảng lặp visit_orthostatic_bp.systolic kèm tư thế và thời điểm.', 'TL06 R24/STT 23 (ha_t_the_nam_ngoi); TL06 R25/STT 24 (ha_t_the_dung); TL06 R152/STT 156 (ha_treatment); TL06 R165/STT 169 (nguy_co_te_nga_hha); +1 dòng khác'),
+  ('c16244e4-463c-52ca-8f3a-fce1d6f9a8d4', 'huyet_ap_tam_truong', 'Huyết áp tâm trương', 'sinh_ton_kham', 'integer', 'mmHg', 'mvp', 'orthostatic_bp', false, 20, 200, 'Lưu trong bảng lặp visit_orthostatic_bp.diastolic kèm tư thế và thời điểm.', 'TL06 R24/STT 23 (ha_t_the_nam_ngoi); TL06 R25/STT 24 (ha_t_the_dung); TL06 R152/STT 156 (ha_treatment); TL06 R165/STT 169 (nguy_co_te_nga_hha); +1 dòng khác'),
+  ('95c3e0e5-3ea8-5595-bfc1-2363f3c5373b', 'thoi_diem_do_ha', 'Thời điểm đo huyết áp', 'sinh_ton_kham', 'text', NULL, 'mvp', 'orthostatic_bp', false, NULL, NULL, 'Lưu dạng timestamptz tại visit_orthostatic_bp.measured_at.', 'TL06 R24/STT 23 (ha_t_the_nam_ngoi); TL06 R25/STT 24 (ha_t_the_dung); TL06 R152/STT 156 (ha_treatment); TL06 R184/STT 188 (ha_nam_ngoi_dung)'),
+  ('a64408d9-2bec-5e72-bd49-25709f60b54a', 'tu_the_do_ha', 'Tư thế đo huyết áp', 'sinh_ton_kham', 'single_choice', NULL, 'mvp', 'orthostatic_bp', false, NULL, NULL, 'Lưu trong bảng lặp visit_orthostatic_bp.position.', 'TL06 R24/STT 23 (ha_t_the_nam_ngoi); TL06 R25/STT 24 (ha_t_the_dung); TL06 R152/STT 156 (ha_treatment); TL06 R165/STT 169 (nguy_co_te_nga_hha); +1 dòng khác'),
+  ('08e64d3e-62ec-5951-a020-98edbaa7756a', 'mach', 'Mạch / Tần số tim', 'sinh_ton_kham', 'integer', 'lần/phút', 'mvp', 'visit_value', false, 20, 300, 'Tần số tim khi khám lâm sàng (lần/phút).', 'TL06 R26/STT 25 (mach); TL06 R153/STT 157 (mach_treatment); TL06 R185/STT 189 (nhip_tim_ecg)'),
+  ('03e518a5-ce73-58fb-86e6-f28f2d1c30ab', 'nhip_tho', 'Nhịp thở', 'sinh_ton_kham', 'integer', 'lần/phút', 'mvp', 'visit_value', false, 4, 80, 'Tần số hô hấp (lần/phút).', 'TL06 R27/STT 26 (nhip_tho)'),
+  ('4b48b30f-15e3-5098-821e-5c4641938dd4', 'spo2', 'Độ bão hòa oxy máu ngoại vi (SpO₂)', 'sinh_ton_kham', 'number', '%', 'mvp', 'visit_value', false, 30, 100, 'Giá trị SpO₂ (%) trong giới hạn sinh lý 30–100%.', 'TL06 R28/STT 27 (spo2); TL06 R154/STT 158 (spo2_treatment)'),
+  ('a0f49c79-5167-5f5b-a164-6159e26392b9', 'tinh_mach_co_noi', 'Tĩnh mạch cổ nổi', 'sinh_ton_kham', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Dấu hiệu thực thể tăng áp lực tĩnh mạch trung tâm (TL01 Bảng 3).', 'TL06 R29/STT 28 (tinh_mach_co_noi); TL06 R107/STT 111 (trieu_chung_dau_hieu)'),
+  ('6a295959-0f95-5691-ae1b-ecab36ae09a3', 'phan_hoi_gan_tinh_mach_co', 'Phản hồi gan – tĩnh mạch cổ dương tính', 'sinh_ton_kham', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Dấu hiệu thực thể đặc hiệu của sung huyết hệ thống (TL01 Bảng 3).', 'TL06 R30/STT 29 (phan_hoi_gan_tinh_mach_co)'),
+  ('428c9f96-2b22-5834-abbe-e2ceaed8c564', 'tieng_tim_t3', 'Tiếng tim T3 (ngựa phi)', 'sinh_ton_kham', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Dấu hiệu thực thể đặc hiệu khi nghe tim (TL01 Bảng 3).', 'TL06 R31/STT 30 (tieng_tim_t3)'),
+  ('3d7d2ef8-ec36-5bcc-943a-c7f61aa6d142', 'ran_am_phoi', 'Ran ẩm ở phổi', 'sinh_ton_kham', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Dấu hiệu ứ dịch phế nang / sung huyết phổi (TL01 Bảng 3).', 'TL06 R32/STT 31 (ran_am_phoi)'),
+  ('8a53e4a6-3e55-533b-8658-cf63290c4dc4', 'phu_ngoai_bien', 'Phù ngoại biên (khám thực thể)', 'sinh_ton_kham', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Phù mắt cá, cẳng chân, bìu khi bác sĩ khám thực thể.', 'TL06 R33/STT 32 (phu_ngoai_bien); TL06 R107/STT 111 (trieu_chung_dau_hieu)'),
+  ('618e194c-293f-5c10-9cc6-dea4b18ffee4', 'gan_to', 'Gan to', 'sinh_ton_kham', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Dấu hiệu sung huyết tĩnh mạch hệ thống (TL01 Bảng 3).', 'TL06 R34/STT 33 (gan_to)'),
+  ('d1305822-713d-501b-986e-0d3eb3aa361f', 'co_truong', 'Cổ trướng', 'sinh_ton_kham', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Dấu hiệu sung huyết hệ thống nặng (TL01 Bảng 3).', 'TL06 R35/STT 34 (co_truong)'),
+  ('06725da5-314f-5296-9a37-eb89c085254a', 'giam_tuoi_mau_ngoai_vi', 'Dấu hiệu giảm tưới máu ngoại vi', 'sinh_ton_kham', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Đầu chi lạnh, ẩm, mạch nhanh nhỏ, thiểu niệu.', 'TL06 R36/STT 35 (giam_tuoi_mau_ngoai_vi); TL06 R151/STT 155 (sung_huyet_tuoi_mau)'),
+  ('510091f7-b964-51ab-820d-1da85eeadcbe', 'tinh_trang_sung_huyet', 'Kết luận tình trạng sung huyết lâm sàng', 'sinh_ton_kham', 'text', NULL, 'can_xac_nhan', 'visit_value', false, NULL, NULL, 'Chờ xác nhận cần ô tổng hợp riêng ngoài 8 dấu hiệu thực thể hay không (Q-AI-25).', 'TL06 R151/STT 155 (sung_huyet_tuoi_mau)'),
+  ('b50ba240-e677-5fe9-bd04-76efd9cfedc1', 'ts_benh_mach_vanh_nmct', 'Bệnh mạch vành / Nhồi máu cơ tim', 'benh_su_dong_mac', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Cờ 3 trạng thái tiền sử/nguyên nhân bệnh mạch vành (chi tiết mức hẹp tách riêng).', 'TL06 R44/STT 45 (benh_mach_vanh_nhoi_mau_co_tim); TL06 R161/STT 165 (benh_dong_mac_treatment)'),
+  ('8ad8e55d-93ec-5eb8-9f5c-f93abcd8ecc7', 'ts_dai_thao_duong', 'Đái tháo đường', 'benh_su_dong_mac', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Bệnh đồng mắc ảnh hưởng ưu tiên điều trị SGLT2i.', 'TL06 R45/STT 46 (dai_thao_duong); TL06 R111/STT 115 (benh_dong_mac_lab); TL06 R161/STT 165 (benh_dong_mac_treatment)'),
+  ('532b16a9-13a5-5be2-8bcf-d49956053e43', 'ts_beo_phi', 'Béo phì (ghi nhận lâm sàng)', 'benh_su_dong_mac', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Tiền sử béo phì lưu tách riêng với chỉ số BMI tự tính.', 'TL06 R46/STT 47 (beo_phi)'),
+  ('49687dc7-7181-5353-82fd-74959503587f', 'ts_benh_than_man', 'Bệnh thận mạn (CKD)', 'benh_su_dong_mac', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Bệnh đồng mắc ảnh hưởng chỉnh liều RAASi/MRA/Digoxin.', 'TL06 R47/STT 48 (benh_than_man); TL06 R111/STT 115 (benh_dong_mac_lab); TL06 R161/STT 165 (benh_dong_mac_treatment)'),
+  ('d8992296-2a89-5bf5-bae7-636ead74f2ca', 'ts_hoa_tri_thuoc_doc_tim', 'Tiền sử hóa trị / thuốc độc tim', 'benh_su_dong_mac', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Yếu tố nguy cơ gây bệnh cơ tim do hóa chất/thuốc.', 'TL06 R48/STT 49 (tien_su_hoa_tri_thuoc_doc_tim)'),
+  ('c74576ef-79e8-547f-81d5-fd2514df182f', 'ts_benh_co_tim_cau_truc', 'Tiền sử bệnh cơ tim / tim cấu trúc', 'benh_su_dong_mac', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Tiền sử bất thường cấu trúc tim đã biết.', 'TL06 R49/STT 50 (tien_su_benh_co_tim_cau_truc)'),
+  ('2b3ef450-40bb-583d-ac9d-3d84b1af60bd', 'ts_tang_huyet_ap', 'Tăng huyết áp', 'benh_su_dong_mac', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Yếu tố nguy cơ và nguyên nhân thường gặp gây suy tim.', 'TL06 R50/STT 52 (tang_huyet_ap_nguyen_nhan)'),
+  ('3081821e-efa4-5083-ac2e-813206605005', 'ts_benh_van_tim', 'Bệnh van tim', 'benh_su_dong_mac', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Nguyên nhân hoặc bệnh lý tại van tim.', 'TL06 R51/STT 53 (benh_van_tim)'),
+  ('b9d7409d-eb01-552d-b929-46f1d42601d9', 'ts_rung_nhi_roi_loan_nhip', 'Rung nhĩ / Rối loạn nhịp khác', 'benh_su_dong_mac', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Nguyên nhân/yếu tố thúc đẩy và bệnh đồng mắc thường gặp.', 'TL06 R52/STT 54 (rung_nhi_roi_loan_nhip); TL06 R161/STT 165 (benh_dong_mac_treatment)'),
+  ('daa08db7-f85a-5918-ae72-96bfe4fb8d81', 'ts_benh_co_tim', 'Bệnh cơ tim (giãn, phì đại, hạn chế...)', 'benh_su_dong_mac', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Nguyên nhân bệnh cơ tim nguyên phát hoặc thứ phát.', 'TL06 R53/STT 55 (benh_co_tim)'),
+  ('159dd9b4-6356-525e-8f30-d4793a877089', 'ts_amyloidosis_tim', 'Bệnh cơ tim Amyloid (Amyloidosis tim)', 'benh_su_dong_mac', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Chọn Chưa rõ nếu chưa thăm dò chuyên sâu (TL01 Bảng 5).', 'TL06 R54/STT 56 (amyloidosis_tim)'),
+  ('e8fd0d75-6878-5aec-8cd4-6c95994951ee', 'ts_viem_co_tim', 'Viêm cơ tim', 'benh_su_dong_mac', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Nguyên nhân hoặc yếu tố thúc đẩy suy tim.', 'TL06 R55/STT 57 (viem_co_tim)'),
+  ('16c88750-c75d-5dc5-b596-141a6a5d0187', 'ts_thuoc_doc_chat', 'Suy tim do thuốc hoặc độc chất', 'benh_su_dong_mac', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Nguyên nhân do rượu, chất kích thích hoặc độc chất.', 'TL06 R56/STT 58 (thuoc_doc_chat)'),
+  ('8aac6c31-d15b-56be-a6ad-ac347ccae8c3', 'ts_takotsubo', 'Bệnh cơ tim Takotsubo', 'benh_su_dong_mac', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Chọn Chưa rõ nếu chưa loại trừ mạch vành.', 'TL06 R57/STT 59 (takotsubo)'),
+  ('f54ede28-e925-5449-88f7-0f0c7940a2f0', 'ts_benh_noi_tiet_chuyen_hoa', 'Bệnh nội tiết – chuyển hóa', 'benh_su_dong_mac', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Cường giáp, suy giáp, suy thượng thận hoặc rối loạn chuyển hóa.', 'TL06 R58/STT 60 (benh_noi_tiet_chuyen_hoa)'),
+  ('54a49627-29d0-5a26-b50f-a4bba572771b', 'ts_suy_tim_cung_luong_cao', 'Suy tim cung lượng cao', 'benh_su_dong_mac', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Suy tim do thiếu máu nặng, cường giáp, thông động–tĩnh mạch.', 'TL06 R59/STT 61 (suy_tim_cung_luong_cao)'),
+  ('adcdecf0-c0fd-5d20-ab9b-249c3d7a9464', 'ts_copd', 'Bệnh phổi tắc nghẽn mạn tính (COPD)', 'benh_su_dong_mac', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Bệnh đồng mắc cần phân biệt khó thở tim với khó thở phổi.', 'TL06 R60/STT 64 (copd); TL06 R111/STT 115 (benh_dong_mac_lab); TL06 R161/STT 165 (benh_dong_mac_treatment)'),
+  ('858fb830-99c6-5693-b36a-69451cb1c4a3', 'ts_thieu_mau', 'Thiếu máu', 'benh_su_dong_mac', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Bệnh đồng mắc thường gặp ở người cao tuổi suy tim.', 'TL06 R61/STT 65 (thieu_mau); TL06 R111/STT 115 (benh_dong_mac_lab)'),
+  ('0315dc5e-decc-5637-a1b9-dfa2478004e0', 'ts_benh_gan', 'Bệnh gan', 'benh_su_dong_mac', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Bệnh đồng mắc ảnh hưởng chuyển hóa thuốc và phù/cổ trướng.', 'TL06 R62/STT 66 (benh_gan)'),
+  ('a0f1e38b-0834-5c27-b14d-ad280562c5f1', 'ts_roi_loan_tuyen_giap', 'Rối loạn tuyến giáp', 'benh_su_dong_mac', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Yếu tố thúc đẩy rối loạn nhịp và suy tim.', 'TL06 R63/STT 67 (roi_loan_tuyen_giap)'),
+  ('e2c29158-9a56-5eae-81dc-0e0cbcf1e37c', 'ts_sa_sut_tri_tue', 'Sa sút trí tuệ', 'benh_su_dong_mac', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Ảnh hưởng tuân thủ điều trị và tự chăm sóc ở người cao tuổi.', 'TL06 R64/STT 68 (sa_sut_tri_tue)'),
+  ('3c7003ce-a478-5df2-bf15-94bb4d2ab90d', 'ts_tram_cam', 'Trầm cảm', 'benh_su_dong_mac', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Bệnh đồng mắc ảnh hưởng chất lượng sống và tuân thủ thuốc.', 'TL06 R65/STT 69 (tram_cam)'),
+  ('678277c9-23ae-5583-8d1c-ddff0ac5dc26', 'ts_benh_mach_mau_nao', 'Bệnh mạch máu não (đột quỵ / TIA)', 'benh_su_dong_mac', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Bệnh đồng mắc tim mạch – thần kinh.', 'TL06 R66/STT 70 (benh_mach_mau_nao)'),
+  ('0b21dc12-7d72-59b4-92d4-795256ce3820', 'ts_ung_thu', 'Ung thư', 'benh_su_dong_mac', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Liên quan tiên lượng và tiền sử điều trị độc tim.', 'TL06 R67/STT 71 (ung_thu)'),
+  ('1484fb07-fa20-51b3-a744-b76133efcba7', 'ts_benh_mach_vanh_chi_tiet', 'Chi tiết mức độ hẹp / can thiệp ĐMV', 'benh_su_dong_mac', 'text', NULL, 'can_xac_nhan', 'visit_value', false, NULL, NULL, 'Câu hỏi treo TL06 R44: chờ chốt văn bản hay cấu trúc (Q-AI-07).', 'TL06 R44/STT 45 (benh_mach_vanh_nhoi_mau_co_tim)'),
+  ('dd0f7c69-6b48-5861-9d0f-fb86354dc185', 'ts_thiet_bi_cay_ghep_chong_chi_dinh_mri', 'Thiết bị cấy ghép và chống chỉ định MRI', 'benh_su_dong_mac', 'text', NULL, 'can_xac_nhan', 'visit_value', false, NULL, NULL, 'Chờ chốt danh sách lựa chọn từ nhóm AI (Q-AI-24).', 'TL06 R114/STT 118 (thiet_bi_cay_ghep)'),
+  ('93f04340-e597-5be4-8fa4-0cf540d57bbf', 'thuoc_ghi_nhan', 'Danh sách thuốc đang sử dụng', 'thuoc_di_ung', 'text', NULL, 'mvp', 'medication', false, NULL, NULL, 'Lưu dạng bản ghi lặp trong bảng visit_medication (thuốc kê đơn & OTC/TPCN/YHCT).', 'TL06 R68/STT 72 (danh_sach_thuoc); TL06 R112/STT 116 (thuoc_dang_su_dung_lab); TL06 R159/STT 163 (thuoc_lieu_tuan_thu); TL06 R177/STT 181 (don_thuoc_moi); +1 dòng khác'),
+  ('60838194-7c49-5468-954d-8583525ca985', 'so_luong_thuoc_dong_thoi', 'Số lượng thuốc sử dụng đồng thời', 'thuoc_di_ung', 'integer', 'thuốc', 'mvp', 'computed', true, 0, 50, 'Tự động đếm từ bảng visit_medication với status=''active''.', 'TL06 R69/STT 73 (da_thuoc); TL06 R179/STT 183 (so_luong_thuoc_dong_thoi)'),
+  ('25807e9e-4b9b-5e8a-8908-5388d2a4f35d', 'di_ung_adr', 'Dị ứng thuốc, ADR và không dung nạp', 'thuoc_di_ung', 'text', NULL, 'mvp', 'allergy', false, NULL, NULL, 'Lưu dạng bản ghi lặp trong bảng visit_allergy.', 'TL06 R113/STT 117 (di_ung_thuoc_can_quang); TL06 R160/STT 164 (khong_dung_nap_thuoc); TL06 R180/STT 184 (di_ung_phan_ung_co_hai)'),
+  ('26142240-f585-5487-adbf-bfc16b46475d', 'di_ung_thuoc_can_quang', 'Dị ứng thuốc cản quang', 'thuoc_di_ung', 'boolean', NULL, 'mvp', 'allergy', false, NULL, NULL, 'Ghi nhận trong visit_allergy với agent_category=''contrast_media''.', 'TL06 R113/STT 117 (di_ung_thuoc_can_quang)'),
+  ('53a014c1-65ff-5099-90f9-699c3d59e037', 'co_da_thuoc', 'Cờ tình trạng đa thuốc', 'thuoc_di_ung', 'boolean', NULL, 'can_xac_nhan', 'computed', true, NULL, NULL, 'Chờ nhóm AI chốt ngưỡng >=4 hay >=5 thuốc và quy tắc đếm OTC (Q-AI-14).', 'TL06 R69/STT 73 (da_thuoc)'),
+  ('364197bf-2007-55f1-80b7-2e843e318dc6', 'thuoc_muc_do_tuan_thu', 'Mức độ tuân thủ dùng thuốc', 'thuoc_di_ung', 'text', NULL, 'can_xac_nhan', 'medication', false, NULL, NULL, 'Chờ nhóm AI chốt thang tuân thủ và vị trí gắn theo thuốc hay lượt (Q-AI-25).', 'TL06 R159/STT 163 (thuoc_lieu_tuan_thu)'),
+  ('a5036b67-843e-5bd0-8341-aa50e7ccdd8b', 'cls_ecg_ket_luan', 'Kết quả đọc Điện tâm đồ (ECG 12 chuyển đạo)', 'can_lam_sang', 'text', NULL, 'mvp', 'lab_result', false, NULL, NULL, 'Nhịp tim, rung nhĩ, QRS, block, QTc lưu tại visit_lab_result.value_text.', 'TL06 R70/STT 74 (ecg_12_chuyen_dao); TL06 R109/STT 113 (xet_nghiem_da_co); TL06 R185/STT 189 (nhip_tim_ecg)'),
+  ('f9d40c98-a4cc-565b-a2f8-ee897fdf1300', 'cls_ecg_thoi_diem', 'Thời điểm đo ECG', 'can_lam_sang', 'text', NULL, 'mvp', 'lab_result', false, NULL, NULL, 'Lưu dạng timestamptz tại visit_lab_result.measured_at.', 'TL06 R70/STT 74 (ecg_12_chuyen_dao); TL06 R185/STT 189 (nhip_tim_ecg)'),
+  ('13298908-40d3-5891-8a9a-2f70a9ef0ad0', 'cls_bnp', 'Xét nghiệm BNP', 'can_lam_sang', 'number', 'pg/mL', 'mvp', 'lab_result', false, 0, 50000, 'Tách riêng khỏi NT-proBNP; lưu ở visit_lab_result kèm đơn vị và thời điểm.', 'TL06 R71/STT 75 (bnp_ntprobnp); TL06 R109/STT 113 (xet_nghiem_da_co); TL06 R156/STT 160 (bnp_treatment)'),
+  ('4ae36d03-1c2d-5438-9865-aa137dd8c993', 'cls_don_vi', 'Đơn vị xét nghiệm cận lâm sàng', 'can_lam_sang', 'text', NULL, 'mvp', 'lab_result', false, NULL, NULL, 'Thuộc tính unit bắt buộc trên mọi bản ghi số của visit_lab_result.', 'TL06 R71/STT 75 (bnp_ntprobnp); TL06 R72/STT 76 (troponin); TL06 R75/STT 79 (creatinin_egfr); TL06 R76/STT 80 (dien_giai); +6 dòng khác'),
+  ('c632fdaf-9a99-5d20-8988-262a7edb16bc', 'cls_nt_probnp', 'Xét nghiệm NT-proBNP', 'can_lam_sang', 'number', 'pg/mL', 'mvp', 'lab_result', false, 0, 200000, 'Tách riêng khỏi BNP; lưu ở visit_lab_result kèm đơn vị và thời điểm.', 'TL06 R71/STT 75 (bnp_ntprobnp); TL06 R109/STT 113 (xet_nghiem_da_co); TL06 R156/STT 160 (bnp_treatment)'),
+  ('a1ddd615-e7d8-51fa-a43c-da227ad37652', 'cls_thoi_diem', 'Thời điểm thực hiện / lấy mẫu CLS', 'can_lam_sang', 'text', NULL, 'mvp', 'lab_result', false, NULL, NULL, 'Lưu dạng timestamptz tại visit_lab_result.measured_at.', 'TL06 R71/STT 75 (bnp_ntprobnp); TL06 R72/STT 76 (troponin); TL06 R75/STT 79 (creatinin_egfr); TL06 R76/STT 80 (dien_giai); +6 dòng khác'),
+  ('aa3b2f8c-8180-587c-9b87-b2c2b5485589', 'cls_troponin', 'Xét nghiệm Troponin', 'can_lam_sang', 'number', 'ng/L', 'mvp', 'lab_result', false, 0, 100000, 'Lưu ở visit_lab_result.value_num kèm đơn vị và thời điểm.', 'TL06 R72/STT 76 (troponin)'),
+  ('45837d96-35bc-5120-9d20-509511dc73d3', 'cls_troponin_loai', 'Loại xét nghiệm Troponin', 'can_lam_sang', 'single_choice', NULL, 'mvp', 'lab_result', false, NULL, NULL, 'Lưu ở visit_lab_result.lab_subtype.', 'TL06 R72/STT 76 (troponin)'),
+  ('28ffd661-6e7b-5883-98b6-4da9d90d043d', 'cls_lvef', 'Phân suất tống máu thất trái (LVEF)', 'can_lam_sang', 'number', '%', 'mvp', 'lab_result', false, 5, 95, 'Tách số thực LVEF (%) khỏi văn bản kết luận siêu âm tim; hỗ trợ nhiều mốc thời gian.', 'TL06 R73/STT 77 (sieu_am_tim_ef); TL06 R109/STT 113 (xet_nghiem_da_co); TL06 R155/STT 159 (ef_hien_tai)'),
+  ('341e763a-76c1-51db-b5fd-afa6a0344c9e', 'cls_sieu_am_tim_ket_luan', 'Kết luận siêu âm tim', 'can_lam_sang', 'text', NULL, 'mvp', 'lab_result', false, NULL, NULL, 'Mô tả cấu trúc buồng tim, van tim, tâm trương, ALĐMP tại visit_lab_result.value_text.', 'TL06 R73/STT 77 (sieu_am_tim_ef)'),
+  ('11c5bc8e-7100-5f08-833e-a631b47ccaf0', 'cls_sieu_am_tim_thoi_diem', 'Thời điểm siêu âm tim', 'can_lam_sang', 'text', NULL, 'mvp', 'lab_result', false, NULL, NULL, 'Lưu dạng timestamptz tại visit_lab_result.measured_at.', 'TL06 R73/STT 77 (sieu_am_tim_ef); TL06 R155/STT 159 (ef_hien_tai)'),
+  ('f73ecfdc-7d2a-5ecd-8fbc-1688bc0b6d60', 'cls_xquang_ket_luan', 'Kết quả X-quang tim phổi', 'can_lam_sang', 'text', NULL, 'mvp', 'lab_result', false, NULL, NULL, 'Bóng tim to, ứ huyết phổi, tràn dịch màng phổi lưu tại visit_lab_result.value_text.', 'TL06 R74/STT 78 (xquang_tim_phoi); TL06 R109/STT 113 (xet_nghiem_da_co)'),
+  ('afc12a73-8745-53ee-a819-ed5764154db3', 'cls_xquang_thoi_diem', 'Thời điểm chụp X-quang tim phổi', 'can_lam_sang', 'text', NULL, 'mvp', 'lab_result', false, NULL, NULL, 'Lưu dạng timestamptz tại visit_lab_result.measured_at.', 'TL06 R74/STT 78 (xquang_tim_phoi)'),
+  ('e4845f99-e3c8-5263-87e6-cd7f23d2496d', 'cls_creatinin', 'Creatinin huyết thanh', 'can_lam_sang', 'number', 'umol/L', 'mvp', 'lab_result', false, 10, 3000, 'Tách riêng khỏi eGFR; bắt buộc đơn vị (umol/L hoặc mg/dL) trong visit_lab_result.', 'TL06 R75/STT 79 (creatinin_egfr); TL06 R110/STT 114 (chuc_nang_than_gan_dien_giai); TL06 R157/STT 161 (creatinin_egfr_treatment); TL06 R181/STT 185 (creatinin_egfr_medsafety)'),
+  ('92847c23-e430-52cb-9de6-4abda9d7bc27', 'cls_egfr', 'Mức lọc cầu thận ước tính (eGFR)', 'can_lam_sang', 'number', 'mL/phút/1.73m²', 'mvp', 'lab_result', false, 1, 200, 'Tách riêng khỏi Creatinin; lưu ở visit_lab_result.', 'TL06 R75/STT 79 (creatinin_egfr); TL06 R110/STT 114 (chuc_nang_than_gan_dien_giai); TL06 R157/STT 161 (creatinin_egfr_treatment); TL06 R181/STT 185 (creatinin_egfr_medsafety)'),
+  ('e17fa29e-7803-56c5-89a1-018c9222a39c', 'cls_clo', 'Clo máu (Cl-)', 'can_lam_sang', 'number', 'mmol/L', 'mvp', 'lab_result', false, 60, 150, 'Bổ sung từ XLS bộ điện giải; lưu ở visit_lab_result.', 'TL06 R76/STT 80 (dien_giai); TL06 R182/STT 186 (kali_natri_dien_giai_medsafety)'),
+  ('96d1b6b1-8474-5f12-a2e9-70c099b81d42', 'cls_kali', 'Kali máu (K+)', 'can_lam_sang', 'number', 'mmol/L', 'mvp', 'lab_result', false, 1.0, 10.0, 'Lưu ở visit_lab_result kèm đơn vị và thời điểm.', 'TL06 R76/STT 80 (dien_giai); TL06 R110/STT 114 (chuc_nang_than_gan_dien_giai); TL06 R158/STT 162 (kali_natri_gan); TL06 R182/STT 186 (kali_natri_dien_giai_medsafety)'),
+  ('37cb154e-7413-5e1b-b640-269fedaf41e3', 'cls_natri', 'Natri máu (Na+)', 'can_lam_sang', 'number', 'mmol/L', 'mvp', 'lab_result', false, 90, 190, 'Lưu ở visit_lab_result kèm đơn vị và thời điểm.', 'TL06 R76/STT 80 (dien_giai); TL06 R110/STT 114 (chuc_nang_than_gan_dien_giai); TL06 R158/STT 162 (kali_natri_gan); TL06 R182/STT 186 (kali_natri_dien_giai_medsafety)'),
+  ('79bb27e6-8617-54a1-92f8-a4c447a89fc8', 'thay_doi_bnp_ntprobnp_ef', 'Biến thiên BNP/NT-proBNP và EF', 'can_lam_sang', 'number', '%', 'can_xac_nhan', 'computed', true, -100, 10000, 'Chờ chốt cách tính chênh lệch hay truyền chuỗi thời gian từ visit_lab_result (Q-AI-18).', 'TL06 R80/STT 84 (thay_doi_bnp_ntprobnp)'),
+  ('19829bf3-27e0-59b8-bd0c-3634a44b7714', 'cls_chuc_nang_gan', 'Kết quả chức năng gan', 'can_lam_sang', 'text', NULL, 'can_xac_nhan', 'lab_result', false, NULL, NULL, 'Chờ chốt danh mục chỉ số thành phần (AST, ALT, Bilirubin, Albumin) và đơn vị (Q-AI-21).', 'TL06 R110/STT 114 (chuc_nang_than_gan_dien_giai); TL06 R158/STT 162 (kali_natri_gan); TL06 R183/STT 187 (chuc_nang_gan_medsafety)'),
+  ('8faac762-dd2b-5b28-9a2f-3b47ce982174', 'lao_khoa_tien_su_sang', 'Tiền sử sảng (Delirium)', 'lao_khoa', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Tiền sử từng có đợt sảng cấp tính ở người cao tuổi.', 'TL06 R39/STT 39 (tien_su_sang); TL06 R187/STT 191 (nhan_thuc_tien_su_sang)'),
+  ('ab0ff0d1-de8b-5f4c-95af-e8a1742b7b08', 'lao_khoa_sarcopenia', 'Suy giảm khối cơ / lực cơ (Sarcopenia)', 'lao_khoa', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Khớp TL06 R42: Có / Không / Chưa đánh giá (value_state=''unknown'').', 'TL06 R42/STT 42 (sarcopenia); TL06 R166/STT 170 (dinh_duong_sarcopenia); TL06 R190/STT 194 (dinh_duong_can_nang_sarcopenia)'),
+  ('218c5eda-af09-59fc-bf95-8dedacf157b1', 'lao_khoa_tu_su_dung_thuoc', 'Khả năng tự sử dụng và quản lý thuốc', 'lao_khoa', 'single_choice', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Khớp TL06 R43.', 'TL06 R43/STT 43 (tu_su_dung_thuoc); TL06 R167/STT 171 (tu_quan_ly_thuoc); TL06 R189/STT 193 (kha_nang_nuot_tu_dung_thuoc)'),
+  ('627dcfcb-f93a-57a5-9a0f-b2a9374651d0', 'xh_co_nguoi_cham_soc', 'Có người chăm sóc hỗ trợ', 'lao_khoa', 'boolean', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Tách cờ Có/Không/Chưa rõ từ TL06 R83.', 'TL06 R83/STT 87 (nguoi_cham_soc); TL06 R167/STT 171 (tu_quan_ly_thuoc); TL06 R191/STT 195 (ho_tro_nguoi_cham_soc_medsafety)'),
+  ('e2b25c8d-3689-5a91-8af3-283bf564e8ef', 'xh_quan_he_nguoi_cham_soc', 'Quan hệ người chăm sóc', 'lao_khoa', 'text', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Ghi nhận quan hệ (vợ/chồng, con, điều dưỡng...) khi Có người chăm sóc.', 'TL06 R83/STT 87 (nguoi_cham_soc)'),
+  ('badab604-5d20-50b7-828d-9d350ff74005', 'xh_kha_nang_chi_tra', 'Khả năng chi trả', 'lao_khoa', 'single_choice', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Khớp TL06 R84.', 'TL06 R84/STT 88 (kha_nang_chi_tra); TL06 R116/STT 120 (muc_tieu_kha_nang_xet_nghiem); TL06 R192/STT 196 (chi_tra_tai_kham_medsafety)'),
+  ('4ad469b5-7a9f-502e-88e4-bb6b249814a6', 'xh_kha_nang_tai_kham', 'Khả năng tái khám', 'lao_khoa', 'single_choice', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Khớp TL06 R85.', 'TL06 R85/STT 89 (kha_nang_tai_kham); TL06 R192/STT 196 (chi_tra_tai_kham_medsafety)'),
+  ('2c1d50ad-4da7-5c36-8b08-540e7256f6de', 'xh_kha_nang_mua_su_dung_thuoc', 'Khả năng mua và sử dụng thuốc', 'lao_khoa', 'single_choice', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Khớp TL06 R86.', 'TL06 R86/STT 90 (kha_nang_mua_su_dung_thuoc)'),
+  ('7b27bd34-c09b-57f4-b8d1-bd95856d67b1', 'xh_ho_tro_gia_dinh', 'Mức độ hỗ trợ của gia đình', 'lao_khoa', 'single_choice', NULL, 'mvp', 'visit_value', false, NULL, NULL, 'Khớp TL06 R88.', 'TL06 R88/STT 92 (ho_tro_gia_dinh); TL06 R191/STT 195 (ho_tro_nguoi_cham_soc_medsafety)'),
+  ('233ff63e-af9d-5432-86c4-618c07d117fc', 'lao_khoa_frailty', 'Đánh giá suy yếu (Frailty)', 'lao_khoa', 'text', NULL, 'can_xac_nhan', 'visit_value', false, NULL, NULL, 'Chờ chốt thang đo CFS 1–9 vs Fried/FRAIL (Q-AI-01); tuyệt đối không tự bịa.', 'TL06 R37/STT 36 (frailty); TL06 R108/STT 112 (frailty_hop_tac_xet_nghiem); TL06 R162/STT 166 (frailty_treatment); TL06 R186/STT 190 (frailty_medsafety)'),
+  ('b9452097-18b8-504b-b1a6-1a1b278daa55', 'lao_khoa_chuc_nang_nhan_thuc', 'Chức năng nhận thức', 'lao_khoa', 'text', NULL, 'can_xac_nhan', 'visit_value', false, NULL, NULL, 'Chờ chốt thang đo MMSE/MoCA/Mini-Cog hay phân loại lâm sàng (Q-AI-02).', 'TL06 R38/STT 38 (chuc_nang_nhan_thuc); TL06 R108/STT 112 (frailty_hop_tac_xet_nghiem); TL06 R163/STT 167 (nhan_thuc_treatment); TL06 R187/STT 191 (nhan_thuc_tien_su_sang)'),
+  ('2922f744-4462-5fc0-a081-e99447a11c77', 'lao_khoa_nguy_co_te_nga', 'Nguy cơ té ngã', 'lao_khoa', 'text', NULL, 'can_xac_nhan', 'visit_value', false, NULL, NULL, 'Chờ chốt công cụ đánh giá tại cơ sở (Q-AI-04).', 'TL06 R40/STT 40 (nguy_co_te_nga); TL06 R165/STT 169 (nguy_co_te_nga_hha)'),
+  ('9c2fd5f2-125d-5a96-a9a4-8a48ded96d2f', 'lao_khoa_tinh_trang_dinh_duong', 'Tình trạng dinh dưỡng', 'lao_khoa', 'text', NULL, 'can_xac_nhan', 'visit_value', false, NULL, NULL, 'Chờ chốt thang MNA-SF hay phân loại định tính (Q-AI-05).', 'TL06 R41/STT 41 (tinh_trang_dinh_duong); TL06 R166/STT 170 (dinh_duong_sarcopenia); TL06 R190/STT 194 (dinh_duong_can_nang_sarcopenia)'),
+  ('097ecb28-667e-5464-b772-d2f0afb307e1', 'xh_khoang_cach_co_so_y_te', 'Khoảng cách đến cơ sở y tế', 'lao_khoa', 'number', 'km', 'can_xac_nhan', 'visit_value', false, 0, 1000, 'Chờ chốt nhập số km hay phân nhóm Gần/Trung bình/Xa (Q-AI-20).', 'TL06 R87/STT 91 (khoang_cach_co_so_y_te)'),
+  ('88b17e13-6690-5c15-94ec-f74466490049', 'kha_nang_hop_tac_xet_nghiem', 'Khả năng hợp tác thực hiện xét nghiệm', 'lao_khoa', 'text', NULL, 'can_xac_nhan', 'visit_value', false, NULL, NULL, 'Chờ chốt danh mục lựa chọn (Q-AI-24).', 'TL06 R108/STT 112 (frailty_hop_tac_xet_nghiem)'),
+  ('10a89a5b-4edf-53ad-9634-a742c86626d6', 'kha_nang_gang_suc_tham_do_xam_lan', 'Khả năng chịu đựng nghiệm pháp gắng sức / xâm lấn', 'lao_khoa', 'text', NULL, 'can_xac_nhan', 'visit_value', false, NULL, NULL, 'Chờ chốt danh mục lựa chọn (Q-AI-24).', 'TL06 R115/STT 119 (kha_nang_gang_suc_tham_do)'),
+  ('6f2d7f3f-caa4-5170-8794-0485b5e5bb69', 'kha_nang_thuc_hien_xet_nghiem', 'Khả năng thực hiện xét nghiệm tại cơ sở', 'lao_khoa', 'text', NULL, 'can_xac_nhan', 'visit_value', false, NULL, NULL, 'Chờ chốt danh mục lựa chọn (Q-AI-24).', 'TL06 R116/STT 120 (muc_tieu_kha_nang_xet_nghiem)'),
+  ('88e58f1a-5dfa-541c-a175-02371250be7a', 'lao_khoa_adl_iadl', 'Khả năng thực hiện ADL/IADL', 'lao_khoa', 'text', NULL, 'can_xac_nhan', 'visit_value', false, NULL, NULL, 'Khuyết ở M1 TL06 nhưng có ở M3 R164; chờ chốt thang Katz/Barthel/Lawton (Q-AI-03).', 'TL06 R164/STT 168 (adl_iadl_treatment)'),
+  ('6969a5bf-c330-597d-8a84-58de8fdfc958', 'lao_khoa_kha_nang_nuot', 'Khả năng nuốt', 'lao_khoa', 'text', NULL, 'can_xac_nhan', 'visit_value', false, NULL, NULL, 'Chờ chốt danh sách lựa chọn từ Model 4 R189 (Q-AI-06).', 'TL06 R189/STT 193 (kha_nang_nuot_tu_dung_thuoc)'),
+  ('3c70cdb8-2b39-5691-a19c-4431fb27f840', 'muc_tieu_dieu_tri', 'Mục tiêu điều trị ưu tiên', 'ghi_chu', 'multi_choice', NULL, 'can_xac_nhan', 'visit_value', false, NULL, NULL, 'Kiểu multi_choice lưu tại visit_value_option (CR-W1-01); chờ chốt phạm vi MVP (Q-AI-25).', 'TL06 R116/STT 120 (muc_tieu_kha_nang_xet_nghiem); TL06 R168/STT 172 (muc_tieu_dieu_tri)'),
+  ('34d18f70-403f-518d-923d-99ac3763fb69', 'chan_doan_stage_suy_tim', 'Giai đoạn suy tim (Stage A–D)', 'ghi_chu', 'single_choice', NULL, 'can_xac_nhan', 'visit_value', false, NULL, NULL, 'Chờ xác nhận bác sĩ tự nhập hay nhận từ Model 1 giai đoạn sau (Q-AI-25).', 'TL06 R146/STT 150 (stage_suy_tim)'),
+  ('e1682ea7-28dd-5846-93c0-8898d95229e5', 'chan_doan_kieu_hinh_ef', 'Kiểu hình suy tim theo EF', 'ghi_chu', 'single_choice', NULL, 'can_xac_nhan', 'visit_value', false, NULL, NULL, 'Chờ xác nhận bổ sung HFmrEF (41–49%) bị thiếu trong TL06 (Q-AI-11).', 'TL06 R147/STT 151 (ef_treatment)'),
+  ('765dac8f-692c-54a5-b5cc-46ef785af1b5', 'chan_doan_nguyen_nhan_suy_tim', 'Nguyên nhân suy tim trước điều trị', 'ghi_chu', 'text', NULL, 'can_xac_nhan', 'visit_value', false, NULL, NULL, 'Chờ chốt danh mục nguyên nhân hay nhận từ Model 1 (Q-AI-25).', 'TL06 R148/STT 152 (nguyen_nhan_treatment)');
+
+-- 6. Field Options (single_choice & multi_choice choices)
+INSERT INTO field_option (id, field_definition_id, option_code, label_vi, display_order, is_active)
+VALUES
+  ('3615b75f-05fe-5cb4-8ef0-e008f819c130', '39f17379-aabd-5e93-aafa-2646e07d867b', 'male', 'Nam', 1, true),
+  ('64188d30-0472-53db-b165-61ac80b1df72', '39f17379-aabd-5e93-aafa-2646e07d867b', 'female', 'Nữ', 2, true),
+  ('3f9a6e73-8cb7-52b8-bb2f-1f95639d4696', '39f17379-aabd-5e93-aafa-2646e07d867b', 'unknown', 'Chưa rõ', 3, true),
+  ('b0113e92-3f0c-525f-bc8d-3b811f9763bf', '66f54ba3-cb1c-510d-ba02-6c4b2f68c4e7', 'cai_thien', 'Cải thiện', 1, true),
+  ('b464eaf9-b200-55d0-8a5b-c8cefbe6c1d4', '66f54ba3-cb1c-510d-ba02-6c4b2f68c4e7', 'khong_doi', 'Không đổi', 2, true),
+  ('5b2782bf-e6ee-5a94-925e-fa521a039e02', '66f54ba3-cb1c-510d-ba02-6c4b2f68c4e7', 'nang_len', 'Nặng lên', 3, true),
+  ('307dd32c-5e04-5bf6-af55-485abb0528b6', '0ba20ca4-592a-5a46-9faf-7e66a2337912', 'nyha_i', 'Độ I', 1, true),
+  ('e16dac9a-297c-51db-9c4a-82093ec6ca2c', '0ba20ca4-592a-5a46-9faf-7e66a2337912', 'nyha_ii', 'Độ II', 2, true),
+  ('7d376e8e-b9d9-5e1b-bd61-c069e06f36f6', '0ba20ca4-592a-5a46-9faf-7e66a2337912', 'nyha_iii', 'Độ III', 3, true),
+  ('906cc37d-e6d7-54de-b8ec-0525e6a49f06', '0ba20ca4-592a-5a46-9faf-7e66a2337912', 'nyha_iv', 'Độ IV', 4, true),
+  ('a5eb6ee9-1dd1-54ab-9704-82dee4cae4e2', 'ff7258a6-6c28-5834-a841-228e81b5b89b', 'nyha_i', 'Độ I', 1, true),
+  ('45b21d11-d31a-5562-bfb6-1733b9c77d5a', 'ff7258a6-6c28-5834-a841-228e81b5b89b', 'nyha_ii', 'Độ II', 2, true),
+  ('06a678cd-3d36-5e1c-a2bf-0cce28f83df5', 'ff7258a6-6c28-5834-a841-228e81b5b89b', 'nyha_iii', 'Độ III', 3, true),
+  ('f5043dae-9ced-5c68-8524-476ef4cdea10', 'ff7258a6-6c28-5834-a841-228e81b5b89b', 'nyha_iv', 'Độ IV', 4, true),
+  ('867f4510-edca-5bf3-9e18-97910e4e6913', 'a64408d9-2bec-5e72-bd49-25709f60b54a', 'supine', 'Nằm', 1, true),
+  ('895b93a0-22d4-5fe9-9a11-7a1a9e0d7a06', 'a64408d9-2bec-5e72-bd49-25709f60b54a', 'sitting', 'Ngồi', 2, true),
+  ('3530e62a-7740-5d25-ac9e-e352f9a24e3a', 'a64408d9-2bec-5e72-bd49-25709f60b54a', 'standing', 'Đứng', 3, true),
+  ('786961c4-2396-5455-988e-32182eb769ba', '45837d96-35bc-5120-9d20-509511dc73d3', 'hs_troponin_t', 'hs-Troponin T', 1, true),
+  ('5637e03f-6553-5c65-b367-f3d291e695f2', '45837d96-35bc-5120-9d20-509511dc73d3', 'hs_troponin_i', 'hs-Troponin I', 2, true),
+  ('7bbae679-1ac1-5f93-a47e-27301ced5d81', '45837d96-35bc-5120-9d20-509511dc73d3', 'troponin_t', 'Troponin T', 3, true),
+  ('8377dd7a-1e31-5fe7-bd03-893880867e4a', '45837d96-35bc-5120-9d20-509511dc73d3', 'troponin_i', 'Troponin I', 4, true),
+  ('e69860a7-c6be-51c1-998d-9ec876c3c82a', '218c5eda-af09-59fc-bf95-8dedacf157b1', 'tu_su_dung_duoc', 'Tự sử dụng được', 1, true),
+  ('42841534-d750-5615-9e95-38c9f29f8934', '218c5eda-af09-59fc-bf95-8dedacf157b1', 'can_ho_tro', 'Cần hỗ trợ', 2, true),
+  ('6d2bc28a-97a1-5b95-9a26-ad86733a3217', '218c5eda-af09-59fc-bf95-8dedacf157b1', 'khong_tu_su_dung', 'Không tự sử dụng', 3, true),
+  ('f3464592-904f-5a21-8f8c-78d672c2321e', 'badab604-5d20-50b7-828d-9d350ff74005', 'du', 'Đủ', 1, true),
+  ('683fa420-6ce3-5cfd-bffa-73aaecbe567f', 'badab604-5d20-50b7-828d-9d350ff74005', 'han_che', 'Hạn chế', 2, true),
+  ('9c6824eb-9a7f-55b3-9bad-fdf3de4cc04d', 'badab604-5d20-50b7-828d-9d350ff74005', 'khong_du', 'Không đủ', 3, true),
+  ('b4e72e36-60a9-5766-bc6c-4e5123058315', '4ad469b5-7a9f-502e-88e4-bb6b249814a6', 'co', 'Có', 1, true),
+  ('aabf4f9e-473f-526a-ac69-e2f2ae40d531', '4ad469b5-7a9f-502e-88e4-bb6b249814a6', 'han_che', 'Hạn chế', 2, true),
+  ('11003d67-6611-52f2-8fbc-f10d5999ccce', '4ad469b5-7a9f-502e-88e4-bb6b249814a6', 'khong', 'Không', 3, true),
+  ('6cdc0cbd-1b85-55ef-8319-8d597c255d9f', '2c1d50ad-4da7-5c36-8b08-540e7256f6de', 'tot', 'Tốt', 1, true),
+  ('69f1ec54-ebb8-5494-8255-5b702ed18a80', '2c1d50ad-4da7-5c36-8b08-540e7256f6de', 'han_che', 'Hạn chế', 2, true),
+  ('aa407f53-670e-57f3-afa9-070dbff569e3', '2c1d50ad-4da7-5c36-8b08-540e7256f6de', 'khong', 'Không', 3, true),
+  ('f61c457b-784e-5f65-9c40-39fbbd4449de', '7b27bd34-c09b-57f4-b8d1-bd95856d67b1', 'tot', 'Tốt', 1, true),
+  ('6d5a9206-be65-5565-8bb3-1a5dbe8fe5d2', '7b27bd34-c09b-57f4-b8d1-bd95856d67b1', 'trung_binh', 'Trung bình', 2, true),
+  ('abcda6bf-b646-569b-93e2-09af9facf73d', '7b27bd34-c09b-57f4-b8d1-bd95856d67b1', 'it_khong', 'Ít/Không', 3, true),
+  ('f5b8f3d4-6c18-5fe8-a4d6-ce9c65a811ca', '3c70cdb8-2b39-5691-a19c-4431fb27f840', 'keo_dai_song', 'Kéo dài thời gian sống', 1, true),
+  ('7dc05146-59b4-5f65-ad8f-52e9c949b1cd', '3c70cdb8-2b39-5691-a19c-4431fb27f840', 'giam_nhap_vien', 'Giảm nhập viện', 2, true),
+  ('8ccd2bbd-b238-57f1-b460-01b8e31b6798', '3c70cdb8-2b39-5691-a19c-4431fb27f840', 'giam_trieu_chung', 'Giảm triệu chứng', 3, true),
+  ('e5a7087f-87fa-5564-a974-23e91f94b263', '3c70cdb8-2b39-5691-a19c-4431fb27f840', 'duy_tri_chuc_nang', 'Duy trì chức năng', 4, true),
+  ('f3a24ec2-87d7-5280-b81e-5cbb7b641ccb', '3c70cdb8-2b39-5691-a19c-4431fb27f840', 'nang_cao_chat_luong_song', 'Nâng cao chất lượng sống', 5, true),
+  ('704d344f-c03b-5c40-b6da-d739624f6bd4', '3c70cdb8-2b39-5691-a19c-4431fb27f840', 'cham_soc_giam_nhe', 'Chăm sóc giảm nhẹ', 6, true),
+  ('9a7b45a9-d19b-5b9d-a415-56763bdcd738', '34d18f70-403f-518d-923d-99ac3763fb69', 'stage_a', 'Stage A', 1, true),
+  ('d96b4e93-54d2-55b7-8215-b6543e866bb9', '34d18f70-403f-518d-923d-99ac3763fb69', 'stage_b', 'Stage B', 2, true),
+  ('e10e919b-d06d-53e0-9d8a-05afbe7dacf1', '34d18f70-403f-518d-923d-99ac3763fb69', 'stage_c', 'Stage C', 3, true),
+  ('75acc989-d624-58d1-88d5-234f9e14b9f9', '34d18f70-403f-518d-923d-99ac3763fb69', 'stage_d', 'Stage D', 4, true),
+  ('0843e10b-b319-55b6-a91c-c75f0f592835', 'e1682ea7-28dd-5846-93c0-8898d95229e5', 'hfref', 'EF giảm', 1, true),
+  ('c12c247e-83c3-5e53-9c63-014b5c7f2fc9', 'e1682ea7-28dd-5846-93c0-8898d95229e5', 'hfpef', 'EF bảo tồn', 2, true),
+  ('b05b7e08-1f37-5224-8e9c-3c6149cfea63', 'e1682ea7-28dd-5846-93c0-8898d95229e5', 'hfimef', 'EF cải thiện', 3, true),
+  ('c58a9b18-cc13-5213-bfb3-d66815fb44f2', 'e1682ea7-28dd-5846-93c0-8898d95229e5', 'unclassified', 'Chưa phân loại do thiếu EF', 4, true);
+
+-- 7. Field-to-AI-Module Readiness Mapping (Tier 4 metadata)
+INSERT INTO field_ai_module (field_definition_id, ai_module_code, is_required, source_stt_refs)
+VALUES
+  ('170072c5-c444-5903-a04d-f7ed0b0e54af', 'ai_diagnosis', false, 'STT 1'),
+  ('39f17379-aabd-5e93-aafa-2646e07d867b', 'ai_diagnosis', false, 'STT 2'),
+  ('a499185d-1672-5aca-b817-91623acbc877', 'ai_diagnosis', false, 'STT 6'),
+  ('a499185d-1672-5aca-b817-91623acbc877', 'ai_lab_test', false, 'STT 111'),
+  ('f6858393-ef73-5968-b109-60f469f2a936', 'ai_diagnosis', false, 'STT 7'),
+  ('dbb35cfc-0cf8-5fc0-ace7-b4b9132495e2', 'ai_diagnosis', false, 'STT 8'),
+  ('35f96590-807f-5448-af94-5b0584b67bc3', 'ai_diagnosis', false, 'STT 9'),
+  ('25e8b0b5-1b6a-5dc4-9d20-f7962af8bcd8', 'ai_diagnosis', false, 'STT 10'),
+  ('3dc51dcb-e37d-5056-b340-45cbc638ddac', 'ai_diagnosis', false, 'STT 11'),
+  ('a768cbca-16ed-5214-a7e5-359606f06031', 'ai_diagnosis', false, 'STT 12'),
+  ('2cd0ff9d-2835-54ac-aced-302304306ad5', 'ai_diagnosis', false, 'STT 13'),
+  ('d2c7e4e0-f942-5dcd-9bfb-a2002e635ed3', 'ai_diagnosis', false, 'STT 14'),
+  ('91da2089-39d9-57be-9f87-bfefdac357a9', 'ai_diagnosis', false, 'STT 15'),
+  ('91da2089-39d9-57be-9f87-bfefdac357a9', 'ai_medsafety', false, 'STT 192'),
+  ('691b1ac3-3915-52b8-b765-d937c338b47a', 'ai_diagnosis', false, 'STT 16'),
+  ('5eb5ccb5-6980-597f-9f70-8352b9ba6975', 'ai_diagnosis', false, 'STT 17'),
+  ('5eb5ccb5-6980-597f-9f70-8352b9ba6975', 'ai_medsafety', false, 'STT 192'),
+  ('80192ec2-7569-587e-8e31-310464bea9d2', 'ai_diagnosis', false, 'STT 18'),
+  ('91b0c4e9-14da-5e8f-91bd-b69482daec6c', 'ai_diagnosis', false, 'STT 19'),
+  ('515a7beb-6424-5d66-84a8-2645b376c193', 'ai_diagnosis', false, 'STT 20'),
+  ('e848869f-cf00-5a84-8978-f7653c7afbd3', 'ai_diagnosis', false, 'STT 21'),
+  ('7b160361-acb0-5599-a565-97ce33f4b615', 'ai_diagnosis', false, 'STT 22'),
+  ('66f54ba3-cb1c-510d-ba02-6c4b2f68c4e7', 'ai_diagnosis', false, 'STT 81'),
+  ('0ba20ca4-592a-5a46-9faf-7e66a2337912', 'ai_diagnosis', false, 'STT 83'),
+  ('0ba20ca4-592a-5a46-9faf-7e66a2337912', 'ai_treatment', false, 'STT 153'),
+  ('c240a5e9-11e2-5872-9e53-bb7625d44f80', 'ai_diagnosis', false, 'STT 86'),
+  ('3f227d05-a518-561e-99f9-cd9ae90d2997', 'ai_diagnosis', false, 'STT 82'),
+  ('ac9f9bcc-52d3-55db-9e2d-a7b83b42b92c', 'ai_diagnosis', false, 'STT 82'),
+  ('ff7258a6-6c28-5834-a841-228e81b5b89b', 'ai_diagnosis', false, 'STT 83'),
+  ('d040189c-1f1c-5e9e-a6bb-87734d1cf3e6', 'ai_diagnosis', false, 'STT 85'),
+  ('a8822ab3-3f8f-5ea2-af96-d94932cd4330', 'ai_treatment', false, 'STT 154'),
+  ('87be28ab-1899-5738-94ba-79c0a26f7ec9', 'ai_diagnosis', false, 'STT 3'),
+  ('8e5d891f-c0db-528c-9875-568adaa2837c', 'ai_diagnosis', false, 'STT 4'),
+  ('8e5d891f-c0db-528c-9875-568adaa2837c', 'ai_medsafety', false, 'STT 194'),
+  ('81d6bc40-74fd-5b35-a9d2-480d4a499937', 'ai_diagnosis', false, 'STT 5'),
+  ('76142158-0458-58ee-a5b7-41f6eb881c57', 'ai_diagnosis', false, 'STT 23, STT 24'),
+  ('76142158-0458-58ee-a5b7-41f6eb881c57', 'ai_medsafety', false, 'STT 188'),
+  ('76142158-0458-58ee-a5b7-41f6eb881c57', 'ai_treatment', false, 'STT 156, STT 169'),
+  ('c16244e4-463c-52ca-8f3a-fce1d6f9a8d4', 'ai_diagnosis', false, 'STT 23, STT 24'),
+  ('c16244e4-463c-52ca-8f3a-fce1d6f9a8d4', 'ai_medsafety', false, 'STT 188'),
+  ('c16244e4-463c-52ca-8f3a-fce1d6f9a8d4', 'ai_treatment', false, 'STT 156, STT 169'),
+  ('95c3e0e5-3ea8-5595-bfc1-2363f3c5373b', 'ai_diagnosis', false, 'STT 23, STT 24'),
+  ('95c3e0e5-3ea8-5595-bfc1-2363f3c5373b', 'ai_medsafety', false, 'STT 188'),
+  ('95c3e0e5-3ea8-5595-bfc1-2363f3c5373b', 'ai_treatment', false, 'STT 156'),
+  ('a64408d9-2bec-5e72-bd49-25709f60b54a', 'ai_diagnosis', false, 'STT 23, STT 24'),
+  ('a64408d9-2bec-5e72-bd49-25709f60b54a', 'ai_medsafety', false, 'STT 188'),
+  ('a64408d9-2bec-5e72-bd49-25709f60b54a', 'ai_treatment', false, 'STT 156, STT 169'),
+  ('08e64d3e-62ec-5951-a020-98edbaa7756a', 'ai_diagnosis', false, 'STT 25'),
+  ('08e64d3e-62ec-5951-a020-98edbaa7756a', 'ai_medsafety', false, 'STT 189'),
+  ('08e64d3e-62ec-5951-a020-98edbaa7756a', 'ai_treatment', false, 'STT 157'),
+  ('03e518a5-ce73-58fb-86e6-f28f2d1c30ab', 'ai_diagnosis', false, 'STT 26'),
+  ('4b48b30f-15e3-5098-821e-5c4641938dd4', 'ai_diagnosis', false, 'STT 27'),
+  ('4b48b30f-15e3-5098-821e-5c4641938dd4', 'ai_treatment', false, 'STT 158'),
+  ('a0f49c79-5167-5f5b-a164-6159e26392b9', 'ai_diagnosis', false, 'STT 28'),
+  ('a0f49c79-5167-5f5b-a164-6159e26392b9', 'ai_lab_test', false, 'STT 111'),
+  ('6a295959-0f95-5691-ae1b-ecab36ae09a3', 'ai_diagnosis', false, 'STT 29'),
+  ('428c9f96-2b22-5834-abbe-e2ceaed8c564', 'ai_diagnosis', false, 'STT 30'),
+  ('3d7d2ef8-ec36-5bcc-943a-c7f61aa6d142', 'ai_diagnosis', false, 'STT 31'),
+  ('8a53e4a6-3e55-533b-8658-cf63290c4dc4', 'ai_diagnosis', false, 'STT 32'),
+  ('8a53e4a6-3e55-533b-8658-cf63290c4dc4', 'ai_lab_test', false, 'STT 111'),
+  ('618e194c-293f-5c10-9cc6-dea4b18ffee4', 'ai_diagnosis', false, 'STT 33'),
+  ('d1305822-713d-501b-986e-0d3eb3aa361f', 'ai_diagnosis', false, 'STT 34'),
+  ('06725da5-314f-5296-9a37-eb89c085254a', 'ai_diagnosis', false, 'STT 35'),
+  ('06725da5-314f-5296-9a37-eb89c085254a', 'ai_treatment', false, 'STT 155'),
+  ('510091f7-b964-51ab-820d-1da85eeadcbe', 'ai_treatment', false, 'STT 155'),
+  ('b50ba240-e677-5fe9-bd04-76efd9cfedc1', 'ai_diagnosis', false, 'STT 45'),
+  ('b50ba240-e677-5fe9-bd04-76efd9cfedc1', 'ai_treatment', false, 'STT 165'),
+  ('8ad8e55d-93ec-5eb8-9f5c-f93abcd8ecc7', 'ai_diagnosis', false, 'STT 46'),
+  ('8ad8e55d-93ec-5eb8-9f5c-f93abcd8ecc7', 'ai_lab_test', false, 'STT 115'),
+  ('8ad8e55d-93ec-5eb8-9f5c-f93abcd8ecc7', 'ai_treatment', false, 'STT 165'),
+  ('532b16a9-13a5-5be2-8bcf-d49956053e43', 'ai_diagnosis', false, 'STT 47'),
+  ('49687dc7-7181-5353-82fd-74959503587f', 'ai_diagnosis', false, 'STT 48'),
+  ('49687dc7-7181-5353-82fd-74959503587f', 'ai_lab_test', false, 'STT 115'),
+  ('49687dc7-7181-5353-82fd-74959503587f', 'ai_treatment', false, 'STT 165'),
+  ('d8992296-2a89-5bf5-bae7-636ead74f2ca', 'ai_diagnosis', false, 'STT 49'),
+  ('c74576ef-79e8-547f-81d5-fd2514df182f', 'ai_diagnosis', false, 'STT 50'),
+  ('2b3ef450-40bb-583d-ac9d-3d84b1af60bd', 'ai_diagnosis', false, 'STT 52'),
+  ('3081821e-efa4-5083-ac2e-813206605005', 'ai_diagnosis', false, 'STT 53'),
+  ('b9d7409d-eb01-552d-b929-46f1d42601d9', 'ai_diagnosis', false, 'STT 54'),
+  ('b9d7409d-eb01-552d-b929-46f1d42601d9', 'ai_treatment', false, 'STT 165'),
+  ('daa08db7-f85a-5918-ae72-96bfe4fb8d81', 'ai_diagnosis', false, 'STT 55'),
+  ('159dd9b4-6356-525e-8f30-d4793a877089', 'ai_diagnosis', false, 'STT 56'),
+  ('e8fd0d75-6878-5aec-8cd4-6c95994951ee', 'ai_diagnosis', false, 'STT 57'),
+  ('16c88750-c75d-5dc5-b596-141a6a5d0187', 'ai_diagnosis', false, 'STT 58'),
+  ('8aac6c31-d15b-56be-a6ad-ac347ccae8c3', 'ai_diagnosis', false, 'STT 59'),
+  ('f54ede28-e925-5449-88f7-0f0c7940a2f0', 'ai_diagnosis', false, 'STT 60'),
+  ('54a49627-29d0-5a26-b50f-a4bba572771b', 'ai_diagnosis', false, 'STT 61'),
+  ('adcdecf0-c0fd-5d20-ab9b-249c3d7a9464', 'ai_diagnosis', false, 'STT 64'),
+  ('adcdecf0-c0fd-5d20-ab9b-249c3d7a9464', 'ai_lab_test', false, 'STT 115'),
+  ('adcdecf0-c0fd-5d20-ab9b-249c3d7a9464', 'ai_treatment', false, 'STT 165'),
+  ('858fb830-99c6-5693-b36a-69451cb1c4a3', 'ai_diagnosis', false, 'STT 65'),
+  ('858fb830-99c6-5693-b36a-69451cb1c4a3', 'ai_lab_test', false, 'STT 115'),
+  ('0315dc5e-decc-5637-a1b9-dfa2478004e0', 'ai_diagnosis', false, 'STT 66'),
+  ('a0f1e38b-0834-5c27-b14d-ad280562c5f1', 'ai_diagnosis', false, 'STT 67'),
+  ('e2c29158-9a56-5eae-81dc-0e0cbcf1e37c', 'ai_diagnosis', false, 'STT 68'),
+  ('3c7003ce-a478-5df2-bf15-94bb4d2ab90d', 'ai_diagnosis', false, 'STT 69'),
+  ('678277c9-23ae-5583-8d1c-ddff0ac5dc26', 'ai_diagnosis', false, 'STT 70'),
+  ('0b21dc12-7d72-59b4-92d4-795256ce3820', 'ai_diagnosis', false, 'STT 71'),
+  ('1484fb07-fa20-51b3-a744-b76133efcba7', 'ai_diagnosis', false, 'STT 45'),
+  ('dd0f7c69-6b48-5861-9d0f-fb86354dc185', 'ai_lab_test', false, 'STT 118'),
+  ('93f04340-e597-5be4-8fa4-0cf540d57bbf', 'ai_diagnosis', false, 'STT 72'),
+  ('93f04340-e597-5be4-8fa4-0cf540d57bbf', 'ai_lab_test', false, 'STT 116'),
+  ('93f04340-e597-5be4-8fa4-0cf540d57bbf', 'ai_medsafety', false, 'STT 181, STT 182'),
+  ('93f04340-e597-5be4-8fa4-0cf540d57bbf', 'ai_treatment', false, 'STT 163'),
+  ('60838194-7c49-5468-954d-8583525ca985', 'ai_diagnosis', false, 'STT 73'),
+  ('60838194-7c49-5468-954d-8583525ca985', 'ai_medsafety', false, 'STT 183'),
+  ('25807e9e-4b9b-5e8a-8908-5388d2a4f35d', 'ai_lab_test', false, 'STT 117'),
+  ('25807e9e-4b9b-5e8a-8908-5388d2a4f35d', 'ai_medsafety', false, 'STT 184'),
+  ('25807e9e-4b9b-5e8a-8908-5388d2a4f35d', 'ai_treatment', false, 'STT 164'),
+  ('26142240-f585-5487-adbf-bfc16b46475d', 'ai_lab_test', false, 'STT 117'),
+  ('53a014c1-65ff-5099-90f9-699c3d59e037', 'ai_diagnosis', false, 'STT 73'),
+  ('364197bf-2007-55f1-80b7-2e843e318dc6', 'ai_treatment', false, 'STT 163'),
+  ('a5036b67-843e-5bd0-8341-aa50e7ccdd8b', 'ai_diagnosis', false, 'STT 74'),
+  ('a5036b67-843e-5bd0-8341-aa50e7ccdd8b', 'ai_lab_test', false, 'STT 113'),
+  ('a5036b67-843e-5bd0-8341-aa50e7ccdd8b', 'ai_medsafety', false, 'STT 189'),
+  ('f9d40c98-a4cc-565b-a2f8-ee897fdf1300', 'ai_diagnosis', false, 'STT 74'),
+  ('f9d40c98-a4cc-565b-a2f8-ee897fdf1300', 'ai_medsafety', false, 'STT 189'),
+  ('13298908-40d3-5891-8a9a-2f70a9ef0ad0', 'ai_diagnosis', false, 'STT 75'),
+  ('13298908-40d3-5891-8a9a-2f70a9ef0ad0', 'ai_lab_test', false, 'STT 113'),
+  ('13298908-40d3-5891-8a9a-2f70a9ef0ad0', 'ai_treatment', false, 'STT 160'),
+  ('4ae36d03-1c2d-5438-9865-aa137dd8c993', 'ai_diagnosis', false, 'STT 75, STT 76, STT 79, STT 80'),
+  ('4ae36d03-1c2d-5438-9865-aa137dd8c993', 'ai_medsafety', false, 'STT 185, STT 186, STT 187'),
+  ('4ae36d03-1c2d-5438-9865-aa137dd8c993', 'ai_treatment', false, 'STT 160, STT 161, STT 162'),
+  ('c632fdaf-9a99-5d20-8988-262a7edb16bc', 'ai_diagnosis', false, 'STT 75'),
+  ('c632fdaf-9a99-5d20-8988-262a7edb16bc', 'ai_lab_test', false, 'STT 113'),
+  ('c632fdaf-9a99-5d20-8988-262a7edb16bc', 'ai_treatment', false, 'STT 160'),
+  ('a1ddd615-e7d8-51fa-a43c-da227ad37652', 'ai_diagnosis', false, 'STT 75, STT 76, STT 79, STT 80'),
+  ('a1ddd615-e7d8-51fa-a43c-da227ad37652', 'ai_medsafety', false, 'STT 185, STT 186, STT 187'),
+  ('a1ddd615-e7d8-51fa-a43c-da227ad37652', 'ai_treatment', false, 'STT 160, STT 161, STT 162'),
+  ('aa3b2f8c-8180-587c-9b87-b2c2b5485589', 'ai_diagnosis', false, 'STT 76'),
+  ('45837d96-35bc-5120-9d20-509511dc73d3', 'ai_diagnosis', false, 'STT 76'),
+  ('28ffd661-6e7b-5883-98b6-4da9d90d043d', 'ai_diagnosis', false, 'STT 77'),
+  ('28ffd661-6e7b-5883-98b6-4da9d90d043d', 'ai_lab_test', false, 'STT 113'),
+  ('28ffd661-6e7b-5883-98b6-4da9d90d043d', 'ai_treatment', false, 'STT 159'),
+  ('341e763a-76c1-51db-b5fd-afa6a0344c9e', 'ai_diagnosis', false, 'STT 77'),
+  ('11c5bc8e-7100-5f08-833e-a631b47ccaf0', 'ai_diagnosis', false, 'STT 77'),
+  ('11c5bc8e-7100-5f08-833e-a631b47ccaf0', 'ai_treatment', false, 'STT 159'),
+  ('f73ecfdc-7d2a-5ecd-8fbc-1688bc0b6d60', 'ai_diagnosis', false, 'STT 78'),
+  ('f73ecfdc-7d2a-5ecd-8fbc-1688bc0b6d60', 'ai_lab_test', false, 'STT 113'),
+  ('afc12a73-8745-53ee-a819-ed5764154db3', 'ai_diagnosis', false, 'STT 78'),
+  ('e4845f99-e3c8-5263-87e6-cd7f23d2496d', 'ai_diagnosis', false, 'STT 79'),
+  ('e4845f99-e3c8-5263-87e6-cd7f23d2496d', 'ai_lab_test', false, 'STT 114'),
+  ('e4845f99-e3c8-5263-87e6-cd7f23d2496d', 'ai_medsafety', false, 'STT 185'),
+  ('e4845f99-e3c8-5263-87e6-cd7f23d2496d', 'ai_treatment', false, 'STT 161'),
+  ('92847c23-e430-52cb-9de6-4abda9d7bc27', 'ai_diagnosis', false, 'STT 79'),
+  ('92847c23-e430-52cb-9de6-4abda9d7bc27', 'ai_lab_test', false, 'STT 114'),
+  ('92847c23-e430-52cb-9de6-4abda9d7bc27', 'ai_medsafety', false, 'STT 185'),
+  ('92847c23-e430-52cb-9de6-4abda9d7bc27', 'ai_treatment', false, 'STT 161'),
+  ('e17fa29e-7803-56c5-89a1-018c9222a39c', 'ai_diagnosis', false, 'STT 80'),
+  ('e17fa29e-7803-56c5-89a1-018c9222a39c', 'ai_medsafety', false, 'STT 186'),
+  ('96d1b6b1-8474-5f12-a2e9-70c099b81d42', 'ai_diagnosis', false, 'STT 80'),
+  ('96d1b6b1-8474-5f12-a2e9-70c099b81d42', 'ai_lab_test', false, 'STT 114'),
+  ('96d1b6b1-8474-5f12-a2e9-70c099b81d42', 'ai_medsafety', false, 'STT 186'),
+  ('96d1b6b1-8474-5f12-a2e9-70c099b81d42', 'ai_treatment', false, 'STT 162'),
+  ('37cb154e-7413-5e1b-b640-269fedaf41e3', 'ai_diagnosis', false, 'STT 80'),
+  ('37cb154e-7413-5e1b-b640-269fedaf41e3', 'ai_lab_test', false, 'STT 114'),
+  ('37cb154e-7413-5e1b-b640-269fedaf41e3', 'ai_medsafety', false, 'STT 186'),
+  ('37cb154e-7413-5e1b-b640-269fedaf41e3', 'ai_treatment', false, 'STT 162'),
+  ('79bb27e6-8617-54a1-92f8-a4c447a89fc8', 'ai_diagnosis', false, 'STT 84'),
+  ('19829bf3-27e0-59b8-bd0c-3634a44b7714', 'ai_lab_test', false, 'STT 114'),
+  ('19829bf3-27e0-59b8-bd0c-3634a44b7714', 'ai_medsafety', false, 'STT 187'),
+  ('19829bf3-27e0-59b8-bd0c-3634a44b7714', 'ai_treatment', false, 'STT 162'),
+  ('8faac762-dd2b-5b28-9a2f-3b47ce982174', 'ai_diagnosis', false, 'STT 39'),
+  ('8faac762-dd2b-5b28-9a2f-3b47ce982174', 'ai_medsafety', false, 'STT 191'),
+  ('ab0ff0d1-de8b-5f4c-95af-e8a1742b7b08', 'ai_diagnosis', false, 'STT 42'),
+  ('ab0ff0d1-de8b-5f4c-95af-e8a1742b7b08', 'ai_medsafety', false, 'STT 194'),
+  ('ab0ff0d1-de8b-5f4c-95af-e8a1742b7b08', 'ai_treatment', false, 'STT 170'),
+  ('218c5eda-af09-59fc-bf95-8dedacf157b1', 'ai_diagnosis', false, 'STT 43'),
+  ('218c5eda-af09-59fc-bf95-8dedacf157b1', 'ai_medsafety', false, 'STT 193'),
+  ('218c5eda-af09-59fc-bf95-8dedacf157b1', 'ai_treatment', false, 'STT 171'),
+  ('627dcfcb-f93a-57a5-9a0f-b2a9374651d0', 'ai_diagnosis', false, 'STT 87'),
+  ('627dcfcb-f93a-57a5-9a0f-b2a9374651d0', 'ai_medsafety', false, 'STT 195'),
+  ('627dcfcb-f93a-57a5-9a0f-b2a9374651d0', 'ai_treatment', false, 'STT 171'),
+  ('e2b25c8d-3689-5a91-8af3-283bf564e8ef', 'ai_diagnosis', false, 'STT 87'),
+  ('badab604-5d20-50b7-828d-9d350ff74005', 'ai_diagnosis', false, 'STT 88'),
+  ('badab604-5d20-50b7-828d-9d350ff74005', 'ai_lab_test', false, 'STT 120'),
+  ('badab604-5d20-50b7-828d-9d350ff74005', 'ai_medsafety', false, 'STT 196'),
+  ('4ad469b5-7a9f-502e-88e4-bb6b249814a6', 'ai_diagnosis', false, 'STT 89'),
+  ('4ad469b5-7a9f-502e-88e4-bb6b249814a6', 'ai_medsafety', false, 'STT 196'),
+  ('2c1d50ad-4da7-5c36-8b08-540e7256f6de', 'ai_diagnosis', false, 'STT 90'),
+  ('7b27bd34-c09b-57f4-b8d1-bd95856d67b1', 'ai_diagnosis', false, 'STT 92'),
+  ('7b27bd34-c09b-57f4-b8d1-bd95856d67b1', 'ai_medsafety', false, 'STT 195'),
+  ('233ff63e-af9d-5432-86c4-618c07d117fc', 'ai_diagnosis', false, 'STT 36'),
+  ('233ff63e-af9d-5432-86c4-618c07d117fc', 'ai_lab_test', false, 'STT 112'),
+  ('233ff63e-af9d-5432-86c4-618c07d117fc', 'ai_medsafety', false, 'STT 190'),
+  ('233ff63e-af9d-5432-86c4-618c07d117fc', 'ai_treatment', false, 'STT 166'),
+  ('b9452097-18b8-504b-b1a6-1a1b278daa55', 'ai_diagnosis', false, 'STT 38'),
+  ('b9452097-18b8-504b-b1a6-1a1b278daa55', 'ai_lab_test', false, 'STT 112'),
+  ('b9452097-18b8-504b-b1a6-1a1b278daa55', 'ai_medsafety', false, 'STT 191'),
+  ('b9452097-18b8-504b-b1a6-1a1b278daa55', 'ai_treatment', false, 'STT 167'),
+  ('2922f744-4462-5fc0-a081-e99447a11c77', 'ai_diagnosis', false, 'STT 40'),
+  ('2922f744-4462-5fc0-a081-e99447a11c77', 'ai_treatment', false, 'STT 169'),
+  ('9c2fd5f2-125d-5a96-a9a4-8a48ded96d2f', 'ai_diagnosis', false, 'STT 41'),
+  ('9c2fd5f2-125d-5a96-a9a4-8a48ded96d2f', 'ai_medsafety', false, 'STT 194'),
+  ('9c2fd5f2-125d-5a96-a9a4-8a48ded96d2f', 'ai_treatment', false, 'STT 170'),
+  ('097ecb28-667e-5464-b772-d2f0afb307e1', 'ai_diagnosis', false, 'STT 91'),
+  ('88b17e13-6690-5c15-94ec-f74466490049', 'ai_lab_test', false, 'STT 112'),
+  ('10a89a5b-4edf-53ad-9634-a742c86626d6', 'ai_lab_test', false, 'STT 119'),
+  ('6f2d7f3f-caa4-5170-8794-0485b5e5bb69', 'ai_lab_test', false, 'STT 120'),
+  ('88e58f1a-5dfa-541c-a175-02371250be7a', 'ai_treatment', false, 'STT 168'),
+  ('6969a5bf-c330-597d-8a84-58de8fdfc958', 'ai_medsafety', false, 'STT 193'),
+  ('3c70cdb8-2b39-5691-a19c-4431fb27f840', 'ai_lab_test', false, 'STT 120'),
+  ('3c70cdb8-2b39-5691-a19c-4431fb27f840', 'ai_treatment', false, 'STT 172'),
+  ('34d18f70-403f-518d-923d-99ac3763fb69', 'ai_treatment', false, 'STT 150'),
+  ('e1682ea7-28dd-5846-93c0-8898d95229e5', 'ai_treatment', false, 'STT 151'),
+  ('765dac8f-692c-54a5-b5cc-46ef785af1b5', 'ai_treatment', false, 'STT 152');
+
+-- 8. Form Fields for v1 (all 121 catalog fields; can_xac_nhan hidden until confirmed)
+INSERT INTO form_field (id, form_version_id, form_section_id, field_definition_id, display_order, required_for_confirm, is_visible, is_readonly)
+VALUES
+  ('c3a662a4-f07f-5360-968d-bd83a28c63e8', '9965b491-5b78-5865-9220-53f7bc2c29fe', '0e42a24c-e371-5fda-8614-336f73caecc5', '170072c5-c444-5903-a04d-f7ed0b0e54af', 1, false, true, true),
+  ('35644ece-a841-50fa-b4dc-9fe468aea5c1', '9965b491-5b78-5865-9220-53f7bc2c29fe', '0e42a24c-e371-5fda-8614-336f73caecc5', '39f17379-aabd-5e93-aafa-2646e07d867b', 2, false, true, false),
+  ('5df1fe26-5d2b-58ca-8cde-5c7c399ea935', '9965b491-5b78-5865-9220-53f7bc2c29fe', '0f86f0b1-6d55-5ab6-8aaa-026a2977dc76', 'a499185d-1672-5aca-b817-91623acbc877', 1, false, true, false),
+  ('4cd073c0-28f7-5e6d-8322-b9d586f30d7d', '9965b491-5b78-5865-9220-53f7bc2c29fe', '0f86f0b1-6d55-5ab6-8aaa-026a2977dc76', 'f6858393-ef73-5968-b109-60f469f2a936', 2, false, true, false),
+  ('ef25c9ed-8fe7-534f-9cd8-f55ff89da860', '9965b491-5b78-5865-9220-53f7bc2c29fe', '0f86f0b1-6d55-5ab6-8aaa-026a2977dc76', 'dbb35cfc-0cf8-5fc0-ace7-b4b9132495e2', 3, false, true, false),
+  ('be565d8a-3003-5866-9d05-1b38fb74ee0e', '9965b491-5b78-5865-9220-53f7bc2c29fe', '0f86f0b1-6d55-5ab6-8aaa-026a2977dc76', '35f96590-807f-5448-af94-5b0584b67bc3', 4, false, true, false),
+  ('d66bfdb0-9aaf-54d3-85fb-c4671b919d32', '9965b491-5b78-5865-9220-53f7bc2c29fe', '0f86f0b1-6d55-5ab6-8aaa-026a2977dc76', '25e8b0b5-1b6a-5dc4-9d20-f7962af8bcd8', 5, false, true, false),
+  ('866edd09-5776-5c7f-9962-24ab2bfbca63', '9965b491-5b78-5865-9220-53f7bc2c29fe', '0f86f0b1-6d55-5ab6-8aaa-026a2977dc76', '3dc51dcb-e37d-5056-b340-45cbc638ddac', 6, false, true, false),
+  ('16933f4b-e17f-557c-89ad-a24e3db83b2c', '9965b491-5b78-5865-9220-53f7bc2c29fe', '0f86f0b1-6d55-5ab6-8aaa-026a2977dc76', 'a768cbca-16ed-5214-a7e5-359606f06031', 7, false, true, false),
+  ('cd6f0e59-6003-52d3-aebd-77934d424b7a', '9965b491-5b78-5865-9220-53f7bc2c29fe', '0f86f0b1-6d55-5ab6-8aaa-026a2977dc76', '2cd0ff9d-2835-54ac-aced-302304306ad5', 8, false, true, false),
+  ('353ce40a-7415-567f-8605-fe4af66e5309', '9965b491-5b78-5865-9220-53f7bc2c29fe', '0f86f0b1-6d55-5ab6-8aaa-026a2977dc76', 'd2c7e4e0-f942-5dcd-9bfb-a2002e635ed3', 9, false, true, false),
+  ('4c8612a9-4688-5235-89b7-452ddb4e08fd', '9965b491-5b78-5865-9220-53f7bc2c29fe', '0f86f0b1-6d55-5ab6-8aaa-026a2977dc76', '91da2089-39d9-57be-9f87-bfefdac357a9', 10, false, true, false),
+  ('140dfeda-a736-598d-9256-bf878d3bcd61', '9965b491-5b78-5865-9220-53f7bc2c29fe', '0f86f0b1-6d55-5ab6-8aaa-026a2977dc76', '691b1ac3-3915-52b8-b765-d937c338b47a', 11, false, true, false),
+  ('1e32d0b7-48c8-552a-ac8d-64a240cf9a52', '9965b491-5b78-5865-9220-53f7bc2c29fe', '0f86f0b1-6d55-5ab6-8aaa-026a2977dc76', '5eb5ccb5-6980-597f-9f70-8352b9ba6975', 12, false, true, false),
+  ('71344585-8e7b-5ac6-bfee-2cae2348ca51', '9965b491-5b78-5865-9220-53f7bc2c29fe', '0f86f0b1-6d55-5ab6-8aaa-026a2977dc76', '80192ec2-7569-587e-8e31-310464bea9d2', 13, false, true, false),
+  ('3469f73d-6ef0-5263-921c-57d36d965f35', '9965b491-5b78-5865-9220-53f7bc2c29fe', '0f86f0b1-6d55-5ab6-8aaa-026a2977dc76', '91b0c4e9-14da-5e8f-91bd-b69482daec6c', 14, false, true, false),
+  ('fba9c43c-b841-5aaa-878f-17f3941a2977', '9965b491-5b78-5865-9220-53f7bc2c29fe', '0f86f0b1-6d55-5ab6-8aaa-026a2977dc76', '515a7beb-6424-5d66-84a8-2645b376c193', 15, false, true, false),
+  ('f14cc3a6-5847-588c-b519-ac55a94cba5b', '9965b491-5b78-5865-9220-53f7bc2c29fe', '0f86f0b1-6d55-5ab6-8aaa-026a2977dc76', 'e848869f-cf00-5a84-8978-f7653c7afbd3', 16, false, true, false),
+  ('f678cb39-b454-59b0-9f46-28d86da7b520', '9965b491-5b78-5865-9220-53f7bc2c29fe', '0f86f0b1-6d55-5ab6-8aaa-026a2977dc76', '7b160361-acb0-5599-a565-97ce33f4b615', 17, false, true, false),
+  ('63a880b7-b241-5134-a84b-a55ccd082e1c', '9965b491-5b78-5865-9220-53f7bc2c29fe', '0f86f0b1-6d55-5ab6-8aaa-026a2977dc76', '66f54ba3-cb1c-510d-ba02-6c4b2f68c4e7', 18, false, true, false),
+  ('3712253d-851e-5e8e-bb22-a2e1003f547b', '9965b491-5b78-5865-9220-53f7bc2c29fe', '0f86f0b1-6d55-5ab6-8aaa-026a2977dc76', '0ba20ca4-592a-5a46-9faf-7e66a2337912', 19, false, true, false),
+  ('564c1fd1-906a-5a34-9da9-bab8c73cc8e0', '9965b491-5b78-5865-9220-53f7bc2c29fe', '0f86f0b1-6d55-5ab6-8aaa-026a2977dc76', 'c240a5e9-11e2-5872-9e53-bb7625d44f80', 20, false, true, false),
+  ('e5982796-2322-52a0-95ab-13d7ea9b359b', '9965b491-5b78-5865-9220-53f7bc2c29fe', '0f86f0b1-6d55-5ab6-8aaa-026a2977dc76', '3f227d05-a518-561e-99f9-cd9ae90d2997', 21, false, false, false),
+  ('1bddeadc-4c0b-5468-859d-3e6e2a37df6c', '9965b491-5b78-5865-9220-53f7bc2c29fe', '0f86f0b1-6d55-5ab6-8aaa-026a2977dc76', 'ac9f9bcc-52d3-55db-9e2d-a7b83b42b92c', 22, false, false, false),
+  ('c1754655-e748-519e-837a-a2cda6eed2d6', '9965b491-5b78-5865-9220-53f7bc2c29fe', '0f86f0b1-6d55-5ab6-8aaa-026a2977dc76', 'ff7258a6-6c28-5834-a841-228e81b5b89b', 23, false, false, false),
+  ('067e0a29-68f1-5d03-9dd0-ef3c330bf953', '9965b491-5b78-5865-9220-53f7bc2c29fe', '0f86f0b1-6d55-5ab6-8aaa-026a2977dc76', 'd040189c-1f1c-5e9e-a6bb-87734d1cf3e6', 24, false, false, false),
+  ('76a37d00-a659-5734-980a-d5047c84aac3', '9965b491-5b78-5865-9220-53f7bc2c29fe', '0f86f0b1-6d55-5ab6-8aaa-026a2977dc76', 'a8822ab3-3f8f-5ea2-af96-d94932cd4330', 25, false, false, false),
+  ('ed849274-ec1a-5cec-9b22-a9c66d23edc1', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'a106728a-1c3b-529e-a2a7-0e627ecf5215', '87be28ab-1899-5738-94ba-79c0a26f7ec9', 1, false, true, false),
+  ('67329acc-9417-5cf1-89d9-92b1b8ddb8e8', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'a106728a-1c3b-529e-a2a7-0e627ecf5215', '8e5d891f-c0db-528c-9875-568adaa2837c', 2, false, true, false),
+  ('e917bced-5e4e-5f5e-b7a2-d51c1507f2e0', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'a106728a-1c3b-529e-a2a7-0e627ecf5215', '81d6bc40-74fd-5b35-a9d2-480d4a499937', 3, false, true, true),
+  ('e7b55d9c-6a30-5a92-81a6-9bd28dd38878', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'a106728a-1c3b-529e-a2a7-0e627ecf5215', '76142158-0458-58ee-a5b7-41f6eb881c57', 4, false, true, false),
+  ('208d4d13-9e15-5832-9838-015ffaf01edc', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'a106728a-1c3b-529e-a2a7-0e627ecf5215', 'c16244e4-463c-52ca-8f3a-fce1d6f9a8d4', 5, false, true, false),
+  ('142374f5-beb1-5f15-8af7-e70c79f10612', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'a106728a-1c3b-529e-a2a7-0e627ecf5215', '95c3e0e5-3ea8-5595-bfc1-2363f3c5373b', 6, false, true, false),
+  ('7db49b00-9c13-571f-9d06-726bc9b2179a', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'a106728a-1c3b-529e-a2a7-0e627ecf5215', 'a64408d9-2bec-5e72-bd49-25709f60b54a', 7, false, true, false),
+  ('779f60cb-d1bd-533d-b658-0ae654ae7a5f', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'a106728a-1c3b-529e-a2a7-0e627ecf5215', '08e64d3e-62ec-5951-a020-98edbaa7756a', 8, false, true, false),
+  ('22b01d62-d3a2-511b-80a5-5b9c529f16a9', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'a106728a-1c3b-529e-a2a7-0e627ecf5215', '03e518a5-ce73-58fb-86e6-f28f2d1c30ab', 9, false, true, false),
+  ('c8050031-524c-56e5-b60a-a1a2757ae89c', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'a106728a-1c3b-529e-a2a7-0e627ecf5215', '4b48b30f-15e3-5098-821e-5c4641938dd4', 10, false, true, false),
+  ('f54ea293-3bfd-56d1-8ee6-3bc33a398581', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'a106728a-1c3b-529e-a2a7-0e627ecf5215', 'a0f49c79-5167-5f5b-a164-6159e26392b9', 11, false, true, false),
+  ('44281d7d-ebbe-560e-8de8-7b09cfed1b8b', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'a106728a-1c3b-529e-a2a7-0e627ecf5215', '6a295959-0f95-5691-ae1b-ecab36ae09a3', 12, false, true, false),
+  ('c4be9317-e13f-5f82-8139-f57c1bbbdc76', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'a106728a-1c3b-529e-a2a7-0e627ecf5215', '428c9f96-2b22-5834-abbe-e2ceaed8c564', 13, false, true, false),
+  ('e9abcaf7-2902-5125-8b0c-28e225cb3b73', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'a106728a-1c3b-529e-a2a7-0e627ecf5215', '3d7d2ef8-ec36-5bcc-943a-c7f61aa6d142', 14, false, true, false),
+  ('e2865768-a7a1-56d5-930a-f8392832347e', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'a106728a-1c3b-529e-a2a7-0e627ecf5215', '8a53e4a6-3e55-533b-8658-cf63290c4dc4', 15, false, true, false),
+  ('81645255-7684-57d5-be23-7bbfa8c7e385', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'a106728a-1c3b-529e-a2a7-0e627ecf5215', '618e194c-293f-5c10-9cc6-dea4b18ffee4', 16, false, true, false),
+  ('ad8e63cd-507e-5566-beab-e0433a8f7a74', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'a106728a-1c3b-529e-a2a7-0e627ecf5215', 'd1305822-713d-501b-986e-0d3eb3aa361f', 17, false, true, false),
+  ('54f09970-ac08-5b69-b547-51310731f6de', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'a106728a-1c3b-529e-a2a7-0e627ecf5215', '06725da5-314f-5296-9a37-eb89c085254a', 18, false, true, false),
+  ('1fabf982-e14e-528e-bec4-58dfa2698e77', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'a106728a-1c3b-529e-a2a7-0e627ecf5215', '510091f7-b964-51ab-820d-1da85eeadcbe', 19, false, false, false),
+  ('5aa7a57f-bf71-5141-aff7-75155405ab43', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'c3f5dfea-7550-5661-8c3a-ee83b2f71042', 'b50ba240-e677-5fe9-bd04-76efd9cfedc1', 1, false, true, false),
+  ('c67c51a5-36da-5ba8-9eae-96f109213d69', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'c3f5dfea-7550-5661-8c3a-ee83b2f71042', '8ad8e55d-93ec-5eb8-9f5c-f93abcd8ecc7', 2, false, true, false),
+  ('7030a1d2-da91-5e3c-92f1-385969105dab', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'c3f5dfea-7550-5661-8c3a-ee83b2f71042', '532b16a9-13a5-5be2-8bcf-d49956053e43', 3, false, true, false),
+  ('e6ec4af9-283c-5916-a965-614284d04a25', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'c3f5dfea-7550-5661-8c3a-ee83b2f71042', '49687dc7-7181-5353-82fd-74959503587f', 4, false, true, false),
+  ('d6a678b5-96a3-5a5d-94d1-02f7ddf9d86c', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'c3f5dfea-7550-5661-8c3a-ee83b2f71042', 'd8992296-2a89-5bf5-bae7-636ead74f2ca', 5, false, true, false),
+  ('bf1fb4db-b972-5013-8d4a-c564db6f9f9f', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'c3f5dfea-7550-5661-8c3a-ee83b2f71042', 'c74576ef-79e8-547f-81d5-fd2514df182f', 6, false, true, false),
+  ('79f7de94-bdbf-554a-9181-b19b69e25935', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'c3f5dfea-7550-5661-8c3a-ee83b2f71042', '2b3ef450-40bb-583d-ac9d-3d84b1af60bd', 7, false, true, false),
+  ('5857c927-a0c6-5bfb-9913-59394eb692fc', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'c3f5dfea-7550-5661-8c3a-ee83b2f71042', '3081821e-efa4-5083-ac2e-813206605005', 8, false, true, false),
+  ('fce465be-3fdc-58fe-8032-cf2df983b330', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'c3f5dfea-7550-5661-8c3a-ee83b2f71042', 'b9d7409d-eb01-552d-b929-46f1d42601d9', 9, false, true, false),
+  ('e2d67bdd-f0fc-5a24-9c79-2e68bb786a20', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'c3f5dfea-7550-5661-8c3a-ee83b2f71042', 'daa08db7-f85a-5918-ae72-96bfe4fb8d81', 10, false, true, false),
+  ('6cb06bec-92cd-55c9-8e74-6277c92aa203', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'c3f5dfea-7550-5661-8c3a-ee83b2f71042', '159dd9b4-6356-525e-8f30-d4793a877089', 11, false, true, false),
+  ('884b2ca7-36fc-59e5-a3a7-88dd9ba1c6a9', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'c3f5dfea-7550-5661-8c3a-ee83b2f71042', 'e8fd0d75-6878-5aec-8cd4-6c95994951ee', 12, false, true, false),
+  ('8a8554b3-20af-519a-b20f-09ec59ad6e95', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'c3f5dfea-7550-5661-8c3a-ee83b2f71042', '16c88750-c75d-5dc5-b596-141a6a5d0187', 13, false, true, false),
+  ('fff30f19-8310-5e86-9f20-6dac632e23fc', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'c3f5dfea-7550-5661-8c3a-ee83b2f71042', '8aac6c31-d15b-56be-a6ad-ac347ccae8c3', 14, false, true, false),
+  ('5f44e08c-7bc3-5060-8ebe-6812f5ba50db', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'c3f5dfea-7550-5661-8c3a-ee83b2f71042', 'f54ede28-e925-5449-88f7-0f0c7940a2f0', 15, false, true, false),
+  ('10d62e41-1090-52b3-9e4c-ce17160c4e6b', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'c3f5dfea-7550-5661-8c3a-ee83b2f71042', '54a49627-29d0-5a26-b50f-a4bba572771b', 16, false, true, false),
+  ('665ba263-379d-541a-a921-b46d8b82db68', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'c3f5dfea-7550-5661-8c3a-ee83b2f71042', 'adcdecf0-c0fd-5d20-ab9b-249c3d7a9464', 17, false, true, false),
+  ('74b5f3c7-353b-58fa-99e6-03545a2fe8e2', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'c3f5dfea-7550-5661-8c3a-ee83b2f71042', '858fb830-99c6-5693-b36a-69451cb1c4a3', 18, false, true, false),
+  ('bc395788-9b66-5f27-94ad-c9811a18bd4a', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'c3f5dfea-7550-5661-8c3a-ee83b2f71042', '0315dc5e-decc-5637-a1b9-dfa2478004e0', 19, false, true, false),
+  ('ab84a4ef-9d79-550b-a2a3-ae0f48a7f030', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'c3f5dfea-7550-5661-8c3a-ee83b2f71042', 'a0f1e38b-0834-5c27-b14d-ad280562c5f1', 20, false, true, false),
+  ('4b56d939-e865-5d27-8288-14f811d0f030', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'c3f5dfea-7550-5661-8c3a-ee83b2f71042', 'e2c29158-9a56-5eae-81dc-0e0cbcf1e37c', 21, false, true, false),
+  ('57a646ba-acae-5f34-a0d5-c32ec76fe72e', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'c3f5dfea-7550-5661-8c3a-ee83b2f71042', '3c7003ce-a478-5df2-bf15-94bb4d2ab90d', 22, false, true, false),
+  ('3aee06bd-fb88-5cb0-9959-f3c252e5918f', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'c3f5dfea-7550-5661-8c3a-ee83b2f71042', '678277c9-23ae-5583-8d1c-ddff0ac5dc26', 23, false, true, false),
+  ('d834ad21-a425-5403-9768-ea64729e7b28', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'c3f5dfea-7550-5661-8c3a-ee83b2f71042', '0b21dc12-7d72-59b4-92d4-795256ce3820', 24, false, true, false),
+  ('85ef4305-dffc-52c7-b41c-15168a0ff163', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'c3f5dfea-7550-5661-8c3a-ee83b2f71042', '1484fb07-fa20-51b3-a744-b76133efcba7', 25, false, false, false),
+  ('178ee0fb-1c84-5f90-bd01-248fe94ff560', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'c3f5dfea-7550-5661-8c3a-ee83b2f71042', 'dd0f7c69-6b48-5861-9d0f-fb86354dc185', 26, false, false, false),
+  ('d104027f-e420-5683-b45c-a852d4616593', '9965b491-5b78-5865-9220-53f7bc2c29fe', '49cec672-b6ef-550c-9804-9e0bc58e9044', '93f04340-e597-5be4-8fa4-0cf540d57bbf', 1, false, true, false),
+  ('e7dd320a-be38-597d-b530-a929caa6dfad', '9965b491-5b78-5865-9220-53f7bc2c29fe', '49cec672-b6ef-550c-9804-9e0bc58e9044', '60838194-7c49-5468-954d-8583525ca985', 2, false, true, true),
+  ('df12b157-fc78-5849-a9e5-bba73ef56df2', '9965b491-5b78-5865-9220-53f7bc2c29fe', '49cec672-b6ef-550c-9804-9e0bc58e9044', '25807e9e-4b9b-5e8a-8908-5388d2a4f35d', 3, false, true, false),
+  ('d9c9df04-6800-5fc5-910f-f6bb38f54593', '9965b491-5b78-5865-9220-53f7bc2c29fe', '49cec672-b6ef-550c-9804-9e0bc58e9044', '26142240-f585-5487-adbf-bfc16b46475d', 4, false, true, false),
+  ('a9bb2f8f-81c1-5a14-ae19-460f2d10ca1b', '9965b491-5b78-5865-9220-53f7bc2c29fe', '49cec672-b6ef-550c-9804-9e0bc58e9044', '53a014c1-65ff-5099-90f9-699c3d59e037', 5, false, false, true),
+  ('d74de3ce-f672-52c4-ad8e-7cf49fdaac5b', '9965b491-5b78-5865-9220-53f7bc2c29fe', '49cec672-b6ef-550c-9804-9e0bc58e9044', '364197bf-2007-55f1-80b7-2e843e318dc6', 6, false, false, false),
+  ('f1b2aa09-3f36-5556-a1d7-dd348e668dc2', '9965b491-5b78-5865-9220-53f7bc2c29fe', '455f1c7e-fefa-5403-9df4-12bf6d55cfcd', 'a5036b67-843e-5bd0-8341-aa50e7ccdd8b', 1, false, true, false),
+  ('f29e188b-6ec5-5df3-b60d-08f18d9e7b44', '9965b491-5b78-5865-9220-53f7bc2c29fe', '455f1c7e-fefa-5403-9df4-12bf6d55cfcd', 'f9d40c98-a4cc-565b-a2f8-ee897fdf1300', 2, false, true, false),
+  ('fecb09f7-e7e5-51c0-9b33-1268ca83ca82', '9965b491-5b78-5865-9220-53f7bc2c29fe', '455f1c7e-fefa-5403-9df4-12bf6d55cfcd', '13298908-40d3-5891-8a9a-2f70a9ef0ad0', 3, false, true, false),
+  ('c3bca54f-ba92-5ece-b1b7-bc418eec9d24', '9965b491-5b78-5865-9220-53f7bc2c29fe', '455f1c7e-fefa-5403-9df4-12bf6d55cfcd', '4ae36d03-1c2d-5438-9865-aa137dd8c993', 4, false, true, false),
+  ('f3fcd40b-de51-5eb6-a1bb-0c66312e1181', '9965b491-5b78-5865-9220-53f7bc2c29fe', '455f1c7e-fefa-5403-9df4-12bf6d55cfcd', 'c632fdaf-9a99-5d20-8988-262a7edb16bc', 5, false, true, false),
+  ('570cd7d6-3a3f-518f-abbd-c58712b80eff', '9965b491-5b78-5865-9220-53f7bc2c29fe', '455f1c7e-fefa-5403-9df4-12bf6d55cfcd', 'a1ddd615-e7d8-51fa-a43c-da227ad37652', 6, false, true, false),
+  ('741ca8f5-d697-5229-b4bd-98b10e607983', '9965b491-5b78-5865-9220-53f7bc2c29fe', '455f1c7e-fefa-5403-9df4-12bf6d55cfcd', 'aa3b2f8c-8180-587c-9b87-b2c2b5485589', 7, false, true, false),
+  ('f7f7a9e4-a3c0-5464-9f54-8dc3ec3a3ea5', '9965b491-5b78-5865-9220-53f7bc2c29fe', '455f1c7e-fefa-5403-9df4-12bf6d55cfcd', '45837d96-35bc-5120-9d20-509511dc73d3', 8, false, true, false),
+  ('3916151c-515f-5e9a-832f-7b05b8333dc2', '9965b491-5b78-5865-9220-53f7bc2c29fe', '455f1c7e-fefa-5403-9df4-12bf6d55cfcd', '28ffd661-6e7b-5883-98b6-4da9d90d043d', 9, false, true, false),
+  ('4662f8fe-d25f-50f0-a826-9684fc014f3a', '9965b491-5b78-5865-9220-53f7bc2c29fe', '455f1c7e-fefa-5403-9df4-12bf6d55cfcd', '341e763a-76c1-51db-b5fd-afa6a0344c9e', 10, false, true, false),
+  ('929d4ddf-36ab-56c1-89d7-1099426b944a', '9965b491-5b78-5865-9220-53f7bc2c29fe', '455f1c7e-fefa-5403-9df4-12bf6d55cfcd', '11c5bc8e-7100-5f08-833e-a631b47ccaf0', 11, false, true, false),
+  ('2b006703-2d58-56a3-ba29-289b263b65da', '9965b491-5b78-5865-9220-53f7bc2c29fe', '455f1c7e-fefa-5403-9df4-12bf6d55cfcd', 'f73ecfdc-7d2a-5ecd-8fbc-1688bc0b6d60', 12, false, true, false),
+  ('fec2d3f7-abfe-5ffd-99e8-013ee8303b8f', '9965b491-5b78-5865-9220-53f7bc2c29fe', '455f1c7e-fefa-5403-9df4-12bf6d55cfcd', 'afc12a73-8745-53ee-a819-ed5764154db3', 13, false, true, false),
+  ('53d5b206-0007-5005-97a3-6bd31e79b040', '9965b491-5b78-5865-9220-53f7bc2c29fe', '455f1c7e-fefa-5403-9df4-12bf6d55cfcd', 'e4845f99-e3c8-5263-87e6-cd7f23d2496d', 14, false, true, false),
+  ('f5fa6afc-f85f-549f-ba6e-23db1ed1be4d', '9965b491-5b78-5865-9220-53f7bc2c29fe', '455f1c7e-fefa-5403-9df4-12bf6d55cfcd', '92847c23-e430-52cb-9de6-4abda9d7bc27', 15, false, true, false),
+  ('31e1685c-bf3d-581a-a509-aff1f8d14d8e', '9965b491-5b78-5865-9220-53f7bc2c29fe', '455f1c7e-fefa-5403-9df4-12bf6d55cfcd', 'e17fa29e-7803-56c5-89a1-018c9222a39c', 16, false, true, false),
+  ('17c88766-f47f-51b1-b4bb-e9b7ef24f07f', '9965b491-5b78-5865-9220-53f7bc2c29fe', '455f1c7e-fefa-5403-9df4-12bf6d55cfcd', '96d1b6b1-8474-5f12-a2e9-70c099b81d42', 17, false, true, false),
+  ('8ee1c48d-c955-55a5-9203-d26b8e43d0cb', '9965b491-5b78-5865-9220-53f7bc2c29fe', '455f1c7e-fefa-5403-9df4-12bf6d55cfcd', '37cb154e-7413-5e1b-b640-269fedaf41e3', 18, false, true, false),
+  ('02f8db30-e6a6-5715-8f43-8194d618b694', '9965b491-5b78-5865-9220-53f7bc2c29fe', '455f1c7e-fefa-5403-9df4-12bf6d55cfcd', '79bb27e6-8617-54a1-92f8-a4c447a89fc8', 19, false, false, true),
+  ('5d3a6fac-da54-53ba-978e-283321997f7e', '9965b491-5b78-5865-9220-53f7bc2c29fe', '455f1c7e-fefa-5403-9df4-12bf6d55cfcd', '19829bf3-27e0-59b8-bd0c-3634a44b7714', 20, false, false, false),
+  ('6344da79-bfb2-5738-81f9-9b8f707dedc2', '9965b491-5b78-5865-9220-53f7bc2c29fe', '96a671fc-0a26-53dc-a80a-6377abf2d1a8', '8faac762-dd2b-5b28-9a2f-3b47ce982174', 1, false, true, false),
+  ('7fcc4e34-a3b2-51bf-bb6c-029fcebd1e4c', '9965b491-5b78-5865-9220-53f7bc2c29fe', '96a671fc-0a26-53dc-a80a-6377abf2d1a8', 'ab0ff0d1-de8b-5f4c-95af-e8a1742b7b08', 2, false, true, false),
+  ('f6c9915b-d3cc-5fe2-8d55-03420b5d1ed4', '9965b491-5b78-5865-9220-53f7bc2c29fe', '96a671fc-0a26-53dc-a80a-6377abf2d1a8', '218c5eda-af09-59fc-bf95-8dedacf157b1', 3, false, true, false),
+  ('46afe305-a4bb-50dd-8217-87b2b727d387', '9965b491-5b78-5865-9220-53f7bc2c29fe', '96a671fc-0a26-53dc-a80a-6377abf2d1a8', '627dcfcb-f93a-57a5-9a0f-b2a9374651d0', 4, false, true, false),
+  ('37c0e715-d372-5405-af30-1416f91adf8a', '9965b491-5b78-5865-9220-53f7bc2c29fe', '96a671fc-0a26-53dc-a80a-6377abf2d1a8', 'e2b25c8d-3689-5a91-8af3-283bf564e8ef', 5, false, true, false),
+  ('6d626b48-c6c2-5ebf-9035-6ed68b3f2fe6', '9965b491-5b78-5865-9220-53f7bc2c29fe', '96a671fc-0a26-53dc-a80a-6377abf2d1a8', 'badab604-5d20-50b7-828d-9d350ff74005', 6, false, true, false),
+  ('3d625c61-ddf4-53ee-9e34-c402177216df', '9965b491-5b78-5865-9220-53f7bc2c29fe', '96a671fc-0a26-53dc-a80a-6377abf2d1a8', '4ad469b5-7a9f-502e-88e4-bb6b249814a6', 7, false, true, false),
+  ('c31649e2-3dfd-5de4-8c4a-2074a34b3f74', '9965b491-5b78-5865-9220-53f7bc2c29fe', '96a671fc-0a26-53dc-a80a-6377abf2d1a8', '2c1d50ad-4da7-5c36-8b08-540e7256f6de', 8, false, true, false),
+  ('b6c31af0-023b-5929-b14d-1cde794a8ca2', '9965b491-5b78-5865-9220-53f7bc2c29fe', '96a671fc-0a26-53dc-a80a-6377abf2d1a8', '7b27bd34-c09b-57f4-b8d1-bd95856d67b1', 9, false, true, false),
+  ('d409e62b-75e9-5ef0-a205-13d8e0e2eba7', '9965b491-5b78-5865-9220-53f7bc2c29fe', '96a671fc-0a26-53dc-a80a-6377abf2d1a8', '233ff63e-af9d-5432-86c4-618c07d117fc', 10, false, false, false),
+  ('26ac3611-26d2-50f0-8ced-06bcfcea6762', '9965b491-5b78-5865-9220-53f7bc2c29fe', '96a671fc-0a26-53dc-a80a-6377abf2d1a8', 'b9452097-18b8-504b-b1a6-1a1b278daa55', 11, false, false, false),
+  ('9598c87b-cd7f-5663-85a2-6d20dbb1648a', '9965b491-5b78-5865-9220-53f7bc2c29fe', '96a671fc-0a26-53dc-a80a-6377abf2d1a8', '2922f744-4462-5fc0-a081-e99447a11c77', 12, false, false, false),
+  ('8c168a06-12a5-54e9-bd24-10aae0210ddb', '9965b491-5b78-5865-9220-53f7bc2c29fe', '96a671fc-0a26-53dc-a80a-6377abf2d1a8', '9c2fd5f2-125d-5a96-a9a4-8a48ded96d2f', 13, false, false, false),
+  ('22b55e96-86db-5cd7-a928-dba12fc17d18', '9965b491-5b78-5865-9220-53f7bc2c29fe', '96a671fc-0a26-53dc-a80a-6377abf2d1a8', '097ecb28-667e-5464-b772-d2f0afb307e1', 14, false, false, false),
+  ('93ad7ac3-e4cc-5b87-b9ca-cd717c74702e', '9965b491-5b78-5865-9220-53f7bc2c29fe', '96a671fc-0a26-53dc-a80a-6377abf2d1a8', '88b17e13-6690-5c15-94ec-f74466490049', 15, false, false, false),
+  ('5e6c3184-d62b-5e18-9695-8896fd9c2892', '9965b491-5b78-5865-9220-53f7bc2c29fe', '96a671fc-0a26-53dc-a80a-6377abf2d1a8', '10a89a5b-4edf-53ad-9634-a742c86626d6', 16, false, false, false),
+  ('6d6aa63c-23fc-5a53-a292-7e591a3a88a1', '9965b491-5b78-5865-9220-53f7bc2c29fe', '96a671fc-0a26-53dc-a80a-6377abf2d1a8', '6f2d7f3f-caa4-5170-8794-0485b5e5bb69', 17, false, false, false),
+  ('e1347b01-6528-5607-a531-187bbfd4886e', '9965b491-5b78-5865-9220-53f7bc2c29fe', '96a671fc-0a26-53dc-a80a-6377abf2d1a8', '88e58f1a-5dfa-541c-a175-02371250be7a', 18, false, false, false),
+  ('fa81dbb1-d13f-5465-92c9-d6c56d9ed978', '9965b491-5b78-5865-9220-53f7bc2c29fe', '96a671fc-0a26-53dc-a80a-6377abf2d1a8', '6969a5bf-c330-597d-8a84-58de8fdfc958', 19, false, false, false),
+  ('ea9e7d81-f10a-52dc-bb3a-2f1035a60e0b', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'f56f8bdb-f959-5e9e-83c5-4cce895df20b', '3c70cdb8-2b39-5691-a19c-4431fb27f840', 1, false, false, false),
+  ('df6bdcb9-3d50-556a-aa84-18d7f250597e', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'f56f8bdb-f959-5e9e-83c5-4cce895df20b', '34d18f70-403f-518d-923d-99ac3763fb69', 2, false, false, false),
+  ('81d22388-dd9f-5a30-9f16-b9f41a96f967', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'f56f8bdb-f959-5e9e-83c5-4cce895df20b', 'e1682ea7-28dd-5846-93c0-8898d95229e5', 3, false, false, false),
+  ('0f6cb7cc-6561-5bae-8807-5bca86048018', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'f56f8bdb-f959-5e9e-83c5-4cce895df20b', '765dac8f-692c-54a5-b5cc-46ef785af1b5', 4, false, false, false);
+
+-- 9. Publish v1 (after publishing, form_version v1 & its sections/fields become immutable)
+UPDATE form_version
+SET status = 'published',
+    published_at = now(),
+    published_by = 'fb65ae24-3f49-5dc1-8b5a-b08957ac449e',
+    row_version = row_version + 1
+WHERE id = '9965b491-5b78-5865-9220-53f7bc2c29fe';
+
+-- 10. Initial Audit Log Entry for v1 publish
+INSERT INTO audit_log (id, actor_user_id, action, entity_type, entity_id, outcome, detail)
+VALUES
+  ('4dbe7f47-616e-5d64-a091-556587112cd4', 'fb65ae24-3f49-5dc1-8b5a-b08957ac449e', 'form_version_publish', 'form_version', '9965b491-5b78-5865-9220-53f7bc2c29fe', 'success', '{"version_no": 1, "version_label": "v1.0", "seeded": true}'::jsonb);
+
 COMMIT;

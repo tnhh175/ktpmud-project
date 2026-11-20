@@ -1,0 +1,167 @@
+@startuml sequence-admin-form-version-publish
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam shadowing false
+skinparam roundcorner 6
+skinparam class {
+  BackgroundColor #FFFFFF
+  HeaderBackgroundColor #DBEAFE
+  BorderColor #1D4ED8
+  FontColor #1E3A8A
+  AttributeFontColor #0F172A
+  ArrowColor #1D4ED8
+}
+skinparam entity {
+  BackgroundColor #FFFFFF
+  HeaderBackgroundColor #DBEAFE
+  BorderColor #1D4ED8
+  FontColor #1E3A8A
+}
+skinparam package {
+  BackgroundColor #F8FAFC
+  BorderColor #93C5FD
+  FontColor #1E3A8A
+}
+skinparam sequence {
+  ArrowColor #1D4ED8
+  LifeLineBorderColor #64748B
+  LifeLineBackgroundColor #DBEAFE
+  ParticipantBorderColor #1D4ED8
+  ParticipantBackgroundColor #DBEAFE
+  ParticipantFontColor #1E3A8A
+  ActorBorderColor #1D4ED8
+  ActorBackgroundColor #DBEAFE
+  ActorFontColor #1E3A8A
+  GroupBorderColor #1D4ED8
+  GroupHeaderFontColor #1E3A8A
+  GroupBackgroundColor #DBEAFE
+  BoxBorderColor #93C5FD
+  BoxBackgroundColor #F8FAFC
+}
+skinparam note {
+  BackgroundColor #EFF6FF
+  BorderColor #2563EB
+  FontColor #1E3A8A
+}
+
+title Sequence 3 — Admin: Tạo bản nháp Form → Sửa → Xem trước → Diff → Phát hành
+
+actor "Quản trị viên (Admin)" as Adm
+participant "Web UI (M7 Form Studio)" as UI
+participant "API Gateway & RBAC\n(/api/v1/admin)" as API
+participant "FormVersionService" as Svc
+database "PostgreSQL 16\n(form_* + Trigger K4)" as DB
+
+== Giai đoạn 1: Tạo bản nháp từ phiên bản hiện hành (createFormVersionDraft) ==
+Adm -> UI : Chọn bản Đang dùng (v1) -> [+ Tạo bản nháp mới]
+activate UI
+UI -> API : POST /api/v1/admin/forms/{formId}/versions [createFormVersionDraft]\n(basedOnVersionId, changeNote)
+activate API
+alt RBAC Guard: role != 'admin' -> 403 | Đã có bản draft đang mở -> 409
+  API --> UI : 403 Forbidden / 409 Conflict (ProblemDetails)
+else Hợp lệ — Giao dịch nguyên tử
+  API -> Svc : createDraftFrom(formId, baseVersionId, admin)
+  activate Svc
+  group critical [BEGIN ... COMMIT]
+    Svc -> DB : INSERT form_version(version_no=base+1, status='draft',\nbased_on_version_id=baseId, row_version=1)
+    activate DB
+    Svc -> DB : Deep clone form_section (8 nhóm) & form_field từ baseId;\nINSERT audit_log(action='form_version_create')
+    DB --> Svc : COMMIT OK (draftVersionId, row_version=1)
+    deactivate DB
+  end
+  Svc --> API : FormVersion(draft)
+  deactivate Svc
+  API --> UI : 201 Created + ETag: "1"
+end
+deactivate API
+deactivate UI
+
+== Giai đoạn 2: Chỉnh sửa bản nháp & Chặn sửa bản đã published (updateFormVersion — K4) ==
+Adm -> UI : Sắp xếp nhóm/trường, chỉnh thuộc tính -> [Lưu nháp]
+activate UI
+UI -> API : PATCH /api/v1/admin/form-versions/{versionId} [updateFormVersion]\n(If-Match: "1")
+activate API
+API -> Svc : updateFormVersion(versionId, expectedRowVersion=1, patch)
+activate Svc
+alt version.status != 'draft' (đã published/retired) HOẶC DB Trigger K4 chặn
+  Svc -> DB : Kiểm tra status='published' (trigger trg_form_version_immutable / trg_form_field_immutable)
+  API --> UI : 409 Conflict (FORM_VERSION_IMMUTABLE — bắt buộc tạo bản nháp mới)
+else Lệch If-Match (409) HOẶC dữ liệu cấu trúc sai (422)
+  API --> UI : 409 Conflict / 422 Unprocessable Entity (ProblemDetails)
+else Hợp lệ — Giao dịch nguyên tử
+  group critical [BEGIN ... COMMIT]
+    Svc -> DB : UPDATE/UPSERT form_section & form_field cho draftVersionId
+    activate DB
+    Svc -> DB : UPDATE form_version SET row_version=2 WHERE id=? AND status='draft';\nINSERT audit_log(action='form_version_update')
+    DB --> Svc : COMMIT OK (row_version=2)
+    deactivate DB
+  end
+  Svc --> API : FormVersion(updated, rowVersion=2)
+  API --> UI : 200 OK + ETag: "2"
+end
+deactivate Svc
+deactivate API
+deactivate UI
+
+== Giai đoạn 3: Xem trước góc nhìn Bác sĩ (previewFormVersion — On-Demand) ==
+Adm -> UI : Mở Tab [Xem trước góc nhìn Bác sĩ]
+activate UI
+UI -> API : GET /api/v1/admin/form-versions/{versionId}/preview [previewFormVersion]
+activate API
+API -> Svc : buildPreview(versionId)
+activate Svc
+Svc -> DB : SELECT form_section JOIN form_field JOIN field_definition LEFT JOIN field_option
+activate DB
+DB --> Svc : Cấu trúc 8 nhóm & danh mục lựa chọn
+deactivate DB
+Svc --> API : FormVersionPreviewResponse (isPreviewOnly=true, không lưu bảng DB)
+deactivate Svc
+API --> UI : 200 OK (FormVersionPreviewResponse — render thử M4)
+deactivate API
+deactivate UI
+
+== Giai đoạn 4: So sánh thay đổi (diffFormVersion — On-Demand) ==
+Adm -> UI : Mở Tab [So sánh thay đổi (Diff)]
+activate UI
+UI -> API : GET /api/v1/admin/form-versions/{versionId}/diff?baseVersionId={baseId} [diffFormVersion]
+activate API
+API -> Svc : computeDiff(versionId, baseVersionId)
+activate Svc
+Svc -> DB : SELECT form_section & form_field của cả 2 phiên bản
+activate DB
+DB --> Svc : Cấu trúc baseVersion & draftVersion
+deactivate DB
+Svc -> Svc : Tính FormVersionDiffResponse (hasChanges, +addedFields, ~modifiedFields, -removedFields)
+Svc --> API : FormVersionDiffResponse (tính động, không lưu bảng DB)
+deactivate Svc
+API --> UI : 200 OK (FormVersionDiffResponse)
+deactivate API
+deactivate UI
+
+== Giai đoạn 5: Phát hành phiên bản mới (publishFormVersion) ==
+Adm -> UI : Nhập ghi chú & bấm [Phát hành phiên bản mới]
+activate UI
+UI -> API : POST /api/v1/admin/form-versions/{versionId}/publish [publishFormVersion]\n(If-Match: "2")
+activate API
+API -> Svc : publishFormVersion(versionId, expectedRowVersion=2, admin)
+activate Svc
+alt status != 'draft' HOẶC lệch ETag (409) | Bản nháp rỗng (422)
+  API --> UI : 409 Conflict / 422 Unprocessable Entity
+else Hợp lệ — Giao dịch nguyên tử
+  group critical [BEGIN ... COMMIT]
+    Svc -> DB : Lock form_template;\nUPDATE form_version SET status='retired' WHERE form_template_id=? AND status='published'
+    activate DB
+    Svc -> DB : UPDATE form_version SET status='published', published_at=NOW(),\npublished_by=admin, row_version=3
+    Svc -> DB : INSERT audit_log(action='form_version_publish', entity_type='form_version',\nentity_id=versionId, detail={retiredVersionId, versionNo})
+    note over DB : Trigger K4 khóa bất biến v2 vĩnh viễn;\nlượt khám cũ vẫn giữ nguyên form_version_id=v1
+    DB --> Svc : COMMIT OK (v2=published, v1=retired)
+    deactivate DB
+  end
+  Svc --> API : FormVersionPublished(v2, rowVersion=3)
+  API --> UI : 200 OK + ETag: "3" (Áp dụng cho mọi lượt khám tạo mới)
+end
+deactivate Svc
+deactivate API
+deactivate UI
+@enduml

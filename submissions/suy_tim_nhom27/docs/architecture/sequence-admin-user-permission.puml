@@ -1,0 +1,140 @@
+@startuml sequence-admin-user-permission
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam shadowing false
+skinparam roundcorner 6
+skinparam class {
+  BackgroundColor #FFFFFF
+  HeaderBackgroundColor #DBEAFE
+  BorderColor #1D4ED8
+  FontColor #1E3A8A
+  AttributeFontColor #0F172A
+  ArrowColor #1D4ED8
+}
+skinparam entity {
+  BackgroundColor #FFFFFF
+  HeaderBackgroundColor #DBEAFE
+  BorderColor #1D4ED8
+  FontColor #1E3A8A
+}
+skinparam package {
+  BackgroundColor #F8FAFC
+  BorderColor #93C5FD
+  FontColor #1E3A8A
+}
+skinparam sequence {
+  ArrowColor #1D4ED8
+  LifeLineBorderColor #64748B
+  LifeLineBackgroundColor #DBEAFE
+  ParticipantBorderColor #1D4ED8
+  ParticipantBackgroundColor #DBEAFE
+  ParticipantFontColor #1E3A8A
+  ActorBorderColor #1D4ED8
+  ActorBackgroundColor #DBEAFE
+  ActorFontColor #1E3A8A
+  GroupBorderColor #1D4ED8
+  GroupHeaderFontColor #1E3A8A
+  GroupBackgroundColor #DBEAFE
+  BoxBorderColor #93C5FD
+  BoxBackgroundColor #F8FAFC
+}
+skinparam note {
+  BackgroundColor #EFF6FF
+  BorderColor #2563EB
+  FontColor #1E3A8A
+}
+
+title Sequence 2 — Admin: Xem trước quyền → Tạo & Cập nhật tài khoản Bác sĩ
+
+actor "Quản trị viên (Admin)" as Adm
+participant "Web UI (M6 Admin)" as UI
+participant "API Gateway & RBAC\n(/api/v1/admin)" as API
+participant "UserAdminService" as Svc
+database "PostgreSQL 16\n(app_user, session, audit)" as DB
+
+== Giai đoạn 1: Xem trước ma trận quyền 2 cột (previewUserPermissions) ==
+Adm -> UI : Chọn vai trò (doctor | admin) -> [Xem lại quyền]
+activate UI
+UI -> API : POST /api/v1/admin/users/permission-preview [previewUserPermissions]\n(Bearer JWT)
+activate API
+alt RBAC Guard: role != 'admin' (vd. doctor gọi trực tiếp /admin/*)
+  API -> DB : INSERT audit_log(outcome='denied', entity_type='app_user', detail={path})
+  API --> UI : 403 Forbidden (RBAC_ROLE_FORBIDDEN)
+else role == 'admin'
+  API -> Svc : computePermissionPreview(targetRole, existingUserId?)
+  activate Svc
+  Svc -> Svc : Đối chiếu chính sách K8 (admin cấm đọc bệnh án lâm sàng)
+  Svc --> API : PermissionPreviewResponse(clinicalDataAccessAllowed=false, granted[], denied[])
+  deactivate Svc
+  API --> UI : 200 OK (Không ghi DB — hiển thị bảng 2 cột quyền)
+end
+deactivate API
+deactivate UI
+
+== Giai đoạn 2: Tạo tài khoản bác sĩ mới (createUser) ==
+Adm -> UI : Rà soát xong -> [Xác nhận & Lưu tài khoản]
+activate UI
+UI -> API : POST /api/v1/admin/users [createUser]\n(CreateUserRequest: username, fullName, role='doctor', isActive, reason)
+activate API
+API -> Svc : createUser(actor=admin, dto)
+activate Svc
+Svc -> Svc : Validate username, fullName, role, reason
+alt Dữ liệu đầu vào không hợp lệ
+  Svc --> API : ValidationError(fieldErrors[])
+  API --> UI : 422 Unprocessable Entity (ProblemDetails + errors[])
+else Kiểm tra trùng username
+  Svc -> DB : SELECT 1 FROM app_user WHERE username = ?
+  activate DB
+  alt username đã tồn tại
+    DB --> Svc : EXISTS (uq_app_user_username)
+    Svc --> API : DuplicateUsernameError
+    API --> UI : 409 Conflict (DUPLICATE_USERNAME)
+  else Hợp lệ
+    Svc -> Svc : Sinh oneTimeSetupCode (24h) & băm Argon2id/bcrypt (không log mật khẩu rõ)
+    group critical [BEGIN ... COMMIT]
+      Svc -> DB : INSERT app_user(id, username, password_hash, full_name, role, is_active)
+      Svc -> DB : INSERT audit_log(actor_user_id=admin, action='user_create',\nentity_type='app_user', entity_id=newId, detail={username, role, reason})
+      DB --> Svc : COMMIT OK
+    end
+    deactivate DB
+    Svc --> API : CreateUserResponse(user, oneTimeSetupCode, setupExpiresAt)
+    API --> UI : 201 Created + ETag (CreateUserResponse — 0 password_hash)
+  end
+end
+deactivate Svc
+deactivate API
+deactivate UI
+
+== Giai đoạn 3: Cập nhật / Khóa-Mở / Đổi vai trò (updateUser) ==
+Adm -> UI : Sửa thông tin / Đặt lại MK / Khóa tài khoản kèm lý do
+activate UI
+UI -> API : PATCH /api/v1/admin/users/{userId} [updateUser]\n(If-Match, UpdateUserRequest: rowVersion, fullName?, role?, isActive?, resetPassword?, reason)
+activate API
+API -> Svc : updateUser(actor=admin, userId, expectedRowVersion, patch)
+activate Svc
+Svc -> DB : SELECT app_user WHERE id = ? ; COUNT(*) active admins
+activate DB
+alt Không tìm thấy userId
+  DB --> Svc : NULL
+  API --> UI : 404 Not Found (RESOURCE_NOT_FOUND)
+else Tự khóa Admin cuối cùng HOẶC lệch If-Match
+  DB --> Svc : Conflict
+  API --> UI : 409 Conflict (LAST_ACTIVE_ADMIN / CONCURRENCY_ROW_VERSION_MISMATCH)
+else Hợp lệ — Giao dịch nguyên tử
+  group critical [BEGIN ... COMMIT]
+    Svc -> DB : UPDATE app_user SET full_name=?, role=?, is_active=?, updated_at=NOW() WHERE id=?
+    opt is_active == false HOẶC thay đổi role HOẶC resetPassword == true
+      Svc -> DB : UPDATE user_session SET revoked_at=NOW()\nWHERE user_id=? AND revoked_at IS NULL
+    end
+    Svc -> DB : INSERT audit_log(action='user_update', entity_type='app_user',\nentity_id=userId, detail={diff, reason})
+    DB --> Svc : COMMIT OK
+  end
+  deactivate DB
+  Svc --> API : UpdateUserResponse(user, oneTimeSetupCode?)
+  API --> UI : 200 OK + ETag mới (UpdateUserResponse)
+end
+deactivate Svc
+deactivate API
+deactivate UI
+@enduml

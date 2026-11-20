@@ -1,0 +1,133 @@
+{
+  "visitId": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+  "patientCode": "BN-00142",
+  "formVersionId": "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+  "revisionNo": 1,
+  "confirmedAt": "2026-11-19T09:50:12Z",
+  "confirmedBy": "6c84fb90-12c4-11e1-840d-7b25c5ee775a",
+  "values": {
+    "chieu_cao": {
+      "state": "answered",
+      "value": 162.0,
+      "unit": "cm"
+    },
+    "can_nang": {
+      "state": "answered",
+      "value": 58.5,
+      "unit": "kg"
+    },
+    "bmi": {
+      "state": "answered",
+      "value": 22.29,
+      "unit": "kg/m2"
+    },
+    "kho_tho_khi_gang_suc": {
+      "state": "answered",
+      "value": true,
+      "unit": null
+    },
+    "so_lan_cap_cuu_nhap_vien": {
+      "state": "answered",
+      "value": 0,
+      "unit": "lần"
+    },
+    "tien_su_hoa_tri_Xa_tri_thuoc_doc_tim": {
+      "state": "unknown",
+      "value": null,
+      "unit": null
+    }
+  },
+  "orthostaticBp": [
+    {
+      "id": "a1111111-2222-4333-8444-555555555551",
+      "visitId": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+      "position": "supine",
+      "minuteAfter": 0,
+      "systolic": 124,
+      "diastolic": 76,
+      "heartRate": 74,
+      "measuredAt": "2026-11-19T09:15:00Z"
+    },
+    {
+      "id": "a1111111-2222-4333-8444-555555555552",
+      "visitId": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+      "position": "standing",
+      "minuteAfter": 3,
+      "systolic": 102,
+      "diastolic": 66,
+      "heartRate": 86,
+      "measuredAt": "2026-11-19T09:18:00Z"
+    }
+  ],
+  "medications": [
+    {
+      "id": "b1111111-2222-4333-8444-555555555551",
+      "visitId": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+      "drugName": "Sacubitril/Valsartan",
+      "activeIngredient": "Sacubitril + Valsartan",
+      "dose": 50,
+      "unit": "mg",
+      "frequency": "2 lần/ngày",
+      "route": "Uống",
+      "category": "prescription",
+      "status": "active",
+      "adherenceLevel": "Tuân thủ tốt",
+      "recordedAt": "2026-11-19T09:20:00Z"
+    }
+  ],
+  "allergies": [
+    {
+      "id": "c1111111-2222-4333-8444-555555555551",
+      "visitId": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+      "allergen": "Thuốc cản quang chứa iod",
+      "reaction": "Mày đay toàn thân",
+      "severity": "moderate",
+      "kind": "allergy",
+      "recordedAt": "2026-11-19T09:22:00Z"
+    }
+  ],
+  "labResults": [
+    {
+      "id": "d1111111-2222-4333-8444-555555555551",
+      "visitId": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+      "labCode": "cls_nt_probnp",
+      "valueNum": 1450.5,
+      "valueText": null,
+      "unit": "pg/mL",
+      "measuredAt": "2026-11-19T08:45:00Z",
+      "note": "Mẫu máu tĩnh mạch trước dùng thuốc"
+    },
+    {
+      "id": "d1111111-2222-4333-8444-555555555552",
+      "visitId": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+      "labCode": "cls_lvef",
+      "valueNum": 36.0,
+      "valueText": null,
+      "unit": "%",
+      "measuredAt": "2026-11-19T09:05:00Z",
+      "note": "Phương pháp Simpson hai bình diện"
+    }
+  ],
+  "modules": [
+    {
+      "aiModuleCode": "ai_diagnosis",
+      "ready": true,
+      "missingFieldCodes": []
+    },
+    {
+      "aiModuleCode": "ai_lab_test",
+      "ready": true,
+      "missingFieldCodes": []
+    },
+    {
+      "aiModuleCode": "ai_treatment",
+      "ready": false,
+      "missingFieldCodes": ["cls_kali", "cls_egfr"]
+    },
+    {
+      "aiModuleCode": "ai_medsafety",
+      "ready": false,
+      "missingFieldCodes": ["cls_kali", "cls_creatinin"]
+    }
+  ]
+}
