@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tổng quan Kiến trúc &amp; Sơ đồ UML — Hệ thống Suy tim MVP</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231D4ED8'/%3E%3Cpath d='M6 16h5l2.5-6 4 12 2.5-6h6' fill='none' stroke='%23FFFFFF' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      --nav-bg:#0F172A; --navy:#1E3A8A; --primary:#1D4ED8; --focus:#2563EB;
+      --soft:#EFF6FF; --badge:#DBEAFE; --border:#E2E8F0; --ink:#0F172A; --body:#334155; --muted:#475569; --canvas:#F8FAFC;
+    }
+    * { box-sizing:border-box; }
+    html,body { margin:0; padding:0; background:var(--canvas); color:var(--body); font-family:'Inter','Segoe UI',system-ui,sans-serif; font-size:14px; line-height:1.5; overflow-x:clip; }
+    .mono { font-family:'JetBrains Mono','Cascadia Mono',ui-monospace,monospace; font-size:12px; }
+    .top { background:var(--nav-bg); color:#FFF; padding:16px 20px; border-bottom:3px solid var(--focus); }
+    .top__inner { max-width:1160px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    .top__title { margin:0; font-size:19px; font-weight:700; color:#FFF; }
+    .top__sub { margin:4px 0 0; font-size:12.5px; color:#CBD5E1; }
+    .top__nav { display:flex; gap:8px; flex-wrap:wrap; }
+    .nav-link { display:inline-flex; align-items:center; padding:6px 12px; border-radius:6px; background:#1E293B; color:#FFF; border:1px solid #334155; text-decoration:none; font-size:12.5px; font-weight:600; }
+    .nav-link:hover { background:var(--navy); border-color:var(--focus); }
+    .nav-link--primary { background:var(--primary); border-color:var(--primary); }
+    .wrap { max-width:1160px; margin:0 auto; padding:20px 16px 48px; }
+    .toc { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
+    .toc a { padding:5px 10px; border-radius:6px; background:#FFF; border:1px solid var(--border); color:var(--navy); text-decoration:none; font-size:12.5px; font-weight:600; }
+    .toc a:hover { background:var(--soft); border-color:var(--focus); }
+    .card { background:#FFF; border:1px solid var(--border); border-radius:8px; padding:18px; margin-bottom:18px; }
+    .card h2 { margin:0 0 6px; font-size:17px; color:var(--ink); }
+    .card p { margin:0 0 12px; font-size:13px; color:var(--muted); }
+    .svg-wrap { width:100%; overflow-x:auto; border:1px solid var(--border); border-radius:8px; background:#F8FAFC; padding:8px; }
+    .svg-wrap svg { display:block; width:100%; min-width:640px; height:auto; }
+    .mmd-box { margin-top:10px; border:1px solid var(--border); border-radius:6px; background:#F8FAFC; padding:8px 12px; }
+    .mmd-box summary { cursor:pointer; font-size:12.5px; font-weight:600; color:var(--navy); }
+    .mmd-box pre { margin:10px 0 0; overflow-x:auto; white-space:pre; background:#0F172A; color:#E2E8F0; padding:12px; border-radius:6px; }
+    .tbl-wrap { width:100%; overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th { background:#F1F5F9; color:var(--muted); text-align:left; padding:9px 12px; border-bottom:1px solid #CBD5E1; }
+    td { padding:9px 12px; border-bottom:1px solid var(--border); vertical-align:top; }
+    @media (max-width:400px) { .wrap { padding:14px 10px 36px; } .card { padding:12px; } }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="top__inner">
+      <div>
+        <h1 class="top__title">Kiến trúc Hệ thống &amp; Bộ Sơ đồ UML (Clinical Blue)</h1>
+        <p class="top__sub">Hệ thống Thu thập &amp; Xác nhận Dữ liệu Lâm sàng Suy tim Trước AI (MVP · 19 Bảng · 32 API · 121 Trường)</p>
+      </div>
+      <nav class="top__nav" aria-label="Điều hướng tài liệu">
+        <a class="nav-link nav-link--primary" href="../">Mở ứng dụng Web MVP</a>
+        <a class="nav-link" href="../api/">Tài liệu OpenAPI 3.1</a>
+        <a class="nav-link" href="../api/openapi.yaml" download>Tải openapi.yaml</a>
+      </nav>
+    </div>
+  </header>
+  <main class="wrap">
+    <nav class="toc" aria-label="Mục lục sơ đồ">
+      <a href="#layered">1. Kiến trúc phân lớp</a>
+      <a href="#erd">2. ERD 19 bảng 3NF</a>
+      <a href="#class">3. UML Class Diagram</a>
+      <a href="#seq1">4. Sequence 1: Bác sĩ</a>
+      <a href="#seq2">5. Sequence 2: Admin Tài khoản</a>
+      <a href="#seq3">6. Sequence 3: Admin Biểu mẫu</a>
+      <a href="#rules">7. Chốt kiến trúc K1–K10</a>
+    </nav>
+
+    <section class="card" id="layered">
+      <h2>1. Kiến trúc Phân lớp Tổng thể (Modular Monolith)</h2>
+      <p>Tách bạch rõ ràng giao diện Web SPA 8 màn hình, tầng API Gateway &amp; RBAC <span class="mono">/api/v1</span>, tầng dịch vụ miền nghiệp vụ, CSDL PostgreSQL 19 bảng và hợp đồng chỉ đọc <span class="mono">AiInputPayload</span> cho giai đoạn tích hợp AI sau.</p>
+      <div class="svg-wrap"><svg viewBox="0 0 920 390" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Sơ đồ Kiến trúc Phân lớp Tổng thể Clinical Blue">
+  <rect x="0" y="0" width="920" height="390" rx="10" fill="#F8FAFC"/>
+  <rect x="20" y="18" width="880" height="68" rx="8" fill="#EFF6FF" stroke="#1D4ED8" stroke-width="1.5"/>
+  <text x="36" y="40" font-size="13" font-weight="700" fill="#1E3A8A">Tầng Giao diện Web SPA (Clinical Blue · 8 Màn hình M1–M8)</text>
+  <rect x="36" y="48" width="240" height="28" rx="5" fill="#DBEAFE" stroke="#2563EB"/>
+  <text x="48" y="66" font-size="11.5" font-weight="600" fill="#1E3A8A">M1: Đăng nhập chung (Server cấp role)</text>
+  <rect x="292" y="48" width="290" height="28" rx="5" fill="#DBEAFE" stroke="#2563EB"/>
+  <text x="304" y="66" font-size="11.5" font-weight="600" fill="#1E3A8A">Luồng Bác sĩ (M2–M5): Hồ sơ · 8 nhóm · Xác nhận</text>
+  <rect x="598" y="48" width="286" height="28" rx="5" fill="#DBEAFE" stroke="#2563EB"/>
+  <text x="610" y="66" font-size="11.5" font-weight="600" fill="#1E3A8A">Luồng Admin (M6–M8): Tài khoản · Form · Audit</text>
+
+  <line x1="460" y1="86" x2="460" y2="106" stroke="#1D4ED8" stroke-width="2"/>
+  <polygon points="455,102 465,102 460,110" fill="#1D4ED8"/>
+
+  <rect x="20" y="110" width="880" height="64" rx="8" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+  <text x="36" y="132" font-size="13" font-weight="700" fill="#1E3A8A">Tầng API Gateway &amp; Bảo mật (/api/v1 · OpenAPI 3.1.0 · 32 operationId)</text>
+  <rect x="36" y="140" width="260" height="26" rx="5" fill="#FFFFFF" stroke="#1D4ED8"/>
+  <text x="48" y="157" font-size="11" fill="#0F172A">JWT Bearer + Refresh Token Hash</text>
+  <rect x="312" y="140" width="284" height="26" rx="5" fill="#FFFFFF" stroke="#1D4ED8"/>
+  <text x="324" y="157" font-size="11" fill="#0F172A">RBAC Guard K8 (Admin ≠ Bệnh án -> 403)</text>
+  <rect x="612" y="140" width="272" height="26" rx="5" fill="#FFFFFF" stroke="#1D4ED8"/>
+  <text x="624" y="157" font-size="11" fill="#0F172A">ETag / If-Match (409) · RFC 9457 (422)</text>
+
+  <line x1="460" y1="174" x2="460" y2="194" stroke="#1D4ED8" stroke-width="2"/>
+  <polygon points="455,190 465,190 460,198" fill="#1D4ED8"/>
+
+  <rect x="20" y="198" width="880" height="72" rx="8" fill="#EFF6FF" stroke="#1D4ED8" stroke-width="1.5"/>
+  <text x="36" y="218" font-size="13" font-weight="700" fill="#1E3A8A">Tầng Dịch vụ Nghiệp vụ (Domain Services — Chốt K1–K10)</text>
+  <rect x="36" y="228" width="155" height="32" rx="5" fill="#DBEAFE" stroke="#1D4ED8"/>
+  <text x="46" y="248" font-size="11" font-weight="600" fill="#1E3A8A">AuthService</text>
+  <rect x="203" y="228" width="165" height="32" rx="5" fill="#DBEAFE" stroke="#1D4ED8"/>
+  <text x="213" y="248" font-size="11" font-weight="600" fill="#1E3A8A">PatientService (BN-xxxxx)</text>
+  <rect x="380" y="228" width="180" height="32" rx="5" fill="#DBEAFE" stroke="#1D4ED8"/>
+  <text x="390" y="248" font-size="11" font-weight="600" fill="#1E3A8A">VisitService &amp; Validator</text>
+  <rect x="572" y="228" width="155" height="32" rx="5" fill="#DBEAFE" stroke="#1D4ED8"/>
+  <text x="582" y="248" font-size="11" font-weight="600" fill="#1E3A8A">FormVersionService</text>
+  <rect x="739" y="228" width="145" height="32" rx="5" fill="#DBEAFE" stroke="#1D4ED8"/>
+  <text x="749" y="248" font-size="11" font-weight="600" fill="#1E3A8A">User &amp; AuditService</text>
+
+  <line x1="300" y1="270" x2="300" y2="294" stroke="#1D4ED8" stroke-width="2"/>
+  <polygon points="295,290 305,290 300,298" fill="#1D4ED8"/>
+  <line x1="720" y1="270" x2="720" y2="294" stroke="#64748B" stroke-width="1.5" stroke-dasharray="5,4"/>
+  <polygon points="715,290 725,290 720,298" fill="#64748B"/>
+
+  <rect x="20" y="298" width="540" height="74" rx="8" fill="#0F172A" stroke="#1D4ED8" stroke-width="1.5"/>
+  <text x="36" y="320" font-size="13" font-weight="700" fill="#FFFFFF">PostgreSQL (19 Bảng Chuẩn 3NF · 10 Enum · 19 Triggers · 121 Trường)</text>
+  <text x="36" y="340" font-size="11" fill="#CBD5E1">IAM &amp; Audit: app_user, user_session, audit_log (0 PHI / 0 mật khẩu)</text>
+  <text x="36" y="357" font-size="11" fill="#93C5FD">Metadata + Clinical: form_* (K4 bất biến), patient (K10), visit, visit_revision, visit_value (K2), 4 bảng lặp (K6)</text>
+
+  <rect x="580" y="298" width="320" height="74" rx="8" fill="#FFFFFF" stroke="#64748B" stroke-width="1.5" stroke-dasharray="6,4"/>
+  <text x="596" y="320" font-size="12.5" font-weight="700" fill="#334155">Tích hợp AI Giai đoạn sau (Chỉ đọc Hợp đồng)</text>
+  <text x="596" y="339" font-size="11" fill="#475569">GET /api/v1/visits/{visitId}/ai-input (chỉ lượt confirmed)</text>
+  <text x="596" y="356" font-size="10.5" fill="#1D4ED8">ai_diagnosis · ai_lab_test · ai_treatment · ai_medsafety</text>
+</svg></div>
+      <details class="mmd-box"><summary>Xem mã nguồn Mermaid (Kiến trúc phân lớp)</summary><pre class="mono">flowchart TB
+    subgraph Client[&quot;Tầng Giao diện Web SPA (Clinical Blue · 8 Màn hình)&quot;]
+        M1[&quot;M1: Đăng nhập chung\n(Server quyết định role)&quot;]
+        DoctorUI[&quot;Luồng Bác sĩ (M2–M5)\nHồ sơ BN · Lượt khám 8 nhóm · Xem lại &amp; Xác nhận&quot;]
+        AdminUI[&quot;Luồng Quản trị (M6–M8)\nTài khoản 2 bước · Form Studio · Nhật ký hệ thống&quot;]
+    end
+
+    subgraph API[&quot;Tầng API Gateway &amp; Bảo mật (/api/v1 · OpenAPI 3.1)&quot;]
+        AuthMW[&quot;JWT Auth &amp; Session Middleware\n(Access JWT + Hashed Refresh Token)&quot;]
+        RBAC[&quot;RBAC &amp; Clinical Separation Guard (K8)\ndoctor ≠ /admin/* | admin ≠ /patients*, /visits*&quot;]
+        ETag[&quot;Optimistic Concurrency &amp; RFC 9457\nIf-Match / ETag / rowVersion -&gt; 409 | ProblemDetails&quot;]
+    end
+
+    subgraph Services[&quot;Tầng Dịch vụ Miền Nghiệp vụ (Domain Services)&quot;]
+        AuthSvc[&quot;AuthService\n(login, refresh, logout)&quot;]
+        PatientSvc[&quot;PatientService\n(Tầng 1: BN-xxxxx, không bịa 01/01)&quot;]
+        VisitSvc[&quot;VisitService &amp; ValidationEngine\n(Tầng 2/3/4, 3 trạng thái K2, Revision K5, AiInputPayload)&quot;]
+        UserAdminSvc[&quot;UserAdminService\n(Permission Preview, One-Time Setup Code, Revoke Session)&quot;]
+        FormVerSvc[&quot;FormVersionService\n(Clone Draft, On-Demand Preview/Diff, Publish K4)&quot;]
+        AuditSvc[&quot;AuditService\n(Ghi siêu dữ liệu bất biến, 0 PHI, 0 mật khẩu)&quot;]
+    end
+
+    subgraph DB[&quot;PostgreSQL 16 (19 Bảng Chuẩn 3NF + Trigger Bảo vệ)&quot;]
+        IAMDB[(&quot;app_user\nuser_session\naudit_log&quot;)]
+        FormDB[(&quot;form_template · form_version\nform_section · form_field\nfield_definition · field_option\nfield_ai_module\n[Trigger K4: Khóa published]&quot;)]
+        ClinDB[(&quot;patient · visit · visit_revision\nvisit_value · visit_value_option\nvisit_orthostatic_bp · visit_medication\nvisit_allergy · visit_lab_result\n[CHECK K2 + Trigger K5]&quot;)]
+    end
+
+    subgraph FutureAI[&quot;Tầng Tích hợp AI Giai đoạn sau (Chỉ đọc Hợp đồng)&quot;]
+        Contract[&quot;Hợp đồng AiInputPayload\nGET /api/v1/visits/{visitId}/ai-input\n(ai_diagnosis · ai_lab_test · ai_treatment · ai_medsafety)&quot;]
+    end
+
+    M1 --&gt; AuthMW
+    DoctorUI --&gt; AuthMW
+    AdminUI --&gt; AuthMW
+    AuthMW --&gt; RBAC --&gt; ETag
+    ETag --&gt; AuthSvc &amp; PatientSvc &amp; VisitSvc &amp; UserAdminSvc &amp; FormVerSvc
+    AuthSvc --&gt; IAMDB
+    UserAdminSvc --&gt; IAMDB
+    FormVerSvc --&gt; FormDB
+    PatientSvc --&gt; ClinDB
+    VisitSvc --&gt; ClinDB
+    VisitSvc -.-&gt;|&quot;đọc cấu trúc version gắn cứng&quot;| FormDB
+    AuthSvc &amp; PatientSvc &amp; VisitSvc &amp; UserAdminSvc &amp; FormVerSvc --&gt; AuditSvc --&gt; IAMDB
+    VisitSvc -.-&gt;|&quot;chỉ xuất lượt confirmed (K1, K9)&quot;| Contract
+
+    style Client fill:#F8FAFC,stroke:#93C5FD,color:#1E3A8A
+    style API fill:#EFF6FF,stroke:#1D4ED8,color:#1E3A8A
+    style Services fill:#DBEAFE,stroke:#1D4ED8,color:#1E3A8A
+    style DB fill:#EFF6FF,stroke:#1E40AF,color:#1E3A8A
+    style FutureAI fill:#F8FAFC,stroke:#64748B,stroke-dasharray: 5 5,color:#334155</pre></details>
+    </section>
+
+    <section class="card" id="erd">
+      <h2>2. Sơ đồ Thực thể Liên kết (ERD — 19 Bảng Chuẩn 3NF &amp; 10 Enum)</h2>
+      <p>Bao gồm đầy đủ 3 nhóm thực thể: IAM &amp; Kiểm toán, Danh mục Biểu mẫu bất biến, và Hồ sơ Bệnh nhân + Lượt khám + 4 bảng lặp độc lập (huyết áp tư thế, thuốc, dị ứng/ADR, xét nghiệm cận lâm sàng) cùng <span class="mono">visit_revision</span> và <span class="mono">visit_value_option</span>.</p>
+      <div class="svg-wrap"><svg viewBox="0 0 960 520" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Sơ đồ ERD 19 Bảng Chuẩn 3NF">
+  <rect x="0" y="0" width="960" height="520" rx="10" fill="#F8FAFC"/>
+  <!-- Group 1: IAM & Audit -->
+  <rect x="16" y="16" width="292" height="196" rx="8" fill="#EFF6FF" stroke="#1D4ED8" stroke-width="1.5"/>
+  <text x="28" y="36" font-size="12.5" font-weight="700" fill="#1E3A8A">1. Định danh &amp; Kiểm toán (3 bảng)</text>
+  <rect x="28" y="48" width="268" height="46" rx="5" fill="#FFFFFF" stroke="#1D4ED8"/>
+  <text x="36" y="65" font-size="11.5" font-weight="700" fill="#0F172A">app_user</text>
+  <text x="36" y="82" font-size="10.5" fill="#475569">id PK · username UK · role · is_active · row_version</text>
+  <rect x="28" y="102" width="268" height="46" rx="5" fill="#FFFFFF" stroke="#1D4ED8"/>
+  <text x="36" y="119" font-size="11.5" font-weight="700" fill="#0F172A">user_session</text>
+  <text x="36" y="136" font-size="10.5" fill="#475569">id PK · user_id FK · refresh_token_hash · revoked_at</text>
+  <rect x="28" y="156" width="268" height="46" rx="5" fill="#FFFFFF" stroke="#1D4ED8"/>
+  <text x="36" y="173" font-size="11.5" font-weight="700" fill="#0F172A">audit_log (append-only, K8)</text>
+  <text x="36" y="190" font-size="10.5" fill="#475569">id PK · actor_user_id FK · action · outcome · detail</text>
+
+  <!-- Group 2: Metadata Form Catalog -->
+  <rect x="328" y="16" width="616" height="196" rx="8" fill="#EFF6FF" stroke="#1D4ED8" stroke-width="1.5"/>
+  <text x="340" y="36" font-size="12.5" font-weight="700" fill="#1E3A8A">2. Danh mục Biểu mẫu &amp; Phiên bản Bất biến K3/K4 (7 bảng)</text>
+  <rect x="340" y="48" width="185" height="46" rx="5" fill="#FFFFFF" stroke="#1D4ED8"/>
+  <text x="348" y="65" font-size="11.5" font-weight="700" fill="#0F172A">form_template</text>
+  <text x="348" y="82" font-size="10.5" fill="#475569">id PK · code UK · name</text>
+  <rect x="538" y="48" width="195" height="46" rx="5" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+  <text x="546" y="65" font-size="11.5" font-weight="700" fill="#1E3A8A">form_version (K4 Lock)</text>
+  <text x="546" y="82" font-size="10.5" fill="#1E3A8A">id PK · version_no · status · row_version</text>
+  <rect x="746" y="48" width="185" height="46" rx="5" fill="#FFFFFF" stroke="#1D4ED8"/>
+  <text x="754" y="65" font-size="11.5" font-weight="700" fill="#0F172A">form_section (1..8)</text>
+  <text x="754" y="82" font-size="10.5" fill="#475569">id PK · section_code · title_vi</text>
+
+  <rect x="340" y="110" width="215" height="88" rx="5" fill="#FFFFFF" stroke="#1D4ED8"/>
+  <text x="348" y="128" font-size="11.5" font-weight="700" fill="#0F172A">field_definition (121 mã)</text>
+  <text x="348" y="145" font-size="10.5" fill="#475569">id PK · code UK · data_type</text>
+  <text x="348" y="161" font-size="10.5" fill="#475569">scope_status (95 mvp + 26)</text>
+  <text x="348" y="177" font-size="10.5" fill="#475569">storage_level · min/max · unit</text>
+
+  <rect x="568" y="110" width="180" height="88" rx="5" fill="#FFFFFF" stroke="#1D4ED8"/>
+  <text x="576" y="128" font-size="11.5" font-weight="700" fill="#0F172A">form_field</text>
+  <text x="576" y="145" font-size="10.5" fill="#475569">form_version_id FK</text>
+  <text x="576" y="161" font-size="10.5" fill="#475569">form_section_id FK</text>
+  <text x="576" y="177" font-size="10.5" fill="#475569">required_for_confirm · is_visible</text>
+
+  <rect x="760" y="110" width="171" height="40" rx="5" fill="#FFFFFF" stroke="#1D4ED8"/>
+  <text x="768" y="127" font-size="11" font-weight="700" fill="#0F172A">field_option</text>
+  <text x="768" y="142" font-size="10" fill="#475569">id PK · field_def_id FK · code</text>
+  <rect x="760" y="158" width="171" height="40" rx="5" fill="#FFFFFF" stroke="#1D4ED8"/>
+  <text x="768" y="175" font-size="11" font-weight="700" fill="#0F172A">field_ai_module (Tầng 4)</text>
+  <text x="768" y="190" font-size="10" fill="#475569">field_def_id · ai_module_code</text>
+
+  <!-- Group 3: Clinical Records & 4 Repeating Tables -->
+  <rect x="16" y="232" width="928" height="272" rx="8" fill="#EFF6FF" stroke="#1D4ED8" stroke-width="1.5"/>
+  <text x="28" y="252" font-size="12.5" font-weight="700" fill="#1E3A8A">3. Hồ sơ Bệnh nhân, Lượt khám &amp; 4 Bảng Lặp Lâm sàng K2/K5/K6/K7/K10 (9 bảng)</text>
+
+  <rect x="28" y="266" width="215" height="98" rx="5" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+  <text x="36" y="284" font-size="12" font-weight="700" fill="#1E3A8A">patient (K10)</text>
+  <text x="36" y="302" font-size="10.5" fill="#0F172A">id UUID PK</text>
+  <text x="36" y="318" font-size="10.5" fill="#1E3A8A">patient_code UK (BN-\d{5})</text>
+  <text x="36" y="334" font-size="10.5" fill="#475569">full_name · sex · birth_date|year|age</text>
+  <text x="36" y="350" font-size="10.5" fill="#475569">row_version · created_by FK</text>
+
+  <line x1="243" y1="315" x2="275" y2="315" stroke="#1D4ED8" stroke-width="2"/>
+  <text x="247" y="308" font-size="10" font-weight="700" fill="#1D4ED8">1..*</text>
+
+  <rect x="275" y="266" width="248" height="98" rx="5" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+  <text x="283" y="284" font-size="12" font-weight="700" fill="#1E3A8A">visit (K3/K5)</text>
+  <text x="283" y="302" font-size="10.5" fill="#0F172A">id PK · visit_code UK · patient_id FK</text>
+  <text x="283" y="318" font-size="10.5" fill="#1E3A8A">form_version_id FK (bất biến)</text>
+  <text x="283" y="334" font-size="10.5" fill="#475569">status (draft|confirmed) · row_version</text>
+  <text x="283" y="350" font-size="10.5" fill="#475569">current_revision_no · confirmed_at/by</text>
+
+  <line x1="523" y1="295" x2="555" y2="295" stroke="#1D4ED8" stroke-width="1.5"/>
+  <rect x="555" y="266" width="180" height="98" rx="5" fill="#FFFFFF" stroke="#1D4ED8"/>
+  <text x="563" y="284" font-size="11.5" font-weight="700" fill="#0F172A">visit_revision (K5)</text>
+  <text x="563" y="302" font-size="10.5" fill="#475569">id PK · visit_id FK</text>
+  <text x="563" y="318" font-size="10.5" fill="#475569">revision_no · revision_type</text>
+  <text x="563" y="334" font-size="10.5" fill="#475569">change_reason · snapshot_data</text>
+  <text x="563" y="350" font-size="10.5" fill="#475569">(append-only trigger)</text>
+
+  <rect x="748" y="266" width="184" height="46" rx="5" fill="#FFFFFF" stroke="#1D4ED8"/>
+  <text x="756" y="283" font-size="11" font-weight="700" fill="#0F172A">visit_value (CHECK K2)</text>
+  <text x="756" y="299" font-size="10" fill="#475569">value_state (answered|unknown)</text>
+  <rect x="748" y="318" width="184" height="46" rx="5" fill="#FFFFFF" stroke="#1D4ED8"/>
+  <text x="756" y="335" font-size="11" font-weight="700" fill="#0F172A">visit_value_option (3NF)</text>
+  <text x="756" y="351" font-size="10" fill="#475569">multi_choice composite FK</text>
+
+  <!-- 4 Repeating Tables Row -->
+  <rect x="28" y="384" width="215" height="104" rx="5" fill="#FFFFFF" stroke="#2563EB" stroke-width="1.5"/>
+  <text x="36" y="403" font-size="11.5" font-weight="700" fill="#1E3A8A">visit_orthostatic_bp (K6)</text>
+  <text x="36" y="421" font-size="10.5" fill="#475569">visit_id FK · position (bp_position)</text>
+  <text x="36" y="438" font-size="10.5" fill="#475569">systolic &gt; diastolic · heart_rate</text>
+  <text x="36" y="455" font-size="10.5" fill="#475569">minute_after · measured_at</text>
+  <text x="36" y="472" font-size="10" fill="#1D4ED8">Bảng lặp HA nhiều tư thế</text>
+
+  <rect x="256" y="384" width="215" height="104" rx="5" fill="#FFFFFF" stroke="#2563EB" stroke-width="1.5"/>
+  <text x="264" y="403" font-size="11.5" font-weight="700" fill="#1E3A8A">visit_medication (K6)</text>
+  <text x="264" y="421" font-size="10.5" fill="#475569">visit_id FK · medication_group</text>
+  <text x="264" y="438" font-size="10.5" fill="#475569">drug_name · dose &gt; 0 · unit</text>
+  <text x="264" y="455" font-size="10.5" fill="#475569">frequency · route · status</text>
+  <text x="264" y="472" font-size="10" fill="#1D4ED8">Thuốc kê đơn + OTC/TPCN/YHCT</text>
+
+  <rect x="484" y="384" width="215" height="104" rx="5" fill="#FFFFFF" stroke="#2563EB" stroke-width="1.5"/>
+  <text x="492" y="403" font-size="11.5" font-weight="700" fill="#1E3A8A">visit_allergy (K6)</text>
+  <text x="492" y="421" font-size="10.5" fill="#475569">visit_id FK · kind (allergy|adr)</text>
+  <text x="492" y="438" font-size="10.5" fill="#475569">agent_category (contrast_media)</text>
+  <text x="492" y="455" font-size="10.5" fill="#475569">allergen · reaction · severity</text>
+  <text x="492" y="472" font-size="10" fill="#1D4ED8">Dị ứng, ADR &amp; thuốc cản quang</text>
+
+  <rect x="712" y="384" width="220" height="104" rx="5" fill="#FFFFFF" stroke="#2563EB" stroke-width="1.5"/>
+  <text x="720" y="403" font-size="11.5" font-weight="700" fill="#1E3A8A">visit_lab_result (K6/K7)</text>
+  <text x="720" y="421" font-size="10.5" fill="#475569">visit_id FK · lab_code FK</text>
+  <text x="720" y="438" font-size="10.5" fill="#475569">value_num | value_text · unit</text>
+  <text x="720" y="455" font-size="10.5" fill="#475569">measured_at · lab_subtype</text>
+  <text x="720" y="472" font-size="10" fill="#1D4ED8">Tách BNP≠NT-proBNP, Cr≠eGFR</text>
+</svg></div>
+      <details class="mmd-box"><summary>Xem mã nguồn Mermaid (ERD 19 bảng)</summary><pre class="mono">erDiagram
+    app_user ||--o{ user_session : &quot;user_id&quot;
+    app_user |o--o{ audit_log : &quot;actor_user_id&quot;
+    app_user ||--o{ patient : &quot;created_by&quot;
+    app_user ||--o{ visit : &quot;created_by / confirmed_by&quot;
+    app_user ||--o{ form_version : &quot;created_by / published_by&quot;
+    app_user ||--o{ visit_revision : &quot;created_by&quot;
+
+    form_template ||--o{ form_version : &quot;form_template_id&quot;
+    form_version |o--o{ form_version : &quot;based_on_version_id&quot;
+    form_version ||--|{ form_section : &quot;form_version_id (1..8)&quot;
+    form_section ||--o{ form_field : &quot;(form_section_id, form_version_id)&quot;
+    field_definition ||--o{ form_field : &quot;field_definition_id&quot;
+    field_definition ||--o{ field_option : &quot;field_definition_id&quot;
+    field_definition ||--o{ field_ai_module : &quot;field_definition_id&quot;
+
+    patient ||--o{ visit : &quot;patient_id&quot;
+    form_version ||--o{ visit : &quot;form_version_id (immutable)&quot;
+    form_version ||--o{ visit_revision : &quot;form_version_id&quot;
+    visit ||--o{ visit_revision : &quot;visit_id&quot;
+    visit ||--o{ visit_value : &quot;visit_id&quot;
+    field_definition ||--o{ visit_value : &quot;field_definition_id&quot;
+    field_option |o--o{ visit_value : &quot;(field_option_id, field_definition_id)&quot;
+    visit_value ||--o{ visit_value_option : &quot;(visit_id, field_definition_id)&quot;
+    field_option ||--o{ visit_value_option : &quot;(field_option_id, field_definition_id)&quot;
+    visit ||--o{ visit_orthostatic_bp : &quot;visit_id&quot;
+    visit ||--o{ visit_medication : &quot;visit_id&quot;
+    visit ||--o{ visit_allergy : &quot;visit_id&quot;
+    visit ||--o{ visit_lab_result : &quot;visit_id&quot;
+    field_definition ||--o{ visit_lab_result : &quot;lab_code -&gt; code&quot;
+
+    app_user {
+        uuid id PK
+        varchar username UK
+        text password_hash
+        varchar full_name
+        user_role role
+        boolean is_active
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    user_session {
+        uuid id PK
+        uuid user_id FK
+        varchar refresh_token_hash UK
+        timestamptz expires_at
+        timestamptz revoked_at
+        inet ip
+        varchar user_agent
+        timestamptz created_at
+    }
+
+    audit_log {
+        uuid id PK
+        uuid actor_user_id FK
+        audit_action action
+        varchar entity_type
+        uuid entity_id
+        timestamptz occurred_at
+        inet ip
+        varchar request_id
+        varchar outcome
+        jsonb detail
+    }
+
+    form_template {
+        uuid id PK
+        varchar code UK
+        varchar name
+        text description
+        boolean is_active
+        timestamptz created_at
+    }
+
+    form_version {
+        uuid id PK
+        uuid form_template_id FK
+        integer version_no
+        varchar version_label
+        form_version_status status
+        uuid based_on_version_id FK
+        text change_note
+        uuid created_by FK
+        timestamptz created_at
+        timestamptz published_at
+        uuid published_by FK
+        integer row_version
+    }
+
+    form_section {
+        uuid id PK
+        uuid form_version_id FK
+        section_code section_code
+        varchar title_vi
+        text description
+        smallint display_order
+    }
+
+    form_field {
+        uuid id PK
+        uuid form_version_id FK
+        uuid form_section_id FK
+        uuid field_definition_id FK
+        smallint display_order
+        boolean required_for_confirm
+        boolean is_visible
+        boolean is_readonly
+        varchar custom_label_vi
+        text custom_help_text
+    }
+
+    field_definition {
+        uuid id PK
+        varchar code UK
+        varchar label_vi
+        section_code section_code
+        field_data_type data_type
+        varchar canonical_unit
+        field_scope_status scope_status
+        varchar storage_level
+        boolean is_calculated
+        numeric min_value
+        numeric max_value
+        jsonb validation_rule
+        text help_text
+        text source_ref
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    field_option {
+        uuid id PK
+        uuid field_definition_id FK
+        varchar option_code
+        varchar label_vi
+        smallint display_order
+        boolean is_active
+    }
+
+    field_ai_module {
+        uuid field_definition_id PK,FK
+        varchar ai_module_code PK
+        boolean is_required
+        text source_stt_refs
+    }
+
+    patient {
+        uuid id PK
+        varchar patient_code UK
+        varchar external_patient_code
+        varchar full_name
+        varchar sex
+        date birth_date
+        smallint birth_year
+        smallint declared_age
+        integer row_version
+        uuid created_by FK
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    visit {
+        uuid id PK
+        varchar visit_code UK
+        varchar external_visit_code
+        uuid patient_id FK
+        uuid form_version_id FK
+        timestamptz visit_date
+        varchar visit_type
+        text chief_complaint
+        text clinical_note
+        varchar info_source
+        visit_status status
+        integer current_revision_no
+        uuid created_by FK
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz confirmed_at
+        uuid confirmed_by FK
+        text confirm_note
+        integer row_version
+    }
+
+    visit_revision {
+        uuid id PK
+        uuid visit_id FK
+        integer revision_no
+        uuid form_version_id FK
+        varchar revision_type
+        text change_reason
+        jsonb snapshot_data
+        uuid created_by FK
+        timestamptz created_at
+    }
+
+    visit_value {
+        uuid visit_id PK,FK
+        uuid field_definition_id PK,FK
+        value_state value_state
+        numeric value_num
+        text value_text
+        boolean value_bool
+        date value_date
+        uuid field_option_id FK
+        varchar unit
+        timestamptz updated_at
+    }
+
+    visit_value_option {
+        uuid visit_id PK,FK
+        uuid field_definition_id PK,FK
+        uuid field_option_id PK,FK
+    }
+
+    visit_orthostatic_bp {
+        uuid id PK
+        uuid visit_id FK
+        bp_position position
+        smallint minute_after
+        smallint systolic
+        smallint diastolic
+        smallint heart_rate
+        timestamptz measured_at
+        text note
+        timestamptz created_at
+    }
+
+    visit_medication {
+        uuid id PK
+        uuid visit_id FK
+        varchar medication_group
+        varchar drug_name
+        varchar active_ingredient
+        varchar strength
+        numeric dose
+        varchar unit
+        varchar frequency
+        varchar route
+        varchar status
+        date started_at
+        text note
+        timestamptz created_at
+    }
+
+    visit_allergy {
+        uuid id PK
+        uuid visit_id FK
+        varchar kind
+        varchar agent_category
+        varchar allergen
+        text reaction
+        varchar severity
+        timestamptz recorded_at
+        text note
+        timestamptz created_at
+    }
+
+    visit_lab_result {
+        uuid id PK
+        uuid visit_id FK
+        varchar lab_code FK
+        varchar lab_subtype
+        numeric value_num
+        text value_text
+        varchar unit
+        timestamptz measured_at
+        text note
+        timestamptz created_at
+    }</pre></details>
+    </section>
+
+    <section class="card" id="class">
+      <h2>3. Biểu đồ Lớp Miền Nghiệp vụ (UML Class Diagram)</h2>
+      <p>Phân định rõ 4 Aggregate Root (<span class="mono">AppUser</span>, <span class="mono">FormVersion</span>, <span class="mono">Patient</span>, <span class="mono">Visit</span>), 15 thực thể con và 3 Value Object tính động (<span class="mono">AiInputPayload</span>, <span class="mono">VisitReviewResponse</span>, <span class="mono">FormVersionDiffResponse</span>).</p>
+      <div class="svg-wrap"><svg viewBox="0 0 960 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Biểu đồ Lớp UML Miền Nghiệp vụ">
+  <rect x="0" y="0" width="960" height="400" rx="10" fill="#F8FAFC"/>
+  <rect x="20" y="20" width="210" height="158" rx="6" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="1.5"/>
+  <rect x="20" y="20" width="210" height="30" rx="6" fill="#DBEAFE" stroke="#1D4ED8"/>
+  <text x="30" y="39" font-size="12" font-weight="700" fill="#1E3A8A">AppUser &lt;&lt;Aggregate&gt;&gt;</text>
+  <text x="30" y="68" font-size="10.5" fill="#334155">- id, username, role, isActive</text>
+  <text x="30" y="84" font-size="10.5" fill="#334155">- rowVersion (C4)</text>
+  <line x1="20" y1="94" x2="230" y2="94" stroke="#E2E8F0"/>
+  <text x="30" y="112" font-size="10.5" fill="#1D4ED8">+ authenticate(rawPwd)</text>
+  <text x="30" y="128" font-size="10.5" fill="#1D4ED8">+ canAccessClinicalData()</text>
+  <text x="30" y="144" font-size="10.5" fill="#1D4ED8">+ previewPermissions(role)</text>
+  <text x="30" y="160" font-size="10.5" fill="#1D4ED8">+ deactivate(reason)</text>
+
+  <rect x="255" y="20" width="225" height="158" rx="6" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="1.5"/>
+  <rect x="255" y="20" width="225" height="30" rx="6" fill="#DBEAFE" stroke="#1D4ED8"/>
+  <text x="265" y="39" font-size="12" font-weight="700" fill="#1E3A8A">FormVersion &lt;&lt;Aggregate&gt;&gt;</text>
+  <text x="265" y="68" font-size="10.5" fill="#334155">- id, versionNo, status, rowVersion</text>
+  <text x="265" y="84" font-size="10.5" fill="#334155">- sections[1..8], fields[]</text>
+  <line x1="255" y1="94" x2="480" y2="94" stroke="#E2E8F0"/>
+  <text x="265" y="112" font-size="10.5" fill="#1D4ED8">+ assertDraftEditable() [K4]</text>
+  <text x="265" y="128" font-size="10.5" fill="#1D4ED8">+ renderPreview()</text>
+  <text x="265" y="144" font-size="10.5" fill="#1D4ED8">+ diffAgainst(base)</text>
+  <text x="265" y="160" font-size="10.5" fill="#1D4ED8">+ publish(admin, expectedRV)</text>
+
+  <rect x="505" y="20" width="205" height="158" rx="6" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="1.5"/>
+  <rect x="505" y="20" width="205" height="30" rx="6" fill="#DBEAFE" stroke="#1D4ED8"/>
+  <text x="515" y="39" font-size="12" font-weight="700" fill="#1E3A8A">Patient &lt;&lt;Aggregate&gt;&gt;</text>
+  <text x="515" y="68" font-size="10.5" fill="#334155">- id, patientCode (BN-xxxxx)</text>
+  <text x="515" y="84" font-size="10.5" fill="#334155">- sex, birthDate|Year|Age</text>
+  <line x1="505" y1="94" x2="710" y2="94" stroke="#E2E8F0"/>
+  <text x="515" y="112" font-size="10.5" fill="#1D4ED8">+ calculateAgeAt(visitDate)</text>
+  <text x="515" y="128" font-size="10.5" fill="#1D4ED8">+ updateDemographics()</text>
+  <text x="515" y="144" font-size="10.5" fill="#1D4ED8">+ openVisit(publishedVer)</text>
+
+  <rect x="735" y="20" width="205" height="158" rx="6" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="1.5"/>
+  <rect x="735" y="20" width="205" height="30" rx="6" fill="#DBEAFE" stroke="#1D4ED8"/>
+  <text x="745" y="39" font-size="12" font-weight="700" fill="#1E3A8A">Visit &lt;&lt;Aggregate&gt;&gt;</text>
+  <text x="745" y="68" font-size="10.5" fill="#334155">- id, visitCode, status, rowVersion</text>
+  <text x="745" y="84" font-size="10.5" fill="#334155">- formVersionId, revisionNo</text>
+  <line x1="735" y1="94" x2="940" y2="94" stroke="#E2E8F0"/>
+  <text x="745" y="112" font-size="10.5" fill="#1D4ED8">+ saveDraft(payload, rv)</text>
+  <text x="745" y="128" font-size="10.5" fill="#1D4ED8">+ buildReviewSummary()</text>
+  <text x="745" y="144" font-size="10.5" fill="#1D4ED8">+ confirm() / createRevision()</text>
+  <text x="745" y="160" font-size="10.5" fill="#1D4ED8">+ exportAiInput()</text>
+
+  <!-- Entities & Value Objects -->
+  <rect x="20" y="210" width="295" height="168" rx="6" fill="#EFF6FF" stroke="#2563EB"/>
+  <text x="32" y="232" font-size="12" font-weight="700" fill="#1E3A8A">Thực thể con gắn Visit &amp; Catalog (15 lớp)</text>
+  <text x="32" y="254" font-size="11" fill="#334155">• UserSession, AuditLog (IAM &amp; Kiểm toán)</text>
+  <text x="32" y="274" font-size="11" fill="#334155">• FormTemplate, FormSection, FormField</text>
+  <text x="32" y="294" font-size="11" fill="#334155">• FieldDefinition, FieldOption, FieldAiModule</text>
+  <text x="32" y="314" font-size="11" fill="#334155">• VisitRevision (append-only snapshot)</text>
+  <text x="32" y="334" font-size="11" fill="#334155">• VisitValue, VisitValueOption (CR-W1-01)</text>
+  <text x="32" y="354" font-size="11" fill="#334155">• OrthostaticBp, Medication, Allergy, LabResult</text>
+
+  <rect x="340" y="210" width="600" height="168" rx="6" fill="#FFFFFF" stroke="#1D4ED8" stroke-dasharray="6,4"/>
+  <text x="354" y="232" font-size="12" font-weight="700" fill="#1E3A8A">3 Value Object Tính động (Không lưu bảng DB — Xuất trực tiếp qua API)</text>
+  <rect x="354" y="246" width="184" height="116" rx="5" fill="#EFF6FF" stroke="#1D4ED8"/>
+  <text x="362" y="266" font-size="11.5" font-weight="700" fill="#1E3A8A">AiInputPayload</text>
+  <text x="362" y="284" font-size="10.5" fill="#334155">values: map&lt;code, val&gt;</text>
+  <text x="362" y="300" font-size="10.5" fill="#334155">4 mảng lặp lâm sàng</text>
+  <text x="362" y="316" font-size="10.5" fill="#334155">modules[4] readiness</text>
+  <text x="362" y="336" font-size="10" fill="#1D4ED8">Bỏ ô trống, giữ 0/false</text>
+
+  <rect x="550" y="246" width="184" height="116" rx="5" fill="#EFF6FF" stroke="#1D4ED8"/>
+  <text x="558" y="266" font-size="11.5" font-weight="700" fill="#1E3A8A">VisitReviewResponse</text>
+  <text x="558" y="284" font-size="10.5" fill="#334155">readinessTier, canConfirm</text>
+  <text x="558" y="300" font-size="10.5" fill="#334155">sections[8] counts</text>
+  <text x="558" y="316" font-size="10.5" fill="#334155">tier3ConfirmErrors[]</text>
+  <text x="558" y="336" font-size="10" fill="#1D4ED8">tier4AiModules[] (K1)</text>
+
+  <rect x="746" y="246" width="180" height="116" rx="5" fill="#EFF6FF" stroke="#1D4ED8"/>
+  <text x="754" y="266" font-size="11.5" font-weight="700" fill="#1E3A8A">FormVersionDiff</text>
+  <text x="754" y="284" font-size="10.5" fill="#334155">target vs base version</text>
+  <text x="754" y="300" font-size="10.5" fill="#166534">+ addedFields[]</text>
+  <text x="754" y="316" font-size="10.5" fill="#92400E">~ modifiedFields[]</text>
+  <text x="754" y="332" font-size="10.5" fill="#991B1B">- removedFields[]</text>
+</svg></div>
+      <details class="mmd-box"><summary>Xem mã nguồn Mermaid (UML Class Diagram)</summary><pre class="mono">classDiagram
+    class AppUser {
+        &lt;&lt;Aggregate Root&gt;&gt;
+        -UUID id
+        -String username
+        -String passwordHash
+        -String fullName
+        -UserRole role
+        -Boolean isActive
+        +authenticate(rawPassword) Boolean
+        +hasRole(role) Boolean
+        +canAccessClinicalData() Boolean
+        +deactivate(reason, actor) void
+        +previewPermissions(role) PermissionPreviewResponse
+    }
+
+    class UserSession {
+        &lt;&lt;Entity&gt;&gt;
+        -UUID id
+        -UUID userId
+        -String refreshTokenHash
+        -Instant expiresAt
+        -Instant revokedAt
+        +isActive(now) Boolean
+        +verifyRefreshToken(rawToken) Boolean
+        +rotate(newTokenHash, ttl) UserSession
+        +revoke(now) void
+    }
+
+    class AuditLog {
+        &lt;&lt;Immutable Audit&gt;&gt;
+        -UUID id
+        -UUID actorUserId
+        -AuditAction action
+        -String entityType
+        -UUID entityId
+        -Instant occurredAt
+        -String outcome
+        -Map detail
+        +record(actor, action, entity, outcome, detail)$ AuditLog
+        +assertNoClinicalOrSecretPayload() void
+    }
+
+    class FormTemplate {
+        &lt;&lt;Entity&gt;&gt;
+        -UUID id
+        -String code
+        -String name
+        -Boolean isActive
+        +getActivePublishedVersion() FormVersion
+        +createDraftFrom(base, admin) FormVersion
+    }
+
+    class FormVersion {
+        &lt;&lt;Aggregate Root&gt;&gt;
+        -UUID id
+        -UUID formTemplateId
+        -Integer versionNo
+        -String versionLabel
+        -FormVersionStatus status
+        -UUID basedOnVersionId
+        -Instant publishedAt
+        -UUID publishedBy
+        -Integer rowVersion
+        +assertDraftEditable() void
+        +upsertSection(spec) FormSection
+        +upsertField(sectionId, spec) FormField
+        +renderPreview() FormVersionPreviewResponse
+        +diffAgainst(base) FormVersionDiffResponse
+        +publish(admin, expectedRowVersion) void
+        +retire() void
+    }
+
+    class FormSection {
+        &lt;&lt;Entity&gt;&gt;
+        -UUID id
+        -UUID formVersionId
+        -SectionCode sectionCode
+        -String titleVi
+        -SmallInt displayOrder
+        +getOrderedFields() List~FormField~
+        +addField(def, order, reqT3) FormField
+    }
+
+    class FormField {
+        &lt;&lt;Entity&gt;&gt;
+        -UUID id
+        -UUID formVersionId
+        -UUID formSectionId
+        -UUID fieldDefinitionId
+        -SmallInt displayOrder
+        -Boolean requiredForConfirm
+        -Boolean isVisible
+        -Boolean isReadonly
+        +isRequiredAtTier3() Boolean
+        +validateValue(v) List~FieldValidationError~
+    }
+
+    class FieldDefinition {
+        &lt;&lt;Catalog Entity&gt;&gt;
+        -UUID id
+        -String code
+        -String labelVi
+        -SectionCode sectionCode
+        -FieldDataType dataType
+        -String canonicalUnit
+        -FieldScopeStatus scopeStatus
+        -String storageLevel
+        -Boolean isCalculated
+        -Decimal minValue
+        -Decimal maxValue
+        -String sourceRef
+        +isTriState() Boolean
+        +validateBounds(rawValue) List~FieldValidationError~
+        +getActiveOptions() List~FieldOption~
+        +getLinkedAiModules() List~FieldAiModule~
+    }
+
+    class FieldOption {
+        &lt;&lt;Entity&gt;&gt;
+        -UUID id
+        -UUID fieldDefinitionId
+        -String optionCode
+        -String labelVi
+        -SmallInt displayOrder
+        -Boolean isActive
+        +belongsTo(def) Boolean
+        +deactivate() void
+    }
+
+    class FieldAiModule {
+        &lt;&lt;Entity&gt;&gt;
+        -UUID fieldDefinitionId
+        -String aiModuleCode
+        -Boolean isRequired
+        -String sourceSttRefs
+        +isSatisfiedBy(values) Boolean
+    }
+
+    class Patient {
+        &lt;&lt;Aggregate Root&gt;&gt;
+        -UUID id
+        -String patientCode
+        -String externalPatientCode
+        -String fullName
+        -String sex
+        -Date birthDate
+        -SmallInt birthYear
+        -SmallInt declaredAge
+        -Integer rowVersion
+        +hasValidBirthInfo() Boolean
+        +calculateAgeAt(visitDate) Integer
+        +updateDemographics(patch, expectedRowVersion) void
+        +openVisit(publishedVer, doctor) Visit
+    }
+
+    class Visit {
+        &lt;&lt;Aggregate Root / Encounter&gt;&gt;
+        -UUID id
+        -String visitCode
+        -UUID patientId
+        -UUID formVersionId
+        -Instant visitDate
+        -String visitType
+        -VisitStatus status
+        -Integer currentRevisionNo
+        -Instant confirmedAt
+        -UUID confirmedBy
+        -Integer rowVersion
+        +assertDraftEditable(expectedRowVersion) void
+        +saveDraft(payload, expectedRowVersion) void
+        +computeBmi() Decimal
+        +buildReviewSummary() VisitReviewResponse
+        +confirm(doctor, expectedRowVersion) VisitRevision
+        +createRevision(doctor, changeReason) VisitRevision
+        +exportAiInput() AiInputPayload
+    }
+
+    class VisitRevision {
+        &lt;&lt;Immutable Snapshot&gt;&gt;
+        -UUID id
+        -UUID visitId
+        -Integer revisionNo
+        -UUID formVersionId
+        -String revisionType
+        -String changeReason
+        -JSONB snapshotData
+        -UUID createdBy
+        -Instant createdAt
+        +captureSnapshot(visit, actor, reason)$ VisitRevision
+        +verifyIntegrity() Boolean
+    }
+
+    class VisitValue {
+        &lt;&lt;Entity&gt;&gt;
+        -UUID visitId
+        -UUID fieldDefinitionId
+        -ValueState valueState
+        -Decimal valueNum
+        -String valueText
+        -Boolean valueBool
+        -Date valueDate
+        -UUID fieldOptionId
+        -String unit
+        +setAnswered(typedVal, unit) void
+        +markUnknown() void
+        +validateAgainst(def) List~FieldValidationError~
+    }
+
+    class VisitValueOption {
+        &lt;&lt;Entity CR-W1-01&gt;&gt;
+        -UUID visitId
+        -UUID fieldDefinitionId
+        -UUID fieldOptionId
+        +assertOptionMatchesField(opt) void
+        +assertParentAnswered(parent) void
+    }
+
+    class OrthostaticBpMeasurement {
+        &lt;&lt;Entity&gt;&gt;
+        -UUID id
+        -UUID visitId
+        -BpPosition position
+        -SmallInt minuteAfter
+        -SmallInt systolic
+        -SmallInt diastolic
+        -SmallInt heartRate
+        -Instant measuredAt
+        +validatePressures() Boolean
+        +hasOrthostaticDrop(baseline) Boolean
+    }
+
+    class VisitMedication {
+        &lt;&lt;Entity&gt;&gt;
+        -UUID id
+        -UUID visitId
+        -String medicationGroup
+        -String drugName
+        -String activeIngredient
+        -Decimal dose
+        -String unit
+        -String frequency
+        -String route
+        -String status
+        +isCompleteForConfirm() Boolean
+        +isCurrentlyActive() Boolean
+    }
+
+    class VisitAllergy {
+        &lt;&lt;Entity&gt;&gt;
+        -UUID id
+        -UUID visitId
+        -String kind
+        -String agentCategory
+        -String allergen
+        -String reaction
+        -String severity
+        +isContrastAgentAllergy() Boolean
+        +isCompleteForConfirm() Boolean
+    }
+
+    class VisitLabResult {
+        &lt;&lt;Entity&gt;&gt;
+        -UUID id
+        -UUID visitId
+        -String labCode
+        -String labSubtype
+        -Decimal valueNum
+        -String valueText
+        -String unit
+        -Instant measuredAt
+        +matchesCanonicalUnit(def) Boolean
+        +isCompleteForConfirm() Boolean
+    }
+
+    class AiInputPayload {
+        &lt;&lt;Value Object&gt;&gt;
+        +UUID visitId
+        +String patientCode
+        +UUID formVersionId
+        +Instant confirmedAt
+        +Map values
+        +List~OrthostaticBpMeasurement~ orthostaticBp
+        +List~VisitMedication~ medications
+        +List~VisitAllergy~ allergies
+        +List~VisitLabResult~ labResults
+        +List~AiModuleReadiness~ modules
+        +omitUnfilledFields() void
+        +isModuleReady(code) Boolean
+    }
+
+    class VisitReviewResponse {
+        &lt;&lt;Value Object&gt;&gt;
+        +UUID visitId
+        +ReadinessTier readinessTier
+        +Boolean canConfirm
+        +List~FieldValidationError~ tier3ConfirmErrors
+        +List~AiModuleReadiness~ tier4AiModules
+    }
+
+    class FormVersionDiffResponse {
+        &lt;&lt;Value Object&gt;&gt;
+        +UUID targetVersionId
+        +UUID baseVersionId
+        +Boolean hasChanges
+        +List~FormFieldDiffItem~ addedFields
+        +List~FormFieldDiffItem~ modifiedFields
+        +List~FormFieldDiffItem~ removedFields
+    }
+
+    AppUser &quot;1&quot; *-- &quot;0..*&quot; UserSession : owns
+    AppUser &quot;0..1&quot; -- &quot;0..*&quot; AuditLog : actor
+    AppUser &quot;1&quot; -- &quot;0..*&quot; Patient : createdBy
+    AppUser &quot;1&quot; -- &quot;0..*&quot; Visit : createdBy/confirmedBy
+    AppUser &quot;1&quot; -- &quot;0..*&quot; FormVersion : publishedBy
+
+    FormTemplate &quot;1&quot; *-- &quot;0..*&quot; FormVersion : versions
+    FormVersion &quot;0..*&quot; --&gt; &quot;0..1&quot; FormVersion : basedOnVersion
+    FormVersion &quot;1&quot; *-- &quot;1..8&quot; FormSection : sections
+    FormSection &quot;1&quot; *-- &quot;0..*&quot; FormField : fields
+    FormField &quot;0..*&quot; --&gt; &quot;1&quot; FieldDefinition : definition
+    FieldDefinition &quot;1&quot; *-- &quot;0..*&quot; FieldOption : options
+    FieldDefinition &quot;1&quot; *-- &quot;0..*&quot; FieldAiModule : aiModules
+
+    Patient &quot;1&quot; -- &quot;0..*&quot; Visit : encounters
+    Visit &quot;0..*&quot; --&gt; &quot;1&quot; FormVersion : boundFormVersion
+    Visit &quot;1&quot; *-- &quot;0..*&quot; VisitRevision : revisions
+    Visit &quot;1&quot; *-- &quot;0..*&quot; VisitValue : values
+    VisitValue &quot;1&quot; *-- &quot;0..*&quot; VisitValueOption : selectedOptions
+    VisitValue &quot;0..*&quot; --&gt; &quot;1&quot; FieldDefinition : field
+    VisitValueOption &quot;0..*&quot; --&gt; &quot;1&quot; FieldOption : option
+    Visit &quot;1&quot; *-- &quot;0..*&quot; OrthostaticBpMeasurement : orthostaticBp
+    Visit &quot;1&quot; *-- &quot;0..*&quot; VisitMedication : medications
+    Visit &quot;1&quot; *-- &quot;0..*&quot; VisitAllergy : allergies
+    Visit &quot;1&quot; *-- &quot;0..*&quot; VisitLabResult : labResults
+    VisitLabResult &quot;0..*&quot; --&gt; &quot;1&quot; FieldDefinition : labCode
+
+    Visit ..&gt; AiInputPayload : exports
+    Visit ..&gt; VisitReviewResponse : produces
+    FormVersion ..&gt; FormVersionDiffResponse : computes</pre></details>
+    </section>
+
+    <section class="card" id="seq1">
+      <h2>4. Sequence 1 — Luồng Bác sĩ: Tạo lượt → Lưu nháp → Xem lại → Xác nhận → AiInputPayload</h2>
+      <p>Bảo đảm K1 (Tầng 4 không chặn xác nhận), K2 (3 trạng thái bảo toàn số 0/false), K3 (gắn cứng version), K5 (bản chụp revision) và kiểm soát đồng thời <span class="mono">If-Match</span>.</p>
+      <div class="svg-wrap"><svg viewBox="0 0 920 496" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Sequence 1: Luồng Bác sĩ">
+<rect x="0" y="0" width="920" height="496" rx="10" fill="#F8FAFC"/>
+<line x1="80" y1="54" x2="80" y2="476" stroke="#93C5FD" stroke-width="1.5" stroke-dasharray="4,4"/>
+<rect x="12" y="16" width="136" height="36" rx="6" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="80" y="38" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1E3A8A">Bác sĩ (UI)</text>
+<line x1="333" y1="54" x2="333" y2="476" stroke="#93C5FD" stroke-width="1.5" stroke-dasharray="4,4"/>
+<rect x="265" y="16" width="136" height="36" rx="6" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="333" y="38" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1E3A8A">API &amp; RBAC</text>
+<line x1="586" y1="54" x2="586" y2="476" stroke="#93C5FD" stroke-width="1.5" stroke-dasharray="4,4"/>
+<rect x="518" y="16" width="136" height="36" rx="6" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="586" y="38" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1E3A8A">VisitService</text>
+<line x1="839" y1="54" x2="839" y2="476" stroke="#93C5FD" stroke-width="1.5" stroke-dasharray="4,4"/>
+<rect x="771" y="16" width="136" height="36" rx="6" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="839" y="38" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1E3A8A">PostgreSQL</text>
+<line x1="80" y1="86" x2="333" y2="86" stroke="#1D4ED8" stroke-width="1.8"/>
+<polygon points="325,82 325,90 333,86" fill="#1D4ED8"/>
+<rect x="16.5" y="65" width="380" height="17" rx="3" fill="#FFFFFF" fill-opacity="0.92"/>
+<text x="206.5" y="77" text-anchor="middle" font-size="11" font-weight="600" fill="#1D4ED8">1. POST /patients/{id}/visits [createVisit] (Bearer JWT)</text>
+<line x1="333" y1="130" x2="839" y2="130" stroke="#1D4ED8" stroke-width="1.8"/>
+<polygon points="831,126 831,134 839,130" fill="#1D4ED8"/>
+<rect x="396.0" y="109" width="380" height="17" rx="3" fill="#FFFFFF" fill-opacity="0.92"/>
+<text x="586.0" y="121" text-anchor="middle" font-size="11" font-weight="600" fill="#1D4ED8">2. Kiểm role=doctor (K8) · Gắn cứng form_version published (K3)</text>
+<line x1="839" y1="174" x2="80" y2="174" stroke="#1D4ED8" stroke-width="1.8" stroke-dasharray="5,4"/>
+<polygon points="88,170 88,178 80,174" fill="#1D4ED8"/>
+<rect x="269.5" y="153" width="380" height="17" rx="3" fill="#FFFFFF" fill-opacity="0.92"/>
+<text x="459.5" y="165" text-anchor="middle" font-size="11" font-weight="600" fill="#1D4ED8">3. 201 Created (Visit draft, ETag: &quot;1&quot;) + GET /visits/{id}/form</text>
+<line x1="80" y1="218" x2="333" y2="218" stroke="#1D4ED8" stroke-width="1.8"/>
+<polygon points="325,214 325,222 333,218" fill="#1D4ED8"/>
+<rect x="16.5" y="197" width="380" height="17" rx="3" fill="#FFFFFF" fill-opacity="0.92"/>
+<text x="206.5" y="209" text-anchor="middle" font-size="11" font-weight="600" fill="#1D4ED8">4. PUT /visits/{id}/draft [saveVisitDraft] (If-Match: &quot;1&quot;)</text>
+<line x1="333" y1="262" x2="586" y2="262" stroke="#B91C1C" stroke-width="1.8" stroke-dasharray="5,4"/>
+<polygon points="578,258 578,266 586,262" fill="#B91C1C"/>
+<rect x="269.5" y="241" width="380" height="17" rx="3" fill="#FFFFFF" fill-opacity="0.92"/>
+<text x="459.5" y="253" text-anchor="middle" font-size="11" font-weight="600" fill="#B91C1C">5. Validate K2/K6/K7 -&gt; 422 nếu sai miền, 409 nếu lệch ETag</text>
+<line x1="586" y1="306" x2="839" y2="306" stroke="#166534" stroke-width="1.8"/>
+<polygon points="831,302 831,310 839,306" fill="#166534"/>
+<rect x="522.5" y="285" width="380" height="17" rx="3" fill="#FFFFFF" fill-opacity="0.92"/>
+<text x="712.5" y="297" text-anchor="middle" font-size="11" font-weight="600" fill="#166534">6. BEGIN; UPSERT visit_value + 4 bảng lặp; row_version=2; COMMIT</text>
+<line x1="80" y1="350" x2="586" y2="350" stroke="#1D4ED8" stroke-width="1.8"/>
+<polygon points="578,346 578,354 586,350" fill="#1D4ED8"/>
+<rect x="143.0" y="329" width="380" height="17" rx="3" fill="#FFFFFF" fill-opacity="0.92"/>
+<text x="333.0" y="341" text-anchor="middle" font-size="11" font-weight="600" fill="#1D4ED8">7. GET /visits/{id}/review -&gt; Tách Tầng 3 và Tầng 4 AI (K1)</text>
+<line x1="80" y1="394" x2="839" y2="394" stroke="#166534" stroke-width="1.8"/>
+<polygon points="831,390 831,398 839,394" fill="#166534"/>
+<rect x="269.5" y="373" width="380" height="17" rx="3" fill="#FFFFFF" fill-opacity="0.92"/>
+<text x="459.5" y="385" text-anchor="middle" font-size="11" font-weight="600" fill="#166534">8. POST /visits/{id}/confirm (If-Match) -&gt; visit_revision + audit_log</text>
+<line x1="80" y1="438" x2="333" y2="438" stroke="#1D4ED8" stroke-width="1.8" stroke-dasharray="5,4"/>
+<polygon points="325,434 325,442 333,438" fill="#1D4ED8"/>
+<rect x="16.5" y="417" width="380" height="17" rx="3" fill="#FFFFFF" fill-opacity="0.92"/>
+<text x="206.5" y="429" text-anchor="middle" font-size="11" font-weight="600" fill="#1D4ED8">9. GET /visits/{id}/ai-input -&gt; 200 AiInputPayload (draft trả 409)</text>
+</svg></div>
+      <details class="mmd-box"><summary>Xem mã nguồn Mermaid (Sequence 1)</summary><pre class="mono">sequenceDiagram
+    autonumber
+    actor Doc as Bác sĩ (Doctor)
+    participant UI as Web UI (M3–M5)
+    participant API as API Gateway &amp; RBAC (/api/v1)
+    participant Svc as VisitService &amp; Validator
+    participant DB as PostgreSQL 16 (Clinical &amp; Audit)
+
+    rect rgb(239, 246, 255)
+        Note over Doc,DB: Giai đoạn 1 — Tạo lượt khám &amp; Tải cấu trúc biểu mẫu gắn cứng form_version_id (K3)
+        Doc-&gt;&gt;UI: Bấm [+ Tạo lượt khám mới] (visitDate, visitType)
+        UI-&gt;&gt;API: POST /api/v1/patients/{patientId}/visits [createVisit] (Bearer JWT)
+        alt RBAC Guard: role != &#x27;doctor&#x27; (vd. admin cố truy cập bệnh án — K8)
+            API-&gt;&gt;DB: INSERT audit_log(outcome=&#x27;denied&#x27;, detail={path}) — không lộ PHI
+            API--&gt;&gt;UI: 403 Forbidden (CLINICAL_DATA_SEPARATION_ENFORCED)
+        else role == &#x27;doctor&#x27;
+            API-&gt;&gt;Svc: createVisit(patientId, doctor, CreateVisitRequest)
+            Svc-&gt;&gt;DB: SELECT published form_version; INSERT visit(status=&#x27;draft&#x27;, form_version_id, row_version=1)
+            DB--&gt;&gt;Svc: visit (không sao chép số đo cũ)
+            Svc--&gt;&gt;API: Visit
+            API--&gt;&gt;UI: 201 Created (Visit) + ETag: &quot;1&quot;
+            UI-&gt;&gt;API: GET /api/v1/visits/{visitId}/form [getVisitForm]
+            API--&gt;&gt;UI: 200 OK (VisitFormStructureResponse — 8 nhóm đúng form_version_id)
+        end
+    end
+
+    rect rgb(239, 246, 255)
+        Note over Doc,DB: Giai đoạn 2 — Nhập tay &amp; Lưu nháp Tầng 2 (saveVisitDraft)
+        Doc-&gt;&gt;UI: Nhập 8 nhóm (3 trạng thái K2 + 4 bảng lặp K6) -&gt; [Lưu nháp]
+        UI-&gt;&gt;API: PUT /api/v1/visits/{visitId}/draft [saveVisitDraft] (If-Match: &quot;1&quot;)
+        API-&gt;&gt;Svc: saveVisitDraft(visitId, expectedRowVersion=1, SaveVisitDraftRequest)
+        Svc-&gt;&gt;Svc: Validate Tầng 2 (kiểu, miền sinh học, CHECK 3 trạng thái; giữ 0/false; cho phép thiếu trường)
+        alt Lỗi kiểu dữ liệu / miền kỹ thuật (SpO2 &gt; 100, diastolic &gt;= systolic...)
+            Svc--&gt;&gt;API: ValidationError(fieldErrors[])
+            API--&gt;&gt;UI: 422 Unprocessable Entity (ProblemDetails + errors[]) — giữ nguyên ô hợp lệ
+        else row_version != If-Match HOẶC visit.status == &#x27;confirmed&#x27; (K5)
+            Svc--&gt;&gt;API: ConflictError(currentRowVersion)
+            API--&gt;&gt;UI: 409 Conflict (CONCURRENCY_ROW_VERSION_MISMATCH / VISIT_ALREADY_CONFIRMED)
+        else Hợp lệ — Giao dịch nguyên tử (BEGIN ... COMMIT)
+            Svc-&gt;&gt;DB: BEGIN; UPSERT visit_value &amp; visit_value_option; SYNC 4 bảng lặp (BP/Med/Allergy/Lab)
+            Svc-&gt;&gt;DB: UPDATE visit SET row_version=row_version+1, updated_at=NOW() WHERE id=? AND row_version=1
+            DB--&gt;&gt;Svc: COMMIT OK (row_version=2)
+            Svc--&gt;&gt;API: VisitDetailResponse(rowVersion=2)
+            API--&gt;&gt;UI: 200 OK (VisitDetailResponse) + ETag: &quot;2&quot;
+        end
+    end
+
+    rect rgb(239, 246, 255)
+        Note over Doc,DB: Giai đoạn 3 — Xem lại theo 8 nhóm: Tách Tầng 3 &amp; Tầng 4 (getVisitReview)
+        Doc-&gt;&gt;UI: Mở Màn 5 [Xem lại &amp; Xác nhận]
+        UI-&gt;&gt;API: GET /api/v1/visits/{visitId}/review [getVisitReview]
+        API-&gt;&gt;Svc: buildReviewSummary(visitId)
+        Svc-&gt;&gt;DB: SELECT visit, form_field(required_for_confirm), visit_value, 4 bảng lặp, field_ai_module
+        DB--&gt;&gt;Svc: Dữ liệu lượt + quy tắc Tầng 3 + ánh xạ 4 module AI
+        Svc-&gt;&gt;Svc: Tách tier3ConfirmErrors[] khỏi tier4AiModules[] (Tầng 4 không chặn xác nhận — K1)
+        Svc--&gt;&gt;API: VisitReviewResponse
+        API--&gt;&gt;UI: 200 OK (VisitReviewResponse)
+    end
+
+    rect rgb(239, 246, 255)
+        Note over Doc,DB: Giai đoạn 4 — Xác nhận dữ liệu lượt khám (confirmVisit)
+        Doc-&gt;&gt;UI: Bấm [Xác nhận dữ liệu lượt khám]
+        UI-&gt;&gt;API: POST /api/v1/visits/{visitId}/confirm [confirmVisit] (If-Match: &quot;2&quot;, ConfirmVisitRequest)
+        API-&gt;&gt;Svc: confirmVisit(visitId, doctor, expectedRowVersion=2)
+        alt Còn lỗi Tầng 3 (required_for_confirm hoặc bản ghi lặp dở dang)
+            Svc--&gt;&gt;API: Tier3ValidationFailed(errors[])
+            API--&gt;&gt;UI: 422 Unprocessable Entity (TIER3_CONFIRM_REQUIREMENTS_UNMET)
+        else Lệch ETag HOẶC đã confirmed
+            Svc--&gt;&gt;API: ConflictError
+            API--&gt;&gt;UI: 409 Conflict (ProblemDetails)
+        else Đạt Tầng 3 — Giao dịch nguyên tử (BEGIN ... COMMIT)
+            Svc-&gt;&gt;DB: BEGIN; SELECT visit FOR UPDATE; UPDATE visit SET status=&#x27;confirmed&#x27;, confirmed_at=NOW(), confirmed_by=doctor, current_revision_no=1, row_version=3
+            Svc-&gt;&gt;DB: INSERT visit_revision(revision_no=1, revision_type=&#x27;confirmed_snapshot&#x27;, snapshot_data)
+            Svc-&gt;&gt;DB: INSERT audit_log(action=&#x27;visit_confirm&#x27;, entity_type=&#x27;visit&#x27;, entity_id=visitId, detail={formVersionId, rev:1})
+            DB--&gt;&gt;Svc: COMMIT OK
+            Svc--&gt;&gt;API: Visit(confirmed, rowVersion=3)
+            API--&gt;&gt;UI: 200 OK (Visit) + ETag: &quot;3&quot; (Khóa M4 chỉ đọc; sửa sau dùng createVisitRevision)
+        end
+    end
+
+    rect rgb(239, 246, 255)
+        Note over Doc,DB: Giai đoạn 5 — Xuất hợp đồng dữ liệu đầu vào chuẩn AI (getVisitAiInput)
+        Doc-&gt;&gt;UI: Yêu cầu xem / xuất gói dữ liệu chuẩn đầu vào AI
+        UI-&gt;&gt;API: GET /api/v1/visits/{visitId}/ai-input [getVisitAiInput]
+        API-&gt;&gt;Svc: exportAiInput(visitId)
+        alt visit.status != &#x27;confirmed&#x27;
+            Svc--&gt;&gt;API: VisitNotConfirmedError
+            API--&gt;&gt;UI: 409 Conflict (VISIT_NOT_CONFIRMED_FOR_AI_INPUT)
+        else visit.status == &#x27;confirmed&#x27;
+            Svc-&gt;&gt;DB: SELECT visit, patient.patient_code, visit_value, visit_value_option, 4 bảng lặp, field_ai_module
+            DB--&gt;&gt;Svc: Dữ liệu đã xác nhận + cấu hình 4 module AI
+            Svc--&gt;&gt;API: AiInputPayload (bỏ trường chưa điền, giữ unknown/0/false, kèm modules[])
+            API--&gt;&gt;UI: 200 OK (AiInputPayload — chỉ hợp đồng dữ liệu, không chạy AI giả)
+        end
+    end</pre></details>
+    </section>
+
+    <section class="card" id="seq2">
+      <h2>5. Sequence 2 — Luồng Quản trị: Xem trước quyền → Tạo &amp; Cập nhật tài khoản</h2>
+      <p>Bắt buộc qua bước đối chiếu quyền 2 cột, trả mã kích hoạt một lần duy nhất, chặn khóa Quản trị viên cuối cùng, thu hồi phiên tức thì và kiểm soát đồng thời <span class="mono">app_user.row_version</span> (C4).</p>
+      <div class="svg-wrap"><svg viewBox="0 0 920 452" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Sequence 2: Luồng Admin Tài khoản">
+<rect x="0" y="0" width="920" height="452" rx="10" fill="#F8FAFC"/>
+<line x1="80" y1="54" x2="80" y2="432" stroke="#93C5FD" stroke-width="1.5" stroke-dasharray="4,4"/>
+<rect x="12" y="16" width="136" height="36" rx="6" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="80" y="38" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1E3A8A">Admin (UI)</text>
+<line x1="333" y1="54" x2="333" y2="432" stroke="#93C5FD" stroke-width="1.5" stroke-dasharray="4,4"/>
+<rect x="265" y="16" width="136" height="36" rx="6" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="333" y="38" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1E3A8A">API &amp; RBAC</text>
+<line x1="586" y1="54" x2="586" y2="432" stroke="#93C5FD" stroke-width="1.5" stroke-dasharray="4,4"/>
+<rect x="518" y="16" width="136" height="36" rx="6" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="586" y="38" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1E3A8A">UserAdminSvc</text>
+<line x1="839" y1="54" x2="839" y2="432" stroke="#93C5FD" stroke-width="1.5" stroke-dasharray="4,4"/>
+<rect x="771" y="16" width="136" height="36" rx="6" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="839" y="38" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1E3A8A">PostgreSQL</text>
+<line x1="80" y1="86" x2="333" y2="86" stroke="#1D4ED8" stroke-width="1.8"/>
+<polygon points="325,82 325,90 333,86" fill="#1D4ED8"/>
+<rect x="16.5" y="65" width="380" height="17" rx="3" fill="#FFFFFF" fill-opacity="0.92"/>
+<text x="206.5" y="77" text-anchor="middle" font-size="11" font-weight="600" fill="#1D4ED8">1. POST /admin/users/permission-preview (role=doctor|admin)</text>
+<line x1="333" y1="130" x2="586" y2="130" stroke="#1D4ED8" stroke-width="1.8"/>
+<polygon points="578,126 578,134 586,130" fill="#1D4ED8"/>
+<rect x="269.5" y="109" width="380" height="17" rx="3" fill="#FFFFFF" fill-opacity="0.92"/>
+<text x="459.5" y="121" text-anchor="middle" font-size="11" font-weight="600" fill="#1D4ED8">2. Kiểm role=admin (doctor gọi trả 403) · Đối chiếu ranh giới K8</text>
+<line x1="586" y1="174" x2="80" y2="174" stroke="#1D4ED8" stroke-width="1.8" stroke-dasharray="5,4"/>
+<polygon points="88,170 88,178 80,174" fill="#1D4ED8"/>
+<rect x="143.0" y="153" width="380" height="17" rx="3" fill="#FFFFFF" fill-opacity="0.92"/>
+<text x="333.0" y="165" text-anchor="middle" font-size="11" font-weight="600" fill="#1D4ED8">3. 200 OK (grantedPermissions[], deniedPermissions[], 0 ghi DB)</text>
+<line x1="80" y1="218" x2="586" y2="218" stroke="#1D4ED8" stroke-width="1.8"/>
+<polygon points="578,214 578,222 586,218" fill="#1D4ED8"/>
+<rect x="143.0" y="197" width="380" height="17" rx="3" fill="#FFFFFF" fill-opacity="0.92"/>
+<text x="333.0" y="209" text-anchor="middle" font-size="11" font-weight="600" fill="#1D4ED8">4. POST /admin/users [createUser] (username, role, reason)</text>
+<line x1="586" y1="262" x2="839" y2="262" stroke="#166534" stroke-width="1.8"/>
+<polygon points="831,258 831,266 839,262" fill="#166534"/>
+<rect x="522.5" y="241" width="380" height="17" rx="3" fill="#FFFFFF" fill-opacity="0.92"/>
+<text x="712.5" y="253" text-anchor="middle" font-size="11" font-weight="600" fill="#166534">5. Kiểm trùng username (409) · Băm mật khẩu · INSERT app_user + audit_log</text>
+<line x1="839" y1="306" x2="80" y2="306" stroke="#1D4ED8" stroke-width="1.8" stroke-dasharray="5,4"/>
+<polygon points="88,302 88,310 80,306" fill="#1D4ED8"/>
+<rect x="269.5" y="285" width="380" height="17" rx="3" fill="#FFFFFF" fill-opacity="0.92"/>
+<text x="459.5" y="297" text-anchor="middle" font-size="11" font-weight="600" fill="#1D4ED8">6. 201 Created (oneTimeSetupCode trả đúng 1 lần, 0 passwordHash)</text>
+<line x1="80" y1="350" x2="586" y2="350" stroke="#1D4ED8" stroke-width="1.8"/>
+<polygon points="578,346 578,354 586,350" fill="#1D4ED8"/>
+<rect x="143.0" y="329" width="380" height="17" rx="3" fill="#FFFFFF" fill-opacity="0.92"/>
+<text x="333.0" y="341" text-anchor="middle" font-size="11" font-weight="600" fill="#1D4ED8">7. PATCH /admin/users/{id} (If-Match C4, isActive/resetPassword, reason)</text>
+<line x1="586" y1="394" x2="839" y2="394" stroke="#166534" stroke-width="1.8"/>
+<polygon points="831,390 831,398 839,394" fill="#166534"/>
+<rect x="522.5" y="373" width="380" height="17" rx="3" fill="#FFFFFF" fill-opacity="0.92"/>
+<text x="712.5" y="385" text-anchor="middle" font-size="11" font-weight="600" fill="#166534">8. Chặn khóa admin cuối (409) · Thu hồi user_session · Tăng row_version</text>
+</svg></div>
+      <details class="mmd-box"><summary>Xem mã nguồn Mermaid (Sequence 2)</summary><pre class="mono">sequenceDiagram
+    autonumber
+    actor Adm as Quản trị viên (Admin)
+    participant UI as Web UI (M6 Admin)
+    participant API as API Gateway &amp; RBAC (/api/v1/admin)
+    participant Svc as UserAdminService
+    participant DB as PostgreSQL 16 (app_user, session, audit)
+
+    rect rgb(239, 246, 255)
+        Note over Adm,DB: Giai đoạn 1 — Xem trước ma trận quyền 2 cột trước khi lưu (previewUserPermissions)
+        Adm-&gt;&gt;UI: Chọn vai trò (doctor | admin) -&gt; bấm [Xem lại quyền]
+        UI-&gt;&gt;API: POST /api/v1/admin/users/permission-preview [previewUserPermissions] (Bearer JWT)
+        alt RBAC Guard: role != &#x27;admin&#x27; (vd. doctor gọi trực tiếp /admin/*)
+            API-&gt;&gt;DB: INSERT audit_log(outcome=&#x27;denied&#x27;, entity_type=&#x27;app_user&#x27;, detail={path})
+            API--&gt;&gt;UI: 403 Forbidden (RBAC_ROLE_FORBIDDEN)
+        else role == &#x27;admin&#x27;
+            API-&gt;&gt;Svc: computePermissionPreview(PermissionPreviewRequest)
+            Svc-&gt;&gt;Svc: Đối chiếu chính sách K8 (admin cấm đọc bệnh án lâm sàng)
+            Svc--&gt;&gt;API: PermissionPreviewResponse(clinicalDataAccessAllowed, granted[], denied[])
+            API--&gt;&gt;UI: 200 OK (Không ghi DB — hiển thị bảng 2 cột quyền)
+        end
+    end
+
+    rect rgb(239, 246, 255)
+        Note over Adm,DB: Giai đoạn 2 — Tạo tài khoản bác sĩ mới (createUser)
+        Adm-&gt;&gt;UI: Rà soát xong -&gt; bấm [Xác nhận &amp; Lưu tài khoản]
+        UI-&gt;&gt;API: POST /api/v1/admin/users [createUser] (CreateUserRequest: username, fullName, role, isActive, reason)
+        API-&gt;&gt;Svc: createUser(actor=admin, CreateUserRequest)
+        Svc-&gt;&gt;Svc: Validate định dạng username, fullName, role &amp; reason
+        alt Dữ liệu đầu vào không hợp lệ
+            Svc--&gt;&gt;API: ValidationError(fieldErrors[])
+            API--&gt;&gt;UI: 422 Unprocessable Entity (ProblemDetails + errors[])
+        else Kiểm tra trùng username
+            Svc-&gt;&gt;DB: SELECT 1 FROM app_user WHERE username = ?
+            alt username đã tồn tại
+                DB--&gt;&gt;Svc: EXISTS (uq_app_user_username)
+                Svc--&gt;&gt;API: DuplicateUsernameError
+                API--&gt;&gt;UI: 409 Conflict (DUPLICATE_USERNAME)
+            else Hợp lệ — Sinh mã kích hoạt 1 lần &amp; Giao dịch nguyên tử
+                Svc-&gt;&gt;Svc: Sinh oneTimeSetupCode (hết hạn 24h) &amp; băm Argon2id/bcrypt (0 log mật khẩu rõ)
+                Svc-&gt;&gt;DB: BEGIN; INSERT app_user(id, username, password_hash, full_name, role, is_active)
+                Svc-&gt;&gt;DB: INSERT audit_log(actor_user_id=admin, action=&#x27;user_create&#x27;, entity_type=&#x27;app_user&#x27;, detail={username, role, reason})
+                DB--&gt;&gt;Svc: COMMIT OK
+                Svc--&gt;&gt;API: CreateUserResponse(user, oneTimeSetupCode, setupExpiresAt)
+                API--&gt;&gt;UI: 201 Created + ETag (CreateUserResponse — 0 password_hash)
+            end
+        end
+    end
+
+    rect rgb(239, 246, 255)
+        Note over Adm,DB: Giai đoạn 3 — Cập nhật, Khóa/Mở, Đặt lại MK hoặc Đổi vai trò (updateUser)
+        Adm-&gt;&gt;UI: Sửa thông tin / Đặt lại MK / Khóa tài khoản kèm lý do
+        UI-&gt;&gt;API: PATCH /api/v1/admin/users/{userId} [updateUser] (If-Match, UpdateUserRequest)
+        API-&gt;&gt;Svc: updateUser(actor=admin, userId, expectedRowVersion, UpdateUserRequest)
+        Svc-&gt;&gt;DB: SELECT app_user WHERE id=? ; COUNT(*) active admins
+        alt Không tìm thấy userId
+            DB--&gt;&gt;Svc: NULL
+            API--&gt;&gt;UI: 404 Not Found (RESOURCE_NOT_FOUND)
+        else Tự khóa Admin cuối cùng HOẶC lệch If-Match
+            DB--&gt;&gt;Svc: Conflict
+            API--&gt;&gt;UI: 409 Conflict (LAST_ACTIVE_ADMIN / CONCURRENCY_ROW_VERSION_MISMATCH)
+        else Hợp lệ — Giao dịch nguyên tử (BEGIN ... COMMIT)
+            Svc-&gt;&gt;DB: BEGIN; UPDATE app_user SET full_name=?, role=?, is_active=?, updated_at=NOW() WHERE id=?
+            opt is_active == false HOẶC đổi role HOẶC resetPassword == true
+                Svc-&gt;&gt;DB: UPDATE user_session SET revoked_at=NOW() WHERE user_id=? AND revoked_at IS NULL
+            end
+            Svc-&gt;&gt;DB: INSERT audit_log(action=&#x27;user_update&#x27;, entity_type=&#x27;app_user&#x27;, entity_id=userId, detail={diff, reason})
+            DB--&gt;&gt;Svc: COMMIT OK
+            Svc--&gt;&gt;API: UpdateUserResponse(user, oneTimeSetupCode?)
+            API--&gt;&gt;UI: 200 OK + ETag mới (UpdateUserResponse)
+        end
+    end</pre></details>
+    </section>
+
+    <section class="card" id="seq3">
+      <h2>6. Sequence 3 — Luồng Quản trị: Tạo bản nháp Form → Sửa → Xem trước → Diff → Phát hành</h2>
+      <p>Khóa bất biến tuyệt đối phiên bản <span class="mono">published</span>/<span class="mono">retired</span> ở cả tầng API (409) và Trigger DB (K4); phát hành phiên bản mới không làm thay đổi cấu trúc lượt khám lịch sử.</p>
+      <div class="svg-wrap"><svg viewBox="0 0 920 452" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Sequence 3: Luồng Admin Form Version">
+<rect x="0" y="0" width="920" height="452" rx="10" fill="#F8FAFC"/>
+<line x1="80" y1="54" x2="80" y2="432" stroke="#93C5FD" stroke-width="1.5" stroke-dasharray="4,4"/>
+<rect x="12" y="16" width="136" height="36" rx="6" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="80" y="38" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1E3A8A">Admin (UI)</text>
+<line x1="333" y1="54" x2="333" y2="432" stroke="#93C5FD" stroke-width="1.5" stroke-dasharray="4,4"/>
+<rect x="265" y="16" width="136" height="36" rx="6" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="333" y="38" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1E3A8A">API &amp; RBAC</text>
+<line x1="586" y1="54" x2="586" y2="432" stroke="#93C5FD" stroke-width="1.5" stroke-dasharray="4,4"/>
+<rect x="518" y="16" width="136" height="36" rx="6" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="586" y="38" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1E3A8A">FormVerSvc</text>
+<line x1="839" y1="54" x2="839" y2="432" stroke="#93C5FD" stroke-width="1.5" stroke-dasharray="4,4"/>
+<rect x="771" y="16" width="136" height="36" rx="6" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="839" y="38" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1E3A8A">PostgreSQL</text>
+<line x1="80" y1="86" x2="586" y2="86" stroke="#1D4ED8" stroke-width="1.8"/>
+<polygon points="578,82 578,90 586,86" fill="#1D4ED8"/>
+<rect x="143.0" y="65" width="380" height="17" rx="3" fill="#FFFFFF" fill-opacity="0.92"/>
+<text x="333.0" y="77" text-anchor="middle" font-size="11" font-weight="600" fill="#1D4ED8">1. POST /admin/forms/{id}/versions [createFormVersionDraft]</text>
+<line x1="586" y1="130" x2="839" y2="130" stroke="#166534" stroke-width="1.8"/>
+<polygon points="831,126 831,134 839,130" fill="#166534"/>
+<rect x="522.5" y="109" width="380" height="17" rx="3" fill="#FFFFFF" fill-opacity="0.92"/>
+<text x="712.5" y="121" text-anchor="middle" font-size="11" font-weight="600" fill="#166534">2. Chặn nếu đã có draft (409) · Deep clone 8 sections + 121 fields</text>
+<line x1="80" y1="174" x2="586" y2="174" stroke="#1D4ED8" stroke-width="1.8"/>
+<polygon points="578,170 578,178 586,174" fill="#1D4ED8"/>
+<rect x="143.0" y="153" width="380" height="17" rx="3" fill="#FFFFFF" fill-opacity="0.92"/>
+<text x="333.0" y="165" text-anchor="middle" font-size="11" font-weight="600" fill="#1D4ED8">3. PATCH /admin/form-versions/{verId} (If-Match: &quot;1&quot;)</text>
+<line x1="586" y1="218" x2="839" y2="218" stroke="#B91C1C" stroke-width="1.8" stroke-dasharray="5,4"/>
+<polygon points="831,214 831,222 839,218" fill="#B91C1C"/>
+<rect x="522.5" y="197" width="380" height="17" rx="3" fill="#FFFFFF" fill-opacity="0.92"/>
+<text x="712.5" y="209" text-anchor="middle" font-size="11" font-weight="600" fill="#B91C1C">4. Trigger K4 chặn sửa bản published/retired -&gt; 409 FORM_VERSION_IMMUTABLE</text>
+<line x1="586" y1="262" x2="839" y2="262" stroke="#166534" stroke-width="1.8"/>
+<polygon points="831,258 831,266 839,262" fill="#166534"/>
+<rect x="522.5" y="241" width="380" height="17" rx="3" fill="#FFFFFF" fill-opacity="0.92"/>
+<text x="712.5" y="253" text-anchor="middle" font-size="11" font-weight="600" fill="#166534">5. Bản draft hợp lệ -&gt; cập nhật cấu trúc + audit_log (row_version=2)</text>
+<line x1="80" y1="306" x2="586" y2="306" stroke="#1D4ED8" stroke-width="1.8" stroke-dasharray="5,4"/>
+<polygon points="578,302 578,310 586,306" fill="#1D4ED8"/>
+<rect x="143.0" y="285" width="380" height="17" rx="3" fill="#FFFFFF" fill-opacity="0.92"/>
+<text x="333.0" y="297" text-anchor="middle" font-size="11" font-weight="600" fill="#1D4ED8">6. GET /preview (isPreviewOnly=true) &amp; GET /diff?baseVersionId=...</text>
+<line x1="80" y1="350" x2="586" y2="350" stroke="#1D4ED8" stroke-width="1.8"/>
+<polygon points="578,346 578,354 586,350" fill="#1D4ED8"/>
+<rect x="143.0" y="329" width="380" height="17" rx="3" fill="#FFFFFF" fill-opacity="0.92"/>
+<text x="333.0" y="341" text-anchor="middle" font-size="11" font-weight="600" fill="#1D4ED8">7. POST /admin/form-versions/{verId}/publish (If-Match: &quot;2&quot;)</text>
+<line x1="586" y1="394" x2="839" y2="394" stroke="#166534" stroke-width="1.8"/>
+<polygon points="831,390 831,398 839,394" fill="#166534"/>
+<rect x="522.5" y="373" width="380" height="17" rx="3" fill="#FFFFFF" fill-opacity="0.92"/>
+<text x="712.5" y="385" text-anchor="middle" font-size="11" font-weight="600" fill="#166534">8. BEGIN; retire bản cũ; publish bản mới; audit_log; COMMIT (lượt cũ giữ v cũ)</text>
+</svg></div>
+      <details class="mmd-box"><summary>Xem mã nguồn Mermaid (Sequence 3)</summary><pre class="mono">sequenceDiagram
+    autonumber
+    actor Adm as Quản trị viên (Admin)
+    participant UI as Web UI (M7 Form Studio)
+    participant API as API Gateway &amp; RBAC (/api/v1/admin)
+    participant Svc as FormVersionService
+    participant DB as PostgreSQL 16 (form_* + Trigger K4)
+
+    rect rgb(239, 246, 255)
+        Note over Adm,DB: Giai đoạn 1 — Tạo bản nháp mới từ phiên bản hiện hành (createFormVersionDraft)
+        Adm-&gt;&gt;UI: Chọn bản Đang dùng (v1) -&gt; [+ Tạo bản nháp mới]
+        UI-&gt;&gt;API: POST /api/v1/admin/forms/{formId}/versions [createFormVersionDraft] (basedOnVersionId, changeNote)
+        alt RBAC Guard: role != &#x27;admin&#x27; (403) | Đã có bản draft đang mở (409)
+            API--&gt;&gt;UI: 403 Forbidden / 409 Conflict (ProblemDetails)
+        else Hợp lệ — Giao dịch nguyên tử (BEGIN ... COMMIT)
+            API-&gt;&gt;Svc: createDraftFrom(formId, basedOnVersionId, admin)
+            Svc-&gt;&gt;DB: BEGIN; INSERT form_version(version_no=base+1, status=&#x27;draft&#x27;, based_on_version_id, row_version=1)
+            Svc-&gt;&gt;DB: Deep clone form_section (8 nhóm) &amp; form_field; INSERT audit_log(action=&#x27;form_version_create&#x27;)
+            DB--&gt;&gt;Svc: COMMIT OK (draftVersionId, row_version=1)
+            Svc--&gt;&gt;API: FormVersion(draft)
+            API--&gt;&gt;UI: 201 Created (FormVersion) + ETag: &quot;1&quot;
+        end
+    end
+
+    rect rgb(239, 246, 255)
+        Note over Adm,DB: Giai đoạn 2 — Chỉnh sửa bản nháp &amp; Chặn sửa trực tiếp bản published (updateFormVersion — K4)
+        Adm-&gt;&gt;UI: Sắp xếp nhóm/trường, chỉnh thuộc tính -&gt; [Lưu nháp]
+        UI-&gt;&gt;API: PATCH /api/v1/admin/form-versions/{versionId} [updateFormVersion] (If-Match: &quot;1&quot;)
+        API-&gt;&gt;Svc: updateFormVersion(versionId, expectedRowVersion=1, UpdateFormVersionRequest)
+        alt version.status != &#x27;draft&#x27; (đã published/retired) HOẶC DB Trigger K4 chặn
+            Svc-&gt;&gt;DB: Kiểm status=&#x27;published&#x27; (trigger trg_form_version_immutable / trg_form_field_immutable)
+            API--&gt;&gt;UI: 409 Conflict (FORM_VERSION_IMMUTABLE — bắt buộc tạo bản nháp mới)
+        else Lệch If-Match (409) HOẶC lỗi cấu trúc/field_definition_id (422)
+            API--&gt;&gt;UI: 409 Conflict / 422 Unprocessable Entity (ProblemDetails)
+        else Hợp lệ — Giao dịch nguyên tử (BEGIN ... COMMIT)
+            Svc-&gt;&gt;DB: BEGIN; UPDATE/UPSERT form_section &amp; form_field cho draftVersionId
+            Svc-&gt;&gt;DB: UPDATE form_version SET row_version=2 WHERE id=? AND status=&#x27;draft&#x27;; INSERT audit_log(&#x27;form_version_update&#x27;)
+            DB--&gt;&gt;Svc: COMMIT OK (row_version=2)
+            Svc--&gt;&gt;API: FormVersionDetailResponse(rowVersion=2)
+            API--&gt;&gt;UI: 200 OK (FormVersionDetailResponse) + ETag: &quot;2&quot;
+        end
+    end
+
+    rect rgb(239, 246, 255)
+        Note over Adm,DB: Giai đoạn 3 — Xem trước góc nhìn Bác sĩ (previewFormVersion — Tính động)
+        Adm-&gt;&gt;UI: Mở Tab [Xem trước góc nhìn Bác sĩ]
+        UI-&gt;&gt;API: GET /api/v1/admin/form-versions/{versionId}/preview [previewFormVersion]
+        API-&gt;&gt;Svc: buildPreview(versionId)
+        Svc-&gt;&gt;DB: SELECT form_section JOIN form_field JOIN field_definition LEFT JOIN field_option
+        DB--&gt;&gt;Svc: Cấu trúc 8 nhóm + catalog + lựa chọn
+        Svc--&gt;&gt;API: FormVersionPreviewResponse (isPreviewOnly=true, không lưu DB)
+        API--&gt;&gt;UI: 200 OK (FormVersionPreviewResponse — render thử M4)
+    end
+
+    rect rgb(239, 246, 255)
+        Note over Adm,DB: Giai đoạn 4 — So sánh thay đổi (diffFormVersion — Tính động)
+        Adm-&gt;&gt;UI: Mở Tab [So sánh thay đổi (Diff)]
+        UI-&gt;&gt;API: GET /api/v1/admin/form-versions/{versionId}/diff?baseVersionId={baseId} [diffFormVersion]
+        API-&gt;&gt;Svc: computeDiff(versionId, baseVersionId)
+        Svc-&gt;&gt;DB: SELECT form_section &amp; form_field của baseVersion và draftVersion
+        DB--&gt;&gt;Svc: Cấu trúc 2 phiên bản
+        Svc-&gt;&gt;Svc: Tính FormVersionDiffResponse (hasChanges, +added, ~modified, -removed)
+        Svc--&gt;&gt;API: FormVersionDiffResponse (không lưu bảng DB)
+        API--&gt;&gt;UI: 200 OK (FormVersionDiffResponse)
+    end
+
+    rect rgb(239, 246, 255)
+        Note over Adm,DB: Giai đoạn 5 — Phát hành phiên bản mới (publishFormVersion)
+        Adm-&gt;&gt;UI: Nhập ghi chú phát hành &amp; bấm [Phát hành phiên bản mới]
+        UI-&gt;&gt;API: POST /api/v1/admin/form-versions/{versionId}/publish [publishFormVersion] (If-Match: &quot;2&quot;)
+        API-&gt;&gt;Svc: publishFormVersion(versionId, expectedRowVersion=2, admin)
+        alt status != &#x27;draft&#x27; HOẶC lệch ETag (409) | Bản nháp rỗng (422)
+            API--&gt;&gt;UI: 409 Conflict / 422 Unprocessable Entity (ProblemDetails)
+        else Hợp lệ — Giao dịch nguyên tử (BEGIN ... COMMIT)
+            Svc-&gt;&gt;DB: BEGIN; UPDATE form_version SET status=&#x27;retired&#x27; WHERE form_template_id=? AND status=&#x27;published&#x27;
+            Svc-&gt;&gt;DB: UPDATE form_version SET status=&#x27;published&#x27;, published_at=NOW(), published_by=admin, row_version=3
+            Svc-&gt;&gt;DB: INSERT audit_log(action=&#x27;form_version_publish&#x27;, entity_type=&#x27;form_version&#x27;, detail={retiredVersionId, versionNo})
+            Note over DB: Trigger K4 khóa bất biến bản v2 vĩnh viễn; lượt cũ vẫn giữ form_version_id=v1
+            DB--&gt;&gt;Svc: COMMIT OK (v2=published, v1=retired)
+            Svc--&gt;&gt;API: FormVersion(published, rowVersion=3)
+            API--&gt;&gt;UI: 200 OK (FormVersion) + ETag: &quot;3&quot;
+        end
+    end</pre></details>
+    </section>
+
+    <section class="card" id="rules">
+      <h2>7. Tóm tắt 10 Chốt Kiến trúc Bắt buộc (K1–K10)</h2>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Chốt</th><th>Quy tắc cốt lõi</th><th>Cơ chế bảo vệ</th></tr></thead>
+          <tbody>
+            <tr><td><strong>K1</strong></td><td>Tách 4 tầng điều kiện (<span class="mono">patient_created</span>, <span class="mono">draft_saved</span>, <span class="mono">confirmed</span>, <span class="mono">ai_ready</span>)</td><td>Tầng 4 chỉ đối chiếu độ sẵn sàng cho 4 module AI, không chặn xác nhận lượt khám.</td></tr>
+            <tr><td><strong>K2</strong></td><td>3 trạng thái câu trả lời (Chưa điền / Chưa rõ / Đã trả lời)</td><td>Ô trống không tạo bản ghi; <span class="mono">unknown</span> khóa các cột giá trị về null; giữ nguyên số <span class="mono">0</span> và <span class="mono">false</span>.</td></tr>
+            <tr><td><strong>K3</strong></td><td>Biểu mẫu theo metadata &amp; gắn cứng phiên bản</td><td>Mỗi lượt khám khóa <span class="mono">form_version_id</span> lúc tạo và bắt đầu với dữ liệu trắng.</td></tr>
+            <tr><td><strong>K4</strong></td><td>Phiên bản biểu mẫu đã phát hành là bất biến</td><td>Chặn 409 ở cả API và DB trigger; mọi chỉnh sửa đi qua bản nháp mới + Diff.</td></tr>
+            <tr><td><strong>K5</strong></td><td>Lượt khám đã xác nhận là chỉ đọc</td><td>Chỉnh sửa sau xác nhận đi qua <span class="mono">visit_revision</span> kèm lý do, bảo toàn bản chụp cũ.</td></tr>
+            <tr><td><strong>K6</strong></td><td>4 bảng lặp độc lập</td><td>Tách riêng HA tư thế, thuốc, dị ứng/ADR và kết quả cận lâm sàng có thời điểm.</td></tr>
+            <tr><td><strong>K7</strong></td><td>Tách chỉ số cận lâm sàng &amp; đơn vị chuẩn</td><td>Tách <span class="mono">cls_bnp</span> ≠ <span class="mono">cls_nt_probnp</span>, <span class="mono">cls_creatinin</span> ≠ <span class="mono">cls_egfr</span>, <span class="mono">cls_lvef</span> ≠ kết luận siêu âm.</td></tr>
+            <tr><td><strong>K8</strong></td><td>Tách quyền RBAC &amp; bảo mật nhật ký</td><td>Admin bị chặn 403 trên hồ sơ/lượt khám; nhật ký kiểm toán không chứa bệnh án hay mật khẩu.</td></tr>
+            <tr><td><strong>K9</strong></td><td>Thuần phạm vi MVP, không chạy AI giả</td><td>Chỉ cung cấp hợp đồng dữ liệu đầu ra <span class="mono">AiInputPayload</span> cho lượt khám đã xác nhận.</td></tr>
+            <tr><td><strong>K10</strong></td><td>Mã bệnh nhân bất biến <span class="mono">BN-\d{5}</span></td><td>Máy chủ sinh duy nhất, khóa nội bộ dùng UUID, không tự bịa ngày sinh 01/01.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

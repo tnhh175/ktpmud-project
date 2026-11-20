@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hệ thống Thu thập &amp; Xác nhận Dữ liệu Lâm sàng Suy tim</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231D4ED8'/%3E%3Cpath d='M6 16h5l2.5-6 4 12 2.5-6h6' fill='none' stroke='%23FFFFFF' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <a href="#main-workspace" class="skip-link">Chuyển tới nội dung chính</a>
+
+  <!-- Thanh thông báo chế độ ngoại tuyến (chỉ hiển thị khi APP_CONFIG.mode === 'static') -->
+  <div id="runtime-banner" class="runtime-banner" role="status" hidden></div>
+
+  <!-- Ứng dụng chính (8 màn hình M1–M8) -->
+  <div id="app-root" class="app-root"></div>
+
+  <!-- Hộp thoại dùng chung -->
+  <div class="modal-backdrop" id="modal-backdrop" hidden>
+    <div class="modal-dialog" id="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="modal-title"></div>
+  </div>
+
+  <!-- Vùng thông báo nổi (Toast) -->
+  <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="./config.js"></script>
+  <script src="./static-runtime.js"></script>
+  <script src="./api-client.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
