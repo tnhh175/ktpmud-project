@@ -353,6 +353,24 @@
     if (output) output.textContent = value !== null ? value + ' kg/m²' : 'Chưa đủ dữ liệu';
   }
 
+  function refreshNumericInput(input) {
+    // Keep the native input (and its caret) intact, including when clearing or
+    // entering zero. Only update the decorations that used to require render().
+    input.classList.toggle('input--unfilled', input.value === '');
+    const field = input.closest('.field');
+    if (!field) return;
+    const zeroChip = field.querySelector('.zero-chip');
+    const isZero = input.value !== '' && Number(input.value) === 0;
+    if (isZero && !zeroChip) {
+      const chip = document.createElement('span');
+      chip.className = 'zero-chip';
+      chip.textContent = 'Đã nhập: 0 (khác với để trống)';
+      field.querySelector('.input-row-unknown').after(chip);
+    } else if (!isZero && zeroChip) {
+      zeroChip.remove();
+    }
+  }
+
   function syncHeartRateFromBp(formTarget, heartRate, sourceIndex) {
     const pulseDef = Object.values(formTarget.defById).find(function (fd) { return fd.code === 'mach'; });
     if (!pulseDef || heartRate === null || heartRate === undefined || heartRate === '') return;
@@ -3361,6 +3379,7 @@
       ft.markDirty();
       // Do not rebuild number inputs while typing: replacement resets the native
       // caret for number fields and reverses subsequent digits/backspaces.
+      refreshNumericInput(t);
       if (fd.code === 'chieu_cao_cm' || fd.code === 'can_nang_kg') refreshLiveBmi(ft);
       return;
     }
