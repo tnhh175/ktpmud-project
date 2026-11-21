@@ -938,7 +938,7 @@
     (payload.labResults || []).forEach(function (lab, idx) {
       const fd = defMap[lab.labCode];
       if (!fd || fd.storageLevel !== 'lab_result') {
-        errors.push({ fieldCode: lab.labCode || 'cls_bnp', sectionCode: 'can_lam_sang', message: 'Kết quả CLS #' + (idx + 1) + ': mã xét nghiệm không hợp lệ.', rejectedValue: lab.labCode });
+        errors.push({ fieldCode: lab.labCode || 'can_lam_sang', sectionCode: 'can_lam_sang', message: 'Kết quả CLS #' + (idx + 1) + ': vui lòng chọn loại xét nghiệm / thăm dò.', rejectedValue: lab.labCode });
         return;
       }
       if (!lab.measuredAt) {
@@ -2343,6 +2343,34 @@
       });
       saveDb(db);
       return formatVersionSummary(db, fv);
+    },
+
+    async deleteFormVersionDraft(versionId, ifMatch) {
+      const db = await loadDb();
+      const actor = requireAuth(db, ['admin'], 'form_version');
+      const idx = db.formVersions.findIndex(function (x) { return x.id === versionId; });
+      if (idx === -1) {
+        throw new StaticApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy phiên bản biểu mẫu', 'Phiên bản biểu mẫu không tồn tại.');
+      }
+      const fv = db.formVersions[idx];
+      if (fv.status !== 'draft') {
+        throw new StaticApiError(409, 'FORM_VERSION_NOT_DRAFT', 'Không thể xóa phiên bản đã phát hành', 'Chỉ được xóa bản nháp chưa phát hành và chưa gắn lượt khám nào.', { currentRowVersion: fv.rowVersion });
+      }
+      const usedCount = db.visits.filter(function (v) { return v.formVersionId === fv.id; }).length;
+      if (usedCount > 0) {
+        throw new StaticApiError(409, 'FORM_VERSION_IN_USE', 'Bản nháp đang có lượt khám sử dụng', 'Không thể xóa phiên bản đã có lượt khám gắn kèm.');
+      }
+      const expected = parseIfMatch(ifMatch, fv.rowVersion);
+      if (expected !== null && expected !== fv.rowVersion) {
+        throw new StaticApiError(409, 'CONCURRENCY_ROW_VERSION_MISMATCH', 'Xung đột phiên bản (409)', 'Bản nháp đã thay đổi ở phiên khác.', { currentRowVersion: fv.rowVersion });
+      }
+      db.formVersions.splice(idx, 1);
+      appendAudit(db, actor, 'form_version_update', 'form_version', fv.id, 'success', {
+        deletedDraft: true,
+        versionLabel: fv.versionLabel
+      });
+      saveDb(db);
+      return { deleted: true, versionId: fv.id, versionLabel: fv.versionLabel };
     },
 
     /* ---------------- M8: Admin Audit Logs ---------------- */

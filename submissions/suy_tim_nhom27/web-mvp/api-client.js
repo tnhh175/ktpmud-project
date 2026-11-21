@@ -213,6 +213,9 @@
       publishFormVersion(versionId, payload, rowVersion) {
         return request('POST', '/admin/form-versions/' + encodeURIComponent(versionId) + '/publish', { body: payload, ifMatch: rowVersion });
       },
+      deleteFormVersionDraft(versionId, rowVersion) {
+        return request('DELETE', '/admin/form-versions/' + encodeURIComponent(versionId), { ifMatch: rowVersion });
+      },
 
       /* Admin Audit Logs */
       listAuditLogs(params) { return request('GET', '/admin/audit-logs' + buildQuery(params)); }
@@ -264,6 +267,7 @@
       previewFormVersion: function (id) { return adapter.previewFormVersion(id); },
       diffFormVersion: function (id, baseId) { return adapter.diffFormVersion(id, baseId); },
       publishFormVersion: function (id, p, rv) { return adapter.publishFormVersion(id, p, rv); },
+      deleteFormVersionDraft: function (id, rv) { return adapter.deleteFormVersionDraft(id, rv); },
       listAuditLogs: function (p) { return adapter.listAuditLogs(p); }
     };
   }

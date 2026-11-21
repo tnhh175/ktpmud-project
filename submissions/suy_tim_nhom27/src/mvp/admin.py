@@ -1377,6 +1377,80 @@ def publish_form_version(
     return form_version_row_to_dict(out)
 
 
+@router.delete(
+    "/form-versions/{versionId}",
+    operation_id="deleteFormVersionDraft",
+    tags=["AdminForms"],
+)
+def delete_form_version_draft(
+    versionId: UUID,
+    request: Request,
+    if_match: str | None = Header(default=None, alias="If-Match"),
+    principal: Principal = Depends(_require_admin_forms),
+) -> dict[str, Any]:
+    pool = request.app.state.pool
+    req_id = get_request_id(request)
+    ip_addr = get_client_ip(request)
+
+    with pool.connection() as conn:
+        fv_row = conn.execute(
+            "SELECT * FROM form_version WHERE id = %s FOR UPDATE",
+            (str(versionId),),
+        ).fetchone()
+        if not fv_row:
+            raise ProblemError(
+                404,
+                "RESOURCE_NOT_FOUND",
+                "Không tìm thấy phiên bản biểu mẫu",
+                "Phiên bản biểu mẫu không tồn tại.",
+            )
+        current_rv = int(fv_row["row_version"])
+        if fv_row["status"] != "draft":
+            raise ProblemError(
+                409,
+                "FORM_VERSION_NOT_DRAFT",
+                "Không thể xóa phiên bản đã phát hành",
+                "Chỉ được xóa bản nháp chưa phát hành và chưa gắn lượt khám.",
+                current_row_version=current_rv,
+            )
+        visit_cnt = conn.execute(
+            "SELECT count(*)::int AS cnt FROM visit WHERE form_version_id = %s",
+            (str(versionId),),
+        ).fetchone()["cnt"]
+        if visit_cnt > 0:
+            raise ProblemError(
+                409,
+                "FORM_VERSION_IN_USE",
+                "Bản nháp đã có lượt khám sử dụng",
+                "Không thể xóa phiên bản đang có lượt khám gắn kèm.",
+                current_row_version=current_rv,
+            )
+        if if_match is not None:
+            expected_rv = parse_if_match(if_match, current_rv, current_row_version=current_rv)
+            if expected_rv != current_rv:
+                raise ProblemError(
+                    409,
+                    "CONCURRENCY_ROW_VERSION_MISMATCH",
+                    "Xung đột phiên bản biểu mẫu (409)",
+                    f"Bản nháp biểu mẫu hiện ở rowVersion {current_rv}.",
+                    current_row_version=current_rv,
+                )
+        conn.execute("DELETE FROM form_version WHERE id = %s", (str(versionId),))
+        record_audit_log(
+            conn,
+            actor_user_id=principal.user_id,
+            action="form_version_update",
+            entity_type="form_version",
+            entity_id=versionId,
+            ip=ip_addr,
+            request_id=req_id,
+            outcome="success",
+            detail={"deletedDraft": True, "versionLabel": fv_row["version_label"]},
+        )
+        conn.commit()
+    return {"deleted": True, "versionId": str(versionId), "versionLabel": fv_row["version_label"]}
+
+
 # ---------------------------------------------------------------------------
 # M8: Admin Audit Logs
 # ---------------------------------------------------------------------------
