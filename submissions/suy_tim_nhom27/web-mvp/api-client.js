@@ -10,6 +10,7 @@
 (function (global) {
   const TOKEN_KEY = 'suytim_mvp_access_token';
   const REFRESH_KEY = 'suytim_mvp_refresh_token';
+  const REQUEST_TIMEOUT_MS = 30000;
 
   class HttpApiError extends Error {
     constructor(status, problem) {
@@ -65,15 +66,31 @@
       }
 
       let res;
+      const controller = typeof global.AbortController === 'function' ? new global.AbortController() : null;
+      let timedOut = false;
+      const timeoutId = controller ? global.setTimeout(function () {
+        timedOut = true;
+        controller.abort();
+      }, REQUEST_TIMEOUT_MS) : null;
       try {
-        res = await fetch(apiBase + path, { method: method, headers: headers, body: bodyStr });
+        res = await fetch(apiBase + path, { method: method, headers: headers, body: bodyStr, signal: controller ? controller.signal : undefined });
       } catch (_netErr) {
+        if (timedOut || (_netErr && _netErr.name === 'AbortError')) {
+          throw new HttpApiError(0, {
+            status: 0,
+            code: 'REQUEST_TIMEOUT',
+            title: 'Yêu cầu quá thời gian chờ',
+            detail: 'Máy chủ chưa phản hồi sau 30 giây. Dữ liệu chưa được xác nhận, hãy tải lại để kiểm tra rồi thử lại.'
+          });
+        }
         throw new HttpApiError(0, {
           status: 0,
           code: 'NETWORK_ERROR',
           title: 'Không thể kết nối máy chủ',
           detail: 'Không thể kết nối máy chủ — kiểm tra mạng và thử lại.'
         });
+      } finally {
+        if (timeoutId !== null) global.clearTimeout(timeoutId);
       }
 
       if (res.status === 401 && !opts.skipAuth && !retried) {

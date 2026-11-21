@@ -2155,6 +2155,36 @@ def create_visit_revision(
             ),
         ).fetchone()
 
+        # A post-confirm amendment deliberately reopens the working copy.  The
+        # immutable revision above retains the prior confirmed snapshot; the
+        # visit itself must be draft again so its fields can be edited and then
+        # confirmed into a new snapshot.
+        conn.execute(
+            "SELECT set_config('app.allow_visit_amendment', '1', true)"
+        )
+        amended_visit = conn.execute(
+            """
+            UPDATE visit
+            SET status = 'draft',
+                confirmed_at = NULL,
+                confirmed_by = NULL,
+                confirm_note = NULL,
+                current_revision_no = %s,
+                row_version = row_version + 1
+            WHERE id = %s AND row_version = %s
+            RETURNING *
+            """,
+            (next_rev_no, str(visitId), current_rv),
+        ).fetchone()
+        if not amended_visit:
+            raise ProblemError(
+                409,
+                "CONCURRENCY_ROW_VERSION_MISMATCH",
+                "Xung đột phiên bản dữ liệu (409)",
+                "Lượt khám đã thay đổi trong khi mở bản sửa mới.",
+                current_row_version=current_rv,
+            )
+
         record_audit_log(
             conn,
             actor_user_id=principal.user_id,
@@ -2173,7 +2203,7 @@ def create_visit_revision(
         )
         conn.commit()
 
-    response.headers["ETag"] = f'"{current_rv}"'
+    response.headers["ETag"] = '"' + str(int(amended_visit["row_version"])) + '"'
     return revision_row_to_dict(rev_row)
 
 

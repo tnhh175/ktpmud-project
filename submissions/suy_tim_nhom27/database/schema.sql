@@ -607,6 +607,22 @@ BEGIN
   END IF;
 
   IF OLD.status = 'confirmed' THEN
+    IF NEW.status = 'draft'
+       AND current_setting('app.allow_visit_amendment', true) = '1'
+       AND NEW.confirmed_at IS NULL
+       AND NEW.confirmed_by IS NULL
+       AND NEW.confirm_note IS NULL
+       AND NEW.current_revision_no = OLD.current_revision_no + 1
+       AND NEW.row_version = OLD.row_version + 1
+       AND NEW.visit_date IS NOT DISTINCT FROM OLD.visit_date
+       AND NEW.visit_type IS NOT DISTINCT FROM OLD.visit_type
+       AND NEW.chief_complaint IS NOT DISTINCT FROM OLD.chief_complaint
+       AND NEW.clinical_note IS NOT DISTINCT FROM OLD.clinical_note
+       AND NEW.info_source IS NOT DISTINCT FROM OLD.info_source
+    THEN
+      NEW.updated_at := now();
+      RETURN NEW;
+    END IF;
     RAISE EXCEPTION 'Confirmed visit % is read-only; create a visit_revision instead of direct update', OLD.id
       USING ERRCODE = 'check_violation';
   END IF;

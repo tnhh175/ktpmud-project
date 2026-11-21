@@ -230,6 +230,7 @@
       conflictError: null,
       dirty: false,
       lastSavedAt: null,
+      autoPulseSourceIndex: null,
       highlightFieldCode: null,
       saving: false,
       loading: false,
@@ -248,6 +249,7 @@
       aiInputPayload: null,
       showAiPayload: false,
       confirming: false,
+      confirmError: '',
       loading: false,
       error: ''
     },
@@ -269,6 +271,7 @@
       previewData: null,
       previewValues: {},
       previewBp: [],
+      previewAutoPulseSourceIndex: null,
       previewMeds: [],
       previewAllergies: [],
       previewLabs: [],
@@ -298,6 +301,93 @@
     // Modal state
     modal: null
   };
+
+  // Search results replace the SPA root, so direct reloads used to discard focus
+  // after every character. Debounce and ignore stale responses instead.
+  const liveSearch = {
+    patients: { timer: null, sequence: 0 },
+    users: { timer: null, sequence: 0 },
+    audit: { timer: null, sequence: 0 }
+  };
+
+  function captureInputFocus(input) {
+    if (!input || !input.id) return null;
+    return { id: input.id, start: input.selectionStart, end: input.selectionEnd };
+  }
+
+  function restoreInputFocus(snapshot) {
+    if (!snapshot) return;
+    const input = document.getElementById(snapshot.id);
+    if (!input) return;
+    input.focus();
+    if (typeof input.setSelectionRange === 'function' && snapshot.start !== null && snapshot.end !== null) {
+      input.setSelectionRange(snapshot.start, snapshot.end);
+    }
+  }
+
+  function scheduleLiveSearch(kind, input) {
+    const tracker = liveSearch[kind];
+    if (!tracker) return;
+    global.clearTimeout(tracker.timer);
+    const sequence = ++tracker.sequence;
+    const focus = captureInputFocus(input);
+    tracker.timer = global.setTimeout(function () {
+      const options = { liveSearchSequence: sequence, restoreFocus: focus };
+      if (kind === 'patients') loadPatients(options);
+      else if (kind === 'users') loadAdminUsers(options);
+      else if (kind === 'audit') loadAdminAudit(options);
+    }, 180);
+  }
+
+  function isCurrentLiveSearch(kind, options) {
+    return !options || !options.liveSearchSequence || liveSearch[kind].sequence === options.liveSearchSequence;
+  }
+
+  function refreshLiveBmi(formTarget) {
+    const heightDef = Object.values(formTarget.defById).find(function (fd) { return fd.code === 'chieu_cao_cm'; });
+    const weightDef = Object.values(formTarget.defById).find(function (fd) { return fd.code === 'can_nang_kg'; });
+    const height = heightDef && formTarget.valuesByDefId[heightDef.id] ? Number(formTarget.valuesByDefId[heightDef.id].valueNum) : null;
+    const weight = weightDef && formTarget.valuesByDefId[weightDef.id] ? Number(formTarget.valuesByDefId[weightDef.id].valueNum) : null;
+    const value = computeBmi(height, weight);
+    const output = document.querySelector('[data-field-code="bmi"] .bmi-card__value');
+    if (output) output.textContent = value !== null ? value + ' kg/m²' : 'Chưa đủ dữ liệu';
+  }
+
+  function syncHeartRateFromBp(formTarget, heartRate, sourceIndex) {
+    const pulseDef = Object.values(formTarget.defById).find(function (fd) { return fd.code === 'mach'; });
+    if (!pulseDef || heartRate === null || heartRate === undefined || heartRate === '') return;
+    const existing = formTarget.valuesByDefId[pulseDef.id];
+    const autoSourceIndex = formTarget.getAutoPulseSourceIndex();
+    const hasManualPulse = existing && existing.valueState === 'answered' && existing.valueNum !== null && existing.valueNum !== undefined && autoSourceIndex === null;
+    if (hasManualPulse) return;
+    if (sourceIndex === undefined || sourceIndex === null || sourceIndex !== formTarget.orthostaticBp.length - 1) return;
+    const value = makeEmptyVisitValue(formTarget.visitId, pulseDef, 'answered');
+    value.valueNum = Number(heartRate);
+    value.unit = pulseDef.canonicalUnit || null;
+    formTarget.valuesByDefId[pulseDef.id] = value;
+    formTarget.setAutoPulseSourceIndex(sourceIndex);
+    const input = document.querySelector('input[' + formTarget.numberInputAttribute + '="' + pulseDef.id + '"]');
+    if (input && document.activeElement !== input) input.value = String(value.valueNum);
+  }
+
+  function clearAutoPulseValue(formTarget) {
+    const pulseDef = Object.values(formTarget.defById).find(function (fd) { return fd.code === 'mach'; });
+    if (!pulseDef || formTarget.getAutoPulseSourceIndex() === null) return;
+    delete formTarget.valuesByDefId[pulseDef.id];
+    formTarget.setAutoPulseSourceIndex(null);
+  }
+
+  function renderPreservingEditorScroll() {
+    const positions = Array.prototype.map.call(document.querySelectorAll('.editor-pane__scroll'), function (el) {
+      return el.scrollTop;
+    });
+    render();
+    global.requestAnimationFrame(function () {
+      Array.prototype.forEach.call(document.querySelectorAll('.editor-pane__scroll'), function (el, index) {
+        el.scrollTop = positions[index] || 0;
+      });
+    });
+  }
 
   /* ------------------------------------------------------------------------
      Offline Runtime Banner (Static Mode Only)
@@ -434,24 +524,38 @@
     toast((err && err.detail) || fallbackMsg || 'Đã xảy ra lỗi khi tải dữ liệu.', 'error');
   }
 
-  async function loadPatients() {
+  async function loadPatients(options) {
+    const opts = options || null;
     state.patients.loading = true;
     state.patients.error = '';
-    render();
+    if (!opts) render();
     try {
       const res = await api.listPatients({
         q: state.patients.q,
         latestVisitStatus: state.patients.status,
         pageSize: 50
       });
+      if (!isCurrentLiveSearch('patients', opts)) return;
       state.patients.items = (res && res.items) || [];
     } catch (err) {
       state.patients.error = (err && err.detail) || 'Không tải được danh sách hồ sơ bệnh nhân.';
       if (err && (err.status === 401 || err.status === 403)) return handleAuthOrError(err);
     } finally {
+      if (!isCurrentLiveSearch('patients', opts)) return;
       state.patients.loading = false;
       render();
+      restoreInputFocus(opts && opts.restoreFocus);
     }
+  }
+
+  function syncCachedPatientVisitStatus(visit) {
+    if (!visit || !visit.patientId) return;
+    state.patients.items = state.patients.items.map(function (item) {
+      if (item.patient.id !== visit.patientId || item.latestVisitId !== visit.id) return item;
+      return Object.assign({}, item, { latestVisitStatus: visit.status });
+    }).filter(function (item) {
+      return !state.patients.status || item.latestVisitStatus === state.patients.status;
+    });
   }
 
   async function loadProfile(patientId) {
@@ -509,6 +613,7 @@
       enc.allergies = clone(detail.allergies || []);
       enc.labResults = clone(detail.labResults || []);
       enc.revisions = clone(detail.revisions || []);
+      enc.autoPulseSourceIndex = null;
       enc.clinicalNote = detail.visit.clinicalNote || '';
       enc.infoSource = detail.visit.infoSource || '';
       enc.dirty = false;
@@ -533,6 +638,8 @@
   async function loadReview(visitId) {
     const rev = state.review;
     rev.visitId = visitId;
+    rev.confirming = false;
+    rev.confirmError = '';
     rev.loading = true;
     rev.error = '';
     rev.aiInputPayload = null;
@@ -559,11 +666,12 @@
     }
   }
 
-  async function loadAdminUsers() {
+  async function loadAdminUsers(options) {
+    const opts = options || null;
     const au = state.adminUsers;
     au.loading = true;
     au.error = '';
-    render();
+    if (!opts) render();
     try {
       const res = await api.listUsers({
         q: au.q,
@@ -571,13 +679,16 @@
         isActive: au.isActive,
         pageSize: 50
       });
+      if (!isCurrentLiveSearch('users', opts)) return;
       au.items = (res && res.items) || [];
     } catch (err) {
       au.error = (err && err.detail) || 'Không tải được danh sách tài khoản.';
       if (err && (err.status === 401 || err.status === 403)) return handleAuthOrError(err);
     } finally {
+      if (!isCurrentLiveSearch('users', opts)) return;
       au.loading = false;
       render();
+      restoreInputFocus(opts && opts.restoreFocus);
     }
   }
 
@@ -655,11 +766,12 @@
     }
   }
 
-  async function loadAdminAudit() {
+  async function loadAdminAudit(options) {
+    const opts = options || null;
     const aa = state.adminAudit;
     aa.loading = true;
     aa.error = '';
-    render();
+    if (!opts) render();
     try {
       const res = await api.listAuditLogs({
         q: aa.q,
@@ -669,13 +781,16 @@
         toDate: aa.toDate ? aa.toDate + 'T23:59:59Z' : '',
         pageSize: 50
       });
+      if (!isCurrentLiveSearch('audit', opts)) return;
       aa.items = (res && res.items) || [];
     } catch (err) {
       aa.error = (err && err.detail) || 'Không tải được nhật ký hệ thống.';
       if (err && (err.status === 401 || err.status === 403)) return handleAuthOrError(err);
     } finally {
+      if (!isCurrentLiveSearch('audit', opts)) return;
       aa.loading = false;
       render();
+      restoreInputFocus(opts && opts.restoreFocus);
     }
   }
 
@@ -728,7 +843,7 @@
                   '</button>' +
                 '</div>' +
               '</div>' +
-              '<button type="submit" class="btn btn--primary btn--full" id="btn-login-submit"' + (lf.submitting ? ' disabled' : '') + '>' +
+              '<button type="submit" class="btn btn--primary btn--full' + (lf.submitting ? ' is-loading' : '') + '" id="btn-login-submit"' + (lf.submitting ? ' disabled' : '') + '>' +
                 (lf.submitting ? 'Đang xác thực...' : 'Đăng nhập') +
               '</button>' +
             '</form>' +
@@ -844,9 +959,12 @@
      ------------------------------------------------------------------------ */
   function renderPatients() {
     const ps = state.patients;
-    const statusBadge = function (st) {
+    const statusBadge = function (st, visitId) {
       if (st === 'confirmed') return '<span class="badge badge--success">Đã xác nhận</span>';
-      if (st === 'draft') return '<span class="badge badge--warn">Có lượt nháp</span>';
+      if (st === 'draft') {
+        if (visitId) return '<button type="button" class="badge badge--warn badge--link" data-nav="#/visits/' + esc(visitId) + '">Có lượt nháp</button>';
+        return '<span class="badge badge--warn">Có lượt nháp</span>';
+      }
       return '<span class="badge badge--neutral">Chưa có lượt</span>';
     };
 
@@ -879,7 +997,7 @@
             '<td><div class="cell-primary mono">' + esc(pt.patientCode) + '</div><div class="cell-sub">' + esc(pt.fullName) + '</div></td>' +
             '<td><div>' + esc(formatSex(pt.sex)) + '</div><div class="cell-sub">' + esc(formatBirthPrecision(pt)) + '</div></td>' +
             '<td>' + (it.visitCount > 0 ? ('<div class="tabular">' + esc(formatDateTime(it.latestVisitDate)) + '</div><div class="cell-sub">' + it.visitCount + ' lượt khám</div>') : '<span class="cell-sub">Chưa ghi nhận</span>') + '</td>' +
-            '<td>' + statusBadge(it.latestVisitStatus) + '</td>' +
+            '<td>' + statusBadge(it.latestVisitStatus, it.latestVisitId) + '</td>' +
             '<td style="text-align:right;"><button type="button" class="btn btn--secondary btn--sm" data-nav="#/patients/' + esc(pt.id) + '">Mở hồ sơ ' + ICONS.arrowRight + '</button></td>' +
           '</tr>'
         );
@@ -891,7 +1009,7 @@
           '<article class="record-card">' +
             '<div class="record-card__top">' +
               '<div><div class="cell-primary mono">' + esc(pt.patientCode) + '</div><div class="cell-sub">' + esc(pt.fullName) + '</div></div>' +
-              statusBadge(it.latestVisitStatus) +
+              statusBadge(it.latestVisitStatus, it.latestVisitId) +
             '</div>' +
             '<div class="record-card__meta">' +
               '<div><span class="record-card__label">Giới tính &amp; Tuổi</span>' + esc(formatSex(pt.sex) + ' · ' + formatBirthPrecision(pt)) + '</div>' +
@@ -1535,7 +1653,7 @@
           '<span class="field__help">Phím tắt: <span class="kbd">/</span> tìm trường · <span class="kbd">Ctrl+S</span> lưu nháp</span>' +
         '</div>' +
         '<div class="encounter-footer__actions">' +
-          '<button type="button" class="btn btn--secondary" data-action="save-draft"' + (enc.saving ? ' disabled' : '') + '>' + ICONS.save + (enc.saving ? ' Đang lưu...' : ' Lưu nháp') + '</button>' +
+          '<button type="button" class="btn btn--secondary' + (enc.saving ? ' is-loading' : '') + '" data-action="save-draft"' + (enc.saving ? ' disabled' : '') + '>' + (enc.saving ? '' : ICONS.save) + (enc.saving ? 'Đang lưu...' : ' Lưu nháp') + '</button>' +
           '<button type="button" class="btn btn--primary" data-action="go-review">Xem lại &amp; Xác nhận ' + ICONS.arrowRight + '</button>' +
         '</div>' +
       '</div>'
@@ -1679,6 +1797,7 @@
         '<div class="banner banner--blue" style="margin-bottom:0;">' +
           '<div class="banner__main">' + ICONS.shield + '<div><p class="banner__title">Ranh giới chuyên môn khi xác nhận</p><p class="banner__desc">Xác nhận này xác thực dữ liệu lâm sàng đã được bác sĩ rà soát và chốt cho lượt khám nhằm phục vụ lưu trữ chuẩn hóa và tích hợp bước tiếp theo. <strong>Đây không phải là xác nhận chẩn đoán cuối cùng hay y lệnh điều trị.</strong></p></div></div>' +
         '</div>' +
+        (rev.confirmError ? '<div class="banner banner--error" style="margin-bottom:0;"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__title">Chưa xác nhận được lượt khám</p><p class="banner__desc">' + esc(rev.confirmError) + '</p></div></div></div>' : '') +
         '<div class="kv-grid">' +
           '<div><div class="kv-item__label">Người xác nhận</div><div class="kv-item__value">' + esc(state.user.fullName) + '</div></div>' +
           '<div><div class="kv-item__label">Phiên bản biểu mẫu gắn cứng</div><div class="kv-item__value mono">' + esc(fv ? fv.versionLabel : 'v1') + '</div></div>' +
@@ -1687,7 +1806,7 @@
         '<div class="field"><label class="field__label" for="confirm-note-input">Ghi chú xác nhận (không bắt buộc)</label><input id="confirm-note-input" type="text" class="input" placeholder="VD: Đã đối chiếu kết quả sinh hiệu và cận lâm sàng lượt tái khám" value="' + esc(rev.confirmNote) + '"></div>' +
         '<div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">' +
           '<button type="button" class="btn btn--secondary" data-nav="#/visits/' + esc(v.id) + '">' + ICONS.arrowLeft + ' Quay lại chỉnh sửa</button>' +
-          '<button type="button" class="btn btn--primary" data-action="confirm-visit"' + (!r.canConfirm || rev.confirming ? ' disabled' : '') + '>' + ICONS.checkCircle + (rev.confirming ? ' Đang xác nhận...' : ' Xác nhận dữ liệu lượt khám') + '</button>' +
+          '<button type="button" class="btn btn--primary' + (rev.confirming ? ' is-loading' : '') + '" data-action="confirm-visit"' + (!r.canConfirm || rev.confirming ? ' disabled' : '') + '>' + (rev.confirming ? '' : ICONS.checkCircle) + (rev.confirming ? 'Đang xác nhận...' : ' Xác nhận dữ liệu lượt khám') + '</button>' +
         '</div>' +
       '</section>'
     ) : (
@@ -2042,14 +2161,15 @@
       listHtml = '<div class="empty-state"><h3 class="empty-state__title">Không có bản ghi nhật ký nào khớp bộ lọc</h3><p class="empty-state__desc">Thử mở rộng khoảng thời gian hoặc đặt lại điều kiện tìm kiếm.</p></div>';
     } else {
       const rows = aa.items.map(function (l) {
+        const isSel = selectedLog && l.id === selectedLog.id;
         return (
-          '<tr>' +
+          '<tr' + (isSel ? ' class="is-selected-row"' : '') + '>' +
             '<td class="tabular">' + esc(formatDateTime(l.occurredAt)) + '</td>' +
             '<td><div class="cell-primary mono">' + esc(l.actorUsername || 'Ẩn danh') + '</div><div class="cell-sub">' + esc(l.actorRole || '—') + '</div></td>' +
             '<td>' + esc(formatAuditAction(l.action)) + '</td>' +
             '<td><span class="mono">' + esc(l.entityType) + '</span></td>' +
             '<td>' + outcomeBadge(l.outcome) + '</td>' +
-            '<td style="text-align:right;"><button type="button" class="btn btn--secondary btn--sm" data-audit-select="' + esc(l.id) + '">Xem chi tiết</button></td>' +
+            '<td style="text-align:right;"><button type="button" class="btn btn--secondary btn--sm" data-audit-select="' + esc(l.id) + '">' + (isSel ? 'Đang xem' : 'Xem chi tiết') + '</button></td>' +
           '</tr>'
         );
       }).join('');
@@ -2332,6 +2452,9 @@
         medications: state.adminForms.previewMeds,
         allergies: state.adminForms.previewAllergies,
         labResults: state.adminForms.previewLabs,
+        numberInputAttribute: 'data-prev-num',
+        getAutoPulseSourceIndex: function () { return state.adminForms.previewAutoPulseSourceIndex; },
+        setAutoPulseSourceIndex: function (index) { state.adminForms.previewAutoPulseSourceIndex = index; },
         markDirty: function () {}
       };
     }
@@ -2343,6 +2466,9 @@
       medications: state.encounter.medications,
       allergies: state.encounter.allergies,
       labResults: state.encounter.labResults,
+      numberInputAttribute: 'data-enc-num',
+      getAutoPulseSourceIndex: function () { return state.encounter.autoPulseSourceIndex; },
+      setAutoPulseSourceIndex: function (index) { state.encounter.autoPulseSourceIndex = index; },
       markDirty: function () { state.encounter.dirty = true; }
     };
   }
@@ -2595,6 +2721,7 @@
         } else {
           ft.valuesByDefId[fd.id] = makeEmptyVisitValue(ft.visitId, fd, 'unknown');
         }
+        if (fd.code === 'mach') ft.setAutoPulseSourceIndex(null);
         ft.markDirty();
         render();
       }
@@ -2604,7 +2731,9 @@
     // Repeating table Add/Remove (BP, Med, Allergy, Lab) for Encounter & Preview
     if (target.hasAttribute('data-enc-add-bp') || target.hasAttribute('data-prev-add-bp')) {
       const ft = getFormTarget(target.hasAttribute('data-prev-add-bp'));
-      ft.orthostaticBp.push({ position: 'sitting', minuteAfter: 0, systolic: 120, diastolic: 75, heartRate: 76, measuredAt: new Date().toISOString(), note: null });
+      const bp = { position: 'sitting', minuteAfter: 0, systolic: 120, diastolic: 75, heartRate: 76, measuredAt: new Date().toISOString(), note: null };
+      ft.orthostaticBp.push(bp);
+      syncHeartRateFromBp(ft, bp.heartRate, ft.orthostaticBp.length - 1);
       ft.markDirty();
       render();
       return;
@@ -2613,7 +2742,17 @@
       const isPrev = target.hasAttribute('data-prev-remove-bp');
       const idx = Number(target.getAttribute(isPrev ? 'data-prev-remove-bp' : 'data-enc-remove-bp'));
       const ft = getFormTarget(isPrev);
+      const autoSourceIndex = ft.getAutoPulseSourceIndex();
       ft.orthostaticBp.splice(idx, 1);
+      if (autoSourceIndex === idx) {
+        if (ft.orthostaticBp.length === 0) clearAutoPulseValue(ft);
+        else {
+          const newestIndex = ft.orthostaticBp.length - 1;
+          syncHeartRateFromBp(ft, ft.orthostaticBp[newestIndex].heartRate, newestIndex);
+        }
+      } else if (autoSourceIndex !== null && autoSourceIndex > idx) {
+        ft.setAutoPulseSourceIndex(autoSourceIndex - 1);
+      }
       ft.markDirty();
       render();
       return;
@@ -2771,7 +2910,7 @@
     const edField = target.getAttribute('data-ed-field');
     if (edField) {
       state.adminForms.selectedFieldDefId = edField;
-      render();
+      renderPreservingEditorScroll();
       return;
     }
 
@@ -2933,15 +3072,20 @@
       const noteEl = document.getElementById('confirm-note-input');
       rev.confirmNote = noteEl ? noteEl.value.trim() : rev.confirmNote;
       rev.confirming = true;
+      rev.confirmError = '';
       render();
       try {
-        await api.confirmVisit(rev.visit.id, { rowVersion: rev.visit.rowVersion, confirmNote: rev.confirmNote || null }, rev.visit.rowVersion);
+        const confirmedVisit = await api.confirmVisit(rev.visit.id, { rowVersion: rev.visit.rowVersion, confirmNote: rev.confirmNote || null }, rev.visit.rowVersion);
+        syncCachedPatientVisitStatus(confirmedVisit);
         toast('Đã xác nhận dữ liệu lượt khám thành công.', 'success');
         await loadReview(rev.visit.id);
       } catch (err) {
+        rev.confirmError = (err && err.detail) || 'Không thể xác nhận lượt khám.';
+        if (err && (err.status === 401 || err.status === 403)) handleAuthOrError(err, rev.confirmError);
+        else toast(rev.confirmError, 'error');
+      } finally {
         rev.confirming = false;
-        handleAuthOrError(err, 'Không thể xác nhận lượt khám.');
-        render();
+        if (state.screen === 'review' && state.review.visitId === rev.visitId) render();
       }
       return;
     }
@@ -2977,6 +3121,8 @@
       m.reason = reason;
       try {
         await api.createVisitRevision(m.visitId, { rowVersion: m.rowVersion, changeReason: reason }, m.rowVersion);
+        const currentVisit = state.review.visit && state.review.visit.id === m.visitId ? state.review.visit : state.encounter.visit;
+        if (currentVisit) syncCachedPatientVisitStatus(Object.assign({}, currentVisit, { status: 'draft' }));
         closeModal();
         toast('Đã mở bản sửa mới (visit_revision) giữ nguyên lịch sử xác nhận cũ.', 'success');
         navigate('#/visits/' + m.visitId, true);
@@ -3172,7 +3318,7 @@
 
     if (t.id === 'patient-search') {
       state.patients.q = t.value;
-      loadPatients();
+      scheduleLiveSearch('patients', t);
       return;
     }
     if (t.id === 'enc-field-search') {
@@ -3185,8 +3331,8 @@
     if (t.id === 'confirm-note-input') { state.review.confirmNote = t.value; return; }
     if (t.id === 'publish-note-input') { state.adminForms.publishNote = t.value; return; }
 
-    if (t.id === 'admin-user-search') { state.adminUsers.q = t.value; loadAdminUsers(); return; }
-    if (t.id === 'audit-q') { state.adminAudit.q = t.value; loadAdminAudit(); return; }
+    if (t.id === 'admin-user-search') { state.adminUsers.q = t.value; scheduleLiveSearch('users', t); return; }
+    if (t.id === 'audit-q') { state.adminAudit.q = t.value; scheduleLiveSearch('audit', t); return; }
 
     // Visit metadata fields (infoSource, clinicalNote)
     const vmKey = t.getAttribute('data-enc-visit-meta');
@@ -3211,15 +3357,11 @@
         item.unit = fd.canonicalUnit || null;
         ft.valuesByDefId[fd.id] = item;
       }
+      if (fd.code === 'mach') ft.setAutoPulseSourceIndex(null);
       ft.markDirty();
-      // Live update BMI card or zero chip cleanly without losing focus
-      if (fd.code === 'chieu_cao_cm' || fd.code === 'can_nang_kg' || t.value === '0' || t.value === '') {
-        const selStart = t.selectionStart;
-        render();
-        const attr = (isPrev ? 'data-prev-num' : 'data-enc-num');
-        const reEl = document.querySelector('[' + attr + '="' + CSS.escape(numId) + '"]');
-        if (reEl) { reEl.focus(); if (selStart != null && reEl.type !== 'number') reEl.setSelectionRange(selStart, selStart); }
-      }
+      // Do not rebuild number inputs while typing: replacement resets the native
+      // caret for number fields and reverses subsequent digits/backspaces.
+      if (fd.code === 'chieu_cao_cm' || fd.code === 'can_nang_kg') refreshLiveBmi(ft);
       return;
     }
 
@@ -3251,6 +3393,7 @@
       if (row) {
         const k = parts[1];
         row[k] = k === 'measuredAt' ? fromDatetimeLocal(t.value) : (['systolic', 'diastolic', 'heartRate', 'minuteAfter'].indexOf(k) >= 0 ? (t.value === '' ? null : Number(t.value)) : t.value);
+        if (k === 'heartRate') syncHeartRateFromBp(ft, row[k], Number(parts[0]));
         ft.markDirty();
       }
       return;

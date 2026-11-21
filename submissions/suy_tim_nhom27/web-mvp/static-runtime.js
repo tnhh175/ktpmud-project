@@ -1839,6 +1839,9 @@
       visit.revisions.push(rev);
       visit.currentRevisionNo = nextRevNo;
       visit.status = 'draft';
+      visit.confirmedAt = null;
+      visit.confirmedBy = null;
+      visit.confirmNote = null;
       visit.rowVersion += 1;
       visit.updatedAt = nowIso;
 

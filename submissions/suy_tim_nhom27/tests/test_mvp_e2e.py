@@ -699,6 +699,38 @@ def test_tc04_review_confirm_db_lock_revision_and_ai_input(
     detail = client.get(f"/api/v1/visits/{visit['id']}", headers=_auth_headers(tok)).json()
     assert [r["revisionNo"] for r in detail["revisions"]] == [1, 2]
     assert detail["revisions"][0]["revisionType"] == "confirmed_snapshot"
+    assert detail["visit"]["status"] == "draft"
+    assert detail["visit"]["rowVersion"] == 4
+    assert detail["visit"]["confirmedAt"] is None
+    assert detail["visit"]["confirmedBy"] is None
+    amended_list = client.get(
+        "/api/v1/patients",
+        headers=_auth_headers(tok),
+        params={"q": pt["patientCode"], "latestVisitStatus": "draft"},
+    )
+    assert amended_list.status_code == 200
+    assert amended_list.json()["items"][0]["latestVisitId"] == visit["id"]
+    assert amended_list.json()["items"][0]["latestVisitStatus"] == "draft"
+
+    # The amendment opens an editable draft.  A fresh confirmation must create
+    # the next immutable snapshot before AiInputPayload can be read again.
+    draft_ai = client.get(f"/api/v1/visits/{visit['id']}/ai-input", headers=_auth_headers(tok))
+    assert draft_ai.status_code == 409
+    reconfirm = client.post(
+        f"/api/v1/visits/{visit['id']}/confirm",
+        headers=_auth_headers(tok, if_match=4),
+        json={"rowVersion": 4, "confirmNote": "Đã xác nhận lại sau khi sửa"},
+    )
+    assert reconfirm.status_code == 200, reconfirm.text
+    assert reconfirm.json()["status"] == "confirmed"
+    assert reconfirm.json()["rowVersion"] == 5
+    confirmed_list = client.get(
+        "/api/v1/patients",
+        headers=_auth_headers(tok),
+        params={"q": pt["patientCode"], "latestVisitStatus": "confirmed"},
+    )
+    assert confirmed_list.status_code == 200
+    assert confirmed_list.json()["items"][0]["latestVisitStatus"] == "confirmed"
 
     # AiInputPayload contract on confirmed visit
     ai_res = client.get(f"/api/v1/visits/{visit['id']}/ai-input", headers=_auth_headers(tok))
