@@ -1,0 +1,54 @@
+name: Deploy demo web
+
+on:
+  push:
+    branches: [demo/web]
+    paths:
+      - .github/workflows/deploy-demo-web.yml
+      - submissions/suy_tim_nhom27/web-mvp/**
+      - submissions/suy_tim_nhom27/scripts/build_pages.py
+      - submissions/suy_tim_nhom27/api/openapi.yaml
+      - submissions/suy_tim_nhom27/docs/architecture/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: demo-web-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/demo/web'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install build dependency
+        run: python -m pip install PyYAML==6.0.3
+      - name: Build static website
+        run: python submissions/suy_tim_nhom27/scripts/build_pages.py --out "$RUNNER_TEMP/pages"
+      - name: Record deployed source
+        run: printf '%s\n' "$GITHUB_SHA" > "$RUNNER_TEMP/pages/revision.txt"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          name: pages-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/pages
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy website
+        id: deployment
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: pages-${{ github.run_id }}-${{ github.run_attempt }}
