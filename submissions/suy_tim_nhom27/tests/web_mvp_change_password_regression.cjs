@@ -53,20 +53,33 @@ async function login(page,username='doctor',password=oldPassword) {
   await page.locator('#login-password').fill(password);
   await page.locator('#btn-login-submit').click();
   await page.waitForURL(username==='admin'?'**/#/admin/users':'**/#/patients');
+  await page.locator(username==='admin' ? '.data-table tbody tr' : '.record-card').first().waitFor({state:'attached'});
+}
+function accountTrigger(page, width) {
+  return page.locator(width <= 1024
+    ? '.mobile-topbar [data-action="toggle-account-menu"]'
+    : '.sidebar [data-action="toggle-account-menu"]');
+}
+async function openAccountMenu(page, width=1280) {
+  const trigger=accountTrigger(page,width);
+  await trigger.click();
+  const menu=page.locator('#account-menu[role="menu"]');
+  await menu.waitFor({state:'visible'});
+  assert.equal(await trigger.getAttribute('aria-expanded'),'true');
+  return {trigger,menu};
 }
 async function openDialog(page, width) {
-  if (width <= 768) {
-    const toggle=page.locator('[data-action="toggle-mobile-menu"]');
-    await toggle.click();
-    await page.locator('#mobile-navigation.is-open').waitFor();
-    await page.locator('#mobile-navigation [data-action="open-change-password"]').click();
-    assert.equal(await page.locator('#mobile-navigation.is-open').count(),0,'mobile menu closes when dialog opens');
-  } else {
-    await page.locator('.topbar [data-action="open-change-password"]').click();
-  }
+  const {menu}=await openAccountMenu(page,width);
+  await menu.locator('[role="menuitem"][data-action="open-change-password"]').click();
+  await menu.waitFor({state:'hidden'});
   const dialog=page.getByRole('dialog',{name:'Đổi mật khẩu'});
   await dialog.waitFor();
   return dialog;
+}
+async function logout(page,width=1280) {
+  const {menu}=await openAccountMenu(page,width);
+  await menu.locator('[role="menuitem"][data-action="logout"]').click();
+  await page.waitForURL('**/#/login');
 }
 async function fillPasswordForm(dialog,current=oldPassword,next=newPassword,confirm=next) {
   await dialog.locator('#cp-current').fill(current);
@@ -90,7 +103,7 @@ async function isolated(name,fn,options={}) {
   });
 }
 async function layout() {
-  for (const [width,height] of [[320,568],[390,690],[768,800],[1280,800],[1536,696]]) {
+  for (const [width,height] of [[320,568],[390,690],[768,800],[820,800],[1024,800],[1280,800],[1536,696]]) {
     await isolated('dialog layout ' + width + 'x' + height,async({page})=>{
       await login(page);
       const dialog=await openDialog(page,width);
@@ -116,7 +129,7 @@ async function layout() {
       assert(submitViewport && submitViewport.y>=-1 && submitViewport.y+submitViewport.height<=height+1,'submit reachable on short viewport');
       await page.keyboard.press('Escape');
       await dialog.waitFor({state:'hidden'});
-      if(width<=768) assert(await page.locator('[data-action="toggle-mobile-menu"]').evaluate(el=>el===document.activeElement),'focus returns to mobile Menu');
+      assert(await accountTrigger(page,width).evaluate(el=>el===document.activeElement),'focus returns to account trigger');
     },{width,height});
   }
 }
@@ -159,7 +172,7 @@ async function cancelPreservesEditor() {
     assert.equal(await note.inputValue(),'QA cancel preserves caret');
     assert(await note.evaluate(el=>el.isConnected&&el===window.__qaNoteNode),'editor node not replaced');
     assert.match(await page.locator('.encounter-footer__status .badge').innerText(),/chưa lưu/i);
-    assert(await page.locator('.topbar [data-action="open-change-password"]').evaluate(el=>el===document.activeElement),'focus restored to trigger');
+    assert(await accountTrigger(page,1280).evaluate(el=>el===document.activeElement),'focus restored to trigger');
     assert.equal(await note.evaluate(el=>el.selectionStart),7,'caret restored');
   });
 }
@@ -243,8 +256,7 @@ async function wrongThenSuccess() {
     await page.reload();
     await page.locator('#enc-clinical-note').waitFor();
     assert.equal(await page.locator('#enc-clinical-note').inputValue(),'QA unsaved password dialog','save after password change persists');
-    await page.locator('.topbar [data-action="logout"]').click();
-    await page.waitForURL('**/#/login');
+    await logout(page);
     await page.locator('#login-username').fill('doctor');
     await page.locator('#login-password').fill(oldPassword);
     await page.locator('#btn-login-submit').click();
@@ -254,8 +266,7 @@ async function wrongThenSuccess() {
     await page.locator('.page-head__title').waitFor();
     const audit=await page.evaluate(()=>Object.values(localStorage).join(' '));
     assert(!audit.includes(newPassword),'audit and database storage contain no new plaintext');
-    await page.locator('.topbar [data-action="logout"]').click();
-    await page.waitForURL('**/#/login');
+    await logout(page);
     await login(page,'bs.lan',oldPassword);
   });
 }
@@ -305,8 +316,7 @@ async function concurrentStaticChanges() {
     assert.equal(outcome.results.find(r=>r.status==='rejected').code,'CURRENT_PASSWORD_INCORRECT');
     assert.deepEqual(outcome.current,{ok:true,username:'doctor'},'losing request must not clear winning session');
     const winner=outcome.results.findIndex(r=>r.status==='fulfilled');
-    await page.locator('.topbar [data-action="logout"]').click();
-    await page.waitForURL('**/#/login');
+    await logout(page);
     await login(page,'doctor',outcome.candidates[winner]);
   });
 }
@@ -346,7 +356,9 @@ async function concurrentReadDuringChange() {
 async function adminDenied() {
   await isolated('admin has no control and direct call denied',async({page})=>{
     await login(page,'admin','Admin@2026');
-    assert.equal(await page.locator('[data-action="open-change-password"]').count(),0);
+    const {menu}=await openAccountMenu(page,1280);
+    assert.equal(await menu.locator('[role="menuitem"][data-action="open-change-password"]').count(),0);
+    assert.equal(await menu.locator('[role="menuitem"][data-action="logout"]').count(),1);
     const result=await page.evaluate(async(nextPassword)=>{
       try { await window.ApiClient.changePassword({currentPassword:'Admin@2026',newPassword:nextPassword}); return {ok:true}; }
       catch(e) { return {ok:false,status:e.status,code:e.code}; }

@@ -477,6 +477,7 @@
   global.history.replaceState(Object.assign({}, global.history.state, { suytimRouteIndex: activeRouteIndex }), '', global.location.href);
 
   function navigate(hash, skipDirtyGuard) {
+    closeAccountMenu(false);
     if (!skipDirtyGuard && state.screen === 'encounter' && state.encounter.dirty && hash !== global.location.hash) {
       openUnsavedGuardModal(hash);
       return;
@@ -502,6 +503,7 @@
   }
 
   function onHashChange() {
+    closeAccountMenu(false);
     const hash = global.location.hash;
     let index = (global.history.state || {}).suytimRouteIndex;
     if (!Number.isInteger(index)) {
@@ -1008,13 +1010,13 @@
             '<nav class="sidebar__nav">' + navHtml + '</nav>' +
           '</div>' +
           '<div class="sidebar__user">' +
-            '<div class="user-chip" title="' + esc(u.fullName + ' (' + roleLabel + ')') + '">' +
-              '<div class="user-chip__avatar">' + esc(getInitials(u.fullName)) + '</div>' +
-              '<div class="user-chip__meta">' +
-                '<div class="user-chip__name">' + esc(u.fullName) + '</div>' +
-                '<div class="user-chip__role mono">' + esc(u.username) + ' · ' + esc(roleLabel) + '</div>' +
-              '</div>' +
-            '</div>' +
+            '<button type="button" class="user-chip" data-action="toggle-account-menu" aria-label="Tài khoản: ' + esc(u.fullName) + '" aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu" title="' + esc(u.fullName + ' (' + roleLabel + ')') + '">' +
+              '<span class="user-chip__avatar">' + esc(getInitials(u.fullName)) + '</span>' +
+              '<span class="user-chip__meta">' +
+                '<span class="user-chip__name">' + esc(u.fullName) + '</span>' +
+                '<span class="user-chip__role mono">' + esc(u.username) + ' · ' + esc(roleLabel) + '</span>' +
+              '</span>' +
+            '</button>' +
           '</div>' +
         '</aside>' +
         '<div class="main-area">' +
@@ -1024,13 +1026,12 @@
               '<div><div class="brand-mark__name">Suytim-CDSS</div><div class="brand-mark__sub">' + esc(roleLabel) + '</div></div>' +
             '</div>' +
             '<div class="mobile-topbar__actions">' +
-              '<button type="button" class="mobile-menu-btn" data-action="logout" aria-label="Đăng xuất">' + ICONS.logout + '</button>' +
+              '<button type="button" class="mobile-menu-btn mobile-account-btn" data-action="toggle-account-menu" aria-label="Tài khoản: ' + esc(u.fullName) + '" aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu"><span class="user-chip__avatar">' + esc(getInitials(u.fullName)) + '</span></button>' +
               '<button type="button" class="mobile-menu-btn" data-action="toggle-mobile-menu" aria-controls="mobile-navigation" aria-expanded="' + (state.mobileMenuOpen ? 'true' : 'false') + '">' + ICONS.menu + ' Menu</button>' +
             '</div>' +
           '</div>' +
           '<div id="mobile-navigation" class="mobile-drawer' + (state.mobileMenuOpen ? ' is-open' : '') + '">' +
             '<nav class="sidebar__nav">' + navHtml + '</nav>' +
-            (!isAdmin ? '<button type="button" class="nav-item" data-action="open-change-password">' + ICONS.shield + '<span class="nav-item__label">Đổi mật khẩu</span></button>' : '') +
           '</div>' +
           '<header class="topbar">' +
             '<div class="topbar__left">' +
@@ -1039,11 +1040,13 @@
             '</div>' +
             '<div class="topbar__right">' +
               '<span class="badge badge--blue topbar__user">' + esc(u.fullName) + '</span>' +
-              (!isAdmin ? '<button type="button" class="btn btn--secondary btn--sm topbar__password" data-action="open-change-password">Đổi mật khẩu</button>' : '') +
-              '<button type="button" class="btn btn--secondary btn--sm topbar__logout" data-action="logout">' + ICONS.logout + '<span>Đăng xuất</span></button>' +
             '</div>' +
           '</header>' +
           '<main class="workspace" id="main-workspace">' + workspaceHtml + '</main>' +
+        '</div>' +
+        '<div id="account-menu" class="account-menu" role="menu" aria-label="Tài khoản" hidden>' +
+          (!isAdmin ? '<button type="button" class="account-menu__item" role="menuitem" tabindex="-1" data-action="open-change-password">' + ICONS.key + '<span>Đổi mật khẩu</span></button>' : '') +
+          '<button type="button" class="account-menu__item" role="menuitem" tabindex="-1" data-action="logout">' + ICONS.logout + '<span>Đăng xuất</span></button>' +
         '</div>' +
       '</div>'
     );
@@ -1055,6 +1058,49 @@
     const button = document.querySelector('[data-action="toggle-mobile-menu"]');
     if (drawer) drawer.classList.toggle('is-open', open);
     if (button) button.setAttribute('aria-expanded', String(open));
+  }
+
+  let accountMenuTrigger = null;
+  let accountMenuScroll = null;
+
+  function visibleAccountTrigger(preferred) {
+    if (preferred && preferred.isConnected && preferred.getClientRects().length) return preferred;
+    return Array.from(document.querySelectorAll('[data-action="toggle-account-menu"]')).find(function (button) { return button.getClientRects().length; });
+  }
+
+  function closeAccountMenu(returnFocus) {
+    const menu = document.getElementById('account-menu');
+    if (!menu || menu.hidden) return;
+    menu.hidden = true;
+    document.querySelectorAll('[data-action="toggle-account-menu"]').forEach(function (button) { button.setAttribute('aria-expanded', 'false'); });
+    if (returnFocus) {
+      const trigger = visibleAccountTrigger(accountMenuTrigger);
+      if (trigger) trigger.focus();
+    }
+    accountMenuTrigger = null;
+    accountMenuScroll = null;
+  }
+
+  function openAccountMenu(trigger, lastItem) {
+    const menu = document.getElementById('account-menu');
+    if (!menu) return;
+    closeAccountMenu(false);
+    setMobileMenuOpen(false);
+    accountMenuTrigger = trigger;
+    accountMenuScroll = { x: global.scrollX, y: global.scrollY };
+    menu.style.left = '8px';
+    menu.style.top = '8px';
+    menu.hidden = false;
+    trigger.setAttribute('aria-expanded', 'true');
+    const rect = trigger.getBoundingClientRect();
+    const mobile = Boolean(trigger.closest('.mobile-topbar'));
+    const bounds = menu.getBoundingClientRect();
+    const left = mobile ? rect.right - bounds.width : rect.left;
+    const top = mobile ? rect.bottom + 8 : rect.top - bounds.height - 8;
+    menu.style.left = Math.max(8, Math.min(left, global.innerWidth - bounds.width - 8)) + 'px';
+    menu.style.top = Math.max(8, Math.min(top, global.innerHeight - bounds.height - 8)) + 'px';
+    const items = menu.querySelectorAll('[role="menuitem"]');
+    items[lastItem ? items.length - 1 : 0].focus({ preventScroll: true });
   }
 
   function renderForbidden() {
@@ -2594,14 +2640,8 @@
     state.modal = null;
     renderModal();
     if (m && m.type === 'change-password') {
-      const trigger = m.returnFocus;
-      const fallback = document.querySelector('[data-action="toggle-mobile-menu"]');
-      if (trigger && trigger.isConnected && trigger.getClientRects().length) trigger.focus();
-      else if (fallback && fallback.getClientRects().length) fallback.focus();
-      else {
-        const desktop = document.querySelector('.topbar__password');
-        if (desktop) desktop.focus();
-      }
+      const trigger = visibleAccountTrigger(m.returnFocus);
+      if (trigger) trigger.focus();
     }
   }
 
@@ -2974,6 +3014,7 @@
   function render() {
     const root = document.getElementById('app-root');
     if (!root) return;
+    closeAccountMenu(false);
     let html = '';
     if (state.screen === 'login') html = renderLogin();
     else if (state.screen === 'forbidden') html = renderForbidden();
@@ -3570,14 +3611,23 @@
     const action = target.getAttribute('data-action');
     if (!action) return;
 
+    if (action === 'toggle-account-menu') {
+      const menu = document.getElementById('account-menu');
+      if (menu && !menu.hidden && accountMenuTrigger === target) closeAccountMenu(false);
+      else openAccountMenu(target, false);
+      return;
+    }
+
     if (action === 'open-change-password' && state.user && state.user.role === 'doctor') {
-      const mobile = Boolean(target.closest('.mobile-drawer'));
+      const trigger = visibleAccountTrigger(accountMenuTrigger);
+      closeAccountMenu(false);
       setMobileMenuOpen(false);
-      openModal({ type: 'change-password', pending: false, returnFocus: mobile ? document.querySelector('[data-action="toggle-mobile-menu"]') : target });
+      openModal({ type: 'change-password', pending: false, returnFocus: trigger });
       return;
     }
 
     if (action === 'toggle-sidebar') {
+      closeAccountMenu(false);
       state.sidebarCollapsed = !state.sidebarCollapsed;
       try { global.localStorage.setItem('suytim_sidebar_collapsed', state.sidebarCollapsed ? '1' : '0'); } catch (_e) {}
       const shellEl = document.querySelector('.shell');
@@ -3596,10 +3646,12 @@
       return;
     }
     if (action === 'toggle-mobile-menu') {
+      closeAccountMenu(false);
       setMobileMenuOpen(!state.mobileMenuOpen);
       return;
     }
     if (action === 'logout') {
+      closeAccountMenu(false);
       try { await api.logout(); } catch (_ignored) {}
       state.user = null;
       state.encounter.dirty = false;
@@ -4330,6 +4382,22 @@
     if (t.id === 'audit-to') { state.adminAudit.toDate = t.value; await loadAdminAudit(); return; }
   });
 
+  document.addEventListener('pointerdown', function (ev) {
+    if (!ev.target.closest('#account-menu, [data-action="toggle-account-menu"]')) closeAccountMenu(false);
+  });
+  document.addEventListener('focusin', function (ev) {
+    if (!ev.target.closest('#account-menu, [data-action="toggle-account-menu"]')) closeAccountMenu(false);
+  });
+  global.addEventListener('resize', function () {
+    const menu = document.getElementById('account-menu');
+    closeAccountMenu(Boolean(menu && menu.contains(document.activeElement)));
+  });
+  document.addEventListener('scroll', function (ev) {
+    const menu = document.getElementById('account-menu');
+    if (ev.target === document && accountMenuScroll && global.scrollX === accountMenuScroll.x && global.scrollY === accountMenuScroll.y) return;
+    if (menu && !menu.contains(ev.target)) closeAccountMenu(menu.contains(document.activeElement));
+  }, { capture: true, passive: true });
+
   global.matchMedia('(max-width: 1024px)').addEventListener('change', function (ev) {
     const active = document.activeElement;
     const inNavigation = active && active.closest('.mobile-topbar, .mobile-drawer, .sidebar, .topbar__sidebar-btn');
@@ -4342,6 +4410,25 @@
 
   // Keyboard shortcuts (/, Ctrl+S, Escape, Alt+ArrowUp/Down)
   document.addEventListener('keydown', function (ev) {
+    const accountTrigger = ev.target.closest('[data-action="toggle-account-menu"]');
+    const accountMenu = document.getElementById('account-menu');
+    if (accountTrigger && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
+      ev.preventDefault();
+      openAccountMenu(accountTrigger, ev.key === 'ArrowUp');
+      return;
+    }
+    if (accountMenu && !accountMenu.hidden && accountMenu.contains(ev.target)) {
+      const items = Array.from(accountMenu.querySelectorAll('[role="menuitem"]'));
+      const index = items.indexOf(document.activeElement);
+      if (['ArrowDown', 'ArrowUp', 'Home', 'End'].indexOf(ev.key) >= 0) {
+        ev.preventDefault();
+        const next = ev.key === 'Home' ? 0 : ev.key === 'End' ? items.length - 1 : (index + (ev.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+        items[next].focus();
+        return;
+      }
+      if (ev.key === 'Escape') { ev.preventDefault(); closeAccountMenu(true); return; }
+      if (ev.key === 'Tab') closeAccountMenu(true);
+    }
     if (state.modal && state.modal.type === 'change-password') {
       if (ev.key === 'Escape') { ev.preventDefault(); closeModal(); }
       if (ev.key === 'Tab') {
