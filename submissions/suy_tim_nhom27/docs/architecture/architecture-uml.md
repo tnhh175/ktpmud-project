@@ -1,8 +1,8 @@
-# Kiến trúc phần mềm và UML · HFCARE MVP
+# Thiết kế Kiến trúc & Mô hình UML Chặng C — Hệ thống Thu thập & Xác nhận Dữ liệu Suy tim Trước AI (MVP)
 
-- **Phiên bản tài liệu:** `1.0.0` (Chặng C — Thiết kế kỹ thuật đồng bộ S1/S2)
-- **Ngày lập:** `2026-11-21`
-- **Phụ trách:** UML & Architecture Lead (`@uml-architect`)
+**Phiên bản tài liệu:** `1.0.0` (Chặng C — Thiết kế kỹ thuật đồng bộ S1/S2)  
+**Ngày lập:** `2026-11-21`  
+**Phụ trách:** UML & Architecture Lead (`@uml-architect`)  
 **Bảng màu sơ đồ chuẩn hóa:** **Tone Xanh Dương Y Tế (Clinical Blue)** (`fillColor=#DBEAFE`, `strokeColor=#1D4ED8`, `fontColor=#1E3A8A`) đồng bộ 100% với giao diện Chặng B và yêu cầu `#43`.
 
 **Tài liệu căn cứ đồng bộ 100%:**

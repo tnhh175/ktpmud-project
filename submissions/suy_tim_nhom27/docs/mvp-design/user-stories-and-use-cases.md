@@ -1,13 +1,13 @@
-# User Stories và Use Cases · HFCARE MVP
+# Đặc tả User Stories (BDD Given/When/Then) và Use Cases Chi tiết cho Hai Luồng Bác sĩ (`M1–M5`) & Admin (`M6–M8`) (`user-stories-and-use-cases.md`)
 
 - **Dự án:** Hệ thống Thu thập, Kiểm tra, Lưu trữ và Xác nhận Dữ liệu Lâm sàng Bệnh nhân Suy tim có Cấu trúc (Trước AI)
 - **Nhóm thực hiện:** Nhóm 27 (`suy_tim_nhom27`) — Chặng C (`W4 docs-rtm-architect`)
 - **Ngày lập:** `2026-11-21`
 - **Căn cứ đồng bộ:**
-  - Hợp đồng đặt tên & Endpoint cốt lõi: `CONTRACT.md` (Mục 1, 4.1, 4.2, 4.3).
-  - Siêu dữ liệu CSDL chuẩn 3NF (19 bảng, 10 enum): [`stage-c/database/schema_metadata.json`](../database/schema_metadata.json) & `CR-W1-01.md`.
-  - Đặc tả SRS cập nhật cho MVP: [`SRS.md`](SRS.md).
-  - Đặc tả UX/UI hai luồng Bác sĩ (`M1–M5`) và Admin (`M1 → M6–M8`): `stage-b/01-dac-ta-hai-luong-ux-ui.md` & `stage-b/02-ma-tran-man-hinh-thao-tac-du-lieu.md`.
+  - Hợp đồng đặt tên & Endpoint cốt lõi: [`CONTRACT.md`](../CONTRACT.md) (Mục 1, 4.1, 4.2, 4.3).
+  - Siêu dữ liệu CSDL chuẩn 3NF (19 bảng, 10 enum): [`stage-c/database/schema_metadata.json`](../database/schema_metadata.json) & [`CR-W1-01.md`](../contract-changes/CR-W1-01.md).
+  - Đặc tả SRS cập nhật cho MVP: [`srs-mvp-update.md`](./srs-mvp-update.md).
+  - Đặc tả UX/UI hai luồng Bác sĩ (`M1–M5`) và Admin (`M1 → M6–M8`): [`stage-b/01-dac-ta-hai-luong-ux-ui.md`](../../stage-b/01-dac-ta-hai-luong-ux-ui.md) & [`stage-b/02-ma-tran-man-hinh-thao-tac-du-lieu.md`](../../stage-b/02-ma-tran-man-hinh-thao-tac-du-lieu.md).
 
 ---
 
@@ -32,7 +32,7 @@ Toàn bộ 12 User Stories của phạm vi MVP (Nhóm chức năng 1, 2, 6) dư�
 
 > [!NOTE]
 > **Bảo toàn các User Story thuộc Tầm nhìn Dài hạn (`SRS v1.0` `US-03..US-10, US-12` cũ):**
-> Các User Story liên quan đến việc chạy suy luận 4 module AI (`Diagnosis`, `Lab/Test`, `Treatment`, `MedSafety`), hiển thị giải thích quy tắc AI, bác sĩ/dược sĩ chấp nhận hoặc từ chối khuyến nghị AI và xuất báo cáo tổng hợp cho bệnh nhân ngoại trú được giữ nguyên trong **Backlog Tầm nhìn Dài hạn (Nhóm chức năng 3, 4, 5)** với trạng thái `future / ngoai_mvp` (xem chi tiết trong [`RTM.md`](RTM.md)).
+> Các User Story liên quan đến việc chạy suy luận 4 module AI (`Diagnosis`, `Lab/Test`, `Treatment`, `MedSafety`), hiển thị giải thích quy tắc AI, bác sĩ/dược sĩ chấp nhận hoặc từ chối khuyến nghị AI và xuất báo cáo tổng hợp cho bệnh nhân ngoại trú được giữ nguyên trong **Backlog Tầm nhìn Dài hạn (Nhóm chức năng 3, 4, 5)** với trạng thái `future / ngoai_mvp` (xem chi tiết trong [`rtm.md`](./rtm.md)).
 
 ---
 

@@ -1,4 +1,4 @@
-# Đặc tả yêu cầu phần mềm (SRS) · HFCARE MVP
+# Đặc tả Yêu cầu Phần mềm Cập nhật cho MVP (SRS v2.0-MVP) — Hệ thống Thu thập & Xác nhận Dữ liệu Lâm sàng Suy tim Trước AI (`srs-mvp-update.md`)
 
 - **Môn học:** Kỹ thuật Phần mềm Ứng dụng
 - **Mã dự án / Nhóm:** `suy_tim_nhom27` (Nhóm 27)
@@ -6,8 +6,8 @@
 - **Chuẩn tham chiếu:** ISO/IEC/IEEE 29148:2018, ISO/IEC 25010, RFC 9457 (`application/problem+json`), WCAG 2.1 Level AA
 - **Ngày lập:** `2026-11-21`
 - **Tài liệu căn cứ:**
-  - Hợp đồng kiến trúc Chặng C: `CONTRACT.md` (Chốt `K1`–`K10`, Mục 4).
-  - Yêu cầu bàn giao gốc: `BAN-GIAO-DEV-web-suy-tim-hai-luong-2026-11-19.md`.
+  - Hợp đồng kiến trúc Chặng C: [`CONTRACT.md`](../CONTRACT.md) (Chốt `K1`–`K10`, Mục 4).
+  - Yêu cầu bàn giao gốc: [`BAN-GIAO-DEV-web-suy-tim-hai-luong-2026-11-19.md`](../../sources-20261119/BAN-GIAO-DEV-web-suy-tim-hai-luong-2026-11-19.md).
   - Hồ sơ phân tích nguồn Chặng A (`TL01`–`TL06`, `XLS`) tại `stage-a/` và Đặc tả UX/UI hai luồng Chặng B tại `stage-b/`.
 
 ---
