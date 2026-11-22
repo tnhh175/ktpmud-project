@@ -151,60 +151,6 @@ button {
   cursor: pointer;
 }
 
-/* ==========================================================================
-   Offline Static Runtime Banner (chỉ hiện khi APP_CONFIG.mode === 'static')
-   ========================================================================== */
-.runtime-banner {
-  background: var(--primary-badge-bg);
-  color: var(--navy-accent);
-  border-bottom: 1px solid var(--primary-border);
-  padding: 8px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-  font-size: 12.5px;
-  line-height: 1.4;
-}
-.runtime-banner[hidden] {
-  display: none;
-}
-.runtime-banner__left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  flex: 1 1 240px;
-}
-.runtime-banner__text {
-  font-weight: 600;
-  color: var(--navy-accent);
-}
-.runtime-banner__links {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.runtime-banner__link {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 9px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--primary-border);
-  background: var(--bg-surface);
-  color: var(--primary-hover);
-  font-size: 12px;
-  font-weight: 600;
-  text-decoration: none;
-}
-.runtime-banner__link:hover {
-  background: var(--primary-soft);
-  border-color: var(--focus-ring);
-}
-
 .app-root {
   min-height: 100vh;
   width: 100%;
@@ -1027,10 +973,6 @@ button {
   justify-content: space-between;
   padding: 18px 14px 16px;
   border-right: 1px solid #1E293B;
-}
-body:has(.runtime-banner:not([hidden])) .sidebar {
-  height: calc(100vh - 44px);
-  max-height: calc(100vh - 44px);
 }
 
 .sidebar__top {
@@ -2559,7 +2501,6 @@ body:has(.runtime-banner:not([hidden])) .sidebar {
   .toast-region {
     top: 10px;
   }
-  .runtime-banner { padding: 8px 12px; }
   .login-layout { grid-template-columns: 1fr; min-height: auto; }
   .login-brand { padding: 20px 16px; }
   .login-brand__hero { margin: 14px 0 0; }

@@ -79,6 +79,81 @@ async function assertNoPublicDocsControls(page) {
   assert.deepEqual(exposed, [], 'public UI must not expose API documentation controls');
 }
 
+async function assertNoRuntimeBar(page) {
+  const exposed = await page.evaluate(() => ({
+    banner: !!document.querySelector('#runtime-banner, .runtime-banner'),
+    controls: [...document.querySelectorAll('a, button')].filter(element =>
+      /chế độ ngoại tuyến|kiến trúc\s*&\s*sơ đồ|đặt lại dữ liệu cục bộ/i.test(element.textContent || '')
+    ).map(element => element.outerHTML.slice(0, 250)),
+    text: /chế độ ngoại tuyến trên trình duyệt/i.test(document.body.innerText),
+  }));
+  assert.deepEqual(exposed, { banner: false, controls: [], text: false },
+    'the removed runtime bar must not remain in the DOM or visible UI');
+}
+
+async function desktopVerticalMetrics(page) {
+  return page.evaluate(() => {
+    const box = selector => {
+      const element = document.querySelector(selector);
+      if (!element) return null;
+      const r = element.getBoundingClientRect();
+      return { top: r.top, bottom: r.bottom, height: r.height,
+        scrollHeight: element.scrollHeight };
+    };
+    return { viewportHeight: innerHeight, scrollY, documentHeight: document.documentElement.scrollHeight,
+      bodyHeight: document.body.scrollHeight, appRoot: box('.app-root'), shell: box('.shell'),
+      sidebar: box('.sidebar'), main: box('.main-area') };
+  });
+}
+
+async function checkDesktopVertical(browser, base, width, height, outputPrefix) {
+  const context = await browser.newContext({ viewport: { width, height } });
+  const page = await context.newPage();
+  try {
+    await page.goto(base);
+    await page.locator('#login-username').waitFor();
+    const loginMetrics = await desktopVerticalMetrics(page);
+    await login(page, base);
+    await page.evaluate(() => scrollTo(0, 0));
+    const top = await desktopVerticalMetrics(page);
+    await page.screenshot({ path: path.join(evidence, `${outputPrefix}-${width}x${height}-top.png`), fullPage: true });
+    await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
+    const bottom = await desktopVerticalMetrics(page);
+    await page.screenshot({ path: path.join(evidence, `${outputPrefix}-${width}x${height}-bottom.png`), fullPage: false });
+    const metrics = { login: loginMetrics, top, bottom };
+    fs.writeFileSync(path.join(evidence, `${outputPrefix}-${width}x${height}-metrics.json`), JSON.stringify(metrics, null, 2));
+    assert(loginMetrics.documentHeight <= height + 1,
+      `login has avoidable vertical overflow: ${JSON.stringify(loginMetrics)}`);
+    await assertNoRuntimeBar(page);
+    assert(top.shell && top.sidebar && top.main, `desktop shell missing: ${JSON.stringify(top)}`);
+    assert(Math.abs(top.shell.top) <= 1, `shell must start at viewport top: ${JSON.stringify(top)}`);
+    assert(top.sidebar.height >= height - 1, `sidebar must fill viewport: ${JSON.stringify(top)}`);
+    assert(bottom.sidebar.bottom >= height - 1,
+      `sidebar leaves a bottom gap after scroll: ${JSON.stringify(bottom)}`);
+    if (top.main.scrollHeight <= height + 1) {
+      assert(top.documentHeight <= height + 1,
+        `short desktop page has avoidable vertical scroll: ${JSON.stringify(top)}`);
+    }
+    return metrics;
+  } finally { await context.close(); }
+}
+
+async function checkAdminNoBar(browser, base) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  try {
+    await page.goto(base);
+    await page.locator('#login-username').fill('admin');
+    await page.locator('#login-password').fill('Admin@2026');
+    await page.locator('#btn-login-submit').click();
+    await page.waitForURL('**/#/admin/users');
+    await page.locator('.page-head__title').waitFor();
+    await assertNoRuntimeBar(page);
+    await assertNoPublicDocsControls(page);
+    return geometry(page, 'admin', ['.main-area', '.workspace', '.page-head__title']);
+  } finally { await context.close(); }
+}
+
 async function checkWidth(browser, base, width) {
   const context = await browser.newContext({ viewport: { width, height: 800 }, timezoneId: 'Asia/Ho_Chi_Minh' });
   const page = await context.newPage();
@@ -88,6 +163,7 @@ async function checkWidth(browser, base, width) {
     await check(`login-layout-${width}`, async () => {
       await page.goto(base);
       await page.locator('#login-username').waitFor();
+      await assertNoRuntimeBar(page);
       await assertNoPublicDocsControls(page);
       const data = await geometry(page, 'login', ['.login-panel', '.login-card', '#btn-login-submit']);
       await page.screenshot({ path: path.join(evidence, `after-${width}-login.png`), fullPage: true });
@@ -95,6 +171,7 @@ async function checkWidth(browser, base, width) {
     }, page);
     await check(`patients-layout-${width}`, async () => {
       await login(page, base);
+      await assertNoRuntimeBar(page);
       await assertNoPublicDocsControls(page);
       const selectors = ['.main-area', '.workspace', '.page-head__title', '[data-action="open-create-patient"]'];
       const data = await geometry(page, 'patients', selectors);
@@ -143,6 +220,7 @@ async function checkWidth(browser, base, width) {
         const patient = await page.evaluate(async () => (await window.StaticRuntime.listPatients({})).items[0].patient.id);
         await page.evaluate(id => { location.hash = '#/patients/' + id; }, patient);
         await page.locator('[data-action="open-edit-patient"]').waitFor();
+        await assertNoRuntimeBar(page);
         await assertNoPublicDocsControls(page);
         const data = await geometry(page, 'profile', ['.main-area', '.workspace', '.page-head__title', '[data-action="open-edit-patient"]']);
         await page.screenshot({ path: path.join(evidence, `after-${width}-profile.png`), fullPage: true });
@@ -151,6 +229,7 @@ async function checkWidth(browser, base, width) {
       await check(`encounter-layout-${width}`, async () => {
         await page.evaluate(() => { location.hash = '#/visits/20000000-0000-4000-8000-000000000202'; });
         await page.locator('#enc-clinical-note').waitFor();
+        await assertNoRuntimeBar(page);
         await assertNoPublicDocsControls(page);
         const data = await geometry(page, 'encounter', ['.main-area', '.workspace', '#enc-clinical-note', '.encounter-footer', '[data-action="save-draft"]']);
         await page.locator('[data-action="save-draft"]').scrollIntoViewIfNeeded();
@@ -210,6 +289,11 @@ async function resizeAndInteract(browser, base) {
     await page.setViewportSize({ width: 1280, height: 800 });
     await geometry(page, 'desktop after resize', ['.main-area', '.workspace', '.encounter-footer']);
     await page.screenshot({ path: path.join(evidence, 'after-resize-save.png'), fullPage: true });
+    await page.reload();
+    await note.waitFor();
+    await assertNoRuntimeBar(page);
+    assert.equal(await note.inputValue(), 'QA responsive edit', 'saved draft survives wide reload');
+    await geometry(page, 'desktop after reload', ['.main-area', '.workspace', '.encounter-footer']);
     return { saved: await note.inputValue(), desktopSidebarCollapsed: await page.locator('.shell').evaluate(el => el.classList.contains('is-sidebar-collapsed')) };
   } finally { await context.close(); }
 }
@@ -221,19 +305,26 @@ async function resizeAndInteract(browser, base) {
   const base = `http://127.0.0.1:${server.address().port}`;
   const browser = await chromium.launch({ headless: true, ...(process.env.BROWSER_BIN ? { executablePath: process.env.BROWSER_BIN } : {}) });
   try {
-    await check('public-api-docs-absent', async () => {
-      for (const pathname of apiPaths) {
-        const response = await fetch(base + pathname);
-        assert.equal(response.status, 404, `${pathname} must not be public`);
-      }
-      const architecture = await fetch(base + '/docs/');
-      assert.equal(architecture.status, 200, 'architecture page remains available');
-      const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-      assert(!/href\s*=\s*["'][^"']*(?:\/api\/|openapi)/i.test(html), 'entry page must not link API docs');
-      return { checked: apiPaths, architecture: architecture.status };
-    });
-    for (const width of widths) await checkWidth(browser, base, width);
-    await check('resize-collapse-menu-dirty-save', () => resizeAndInteract(browser, base));
+    for (const [width, height] of [[1280, 900], [1536, 696], [1920, 900]]) {
+      await check(`desktop-vertical-${width}x${height}`, () =>
+        checkDesktopVertical(browser, base, width, height, process.env.QA_OUTPUT_PREFIX || 'after'));
+    }
+    if (process.env.QA_ONLY_BAR !== '1') {
+      await check('admin-runtime-bar-absent', () => checkAdminNoBar(browser, base));
+      await check('public-api-docs-absent', async () => {
+        for (const pathname of apiPaths) {
+          const response = await fetch(base + pathname);
+          assert.equal(response.status, 404, `${pathname} must not be public`);
+        }
+        const architecture = await fetch(base + '/docs/');
+        assert.equal(architecture.status, 200, 'architecture page remains available');
+        const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+        assert(!/href\s*=\s*["'][^"']*(?:\/api\/|openapi)/i.test(html), 'entry page must not link API docs');
+        return { checked: apiPaths, architecture: architecture.status };
+      });
+      for (const width of widths) await checkWidth(browser, base, width);
+      await check('resize-collapse-menu-dirty-save', () => resizeAndInteract(browser, base));
+    }
     console.log(`RESULT pass=${results.filter(x => x.status === 'PASS').length} fail=${failures.length}`);
   } finally {
     fs.writeFileSync(path.join(evidence, 'responsive-results.json'), JSON.stringify({ root, results, failures }, null, 2));

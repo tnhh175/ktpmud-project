@@ -468,28 +468,6 @@
   }
 
   /* ------------------------------------------------------------------------
-     Offline Runtime Banner (Static Mode Only)
-     ------------------------------------------------------------------------ */
-  function renderRuntimeBanner() {
-    const el = document.getElementById('runtime-banner');
-    if (!el) return;
-    if (!api.isStatic) {
-      el.hidden = true;
-      return;
-    }
-    el.hidden = false;
-    el.innerHTML =
-      '<div class="runtime-banner__left">' +
-        ICONS.shield +
-        '<span class="runtime-banner__text">Chế độ ngoại tuyến trên trình duyệt: dữ liệu lưu cục bộ trên máy này</span>' +
-      '</div>' +
-      '<div class="runtime-banner__links">' +
-        '<a class="runtime-banner__link" href="./docs/">Kiến trúc &amp; Sơ đồ</a>' +
-        '<button type="button" class="runtime-banner__link" data-action="confirm-reset-local">Đặt lại dữ liệu cục bộ</button>' +
-      '</div>';
-  }
-
-  /* ------------------------------------------------------------------------
      Hash Router & Guarded Navigation
      ------------------------------------------------------------------------ */
   let activeRouteHash = global.location.hash;
@@ -2760,16 +2738,6 @@
         '<div class="modal__foot"><button type="button" class="btn btn--primary" data-action="close-modal">Đã ghi nhận</button></div>';
     }
 
-    if (m.type === 'reset-local') {
-      html =
-        '<div class="modal__head"><h2 class="modal__title" id="modal-title">Đặt lại dữ liệu cục bộ</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Đóng">' + ICONS.x + '</button></div>' +
-        '<div class="modal__body"><p>Thao tác này sẽ xóa toàn bộ thay đổi đã lưu trong bộ nhớ trình duyệt (localStorage) và khôi phục tập dữ liệu mẫu tổng hợp ban đầu.</p></div>' +
-        '<div class="modal__foot">' +
-          '<button type="button" class="btn btn--secondary" data-action="close-modal">Hủy</button>' +
-          '<button type="button" class="btn btn--danger" data-action="do-reset-local">Đặt lại dữ liệu</button>' +
-        '</div>';
-    }
-
     if (m.type === 'audit-detail' && m.log) {
       const lg = m.log;
       const outBadge = lg.outcome === 'success'
@@ -3945,18 +3913,6 @@
       return;
     }
 
-    // Static mode reset local storage
-    if (action === 'confirm-reset-local' && api.isStatic) {
-      openModal({ type: 'reset-local' });
-      return;
-    }
-    if (action === 'do-reset-local' && api.isStatic && api.resetLocalData) {
-      await api.resetLocalData();
-      state.user = null;
-      closeModal();
-      toast('Đã đặt lại dữ liệu cục bộ về trạng thái ban đầu.', 'success');
-      navigate('#/login', true);
-    }
   });
 
   // Live Input / Change listeners
@@ -4299,7 +4255,6 @@
      Boot
      ------------------------------------------------------------------------ */
   async function boot() {
-    renderRuntimeBanner();
     if (api.hasStoredToken()) {
       try {
         state.user = await api.getCurrentUser();
