@@ -1370,7 +1370,7 @@
 
     async changePassword(payload) {
       let db = await loadDb();
-      let user = requireAuth(db, ['doctor'], 'user_session');
+      let user = requireAuth(db, ['doctor', 'admin'], 'user_session');
       const session = getSession();
       const epoch = authEpoch;
       const stamp = credentialStamp(user);
@@ -1391,7 +1391,7 @@
       // Read and commit without yielding so a stale attempt cannot clear a newer session.
       db = readStoredDb();
       if (!db) throw invalid('currentPassword', 'Thông tin đăng nhập đã thay đổi. Vui lòng thử lại.', 'CURRENT_PASSWORD_INCORRECT');
-      user = requireAuth(db, ['doctor'], 'user_session');
+      user = requireAuth(db, ['doctor', 'admin'], 'user_session');
       const activeSession = getSession();
       if (epoch !== authEpoch || user.id !== session.userId || activeSession.accessToken !== session.accessToken || credentialStamp(user) !== stamp) {
         throw invalid('currentPassword', 'Thông tin đăng nhập đã thay đổi. Vui lòng thử lại.', 'CURRENT_PASSWORD_INCORRECT');

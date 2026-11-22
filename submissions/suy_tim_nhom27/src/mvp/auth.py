@@ -534,9 +534,9 @@ def login(body: LoginRequest, request: Request) -> dict[str, Any]:
 def change_password(
     body: ChangePasswordRequest,
     request: Request,
-    principal: Principal = Depends(require_role("doctor", "app_user")),
+    principal: Principal = Depends(get_current_principal),
 ) -> dict[str, Any]:
-    """Change the doctor's password and revoke every other session atomically."""
+    """Change the signed-in user's password and revoke their other sessions."""
     with request.app.state.pool.connection() as conn:
         user = conn.execute(
             """
@@ -567,11 +567,6 @@ def change_password(
             raise ProblemError(
                 403, "ACCOUNT_DEACTIVATED", "Tài khoản đã bị tạm khóa",
                 "Tài khoản đã bị khóa — vui lòng liên hệ Quản trị viên.",
-            )
-        if user["role"] != "doctor":
-            raise ProblemError(
-                403, "RBAC_ROLE_FORBIDDEN", "Không đủ quyền truy cập",
-                "Chỉ Bác sĩ được tự đổi mật khẩu bằng chức năng này.",
             )
         if not verify_password(body.currentPassword, user["password_hash"]):
             raise ProblemError(

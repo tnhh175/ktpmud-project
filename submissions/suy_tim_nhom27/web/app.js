@@ -1045,7 +1045,7 @@
           '<main class="workspace" id="main-workspace">' + workspaceHtml + '</main>' +
         '</div>' +
         '<div id="account-menu" class="account-menu" role="menu" aria-label="Tài khoản" hidden>' +
-          (!isAdmin ? '<button type="button" class="account-menu__item" role="menuitem" tabindex="-1" data-action="open-change-password">' + ICONS.key + '<span>Đổi mật khẩu</span></button>' : '') +
+          '<button type="button" class="account-menu__item" role="menuitem" tabindex="-1" data-action="open-change-password">' + ICONS.key + '<span>Đổi mật khẩu</span></button>' +
           '<button type="button" class="account-menu__item" role="menuitem" tabindex="-1" data-action="logout">' + ICONS.logout + '<span>Đăng xuất</span></button>' +
         '</div>' +
       '</div>'
@@ -3618,7 +3618,7 @@
       return;
     }
 
-    if (action === 'open-change-password' && state.user && state.user.role === 'doctor') {
+    if (action === 'open-change-password' && state.user) {
       const trigger = visibleAccountTrigger(accountMenuTrigger);
       closeAccountMenu(false);
       setMobileMenuOpen(false);

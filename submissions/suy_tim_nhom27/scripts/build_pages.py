@@ -583,7 +583,7 @@ def build_pages(web_src: Path, openapi_path: Path, arch_md_path: Path, out_dir: 
     index_path = out_dir / "index.html"
     index = index_path.read_text(encoding="utf-8")
     config_tag = '<script src="./config.js"></script>'
-    static_tag = '<script src="./static-runtime.js?v=20261122-password"></script>'
+    static_tag = '<script src="./static-runtime.js?v=20261123-admin-password"></script>'
     if index.count(config_tag) != 1:
         raise ValueError("Không tìm thấy thẻ cấu hình frontend trong index.html.")
     index_path.write_text(index.replace(config_tag, f"{config_tag}\n  {static_tag}"), encoding="utf-8", newline="\n")

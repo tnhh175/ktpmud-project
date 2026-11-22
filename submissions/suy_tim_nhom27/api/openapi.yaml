@@ -121,16 +121,16 @@ paths:
     post:
       tags: [Auth]
       operationId: changePassword
-      summary: "Bác sĩ tự đổi mật khẩu tài khoản hiện tại"
+      summary: "Tự đổi mật khẩu tài khoản hiện tại"
       description: |
-        Chỉ tài khoản `doctor` đã xác thực được đổi mật khẩu của chính mình.
+        Bác sĩ và Quản trị viên đã đăng nhập có thể tự đổi mật khẩu.
         Mật khẩu hiện tại sai trả 422 với mã `CURRENT_PASSWORD_INCORRECT` và
         `errors.fieldCode = currentPassword`. Mật khẩu mới trùng mật khẩu cũ
         trả 422 `FIELD_VALIDATION_FAILED` tại `newPassword`.
         Sau khi đổi thành công, giữ phiên hiện tại và thu hồi mọi phiên khác
         của cùng người dùng. Không trả hoặc ghi mật khẩu, mã băm hay token.
       x-screen: M1
-      x-allowed-roles: [doctor]
+      x-allowed-roles: [doctor, admin]
       requestBody:
         required: true
         content:

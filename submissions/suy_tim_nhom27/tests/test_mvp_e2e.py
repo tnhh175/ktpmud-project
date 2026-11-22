@@ -165,6 +165,47 @@ def test_d1_auth_lifecycle_problem_details_and_web_mount(
 # ---------------------------------------------------------------------------
 # TC-01 (Mục 8.1): Patients BN-xxxxx, birth precision, 2 isolated visits
 # ---------------------------------------------------------------------------
+@pytest.mark.parametrize(
+    ("username", "password", "role"),
+    [("admin_demo", "Admin@2026!", "admin"), ("doctor_demo", "Doctor@2026!", "doctor")],
+)
+def test_change_own_password_keeps_current_session(
+    client: TestClient, username: str, password: str, role: str
+) -> None:
+    current = _login(client, username, password)
+    other = _login(client, username, password)
+    headers = _auth_headers(current["accessToken"])
+    other_headers = _auth_headers(other["accessToken"])
+    new_password = f"T3st-update-{uuid4().hex}"
+    endpoint = "/api/v1/auth/change-password"
+    me = "/api/v1/auth/me"
+
+    wrong = client.post(
+        endpoint, headers=headers,
+        json={"currentPassword": "WrongPassword!", "newPassword": new_password},
+    )
+    assert wrong.status_code == 422
+    assert wrong.json()["code"] == "CURRENT_PASSWORD_INCORRECT"
+    assert client.get(me, headers=other_headers).status_code == 200
+
+    changed = client.post(
+        endpoint, headers=headers,
+        json={"currentPassword": password, "newPassword": new_password},
+    )
+    assert changed.status_code == 200, changed.text
+    assert changed.json()["role"] == role
+    assert "passwordHash" not in changed.json()
+    assert client.get(me, headers=headers).status_code == 200
+    assert client.get(me, headers=other_headers).status_code == 401
+    assert client.post(
+        "/api/v1/auth/refresh", json={"refreshToken": other["refreshToken"]}
+    ).status_code == 401
+    assert client.post(
+        "/api/v1/auth/login", json={"username": username, "password": password}
+    ).status_code == 401
+    assert _login(client, username, new_password)["user"]["username"] == username
+
+
 def test_tc01_patients_and_two_isolated_visits(client: TestClient) -> None:
     doc = _login(client, "doctor_demo", "Doctor@2026!")
     tok = doc["accessToken"]
