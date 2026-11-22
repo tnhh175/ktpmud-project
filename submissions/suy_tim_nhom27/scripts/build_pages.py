@@ -30,7 +30,7 @@ if hasattr(sys.stdout, "reconfigure"):
 SUBMISSION_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_WEB_SRC = SUBMISSION_ROOT / "web"
 DEFAULT_OPENAPI = SUBMISSION_ROOT / "api" / "openapi.yaml"
-DEFAULT_ARCH_MD = SUBMISSION_ROOT / "docs" / "architecture" / "architecture-uml.md"
+DEFAULT_ARCH_MD = SUBMISSION_ROOT / "docs" / "architecture" / "Software_Architecture.md"
 DEFAULT_OUT = SUBMISSION_ROOT / ".dist-pages"
 
 WEB_ASSETS = [
@@ -613,7 +613,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Build static GitHub Pages bundle for Suy tim MVP.")
     parser.add_argument("--web-src", type=Path, default=DEFAULT_WEB_SRC, help="Thư mục nguồn web")
     parser.add_argument("--openapi", type=Path, default=DEFAULT_OPENAPI, help="Đường dẫn openapi.yaml")
-    parser.add_argument("--arch-md", type=Path, default=DEFAULT_ARCH_MD, help="Đường dẫn architecture-uml.md")
+    parser.add_argument("--arch-md", type=Path, default=DEFAULT_ARCH_MD, help="Đường dẫn tài liệu kiến trúc")
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT, help="Thư mục đích dist-pages")
     args = parser.parse_args()
     build_pages(args.web_src, args.openapi, args.arch_md, args.out)

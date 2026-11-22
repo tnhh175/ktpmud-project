@@ -1,22 +1,45 @@
-# CS-2: Hỗ trợ quyết định suy tim ở người cao tuổi — nhom27
+# HFCARE · MVP thu thập dữ liệu suy tim · Nhóm 27
 
-**Trạng thái:** Sprint 1, tuần 2–3. Tài liệu thiết kế và Gateway stub đã có; bốn module lâm sàng **chưa được hiện thực/kiểm chứng**. Bản demo chỉ sử dụng ca synthetic. Ba vai trò trong phạm vi hiện tại: bác sĩ, dược sĩ, quản trị viên.
+HFCARE hỗ trợ bác sĩ nhập, kiểm tra và xác nhận dữ liệu lượt khám. Quản trị viên quản lý tài khoản, phiên bản biểu mẫu và nhật ký kiểm toán. Backend FastAPI lưu dữ liệu vào PostgreSQL. Bản MVP chuẩn hóa dữ liệu đầu vào cho AI và dùng dữ liệu tổng hợp để minh họa.
 
-## Checklist bàn giao
+## Tài liệu MVP
 
-| Mục | Tệp chính | Trạng thái |
-|---|---|---|
-| SRS và RTM (FR → US → UC → module → bảng dữ liệu) | [SRS_v1.0.md](docs/SRS_v1.0.md) | Bản review; các câu hỏi cho giảng viên ở mục 12 |
-| C4 C1/C2; DFD; UML Class/Sequence; ảnh và nguồn draw.io | [Kiến trúc](docs/architecture/architecture.md), [UML](docs/uml/uml.md), [tệp nguồn/ảnh](docs/architecture/) | C4, Class 05–06 là thiết kế đích; Sequence 07–09 mô tả stub |
-| ERD 3NF, từ điển dữ liệu, DDL | [ERD](database/erd.md), [Data Dictionary](database/data_dictionary.md), [schema.sql](database/schema.sql) | Lược đồ thiết kế; Gateway chưa kết nối PostgreSQL |
-| OpenAPI 3.0.3 và Gateway | [openapi.yaml](api/openapi.yaml), [hướng dẫn API](api/README.md), [mã nguồn](src/gateway/) | Stub chạy trong RAM; không chẩn đoán/kê đơn |
+| Tài liệu | Nội dung |
+| --- | --- |
+| [Đặc tả yêu cầu phần mềm (SRS)](docs/SRS.md) | Yêu cầu chức năng, phi chức năng và quy tắc nghiệp vụ |
+| [Phạm vi sản phẩm](docs/MVP_Scope.md) | Phạm vi của phiên bản MVP |
+| [User Stories và Use Cases](docs/Use_Cases.md) | Luồng bác sĩ, quản trị và tiêu chí nghiệm thu |
+| [Ma trận truy vết (RTM)](docs/RTM.md) · [Excel](docs/RTM.xlsx) | Liên kết yêu cầu, API, dữ liệu và ca kiểm thử |
+| [Kiến trúc phần mềm và UML](docs/architecture/Software_Architecture.md) | Kiến trúc phân lớp, ERD, sơ đồ lớp và sơ đồ tuần tự |
+| [ERD](database/erd.md) · [Từ điển dữ liệu](database/data_dictionary.md) · [Ánh xạ nguồn](database/source_mapping.md) | Mô hình PostgreSQL và nguồn dữ liệu |
+| [Hợp đồng REST API](api/README.md) · [OpenAPI](api/openapi.yaml) | Endpoint, phân quyền và cấu trúc dữ liệu |
 
-[Báo cáo tuần 3](docs/Bao_cao_tuan3.md) · [Điểm chưa khớp/việc chờ xác nhận](docs/consistency_review.md) · [Hướng dẫn chạy và kiểm thử](README_TUAN3.md)
+## Chạy trên máy
 
-## Chạy thử Gateway trên máy
+Từ thư mục `submissions/suy_tim_nhom27`, tạo database PostgreSQL 16 trở lên để thử, ví dụ `hfcare_mvp`. Nạp ba tệp theo thứ tự dưới đây vào database mới tạo.
 
-Mở terminal **ngay tại thư mục `submissions/suy_tim_nhom27/`**, làm theo [README_TUAN3.md](README_TUAN3.md). Tài liệu API trên backend mặc định tắt; khi cần kiểm thử nội bộ trên `127.0.0.1`, đặt `MVP_ENABLE_API_DOCS=1` trước khi chạy server để mở `/docs`. API trả `mode=stub` và `mock_not_evaluated`, không đưa ra kết luận y khoa.
+```powershell
+python -m pip install -r requirements.txt
+psql -h 127.0.0.1 -p 5432 -U postgres -d hfcare_mvp -v ON_ERROR_STOP=1 `
+  -f database/schema.sql -f database/seed.sql `
+  -f database/migrations/005_visit_amendment_reopen.sql
+```
 
-## Kiểm tra bài nộp
+Đặt `MVP_DATABASE_URL` trong phiên terminal theo host, cổng, database và tài khoản PostgreSQL của máy, rồi chạy `python scripts/run_mvp.py`. Nếu dùng PowerShell 7 và PostgreSQL yêu cầu mật khẩu, có thể nhập qua `Read-Host -MaskInput`.
 
-Từ gốc repository: `python scripts/validate_submission.py submissions/suy_tim_nhom27`. Workflow sẵn có của repo chạy khi mở PR vào `main`; script này kiểm tra cách ly thư mục, manifest, kích thước và dấu hiệu secret. Kiểm tra cú pháp OpenAPI, DDL và test Gateway dùng lệnh riêng trong [README_TUAN3.md](README_TUAN3.md).
+```powershell
+$env:MVP_DATABASE_URL = 'host=127.0.0.1 port=5432 dbname=hfcare_mvp user=postgres'
+$env:PGPASSWORD = Read-Host 'Mật khẩu PostgreSQL local' -MaskInput
+python scripts/run_mvp.py
+```
+
+Mở [HFCARE local](http://127.0.0.1:8000/) và kiểm tra [kết nối PostgreSQL](http://127.0.0.1:8000/health). Sau khi dừng app, đóng phiên terminal hoặc chạy `Remove-Item Env:PGPASSWORD` để xóa mật khẩu khỏi phiên.
+
+## SQL dùng cho bản deploy
+
+- [`schema.sql`](database/schema.sql) dựng lược đồ MVP. [`seed.sql`](database/seed.sql) nạp danh mục biểu mẫu và hai tài khoản demo.
+- [Migration 005](database/migrations/005_visit_amendment_reopen.sql) cập nhật quy tắc mở lại lượt khám đã xác nhận.
+- Railway khởi tạo database mới qua [`bootstrap_hosted_mvp.py`](scripts/bootstrap_hosted_mvp.py). Web kết nối qua `MVP_DATABASE_URL` bằng vai trò database giới hạn quyền.
+- Migration 001–004 và [`portal_permissions.sql`](database/portal_permissions.sql) còn được dùng bởi các script và kiểm thử Gateway cũ. Bộ khởi tạo MVP trên Railway áp dụng ba tệp nêu trên.
+
+Từ gốc repository, chạy `python scripts/validate_submission.py submissions/suy_tim_nhom27` để kiểm tra cấu trúc bài nộp.

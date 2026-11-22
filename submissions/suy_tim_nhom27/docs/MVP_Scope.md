@@ -1,12 +1,12 @@
-# Phân định Phạm vi Tầm nhìn Sản phẩm Tổng thể (6 Nhóm) và Phạm vi MVP (Nhóm 1, 2, 6) & Kiểm kê Tài liệu (`scope-vision-vs-mvp.md`)
+# Phạm vi sản phẩm · HFCARE MVP
 
 - **Dự án:** Hệ thống Thu thập, Kiểm tra, Lưu trữ và Xác nhận Dữ liệu Lâm sàng Bệnh nhân Suy tim có Cấu trúc (Trước AI)
 - **Nhóm thực hiện:** Nhóm 27 (`suy_tim_nhom27`) — Chặng C (`W4 docs-rtm-architect`)
 - **Ngày cập nhật:** `2026-11-21`
 - **Căn cứ khóa cứng:**
-  - [`CONTRACT.md`](../CONTRACT.md) — Hợp đồng kiến trúc & đặt tên Chặng C (Chốt `K1`–`K10`, Mục 1–4).
-  - [`BAN-GIAO-DEV-web-suy-tim-hai-luong-2026-11-19.md`](../../sources-20261119/BAN-GIAO-DEV-web-suy-tim-hai-luong-2026-11-19.md) — Mục 1, 2, 3, 4, 6, 8, 9.
-  - Hồ sơ kiểm kê nguồn Chặng A ([`source-inventory.md`](../../stage-a/source-inventory.md), [`module-io-tl03.md`](../../stage-a/module-io-tl03.md), [`coverage-by-source.md`](../../stage-a/coverage-by-source.md), [`mvp-groups-proposal.md`](../../stage-a/mvp-groups-proposal.md)) và Đặc tả UX/UI Chặng B ([`01-dac-ta-hai-luong-ux-ui.md`](../../stage-b/01-dac-ta-hai-luong-ux-ui.md), [`02-ma-tran-man-hinh-thao-tac-du-lieu.md`](../../stage-b/02-ma-tran-man-hinh-thao-tac-du-lieu.md)).
+  - `CONTRACT.md` — Hợp đồng kiến trúc & đặt tên Chặng C (Chốt `K1`–`K10`, Mục 1–4).
+  - `BAN-GIAO-DEV-web-suy-tim-hai-luong-2026-11-19.md` — Mục 1, 2, 3, 4, 6, 8, 9.
+  - Hồ sơ kiểm kê nguồn Chặng A (`source-inventory.md`, `module-io-tl03.md`, `coverage-by-source.md`, `mvp-groups-proposal.md`) và Đặc tả UX/UI Chặng B (`01-dac-ta-hai-luong-ux-ui.md`, `02-ma-tran-man-hinh-thao-tac-du-lieu.md`).
   - Tài liệu trên `HEAD` (`8ba44c5a78eab921faf549f97cee3d21088770c1`) của nhánh `submit/suy_tim-nhom27`: `submissions/suy_tim_nhom27/docs/SRS_v1.0.md`.
 
 ---
@@ -96,45 +96,13 @@ flowchart TB
 
 ---
 
-## 5. Kiểm kê Toàn bộ Tài liệu trong `submissions/suy_tim_nhom27/docs/` (Bản hiện hành vs Bản lịch sử)
+## 5. Tài liệu MVP trong repository
 
-Theo quy tắc tại **Mục 6 `BAN-GIAO-DEV-web-suy-tim-hai-luong-2026-11-19.md`** (*"Không xóa file thầy cung cấp hay tài liệu cũ chỉ vì trông dư; ghi rõ file nào là bản hiện hành, file nào là lịch sử"*) và quy tắc an toàn Git của Chặng C (*"Không đụng 5 file dirty trên working tree"*), bảng dưới đây liệt kê toàn bộ các tệp trong `submissions/suy_tim_nhom27/docs/` cùng trạng thái thực tế trên `HEAD` (`8ba44c5`), trạng thái Working Tree và vai trò sử dụng:
-
-### 5.1. Các tệp tài liệu đặc tả và báo cáo trong `submissions/suy_tim_nhom27/docs/`
-
-| STT | Đường dẫn tệp trong repo (`submissions/suy_tim_nhom27/docs/...`) | Trạng thái trên `HEAD` (`8ba44c5`) | Trạng thái Working Tree hiện tại | Phân loại (`Bản hiện hành` / `Bản lịch sử`) | Giải thích vai trò & التوجيه đồng bộ ở Chặng C |
-|---:|---|---|---|---|---|
-| 1 | `docs/SRS_v1.0.md` | Có (`blob 330d3c24`) | `D` *(Đang bị xóa local chưa commit — giữ nguyên trạng thái dirty theo quy tắc an toàn)* | **Bản lịch sử (Mốc Tuần 2–3)** — *Tài liệu gốc làm mốc đối chiếu* | Đặc tả SRS v1.0 viết theo phạm vi cũ (4 module AI-CDSS chạy stub, 3 vai trò Bác sĩ/Dược sĩ/Quản trị, 27 FR & 12 NFR). Được đọc qua `git show HEAD:...` để làm mốc so sánh. Bản cập nhật theo thiết kế MVP mới nằm tại [`stage-c/docs/srs-mvp-update.md`](./srs-mvp-update.md). Khi trưởng nhóm duyệt đồng bộ Git, `SRS_v1.0.md` sẽ được khôi phục làm bản lưu lịch sử hoặc nâng cấp kèm mục lịch sử phiên bản. |
-| 2 | `docs/Bao_cao_tuan3.md` | Có (`blob c12af8c1`) | `D` *(Đang bị xóa local chưa commit — giữ nguyên)* | **Bản lịch sử (Báo cáo nộp Tuần 3)** | Báo cáo tổng kết bàn giao Tuần 3 (C4, ERD 18 bảng cũ, 3 sequence stub RAM, Gateway FastAPI stub). Giữ làm hồ sơ lịch sử tiến độ môn học, không dùng làm hợp đồng kỹ thuật cho web MVP mới. |
-| 3 | `docs/consistency_review.md` | Có (`blob 764ee4f8`) | `D` *(Đang bị xóa local chưa commit — giữ nguyên)* | **Bản lịch sử (Rà soát nội bộ Tuần 3)** | Bảng đối chiếu điểm nối giữa `SRS_v1.0.md` (blob `7d3a0557`) và mã Gateway stub Tuần 3 (mã `SYN-...`, bảng `case_access`, `rule_version`). Là tài liệu lịch sử của đợt nộp Tuần 3; đã được thay thế bởi bộ RTM mới tại [`stage-c/docs/rtm.md`](./rtm.md) và [`stage-c/docs/rtm.xlsx`](./rtm.xlsx). |
-| 4 | `docs/architecture/architecture.md` | Có (`blob 49333bbe`) | Giữ nguyên (Clean) | **Bản lịch sử (Kiến trúc C4 & Stub Tuần 3)** | Mô tả sơ đồ C4 (C1/C2 với 4 container dịch vụ AI) và quyền của 3 vai trò Bác sĩ/Dược sĩ/Quản trị trong Gateway stub Tuần 3. Trong thiết kế MVP mới, tài liệu thuyết minh kiến trúc & UML hiện hành được đặt tại [`stage-c/architecture/architecture-uml.md`](../architecture/architecture-uml.md). |
-| 5 | `docs/uml/uml.md` | Có (`blob cc30b12e`) | `M` *(Đang có chỉnh sửa local thêm liên kết tới hình `12-*` và `13-*`)* | **Bản lịch sử / Bản trung gian đang review** | Thuyết minh Class Diagram (`05, 06, 11`) và 3 Sequence Diagram (`07, 08, 09`) của bản stub Tuần 3; phần sửa dirty (`M`) trên máy bổ sung liên kết tới sơ đồ `12-class-hf-elderly` và `13-sequence-hf-elderly`. Bộ UML chuẩn hóa theo hợp đồng `CONTRACT.md` Chặng C được thiết kế mới tại `stage-c/architecture/`. |
-| 6 | `docs/verification.md` | Có (`blob 6ad4e777`) | `M` *(Đang có chỉnh sửa local thêm kết quả chạy PostgreSQL 16.15 ngày 28/09)* | **Bản lịch sử (Bằng chứng kiểm thử Tuần 3)** | Ghi nhận kết quả chạy 8 hàm `pytest` trên Gateway stub Tuần 3 và kiểm tra DDL 18 bảng cũ. Không phản ánh kết quả kiểm thử của schema/API MVP mới (8 ca kiểm thử MVP mới được quy định tại Mục 8 `BAN-GIAO` và truy vết trong `rtm.md`). |
-
-### 5.2. Các tệp sơ đồ và hình ảnh trong `submissions/suy_tim_nhom27/docs/architecture/`
-
-| STT | Nhóm tệp trong `docs/architecture/` | Trạng thái Git hiện tại | Phân loại (`Bản hiện hành` / `Bản lịch sử`) | Nội dung & Định hướng xử lý |
-|---:|---|---|---|---|
-| 1 | `01-c4-c1.drawio` & `01-c4-c1.png`<br>`02-c4-c2.drawio` & `02-c4-c2.png` | Tracked trên `HEAD` (Clean) | **Bản hiện hành cho Tầm nhìn Tổng thể (C4 Vision) / Lịch sử Tuần 3** | Biểu diễn bối cảnh tổng thể (C1) và kiến trúc container hướng dịch vụ gồm Core + 4 dịch vụ AI (C2). Giữ nguyên để minh họa **tầm nhìn dài hạn 6 nhóm chức năng**, nhưng ghi chú rõ MVP chỉ chạy Web App + Backend Core + PostgreSQL (chưa tách 4 microservice AI). |
-| 2 | `01-use-case-tong-the.drawio` & `.png`<br>`02-use-case-bac-si.drawio` & `.png`<br>`03-use-case-duoc-si.drawio` & `.png`<br>`04-use-case-quan-tri.drawio` & `.png` | Tracked trên `HEAD` (Clean) | **Bản lịch sử (Use Case Tuần 2 theo SRS v1.0)** | Sơ đồ Use Case vẽ cho 3 actor (Bác sĩ, Dược sĩ, Quản trị) xoay quanh `UC-01..UC-10` (chạy 4 module AI và duyệt rule). Trong MVP mới, actor `Dược sĩ` (`03-use-case-duoc-si`) thuộc phạm vi `ngoai_mvp`; đặc tả Use Case hiện hành cho 2 luồng Bác sĩ (M1–M5) và Admin (M6–M8) nằm tại [`stage-c/docs/user-stories-and-use-cases.md`](./user-stories-and-use-cases.md). |
-| 3 | `05-dfd-context.drawio` & `.png`<br>`06-dfd-level-1.drawio` & `.png` | Tracked trên `HEAD` (Clean) | **Bản lịch sử (DFD Tuần 2 theo SRS v1.0)** | Sơ đồ luồng dữ liệu mức 0 và mức 1 (`P1..P4`, `D1..D4`) của hệ thống AI-CDSS Tuần 2. Giữ lại làm hồ sơ lịch sử Tuần 2 theo quy tắc bảo toàn tệp cũ của thầy. |
-| 4 | `03-erd-core.drawio` & `.png`<br>`04-erd-results.drawio` & `.png`<br>`10-erd-cross-view.drawio` & `.png` | Tracked trên `HEAD` (Clean) | **Bản lịch sử (ERD 18 bảng của Tuần 3)** | Biểu diễn schema Tuần 3 (`patient_case`, `encounter`, `observation`, `evaluation`, `module_result`, `clinical_decision`, `rule_version`, `case_access`...). Được thay thế trong thiết kế MVP Chặng C bởi `stage-c/architecture/erd-heart-failure-mvp.drawio` và `stage-c/database/erd.md` (khớp 100% `CONTRACT.md`). |
-| 5 | `05-class-domain.drawio` & `.png`<br>`06-class-services.drawio` & `.png`<br>`11-class-stub-runtime.drawio` & `.png` | Tracked trên `HEAD` (Clean) | **Bản lịch sử (Class Diagram Tuần 3 & Stub RAM)** | Biểu diễn miền dữ liệu AI-CDSS dự kiến và lớp `MemoryStore` / `StubModule` của bản chạy RAM Tuần 3. Được thay thế trong thiết kế MVP Chặng C bởi `stage-c/architecture/class-heart-failure-mvp.drawio`. |
-| 6 | `07-sequence-evaluate.drawio` & `.png`<br>`08-sequence-decision.drawio` & `.png`<br>`09-sequence-rule.drawio` & `.png` | Tracked trên `HEAD` (Clean) | **Bản lịch sử (Sequence Diagram của Stub Tuần 3)** | Biểu diễn 3 luồng gọi stub đánh giá AI, ghi quyết định vào `MemoryStore` và chặn kích hoạt `rule_version`. Được thay thế trong thiết kế MVP Chặng C bởi 3 Sequence Diagram ưu tiên theo đúng Mục 6.3 `BAN-GIAO`:<br>- `sequence-doctor-visit-confirm.drawio`<br>- `sequence-admin-user-permission.drawio`<br>- `sequence-admin-form-version-publish.drawio` |
-| 7 | `So_do_tuan3.drawio` | Tracked trên `HEAD` (Clean) | **Bản lịch sử (Tệp gộp 11 trang sơ đồ Tuần 3)** | Tệp nguồn `.drawio` đa trang gộp các hình `01` đến `11` của đợt nộp Tuần 3. Giữ nguyên để lưu trữ lịch sử. |
-| 8 | `12-class-hf-elderly.drawio` & `3` ảnh `.png` (`12-class-hf-elderly-01..03.png`)<br>`13-sequence-hf-elderly.drawio` & `7` ảnh `.png` (`13-sequence-hf-elderly-01..07.png`) | Untracked (`??`) trên Working Tree | **Bản lịch sử / Bản nháp trung gian trước bàn giao (Untracked — Bảo toàn nguyên trạng)** | Bộ sơ đồ Class (3 trang) và Sequence (7 trang `SD-01..SD-07`) mở rộng cho tầm nhìn 4 module AI-CDSS được tạo trên máy trước đợt bàn giao `19/11/2026`. Theo quy tắc bàn giao, giữ nguyên không xóa; thiết kế chuẩn Chặng C cho MVP trước AI đặt độc lập tại `docs/architecture/`. |
-
-### 5.3. Bảng tổng hợp các tài liệu thiết kế hiện hành mới của Chặng C (`stage-c/`)
-
-Khi trưởng nhóm nghiệm thu Chặng C, bộ tài liệu dưới đây tại `stage-c/` là **nguồn sự thật thiết kế hiện hành (Current Approved Technical Specification)** của hệ thống MVP:
-
-| Nhóm sản phẩm | Đường dẫn tại `stage-c/` | Vai trò trong Thiết kế MVP Hiện hành |
-|---|---|---|
-| **Hợp đồng kiến trúc gốc** | `CONTRACT.md` | Nguồn sự thật duy nhất khóa 10 chốt kiến trúc (`K1`–`K10`), tên bảng DB (`snake_case`), tên Class/Schema (`PascalCase`), enum và `operationId`. |
-| **Tài liệu Yêu cầu & Truy vết (`W4`)** | `docs/scope-vision-vs-mvp.md` *(tệp này)* | Phân định ranh giới 6 nhóm tổng thể vs MVP 1/2/6 và kiểm kê toàn bộ tài liệu `docs/` hiện hành vs lịch sử. |
-| | `docs/srs-mvp-update.md` | Bản cập nhật SRS cho thiết kế MVP đã duyệt (FR, NFR, quy tắc 4 tầng điều kiện, 3 trạng thái `Chưa rõ/Có/Không`, bất biến form version, revision sau xác nhận, tách quyền Admin). |
-| | `docs/user-stories-and-use-cases.md` | Đặc tả User Stories (kèm tiêu chí nghiệm thu BDD Given/When/Then) và Use Cases chi tiết cho 2 luồng Bác sĩ (`M1–M5`) và Admin (`M6–M8`) khớp 100% `operationId`. |
-| | `docs/rtm.md` & `docs/rtm.xlsx` | Ma trận truy vết yêu cầu hai chiều đầy đủ: `FR/NFR → Nguồn (TL01–TL06 / Bàn giao / đánh dấu QT01-QT02 chưa có nguồn) → User Story → Use Case → Bảng DB → API operationId → Ca kiểm thử TC-01..TC-08 → Trạng thái thực tế`. |
-| **Cơ sở dữ liệu (`W1`)** | `database/schema_metadata.json`, `schema.sql`, `seed.sql`, `erd.md`, `data_dictionary.md`, `source_mapping.md` | Lược đồ PostgreSQL 16 chuẩn 3NF, trigger bảo vệ bất biến `form_version` đã phát hành và seed `95` mã `mvp` + `26` mã `can_xac_nhan`. |
-| **Đặc tả REST API (`W2`)** | `api/openapi.yaml`, `api/README.md` | Hợp đồng OpenAPI 3.x cho 8 màn hình `M1–M8`, kiểm soát quyền `doctor`/`admin`, `If-Match` ETag/`rowVersion`, `ProblemDetails` và `AiInputPayload`. |
-| **Kiến trúc & Sơ đồ UML (`W3`)** | `architecture/erd-heart-failure-mvp.drawio`, `class-heart-failure-mvp.drawio`, 3 tệp `sequence-*.drawio`, `architecture-uml.md` | Bộ sơ đồ ERD, Class Diagram và 3 Sequence Diagram ưu tiên đồng bộ 100% tên lớp/bảng/`operationId` và tone màu Xanh Dương Y Tế (`Clinical Blue`). |
+| Tài liệu | Nội dung |
+| --- | --- |
+| [SRS](SRS.md) | Yêu cầu chức năng, phi chức năng và quy tắc nghiệp vụ |
+| [User Stories và Use Cases](Use_Cases.md) | Luồng bác sĩ và quản trị, kèm tiêu chí nghiệm thu |
+| [RTM](RTM.md) · [Excel](RTM.xlsx) | Truy vết yêu cầu, API, dữ liệu và ca kiểm thử |
+| [Kiến trúc phần mềm và UML](architecture/Software_Architecture.md) | Kiến trúc, ERD, sơ đồ lớp và sơ đồ tuần tự |
+| [Từ điển dữ liệu](../database/data_dictionary.md) · [ERD](../database/erd.md) · [Ánh xạ nguồn](../database/source_mapping.md) | Lược đồ PostgreSQL và ánh xạ dữ liệu đầu vào |
+| [Hợp đồng REST API](../api/README.md) · [OpenAPI](../api/openapi.yaml) | Endpoint, phân quyền và cấu trúc dữ liệu |
