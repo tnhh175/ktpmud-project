@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-import hashlib
 import os
-from pathlib import Path
-import re
 import secrets
 from typing import AsyncIterator
 
@@ -12,8 +9,7 @@ import psycopg
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 from psycopg_pool import ConnectionPool, PoolTimeout
 
 from .clinical import build_clinical_router
@@ -117,50 +113,6 @@ def create_app(
     from .spec import contract
 
     app.openapi = lambda: contract(app)
-
-    web_root = Path(__file__).resolve().parents[2] / "web"
-    if web_root.is_dir():
-        @app.get("/", include_in_schema=False)
-        @app.get("/login", include_in_schema=False)
-        @app.get("/forms", include_in_schema=False)
-        def forms_page():
-            page = (web_root / "forms.html").read_text(encoding="utf-8")
-            for asset in ("forms.js", "forms.css"):
-                version = hashlib.sha256((web_root / asset).read_bytes()).hexdigest()[:16]
-                page = re.sub(r"/" + re.escape(asset) + r"(?:\?v=[^\"']*)?",
-                              f"/{asset}?v={version}", page)
-            return HTMLResponse(page, headers={"Cache-Control": "no-store"})
-
-        @app.get("/forms.js", include_in_schema=False)
-        @app.get("/forms.css", include_in_schema=False)
-        def forms_asset(request: Request):
-            return FileResponse(web_root / request.url.path.lstrip("/"),
-                                headers={"Cache-Control": "no-cache, must-revalidate"})
-
-        @app.get("/admin/login", include_in_schema=False)
-        @app.get("/bac-si/login", include_in_schema=False)
-        def legacy_login_page():
-            return RedirectResponse(url="/login", status_code=307)
-
-        forms_v2_csp = (
-            "default-src 'self'; script-src 'self'; style-src 'self'; "
-            "font-src 'self'; img-src 'self' data:; connect-src 'self'; "
-            "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
-        )
-
-        @app.middleware("http")
-        async def forms_v2_security_headers(request: Request, call_next):
-            response = await call_next(request)
-            path = request.url.path
-            if path == "/forms-v2.html" or path.startswith("/forms-v2/"):
-                response.headers["Content-Security-Policy"] = forms_v2_csp
-                response.headers["X-Content-Type-Options"] = "nosniff"
-                response.headers["Referrer-Policy"] = "no-referrer"
-                if path == "/forms-v2.html":
-                    response.headers["Cache-Control"] = "no-store"
-            return response
-
-        app.mount("/", StaticFiles(directory=web_root, html=True), name="web")
 
     return app
 

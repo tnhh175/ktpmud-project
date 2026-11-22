@@ -28,7 +28,7 @@ from .visits import router as visits_router
 
 _SUBMISSION_ROOT = Path(__file__).resolve().parents[2]
 _OPENAPI_PATH = _SUBMISSION_ROOT / "api" / "openapi.yaml"
-_WEB_MVP_DIR = _SUBMISSION_ROOT / "web-mvp"
+_WEB_DIR = _SUBMISSION_ROOT / "web"
 
 
 def _load_openapi_dict() -> dict[str, Any]:
@@ -269,11 +269,11 @@ def create_app(
     if cached_spec:
         app.openapi = lambda: cached_spec  # type: ignore[method-assign]
 
-    if mount_web and _WEB_MVP_DIR.is_dir():
+    if mount_web and _WEB_DIR.is_dir():
         app.mount(
             "/",
-            StaticFiles(directory=str(_WEB_MVP_DIR), html=True),
-            name="web-mvp",
+            StaticFiles(directory=str(_WEB_DIR), html=True),
+            name="web",
         )
 
     return app

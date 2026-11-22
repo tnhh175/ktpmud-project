@@ -2,10 +2,6 @@
 !requirements.txt
 !src/
 !src/**
-!web/
-!web/forms.html
-!web/forms.css
-!web/forms.js
 !scripts/
 !scripts/run_hosted_forms.py
 !scripts/bootstrap_hosted_forms.py

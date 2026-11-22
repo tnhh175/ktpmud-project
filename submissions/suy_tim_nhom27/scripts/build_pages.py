@@ -28,7 +28,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 SUBMISSION_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_WEB_SRC = SUBMISSION_ROOT / "web-mvp"
+DEFAULT_WEB_SRC = SUBMISSION_ROOT / "web"
 DEFAULT_OPENAPI = SUBMISSION_ROOT / "api" / "openapi.yaml"
 DEFAULT_ARCH_MD = SUBMISSION_ROOT / "docs" / "architecture" / "architecture-uml.md"
 DEFAULT_OUT = SUBMISSION_ROOT / ".dist-pages"
@@ -602,7 +602,7 @@ def build_pages(web_src: Path, openapi_path: Path, arch_md_path: Path, out_dir: 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Build static GitHub Pages bundle for Suy tim MVP.")
-    parser.add_argument("--web-src", type=Path, default=DEFAULT_WEB_SRC, help="Thư mục nguồn web-mvp")
+    parser.add_argument("--web-src", type=Path, default=DEFAULT_WEB_SRC, help="Thư mục nguồn web")
     parser.add_argument("--openapi", type=Path, default=DEFAULT_OPENAPI, help="Đường dẫn openapi.yaml")
     parser.add_argument("--arch-md", type=Path, default=DEFAULT_ARCH_MD, help="Đường dẫn architecture-uml.md")
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT, help="Thư mục đích dist-pages")

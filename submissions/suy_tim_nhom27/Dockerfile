@@ -8,7 +8,6 @@ RUN apt-get update \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY src/ src/
-COPY web/forms.html web/forms.css web/forms.js web/
 COPY scripts/run_hosted_forms.py scripts/bootstrap_hosted_forms.py scripts/seed_form_demo.py scripts/
 COPY database/schema.sql database/schema.sql
 COPY database/migrations/ database/migrations/

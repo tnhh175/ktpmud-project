@@ -5,7 +5,7 @@ on:
     branches: [demo/web]
     paths:
       - .github/workflows/deploy-demo-web.yml
-      - submissions/suy_tim_nhom27/web-mvp/**
+      - submissions/suy_tim_nhom27/web/**
       - submissions/suy_tim_nhom27/scripts/build_pages.py
       - submissions/suy_tim_nhom27/api/openapi.yaml
       - submissions/suy_tim_nhom27/docs/architecture/**
