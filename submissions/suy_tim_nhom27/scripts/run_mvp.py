@@ -1,4 +1,4 @@
-"""Local launcher for the Heart Failure Clinical Intake MVP FastAPI + PostgreSQL app."""
+"""Launch the Heart Failure Clinical Intake MVP."""
 from __future__ import annotations
 
 import os
@@ -17,23 +17,20 @@ from src.mvp.db import resolve_database_url  # noqa: E402
 
 
 def main() -> None:
-    database_url = resolve_database_url()
-    host = os.environ.get("MVP_HOST", "127.0.0.1")
-    port = int(os.environ.get("MVP_PORT", "8000"))
+    hosted = os.environ.get("MVP_HOSTED") == "1"
+    if hosted:
+        database_url = os.environ.get("MVP_DATABASE_URL")
+        auth_secret = os.environ.get("MVP_AUTH_SECRET")
+        if not database_url or not auth_secret or len(auth_secret) < 32:
+            raise SystemExit("Set MVP_DATABASE_URL and an MVP_AUTH_SECRET of at least 32 characters.")
+        host = "0.0.0.0"
+        port = int(os.environ["PORT"])
+    else:
+        database_url = resolve_database_url()
+        host = os.environ.get("MVP_HOST", "127.0.0.1")
+        port = int(os.environ.get("MVP_PORT", "8000"))
 
-    print("============================================================")
-    print("Heart Failure Clinical Intake MVP (FastAPI + PostgreSQL)")
-    print(f"Web UI     : http://{host}:{port}/")
-    print(f"API Base   : http://{host}:{port}/api/v1")
-    if os.environ.get("MVP_ENABLE_API_DOCS", "0") == "1":
-        print(f"Swagger UI : http://{host}:{port}/docs (chỉ dùng nội bộ)")
-        print(f"OpenAPI    : http://{host}:{port}/api/openapi.yaml (chỉ dùng nội bộ)")
-    print("Seed local test accounts (development/local only):")
-    print("  - doctor_demo / Doctor@2026!")
-    print("  - admin_demo  / Admin@2026!")
-    print("============================================================")
-
-    app = create_app(database_url=database_url, mount_web=True)
+    app = create_app(database_url=database_url, mount_web=True, enable_api_docs=False if hosted else None)
     uvicorn.run(app, host=host, port=port)
 
 

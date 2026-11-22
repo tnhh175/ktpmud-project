@@ -1,5 +1,5 @@
 FROM python:3.13-slim
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 MVP_HOSTED=1
 WORKDIR /app
 RUN apt-get update \
     && apt-get install -y --no-install-recommends tzdata \
@@ -8,8 +8,9 @@ RUN apt-get update \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY src/ src/
-COPY scripts/run_hosted_forms.py scripts/bootstrap_hosted_forms.py scripts/seed_form_demo.py scripts/
-COPY database/schema.sql database/schema.sql
-COPY database/migrations/ database/migrations/
+COPY scripts/run_mvp.py scripts/bootstrap_hosted_mvp.py scripts/
+COPY database/schema.sql database/seed.sql database/
+COPY database/migrations/005_visit_amendment_reopen.sql database/migrations/
+COPY web/ web/
 USER demo
-CMD ["python", "scripts/run_hosted_forms.py"]
+CMD ["python", "scripts/run_mvp.py"]

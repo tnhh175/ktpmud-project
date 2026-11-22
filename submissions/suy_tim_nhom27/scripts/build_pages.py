@@ -579,6 +579,15 @@ def build_pages(web_src: Path, openapi_path: Path, arch_md_path: Path, out_dir: 
             raise FileNotFoundError(f"Thiếu tệp nguồn bắt buộc: {src_file}")
         shutil.copy2(src_file, out_dir / name)
 
+    # Load the browser-only adapter only in the generated offline site.
+    index_path = out_dir / "index.html"
+    index = index_path.read_text(encoding="utf-8")
+    config_tag = '<script src="./config.js"></script>'
+    static_tag = '<script src="./static-runtime.js?v=20261122-password"></script>'
+    if index.count(config_tag) != 1:
+        raise ValueError("Không tìm thấy thẻ cấu hình frontend trong index.html.")
+    index_path.write_text(index.replace(config_tag, f"{config_tag}\n  {static_tag}"), encoding="utf-8", newline="\n")
+
     # 2. Write static mode config.js & .nojekyll
     (out_dir / "config.js").write_text(STATIC_CONFIG_JS, encoding="utf-8", newline="\n")
     (out_dir / ".nojekyll").write_text("", encoding="utf-8", newline="\n")

@@ -165,6 +165,8 @@ def decode_access_token(token: str, secret: bytes) -> dict[str, Any]:
 
 
 def seed_password_for_username(username: str) -> str | None:
+    if os.environ.get("MVP_HOSTED") == "1":
+        return None
     if username == "doctor_demo":
         return os.environ.get("MVP_SEED_DOCTOR_PASSWORD", "Doctor@2026!")
     if username == "admin_demo":
