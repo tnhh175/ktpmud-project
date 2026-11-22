@@ -7,6 +7,8 @@
 - Bản bàn giao gốc: `BAN-GIAO-DEV-web-suy-tim-hai-luong-2026-11-19.md` (Mục 3.2, 4, 6.2)
 - Ma trận màn hình – thao tác – dữ liệu Chặng B: `02-ma-tran-man-hinh-thao-tac-du-lieu.md`
 
+Đặc tả `api/openapi.yaml` được giữ trong mã nguồn để phát triển và kiểm thử backend. Bản web public không xuất tệp này hay trang tài liệu API. Backend mặc định không phục vụ `/docs`, `/redoc` và các URL OpenAPI. Khi cần xem tài liệu trong môi trường nội bộ, đặt `MVP_ENABLE_API_DOCS=1` và chỉ chạy server trên `127.0.0.1`; tắt cấu hình này trước khi chạy trên địa chỉ public.
+
 ---
 
 ## 1. Tổng quan Kiến trúc API & Quy ước Đặt tên

@@ -25,8 +25,9 @@ def main() -> None:
     print("Heart Failure Clinical Intake MVP (FastAPI + PostgreSQL)")
     print(f"Web UI     : http://{host}:{port}/")
     print(f"API Base   : http://{host}:{port}/api/v1")
-    print(f"Swagger UI : http://{host}:{port}/docs")
-    print(f"OpenAPI    : http://{host}:{port}/api/openapi.yaml")
+    if os.environ.get("MVP_ENABLE_API_DOCS", "0") == "1":
+        print(f"Swagger UI : http://{host}:{port}/docs (chỉ dùng nội bộ)")
+        print(f"OpenAPI    : http://{host}:{port}/api/openapi.yaml (chỉ dùng nội bộ)")
     print("Seed local test accounts (development/local only):")
     print("  - doctor_demo / Doctor@2026!")
     print("  - admin_demo  / Admin@2026!")

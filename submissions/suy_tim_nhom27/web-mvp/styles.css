@@ -91,7 +91,6 @@ html, body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  overflow-x: clip;
   max-width: 100%;
 }
 
@@ -1080,21 +1079,21 @@ body:has(.runtime-banner:not([hidden])) .sidebar {
 }
 .shell.is-sidebar-collapsed .brand-mark__text,
 .shell.is-sidebar-collapsed .sidebar__role-tag,
-.shell.is-sidebar-collapsed .nav-item__label,
+.shell.is-sidebar-collapsed .sidebar .nav-item__label,
 .shell.is-sidebar-collapsed .user-chip__meta {
   display: none;
 }
-.shell.is-sidebar-collapsed .sidebar__nav {
+.shell.is-sidebar-collapsed .sidebar .sidebar__nav {
   width: 100%;
   align-items: center;
 }
-.shell.is-sidebar-collapsed .nav-item {
+.shell.is-sidebar-collapsed .sidebar .nav-item {
   justify-content: center;
   padding: 10px;
   width: 44px;
   height: 44px;
 }
-.shell.is-sidebar-collapsed .nav-item.is-active {
+.shell.is-sidebar-collapsed .sidebar .nav-item.is-active {
   border-left: 1px solid var(--focus-ring);
 }
 .shell.is-sidebar-collapsed .sidebar__user {
@@ -1246,9 +1245,6 @@ body:has(.runtime-banner:not([hidden])) .sidebar {
   background: var(--nav-bg);
   border-bottom: 2px solid var(--focus-ring);
   padding: 12px 14px;
-}
-.mobile-drawer.is-open {
-  display: block;
 }
 
 /* Main Workspace */
@@ -2559,7 +2555,7 @@ body:has(.runtime-banner:not([hidden])) .sidebar {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .toast-region {
     top: 10px;
   }
@@ -2575,7 +2571,9 @@ body:has(.runtime-banner:not([hidden])) .sidebar {
   .shell,
   .shell.is-sidebar-collapsed { grid-template-columns: 1fr; }
   .sidebar { display: none; position: static; height: auto; }
-  .mobile-topbar { display: flex; }
+  .mobile-topbar { display: flex; flex-wrap: wrap; }
+  .mobile-topbar__actions { margin-left: auto; }
+  .mobile-drawer.is-open { display: block; }
   .topbar__sidebar-btn,
   .topbar__logout { display: none; }
 
@@ -2593,6 +2591,7 @@ body:has(.runtime-banner:not([hidden])) .sidebar {
 
   .encounter-layout { grid-template-columns: 1fr; }
   .group-rail {
+    min-width: 0;
     position: static;
     max-height: none;
     flex-direction: row;

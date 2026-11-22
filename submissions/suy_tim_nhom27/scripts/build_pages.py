@@ -7,7 +7,6 @@ build_pages.py — Xây dựng gói tĩnh cho GitHub Pages (chế độ ngoại 
   - index.html, styles.css, api-client.js, static-runtime.js, app.js, catalog-seed.json
   - config.js với window.APP_CONFIG = { mode: 'static', apiBase: '' }
   - .nojekyll
-  - api/openapi.yaml + api/index.html (tài liệu OpenAPI 3.1 tĩnh, tắt Try it out, 0 CDN)
   - docs/index.html (tổng quan kiến trúc Clinical Blue: Layered, ERD 19 bảng, Class Diagram, 3 Sequence Diagram dạng SVG nhúng + mã nguồn Mermaid)
 
 Mọi đường dẫn tài nguyên đều dùng đường dẫn tương đối để chạy mượt dưới subpath `/ktpmud-project/`.
@@ -17,7 +16,6 @@ from __future__ import annotations
 
 import argparse
 import html
-import json
 import re
 import shutil
 import sys
@@ -57,277 +55,6 @@ window.APP_CONFIG = {
   mode: 'static',
   apiBase: ''
 };
-"""
-
-
-def build_api_docs_html(spec: dict[str, Any]) -> str:
-    info = spec.get("info", {})
-    title = info.get("title", "OpenAPI 3.1.0 Specification")
-    version = info.get("version", "1.0.0")
-    summary = info.get("summary", "")
-
-    endpoints: list[dict[str, Any]] = []
-    for path_str, path_item in (spec.get("paths") or {}).items():
-        if not isinstance(path_item, dict):
-            continue
-        path_params = path_item.get("parameters") or []
-        for method in ("get", "post", "put", "patch", "delete"):
-            op = path_item.get(method)
-            if not isinstance(op, dict):
-                continue
-            tags = op.get("tags") or ["General"]
-            params = list(path_params) + list(op.get("parameters") or [])
-            param_names = []
-            has_if_match = False
-            for p in params:
-                if isinstance(p, dict):
-                    ref = p.get("$ref", "")
-                    if "IfMatch" in ref or p.get("name") == "If-Match":
-                        has_if_match = True
-                        param_names.append("header: If-Match")
-                    elif ref:
-                        param_names.append(ref.split("/")[-1])
-                    elif p.get("name"):
-                        param_names.append(f"{p.get('in', 'query')}: {p['name']}")
-            req_schema = ""
-            rb = op.get("requestBody") or {}
-            if isinstance(rb, dict):
-                app_json = ((rb.get("content") or {}).get("application/json") or {}).get("schema") or {}
-                if "$ref" in app_json:
-                    req_schema = app_json["$ref"].split("/")[-1]
-            resp_list = []
-            for code, rdef in (op.get("responses") or {}).items():
-                if not isinstance(rdef, dict):
-                    continue
-                if "$ref" in rdef:
-                    resp_list.append({"code": str(code), "desc": rdef["$ref"].split("/")[-1], "schema": "ProblemDetails"})
-                else:
-                    c_json = ((rdef.get("content") or {}).get("application/json") or {}).get("schema") or {}
-                    sch = c_json.get("$ref", "").split("/")[-1] if "$ref" in c_json else ""
-                    resp_list.append({"code": str(code), "desc": rdef.get("description", ""), "schema": sch})
-            endpoints.append(
-                {
-                    "tag": tags[0],
-                    "method": method.upper(),
-                    "path": path_str,
-                    "operationId": op.get("operationId", ""),
-                    "summary": op.get("summary", ""),
-                    "description": (op.get("description") or "").strip(),
-                    "screen": op.get("x-screen", ""),
-                    "roles": op.get("x-allowed-roles") or [],
-                    "hasIfMatch": has_if_match,
-                    "parameters": param_names,
-                    "requestSchema": req_schema,
-                    "responses": resp_list,
-                }
-            )
-
-    schemas_meta: list[dict[str, Any]] = []
-    for s_name, s_def in ((spec.get("components") or {}).get("schemas") or {}).items():
-        if not isinstance(s_def, dict):
-            continue
-        props = []
-        req_set = set(s_def.get("required") or [])
-        for p_name, p_def in (s_def.get("properties") or {}).items():
-            p_type = p_def.get("type", "")
-            if isinstance(p_type, list):
-                p_type = " | ".join(str(x) for x in p_type)
-            elif "$ref" in p_def:
-                p_type = p_def["$ref"].split("/")[-1]
-            elif p_type == "array" and isinstance(p_def.get("items"), dict):
-                it = p_def["items"]
-                it_t = it["$ref"].split("/")[-1] if "$ref" in it else str(it.get("type", "any"))
-                p_type = f"array<{it_t}>"
-            props.append({"name": p_name, "type": p_type or "object", "required": p_name in req_set})
-        schemas_meta.append(
-            {
-                "name": s_name,
-                "dbTable": s_def.get("x-db-table") or s_def.get("x-db-enum") or "",
-                "enumValues": s_def.get("enum") or [],
-                "description": (s_def.get("description") or "").strip(),
-                "properties": props,
-            }
-        )
-
-    payload_json = json.dumps(
-        {
-            "openapi": spec.get("openapi", "3.1.0"),
-            "title": title,
-            "version": version,
-            "summary": summary,
-            "tags": spec.get("tags") or [],
-            "endpoints": endpoints,
-            "schemas": schemas_meta,
-        },
-        ensure_ascii=False,
-    ).replace("</", "<\\/")
-
-    return f"""<!DOCTYPE html>
-<html lang="vi">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tài liệu OpenAPI 3.1 — {html.escape(title)}</title>
-  <link rel="icon" type="image/svg+xml" href="{FAVICON_DATA_URI}">
-  <style>
-    :root {{
-      --nav-bg:#0F172A; --navy:#1E3A8A; --primary:#1D4ED8; --focus:#2563EB;
-      --soft:#EFF6FF; --badge:#DBEAFE; --border:#E2E8F0; --border-strong:#CBD5E1;
-      --ink:#0F172A; --body:#334155; --muted:#475569; --canvas:#F8FAFC; --surface:#FFFFFF;
-    }}
-    * {{ box-sizing:border-box; }}
-    html,body {{ margin:0; padding:0; background:var(--canvas); color:var(--body); font-family:'Inter','Segoe UI',system-ui,sans-serif; font-size:14px; line-height:1.5; overflow-x:clip; }}
-    .mono {{ font-family:'JetBrains Mono','Cascadia Mono',ui-monospace,monospace; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }}
-    .top {{ background:var(--nav-bg); color:#FFF; padding:16px 20px; border-bottom:3px solid var(--focus); }}
-    .top__inner {{ max-width:1160px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }}
-    .top__title {{ margin:0; font-size:19px; font-weight:700; color:#FFF; }}
-    .top__sub {{ margin:4px 0 0; font-size:12.5px; color:#CBD5E1; }}
-    .top__nav {{ display:flex; gap:8px; flex-wrap:wrap; }}
-    .nav-link {{ display:inline-flex; align-items:center; padding:6px 12px; border-radius:6px; background:#1E293B; color:#FFF; border:1px solid #334155; text-decoration:none; font-size:12.5px; font-weight:600; }}
-    .nav-link:hover {{ background:var(--navy); border-color:var(--focus); }}
-    .nav-link--primary {{ background:var(--primary); border-color:var(--primary); }}
-    .wrap {{ max-width:1160px; margin:0 auto; padding:20px 16px 48px; }}
-    .notice {{ background:var(--badge); color:var(--navy); border:1px solid #93C5FD; border-radius:8px; padding:12px 16px; margin-bottom:16px; font-size:13px; }}
-    .kpis {{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-bottom:18px; }}
-    .kpi {{ background:var(--surface); border:1px solid var(--border); border-top:3px solid var(--primary); border-radius:6px; padding:12px 14px; }}
-    .kpi__l {{ font-size:11.5px; color:var(--muted); font-weight:600; }}
-    .kpi__v {{ font-size:22px; font-weight:700; color:var(--ink); }}
-    .bar {{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }}
-    .input,.select {{ min-height:38px; padding:7px 12px; border:1px solid #76869C; border-radius:6px; background:#FFF; color:var(--ink); font-size:13.5px; max-width:100%; }}
-    .input {{ flex:1 1 220px; }}
-    .tag-head {{ margin:20px 0 10px; padding-bottom:6px; border-bottom:2px solid var(--badge); color:var(--navy); font-size:16px; }}
-    .op {{ background:var(--surface); border:1px solid var(--border); border-radius:8px; margin-bottom:10px; overflow:hidden; }}
-    .op summary {{ list-style:none; cursor:pointer; padding:11px 14px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }}
-    .op summary::-webkit-details-marker {{ display:none; }}
-    .op__left {{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0; }}
-    .method {{ display:inline-block; min-width:58px; text-align:center; padding:3px 8px; border-radius:4px; font-size:11.5px; font-weight:700; color:#FFF; }}
-    .m-GET {{ background:#1D4ED8; }} .m-POST {{ background:#15803D; }} .m-PUT {{ background:#B45309; }} .m-PATCH {{ background:#0369A1; }} .m-DELETE {{ background:#B91C1C; }}
-    .badge {{ display:inline-flex; align-items:center; padding:2px 7px; border-radius:4px; font-size:11px; font-weight:600; background:var(--soft); color:var(--navy); border:1px solid #93C5FD; }}
-    .badge--role {{ background:#F1F5F9; color:#334155; border-color:#CBD5E1; }}
-    .badge--etag {{ background:#FEF3C7; color:#92400E; border-color:#FCD34D; }}
-    .op__body {{ padding:12px 16px 16px; border-top:1px solid var(--border); background:#FAFCFF; }}
-    .op__desc {{ margin:0 0 10px; white-space:pre-line; font-size:13px; }}
-    .meta-grid {{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }}
-    .box {{ background:#FFF; border:1px solid var(--border); border-radius:6px; padding:10px 12px; font-size:12.5px; min-width:0; }}
-    .box h4 {{ margin:0 0 6px; font-size:12px; text-transform:uppercase; color:var(--muted); }}
-    .resp-row {{ display:flex; gap:8px; padding:3px 0; border-bottom:1px dashed var(--border); flex-wrap:wrap; }}
-    .resp-row:last-child {{ border-bottom:none; }}
-    .schema-grid {{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:12px; }}
-    .schema-card {{ background:#FFF; border:1px solid var(--border); border-radius:6px; padding:12px; min-width:0; }}
-    .prop-list {{ margin:6px 0 0; padding:0; list-style:none; font-size:12px; }}
-    .prop-list li {{ padding:2px 0; border-bottom:1px dotted var(--border); display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; }}
-    @media (max-width:768px) {{ .kpis {{ grid-template-columns:repeat(2,minmax(0,1fr)); }} .meta-grid,.schema-grid {{ grid-template-columns:1fr; }} }}
-    @media (max-width:400px) {{ .kpis {{ grid-template-columns:1fr; }} .wrap {{ padding:14px 10px 36px; }} }}
-  </style>
-</head>
-<body>
-  <header class="top">
-    <div class="top__inner">
-      <div>
-        <h1 class="top__title">{html.escape(title)}</h1>
-        <p class="top__sub">OpenAPI 3.1.0 · Phiên bản {html.escape(version)} · Tiền tố chuẩn <span class="mono">/api/v1</span></p>
-      </div>
-      <nav class="top__nav" aria-label="Điều hướng tài liệu">
-        <a class="nav-link nav-link--primary" href="../">Mở ứng dụng Web MVP</a>
-        <a class="nav-link" href="../docs/">Kiến trúc &amp; Sơ đồ</a>
-        <a class="nav-link" href="./openapi.yaml" download>Tải openapi.yaml</a>
-      </nav>
-    </div>
-  </header>
-  <main class="wrap">
-    <div class="notice">
-      <strong>Chế độ tài liệu tĩnh (Static OpenAPI Viewer):</strong> Tính năng gửi yêu cầu trực tiếp (Try it out) đã tắt hoàn toàn để phù hợp môi trường lưu trữ tĩnh. Toàn bộ hợp đồng {len(endpoints)} thao tác và {len(schemas_meta)} lược đồ bên dưới được xuất trực tiếp từ tệp <a href="./openapi.yaml" class="mono">./openapi.yaml</a>.
-    </div>
-    <div id="api-root"></div>
-  </main>
-  <script id="openapi-data" type="application/json">{payload_json}</script>
-  <script>
-    (function () {{
-      var data = JSON.parse(document.getElementById('openapi-data').textContent);
-      var q = '', tagFilter = '', roleFilter = '';
-      function esc(s) {{
-        return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-      }}
-      function render() {{
-        var eps = data.endpoints.filter(function (e) {{
-          if (tagFilter && e.tag !== tagFilter) return false;
-          if (roleFilter && e.roles.indexOf(roleFilter) === -1) return false;
-          if (q) {{
-            var hay = (e.path + ' ' + e.operationId + ' ' + e.summary + ' ' + e.tag).toLowerCase();
-            if (hay.indexOf(q.toLowerCase()) === -1) return false;
-          }}
-          return true;
-        }});
-        var byTag = {{}};
-        eps.forEach(function (e) {{ (byTag[e.tag] = byTag[e.tag] || []).push(e); }});
-        var tagOpts = '<option value="">Tất cả nhóm (' + data.tags.length + ')</option>' + data.tags.map(function (t) {{
-          return '<option value="' + esc(t.name) + '"' + (tagFilter === t.name ? ' selected' : '') + '>' + esc(t.name) + '</option>';
-        }}).join('');
-        var epHtml = Object.keys(byTag).map(function (tag) {{
-          return '<h2 class="tag-head">' + esc(tag) + ' (' + byTag[tag].length + ')</h2>' + byTag[tag].map(function (e) {{
-            return '<details class="op">' +
-              '<summary><div class="op__left">' +
-                '<span class="method m-' + esc(e.method) + '">' + esc(e.method) + '</span>' +
-                '<strong class="mono">' + esc(e.path) + '</strong>' +
-                '<span>' + esc(e.summary) + '</span>' +
-              '</div><div class="op__left">' +
-                (e.screen ? '<span class="badge">' + esc(e.screen) + '</span>' : '') +
-                e.roles.map(function (r) {{ return '<span class="badge badge--role">' + esc(r) + '</span>'; }}).join('') +
-                (e.hasIfMatch ? '<span class="badge badge--etag">If-Match</span>' : '') +
-              '</div></summary>' +
-              '<div class="op__body">' +
-                '<p class="op__desc"><strong>operationId:</strong> <span class="mono">' + esc(e.operationId) + '</span>' + (e.description ? '\\n' + esc(e.description) : '') + '</p>' +
-                '<div class="meta-grid">' +
-                  '<div class="box"><h4>Tham số &amp; Request Body</h4>' +
-                    (e.parameters.length ? '<div><strong>Tham số:</strong> ' + e.parameters.map(function (p) {{ return '<span class="badge badge--role mono">' + esc(p) + '</span>'; }}).join(' ') + '</div>' : '<div class="mono">Không có tham số đường dẫn/truy vấn</div>') +
-                    (e.requestSchema ? '<div style="margin-top:6px;"><strong>Request Schema:</strong> <span class="badge mono">' + esc(e.requestSchema) + '</span></div>' : '') +
-                  '</div>' +
-                  '<div class="box"><h4>Phản hồi chuẩn &amp; Mã lỗi RFC 9457</h4>' +
-                    e.responses.map(function (r) {{
-                      return '<div class="resp-row"><strong class="mono">' + esc(r.code) + '</strong><span>' + esc(r.desc) + '</span>' + (r.schema ? '<span class="badge mono">' + esc(r.schema) + '</span>' : '') + '</div>';
-                    }}).join('') +
-                  '</div>' +
-                '</div>' +
-              '</div>' +
-            '</details>';
-          }}).join('');
-        }}).join('');
-        var schHtml = data.schemas.map(function (s) {{
-          return '<details class="schema-card"><summary style="cursor:pointer;font-weight:700;">' +
-            '<span class="mono">' + esc(s.name) + '</span>' +
-            (s.dbTable ? ' <span class="badge mono">' + esc(s.dbTable) + '</span>' : '') +
-          '</summary>' +
-          (s.description ? '<p style="font-size:12px;margin:6px 0;">' + esc(s.description) + '</p>' : '') +
-          (s.enumValues.length ? '<div style="margin-top:6px;">' + s.enumValues.map(function (v) {{ return '<span class="badge badge--role mono" style="margin:2px;">' + esc(v) + '</span>'; }}).join('') + '</div>' : '') +
-          (s.properties.length ? '<ul class="prop-list">' + s.properties.map(function (p) {{
-            return '<li><span class="mono">' + esc(p.name) + (p.required ? ' *' : '') + '</span><span class="mono" style="color:#1D4ED8;">' + esc(p.type) + '</span></li>';
-          }}).join('') + '</ul>' : '') +
-          '</details>';
-        }}).join('');
-        document.getElementById('api-root').innerHTML =
-          '<div class="kpis">' +
-            '<div class="kpi"><div class="kpi__l">Chuẩn đặc tả</div><div class="kpi__v mono">' + esc(data.openapi) + '</div></div>' +
-            '<div class="kpi"><div class="kpi__l">Tổng thao tác (operationId)</div><div class="kpi__v">' + data.endpoints.length + '</div></div>' +
-            '<div class="kpi"><div class="kpi__l">Lược đồ (Schemas)</div><div class="kpi__v">' + data.schemas.length + '</div></div>' +
-            '<div class="kpi"><div class="kpi__l">Chế độ thử nghiệm</div><div class="kpi__v" style="font-size:15px;padding-top:4px;">Tĩnh (Đã tắt Try it out)</div></div>' +
-          '</div>' +
-          '<div class="bar">' +
-            '<input id="api-q" class="input" type="search" placeholder="Tìm theo path, operationId hoặc mô tả..." value="' + esc(q) + '">' +
-            '<select id="api-tag" class="select">' + tagOpts + '</select>' +
-            '<select id="api-role" class="select"><option value="">Mọi vai trò</option><option value="doctor"' + (roleFilter==='doctor'?' selected':'') + '>doctor</option><option value="admin"' + (roleFilter==='admin'?' selected':'') + '>admin</option></select>' +
-          '</div>' +
-          (epHtml || '<p>Không tìm thấy endpoint phù hợp.</p>') +
-          '<h2 class="tag-head" style="margin-top:28px;">Danh mục Schemas (' + data.schemas.length + ')</h2>' +
-          '<div class="schema-grid">' + schHtml + '</div>';
-        document.getElementById('api-q').oninput = function (e) {{ q = e.target.value; render(); var el = document.getElementById('api-q'); el.focus(); el.setSelectionRange(q.length, q.length); }};
-        document.getElementById('api-tag').onchange = function (e) {{ tagFilter = e.target.value; render(); }};
-        document.getElementById('api-role').onchange = function (e) {{ roleFilter = e.target.value; render(); }};
-      }}
-      render();
-    }})();
-  </script>
-</body>
-</html>
 """
 
 
@@ -726,8 +453,6 @@ def build_arch_docs_html(mermaid_blocks: list[str], operation_count: int) -> str
       </div>
       <nav class="top__nav" aria-label="Điều hướng tài liệu">
         <a class="nav-link nav-link--primary" href="../">Mở ứng dụng Web MVP</a>
-        <a class="nav-link" href="../api/">Tài liệu OpenAPI 3.1</a>
-        <a class="nav-link" href="../api/openapi.yaml" download>Tải openapi.yaml</a>
       </nav>
     </div>
   </header>
@@ -811,15 +536,40 @@ def build_arch_docs_html(mermaid_blocks: list[str], operation_count: int) -> str
 
 
 def build_pages(web_src: Path, openapi_path: Path, arch_md_path: Path, out_dir: Path) -> None:
+    # Validate the resolved target before removing a previous generated bundle.
+    if any(p.is_symlink() or p.is_junction() for p in (out_dir, *out_dir.parents)):
+        raise ValueError("Thư mục build không được đi qua symlink hoặc junction.")
+    out_dir = out_dir.resolve()
+    if out_dir == Path(out_dir.anchor):
+        raise ValueError("Không được dùng thư mục gốc ổ đĩa làm đích build.")
+    repo_root = SUBMISSION_ROOT.parents[1]
+    protected = (repo_root, web_src, openapi_path, arch_md_path, Path.home())
+    if any(out_dir == p.resolve() or out_dir in p.resolve().parents for p in protected):
+        raise ValueError("Thư mục build không được chứa mã nguồn hoặc thư mục người dùng.")
+    source_dirs = (web_src, openapi_path.parent, arch_md_path.parent, repo_root / ".git")
+    if any(out_dir == p.resolve() or p.resolve() in out_dir.parents for p in source_dirs):
+        raise ValueError("Thư mục build không được nằm trong nguồn hoặc metadata Git.")
     if not web_src.is_dir():
         raise FileNotFoundError(f"Không tìm thấy thư mục nguồn frontend: {web_src}")
     if not openapi_path.is_file():
         raise FileNotFoundError(f"Không tìm thấy tệp OpenAPI: {openapi_path}")
 
     if out_dir.exists():
+        if not out_dir.is_dir():
+            raise ValueError("Đích build đã tồn tại nhưng không phải thư mục.")
+        if any(out_dir.iterdir()):
+            try:
+                generated_bundle = (
+                    (out_dir / ".nojekyll").is_file()
+                    and (out_dir / "config.js").read_text(encoding="utf-8") == STATIC_CONFIG_JS
+                    and "Suytim-CDSS" in (out_dir / "index.html").read_text(encoding="utf-8")
+                )
+            except (OSError, UnicodeError):
+                generated_bundle = False
+            if not generated_bundle:
+                raise ValueError("Đích build có dữ liệu khác gói tĩnh Suytim-CDSS; từ chối xóa.")
         shutil.rmtree(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "api").mkdir(parents=True, exist_ok=True)
     (out_dir / "docs").mkdir(parents=True, exist_ok=True)
 
     # 1. Copy frontend assets
@@ -833,10 +583,8 @@ def build_pages(web_src: Path, openapi_path: Path, arch_md_path: Path, out_dir: 
     (out_dir / "config.js").write_text(STATIC_CONFIG_JS, encoding="utf-8", newline="\n")
     (out_dir / ".nojekyll").write_text("", encoding="utf-8", newline="\n")
 
-    # 3. Copy openapi.yaml & generate static OpenAPI 3.1 viewer (Try it out disabled, 0 CDN)
-    shutil.copy2(openapi_path, out_dir / "api" / "openapi.yaml")
+    # Read the backend contract only to count operations in the architecture page.
     spec = yaml.safe_load(openapi_path.read_text(encoding="utf-8"))
-    (out_dir / "api" / "index.html").write_text(build_api_docs_html(spec), encoding="utf-8", newline="\n")
 
     # 4. Generate static Architecture & UML page (embedded Clinical Blue SVGs + Mermaid source)
     mermaid_blocks = extract_mermaid_blocks(arch_md_path)
@@ -849,7 +597,6 @@ def build_pages(web_src: Path, openapi_path: Path, arch_md_path: Path, out_dir: 
 
     print(f"[build_pages] Thành công -> {out_dir}")
     print(f"  - Web assets : {len(WEB_ASSETS)} tệp + config.js (mode=static) + .nojekyll")
-    print(f"  - OpenAPI    : api/openapi.yaml + api/index.html ({len(spec.get('paths', {}))} paths)")
     print(f"  - Kiến trúc  : docs/index.html (6 SVG Clinical Blue + {len(mermaid_blocks)} khối Mermaid)")
 
 

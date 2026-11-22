@@ -15,7 +15,7 @@
 
 ## Chạy thử Gateway trên máy
 
-Mở terminal **ngay tại thư mục `submissions/suy_tim_nhom27/`**, làm theo [README_TUAN3.md](README_TUAN3.md). Swagger UI ở `http://127.0.0.1:8000/docs` khi server chạy. API trả `mode=stub` và `mock_not_evaluated`, không đưa ra kết luận y khoa.
+Mở terminal **ngay tại thư mục `submissions/suy_tim_nhom27/`**, làm theo [README_TUAN3.md](README_TUAN3.md). Tài liệu API trên backend mặc định tắt; khi cần kiểm thử nội bộ trên `127.0.0.1`, đặt `MVP_ENABLE_API_DOCS=1` trước khi chạy server để mở `/docs`. API trả `mode=stub` và `mock_not_evaluated`, không đưa ra kết luận y khoa.
 
 ## Kiểm tra bài nộp
 

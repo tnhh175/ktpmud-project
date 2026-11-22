@@ -29,7 +29,7 @@ $env:DEMO_PASSWORD = "tu-dat-mat-khau-demo-o-day"
 .\.venv\Scripts\python.exe -m uvicorn src.gateway.main:app --host 127.0.0.1 --port 8000
 ```
 
-Mở `http://127.0.0.1:8000/docs`. Tại POST `/api/v1/auth/token`, chọn username `doctor`, `pharmacist` hoặc `admin`, password đúng giá trị vừa đặt. Copy `access_token`, bấm **Authorize**, dán token (không thêm chữ Bearer). Sau đó thử các API theo api/README.md.
+Để kiểm thử tài liệu API trên máy nội bộ, đặt `$env:MVP_ENABLE_API_DOCS = "1"` trước khi chạy lệnh trên, giữ server ở `127.0.0.1`, rồi mở `http://127.0.0.1:8000/docs`. Tại POST `/api/v1/auth/token`, chọn username `doctor`, `pharmacist` hoặc `admin`, password đúng giá trị vừa đặt. Copy `access_token`, bấm **Authorize**, dán token (không thêm chữ Bearer). Sau đó thử các API theo api/README.md. Tắt cấu hình này khi chạy bản public.
 
 Gateway dùng RAM: tắt/chạy lại sẽ mất dữ liệu. Chỉ chạy một worker. Bản này không cần cài DB để thử API; không công khai lên Internet.
 

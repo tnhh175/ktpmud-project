@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DELETE_PATH = "/admin/form-versions/{versionId}"
 
 
-def test_delete_draft_is_in_source_swagger_and_static_export(client: TestClient) -> None:
+def test_delete_draft_is_in_source_and_internal_contract(client: TestClient) -> None:
     spec = yaml.safe_load((ROOT / "api" / "openapi.yaml").read_text(encoding="utf-8"))
     validate_spec(spec)
     operation = spec["paths"][DELETE_PATH]["delete"]
@@ -37,17 +37,10 @@ def test_delete_draft_is_in_source_swagger_and_static_export(client: TestClient)
     assert response_schema["properties"]["deleted"] == {"type": "boolean", "const": True}
     assert response_schema["properties"]["versionId"] == {"type": "string", "format": "uuid"}
 
-    assert client.get("/api/openapi.yaml").status_code == 200
-    assert client.get("/api/openapi.json").json() == spec
-    swagger = client.get("/docs")
-    assert swagger.status_code == 200
-    assert "/api/openapi.json" in swagger.text
-
-    from scripts.build_pages import build_api_docs_html
-
-    static_doc = build_api_docs_html(spec)
-    assert "deleteFormVersionDraft" in static_doc
-    assert "33 thao tác và 74 lược đồ" in static_doc
+    assert client.app.openapi() == spec
+    assert client.get("/api/openapi.yaml").status_code == 404
+    assert client.get("/api/openapi.json").status_code == 404
+    assert client.get("/docs").status_code == 404
 
 
 def test_delete_draft_permissions_preconditions_and_response(client: TestClient) -> None:

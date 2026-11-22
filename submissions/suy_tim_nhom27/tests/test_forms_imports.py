@@ -239,7 +239,7 @@ def test_no_json_import_routes_and_fixture_download(live, monkeypatch, tmp_path)
     path.write_bytes(base64.b64decode(fixture['content_base64']))
     monkeypatch.setenv('HF_HIS_TEMPLATE_FILE', str(path))
     c, h, _ = live
-    paths = c.get('/openapi.json').json()['paths']
+    paths = c.app.openapi()['paths']
     assert '/api/forms/imports/json/preview' not in paths and '/api/forms/imports/template.json' not in paths
     response = c.get('/api/forms/imports/template.xlsx', headers=h['doctor'])
     assert response.status_code == 200 and response.content[:2] == b'PK'

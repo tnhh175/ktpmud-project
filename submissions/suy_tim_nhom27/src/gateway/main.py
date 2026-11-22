@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 import hashlib
+import os
 from pathlib import Path
 import re
 import secrets
@@ -30,7 +31,10 @@ def create_app(
     pool: ConnectionPool | None = None,
     *,
     forms_only: bool = False,
+    enable_api_docs: bool | None = None,
 ) -> FastAPI:
+    if enable_api_docs is None:
+        enable_api_docs = os.environ.get("MVP_ENABLE_API_DOCS", "0") == "1"
     owned_pool = pool if pool is not None else create_pool(database_url)
 
     @asynccontextmanager
@@ -47,6 +51,9 @@ def create_app(
     app = FastAPI(
         title="Hệ thống quản lý bệnh nhân suy tim",
         version="0.2.0",
+        openapi_url="/openapi.json" if enable_api_docs else None,
+        docs_url="/docs" if enable_api_docs else None,
+        redoc_url="/redoc" if enable_api_docs else None,
         description=(
             "Demo dùng dữ liệu synthetic và PostgreSQL. Bốn module lâm sàng luôn "
             "mock_not_evaluated; không cung cấp chẩn đoán, khuyến nghị hay đơn thuốc lâm sàng."

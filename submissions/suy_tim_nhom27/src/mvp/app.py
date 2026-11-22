@@ -43,7 +43,10 @@ def create_app(
     *,
     auth_secret: str | None = None,
     mount_web: bool = True,
+    enable_api_docs: bool | None = None,
 ) -> FastAPI:
+    if enable_api_docs is None:
+        enable_api_docs = os.environ.get("MVP_ENABLE_API_DOCS", "0") == "1"
     resolved_dsn = resolve_database_url(database_url)
     owned_pool = pool if pool is not None else create_pool(resolved_dsn)
     secret_raw = auth_secret or os.environ.get("MVP_AUTH_SECRET") or secrets.token_hex(32)
@@ -65,9 +68,9 @@ def create_app(
     app = FastAPI(
         title="Hệ thống Thu thập và Xác nhận Dữ liệu Lâm sàng Suy tim Trước AI (MVP API)",
         version="1.0.0",
-        openapi_url="/api/openapi.json",
-        docs_url="/docs",
-        redoc_url="/redoc",
+        openapi_url="/api/openapi.json" if enable_api_docs else None,
+        docs_url="/docs" if enable_api_docs else None,
+        redoc_url="/redoc" if enable_api_docs else None,
         lifespan=lifespan,
     )
     app.state.pool = owned_pool
@@ -230,8 +233,6 @@ def create_app(
             )
         return {"status": "ok", "persistence": "postgres"}
 
-    @app.get("/api/openapi.yaml", include_in_schema=False)
-    @app.get("/api/v1/openapi.yaml", include_in_schema=False)
     def get_openapi_yaml() -> Response:
         if not _OPENAPI_PATH.is_file():
             raise ProblemError(
@@ -244,6 +245,10 @@ def create_app(
             path=str(_OPENAPI_PATH),
             media_type="application/yaml; charset=utf-8",
         )
+
+    if enable_api_docs:
+        app.add_api_route("/api/openapi.yaml", get_openapi_yaml, include_in_schema=False)
+        app.add_api_route("/api/v1/openapi.yaml", get_openapi_yaml, include_in_schema=False)
 
     app.include_router(auth_router)
     app.include_router(patients_router)

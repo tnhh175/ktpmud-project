@@ -102,15 +102,14 @@ def test_d1_auth_lifecycle_problem_details_and_web_mount(
     assert health.status_code == 200
     assert health.json() == {"status": "ok", "persistence": "postgres"}
 
-    # Web UI & OpenAPI mounts
+    # Web UI is public; backend documentation is disabled by default.
     idx = client.get("/")
     assert idx.status_code == 200
     assert "api-client.js" in idx.text
     assert client.get("/config.js").status_code == 200
     assert client.get("/app.js").status_code == 200
-    spec_res = client.get("/api/openapi.yaml")
-    assert spec_res.status_code == 200
-    assert "openapi: 3.1.0" in spec_res.text
+    assert client.get("/api/openapi.yaml").status_code == 404
+    assert client.app.openapi()["openapi"] == "3.1.0"
 
     # Seed password hashes upgraded to real scrypt on startup
     with psycopg.connect(temp_pg_dsn) as conn:
@@ -912,7 +911,7 @@ def test_tc05_rbac_k8_matrix_admin_users_and_audit_logs(client: TestClient) -> N
     )
     assert bad_range.status_code == 422
 
-    # Also verify 'from'/'to' query param aliases and Swagger /docs
+    # Also verify 'from'/'to' query param aliases and private API docs.
     alias_logs = client.get(
         "/api/v1/admin/audit-logs",
         headers=_auth_headers(adm_tok),
@@ -920,7 +919,7 @@ def test_tc05_rbac_k8_matrix_admin_users_and_audit_logs(client: TestClient) -> N
     )
     assert alias_logs.status_code == 200
     assert alias_logs.json()["pagination"]["totalItems"] >= 1
-    assert client.get("/docs").status_code == 200
+    assert client.get("/docs").status_code == 404
 
 
 # ---------------------------------------------------------------------------

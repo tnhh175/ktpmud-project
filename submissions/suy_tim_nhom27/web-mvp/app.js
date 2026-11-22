@@ -484,7 +484,6 @@
         '<span class="runtime-banner__text">Chế độ ngoại tuyến trên trình duyệt: dữ liệu lưu cục bộ trên máy này</span>' +
       '</div>' +
       '<div class="runtime-banner__links">' +
-        '<a class="runtime-banner__link" href="./api/">Tài liệu OpenAPI</a>' +
         '<a class="runtime-banner__link" href="./docs/">Kiến trúc &amp; Sơ đồ</a>' +
         '<button type="button" class="runtime-banner__link" data-action="confirm-reset-local">Đặt lại dữ liệu cục bộ</button>' +
       '</div>';
@@ -1048,10 +1047,10 @@
             '</div>' +
             '<div class="mobile-topbar__actions">' +
               '<button type="button" class="mobile-menu-btn" data-action="logout" aria-label="Đăng xuất">' + ICONS.logout + '</button>' +
-              '<button type="button" class="mobile-menu-btn" data-action="toggle-mobile-menu" aria-expanded="' + (state.mobileMenuOpen ? 'true' : 'false') + '">' + ICONS.menu + ' Menu</button>' +
+              '<button type="button" class="mobile-menu-btn" data-action="toggle-mobile-menu" aria-controls="mobile-navigation" aria-expanded="' + (state.mobileMenuOpen ? 'true' : 'false') + '">' + ICONS.menu + ' Menu</button>' +
             '</div>' +
           '</div>' +
-          '<div class="mobile-drawer' + (state.mobileMenuOpen ? ' is-open' : '') + '">' +
+          '<div id="mobile-navigation" class="mobile-drawer' + (state.mobileMenuOpen ? ' is-open' : '') + '">' +
             '<nav class="sidebar__nav">' + navHtml + '</nav>' +
           '</div>' +
           '<header class="topbar">' +
@@ -1068,6 +1067,14 @@
         '</div>' +
       '</div>'
     );
+  }
+
+  function setMobileMenuOpen(open) {
+    state.mobileMenuOpen = open;
+    const drawer = document.getElementById('mobile-navigation');
+    const button = document.querySelector('[data-action="toggle-mobile-menu"]');
+    if (drawer) drawer.classList.toggle('is-open', open);
+    if (button) button.setAttribute('aria-expanded', String(open));
   }
 
   function renderForbidden() {
@@ -3473,7 +3480,7 @@
 
     if (action === 'toggle-sidebar') {
       state.sidebarCollapsed = !state.sidebarCollapsed;
-      try { global.localStorage.setItem('hf_sidebar_collapsed', state.sidebarCollapsed ? '1' : '0'); } catch (_e) {}
+      try { global.localStorage.setItem('suytim_sidebar_collapsed', state.sidebarCollapsed ? '1' : '0'); } catch (_e) {}
       const shellEl = document.querySelector('.shell');
       if (shellEl) {
         shellEl.classList.toggle('is-sidebar-collapsed', state.sidebarCollapsed);
@@ -3490,8 +3497,7 @@
       return;
     }
     if (action === 'toggle-mobile-menu') {
-      state.mobileMenuOpen = !state.mobileMenuOpen;
-      render();
+      setMobileMenuOpen(!state.mobileMenuOpen);
       return;
     }
     if (action === 'logout') {
@@ -4237,10 +4243,26 @@
     if (t.id === 'audit-to') { state.adminAudit.toDate = t.value; await loadAdminAudit(); return; }
   });
 
+  global.matchMedia('(max-width: 1024px)').addEventListener('change', function (ev) {
+    const active = document.activeElement;
+    const inNavigation = active && active.closest('.mobile-topbar, .mobile-drawer, .sidebar, .topbar__sidebar-btn');
+    setMobileMenuOpen(false);
+    if (inNavigation) {
+      const button = document.querySelector(ev.matches ? '[data-action="toggle-mobile-menu"]' : '[data-action="toggle-sidebar"]');
+      if (button) button.focus();
+    }
+  });
+
   // Keyboard shortcuts (/, Ctrl+S, Escape, Alt+ArrowUp/Down)
   document.addEventListener('keydown', function (ev) {
     if (ev.key === 'Escape' && state.modal) {
       closeModal();
+      return;
+    }
+    if (ev.key === 'Escape' && state.mobileMenuOpen) {
+      setMobileMenuOpen(false);
+      const button = document.querySelector('[data-action="toggle-mobile-menu"]');
+      if (button) button.focus();
       return;
     }
     if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 's' && state.screen === 'encounter') {
