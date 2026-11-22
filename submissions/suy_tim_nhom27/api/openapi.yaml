@@ -1085,6 +1085,45 @@ paths:
         '422':
           $ref: '#/components/responses/UnprocessableEntityError'
 
+    delete:
+      tags: [AdminForms]
+      operationId: deleteFormVersionDraft
+      summary: "M7 — Xóa phiên bản biểu mẫu còn là bản nháp"
+      description: |
+        Chỉ dành cho vai trò `admin` (`doctor` nhận `403`). Chỉ xóa phiên bản
+        có `status = draft` và chưa gắn với lượt khám; phiên bản đã phát hành,
+        đã nghỉ hiệu lực hoặc đang được sử dụng nhận `409 Conflict`.
+        Header `If-Match` là tùy chọn ở endpoint này. Nếu có, giá trị phải là
+        `rowVersion` hiện tại; giá trị lệch nhận `409`, sai định dạng nhận `422`.
+        Xóa thành công ghi `AuditLog` (`action = form_version_update`).
+      x-screen: M7
+      x-allowed-roles: [admin]
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: "ETag của rowVersion hiện tại; tùy chọn cho thao tác xóa bản nháp."
+          schema:
+            type: string
+            example: '"1"'
+      responses:
+        '200':
+          description: "Đã xóa bản nháp phiên bản biểu mẫu"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteFormVersionDraftResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntityError'
+
   /admin/form-versions/{versionId}/preview:
     parameters:
       - $ref: '#/components/parameters/VersionIdParam'
@@ -3218,6 +3257,22 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/FieldDefinition'
+
+    DeleteFormVersionDraftResponse:
+      type: object
+      required:
+        - deleted
+        - versionId
+        - versionLabel
+      properties:
+        deleted:
+          type: boolean
+          const: true
+        versionId:
+          type: string
+          format: uuid
+        versionLabel:
+          type: string
 
     UpdateFormVersionRequest:
       type: object

@@ -1,7 +1,7 @@
 'use strict';
 
 /* ==========================================================================
-   API Client Abstraction (32 OpenAPI 3.1 Operations)
+   API Client Abstraction (33 OpenAPI 3.1 Operations)
    Hai adapter dùng chung một giao diện:
      - mode: 'api'    -> HTTP fetch tới /api/v1/* kèm Bearer JWT & If-Match
      - mode: 'static' -> StaticRuntime (localStorage trên trình duyệt)
@@ -49,11 +49,58 @@
   }
 
   function createHttpAdapter(apiBase) {
+    let sessionEpoch = 0;
+    let refreshOperation = null;
+
+    function sessionChanged() {
+      return new HttpApiError(0, { code: 'SESSION_CHANGED', detail: 'Phiên đăng nhập đã thay đổi. Yêu cầu cũ đã được bỏ qua.' });
+    }
+
+    function matchesSession(epoch, token, refreshToken) {
+      return epoch === sessionEpoch && global.sessionStorage.getItem(TOKEN_KEY) === token && global.sessionStorage.getItem(REFRESH_KEY) === refreshToken;
+    }
+
+    function clearSession(epoch, token, refreshToken) {
+      if (!matchesSession(epoch, token, refreshToken)) return;
+      sessionEpoch += 1;
+      global.sessionStorage.removeItem(TOKEN_KEY);
+      global.sessionStorage.removeItem(REFRESH_KEY);
+    }
+
+    function refreshSession() {
+      const epoch = sessionEpoch;
+      const token = global.sessionStorage.getItem(TOKEN_KEY);
+      const rt = global.sessionStorage.getItem(REFRESH_KEY);
+      if (refreshOperation && matchesSession(refreshOperation.epoch, refreshOperation.token, refreshOperation.rt)) return refreshOperation.promise;
+      if (!rt) return Promise.reject(new HttpApiError(401, { detail: 'Phiên đăng nhập đã hết hạn.' }));
+      const operation = { epoch: epoch, token: token, rt: rt, promise: null };
+      operation.promise = (async function () {
+        try {
+          const refreshed = await request('POST', '/auth/refresh', { body: { refreshToken: rt }, skipAuth: true }, true);
+          if (!matchesSession(epoch, token, rt)) throw sessionChanged();
+          if (!refreshed || !refreshed.accessToken) throw new HttpApiError(401, { detail: 'Không nhận được phiên đăng nhập hợp lệ.' });
+          global.sessionStorage.setItem(TOKEN_KEY, refreshed.accessToken);
+          if (refreshed.refreshToken) global.sessionStorage.setItem(REFRESH_KEY, refreshed.refreshToken);
+          return refreshed;
+        } catch (err) {
+          if (epoch !== sessionEpoch) throw sessionChanged();
+          if (err && (err.status === 401 || err.status === 403)) clearSession(epoch, token, rt);
+          throw err;
+        } finally {
+          if (refreshOperation === operation) refreshOperation = null;
+        }
+      })();
+      refreshOperation = operation;
+      return operation.promise;
+    }
+
     async function request(method, path, options, retried) {
       const opts = options || {};
+      const epoch = sessionEpoch;
       const headers = { Accept: 'application/json, application/problem+json' };
-      const token = global.sessionStorage.getItem(TOKEN_KEY);
-      if (token && !opts.skipAuth) {
+      const token = opts.authToken || global.sessionStorage.getItem(TOKEN_KEY);
+      const rt = global.sessionStorage.getItem(REFRESH_KEY);
+      if (token && (!opts.skipAuth || opts.authToken)) {
         headers.Authorization = 'Bearer ' + token;
       }
       if (opts.ifMatch !== undefined && opts.ifMatch !== null) {
@@ -93,19 +140,14 @@
         if (timeoutId !== null) global.clearTimeout(timeoutId);
       }
 
-      if (res.status === 401 && !opts.skipAuth && !retried) {
-        const rt = global.sessionStorage.getItem(REFRESH_KEY);
-        if (rt) {
-          try {
-            const refreshed = await request('POST', '/auth/refresh', { body: { refreshToken: rt }, skipAuth: true }, true);
-            if (refreshed && refreshed.accessToken) {
-              global.sessionStorage.setItem(TOKEN_KEY, refreshed.accessToken);
-              if (refreshed.refreshToken) global.sessionStorage.setItem(REFRESH_KEY, refreshed.refreshToken);
-              return request(method, path, options, true);
-            }
-          } catch (_refreshErr) {
-            global.sessionStorage.removeItem(TOKEN_KEY);
-            global.sessionStorage.removeItem(REFRESH_KEY);
+      if (!opts.skipAuth && epoch !== sessionEpoch) throw sessionChanged();
+      if (res.status === 401 && !opts.skipAuth) {
+        if (!retried) {
+          if (token !== global.sessionStorage.getItem(TOKEN_KEY)) return request(method, path, options, true);
+          if (rt) {
+            await refreshSession();
+            if (epoch !== sessionEpoch) throw sessionChanged();
+            return request(method, path, options, true);
           }
         }
       }
@@ -122,35 +164,36 @@
         }
       }
 
+      if (!opts.skipAuth && epoch !== sessionEpoch) throw sessionChanged();
+      if (res.status === 401 && !opts.skipAuth) clearSession(epoch, token, rt);
       if (!res.ok) {
         throw new HttpApiError(res.status, data || { status: res.status, title: res.statusText, detail: 'Yêu cầu thất bại (HTTP ' + res.status + ').' });
       }
+      if (!opts.skipAuth && epoch !== sessionEpoch) throw sessionChanged();
       return data;
     }
 
     return {
       /* Auth */
       async login(payload) {
+        const epoch = ++sessionEpoch;
         const res = await request('POST', '/auth/login', { body: payload, skipAuth: true });
+        if (epoch !== sessionEpoch) throw sessionChanged();
+        sessionEpoch += 1;
         if (res && res.accessToken) global.sessionStorage.setItem(TOKEN_KEY, res.accessToken);
         if (res && res.refreshToken) global.sessionStorage.setItem(REFRESH_KEY, res.refreshToken);
         return res;
       },
       async refreshToken() {
-        const rt = global.sessionStorage.getItem(REFRESH_KEY);
-        const res = await request('POST', '/auth/refresh', { body: { refreshToken: rt }, skipAuth: true });
-        if (res && res.accessToken) global.sessionStorage.setItem(TOKEN_KEY, res.accessToken);
-        if (res && res.refreshToken) global.sessionStorage.setItem(REFRESH_KEY, res.refreshToken);
-        return res;
+        return refreshSession();
       },
       async logout() {
+        const token = global.sessionStorage.getItem(TOKEN_KEY);
         const rt = global.sessionStorage.getItem(REFRESH_KEY);
-        try {
-          await request('POST', '/auth/logout', { body: rt ? { refreshToken: rt } : {} });
-        } finally {
-          global.sessionStorage.removeItem(TOKEN_KEY);
-          global.sessionStorage.removeItem(REFRESH_KEY);
-        }
+        sessionEpoch += 1;
+        global.sessionStorage.removeItem(TOKEN_KEY);
+        global.sessionStorage.removeItem(REFRESH_KEY);
+        await request('POST', '/auth/logout', { body: rt ? { refreshToken: rt } : {}, authToken: token, skipAuth: true });
         return null;
       },
       getCurrentUser() { return request('GET', '/auth/me'); },

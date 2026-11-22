@@ -236,7 +236,7 @@ def build_api_docs_html(spec: dict[str, Any]) -> str:
   </header>
   <main class="wrap">
     <div class="notice">
-      <strong>Chế độ tài liệu tĩnh (Static OpenAPI Viewer):</strong> Tính năng gửi yêu cầu trực tiếp (Try it out) đã tắt hoàn toàn để phù hợp môi trường lưu trữ tĩnh. Toàn bộ hợp đồng 32 thao tác và 73 lược đồ bên dưới được xuất trực tiếp từ tệp <a href="./openapi.yaml" class="mono">./openapi.yaml</a>.
+      <strong>Chế độ tài liệu tĩnh (Static OpenAPI Viewer):</strong> Tính năng gửi yêu cầu trực tiếp (Try it out) đã tắt hoàn toàn để phù hợp môi trường lưu trữ tĩnh. Toàn bộ hợp đồng {len(endpoints)} thao tác và {len(schemas_meta)} lược đồ bên dưới được xuất trực tiếp từ tệp <a href="./openapi.yaml" class="mono">./openapi.yaml</a>.
     </div>
     <div id="api-root"></div>
   </main>
@@ -339,7 +339,7 @@ def extract_mermaid_blocks(arch_md_path: Path) -> list[str]:
     return [b.strip() for b in blocks]
 
 
-def svg_layered_architecture() -> str:
+def svg_layered_architecture(operation_count: int) -> str:
     return """<svg viewBox="0 0 920 390" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Sơ đồ Kiến trúc Phân lớp Tổng thể Clinical Blue">
   <rect x="0" y="0" width="920" height="390" rx="10" fill="#F8FAFC"/>
   <rect x="20" y="18" width="880" height="68" rx="8" fill="#EFF6FF" stroke="#1D4ED8" stroke-width="1.5"/>
@@ -355,7 +355,7 @@ def svg_layered_architecture() -> str:
   <polygon points="455,102 465,102 460,110" fill="#1D4ED8"/>
 
   <rect x="20" y="110" width="880" height="64" rx="8" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
-  <text x="36" y="132" font-size="13" font-weight="700" fill="#1E3A8A">Tầng API Gateway &amp; Bảo mật (/api/v1 · OpenAPI 3.1.0 · 32 operationId)</text>
+  <text x="36" y="132" font-size="13" font-weight="700" fill="#1E3A8A">Tầng API Gateway &amp; Bảo mật (/api/v1 · OpenAPI 3.1.0 · __OP_COUNT__ operationId)</text>
   <rect x="36" y="140" width="260" height="26" rx="5" fill="#FFFFFF" stroke="#1D4ED8"/>
   <text x="48" y="157" font-size="11" fill="#0F172A">JWT Bearer + Refresh Token Hash</text>
   <rect x="312" y="140" width="284" height="26" rx="5" fill="#FFFFFF" stroke="#1D4ED8"/>
@@ -393,7 +393,7 @@ def svg_layered_architecture() -> str:
   <text x="596" y="320" font-size="12.5" font-weight="700" fill="#334155">Tích hợp AI Giai đoạn sau (Chỉ đọc Hợp đồng)</text>
   <text x="596" y="339" font-size="11" fill="#475569">GET /api/v1/visits/{visitId}/ai-input (chỉ lượt confirmed)</text>
   <text x="596" y="356" font-size="10.5" fill="#1D4ED8">ai_diagnosis · ai_lab_test · ai_treatment · ai_medsafety</text>
-</svg>"""
+</svg>""".replace("__OP_COUNT__", str(operation_count))
 
 
 def svg_erd_19_tables() -> str:
@@ -622,7 +622,7 @@ def svg_sequence(title: str, actors: list[str], steps: list[tuple[int, int, str,
     return "\n".join(parts)
 
 
-def build_arch_docs_html(mermaid_blocks: list[str]) -> str:
+def build_arch_docs_html(mermaid_blocks: list[str], operation_count: int) -> str:
     seq1 = svg_sequence(
         "Sequence 1: Luồng Bác sĩ",
         ["Bác sĩ (UI)", "API & RBAC", "VisitService", "PostgreSQL"],
@@ -722,7 +722,7 @@ def build_arch_docs_html(mermaid_blocks: list[str]) -> str:
     <div class="top__inner">
       <div>
         <h1 class="top__title">Kiến trúc Hệ thống &amp; Bộ Sơ đồ UML (Clinical Blue)</h1>
-        <p class="top__sub">Hệ thống Thu thập &amp; Xác nhận Dữ liệu Lâm sàng Suy tim Trước AI (MVP · 19 Bảng · 32 API · 121 Trường)</p>
+        <p class="top__sub">Hệ thống Thu thập &amp; Xác nhận Dữ liệu Lâm sàng Suy tim Trước AI (MVP · 19 Bảng · {operation_count} API · 121 Trường)</p>
       </div>
       <nav class="top__nav" aria-label="Điều hướng tài liệu">
         <a class="nav-link nav-link--primary" href="../">Mở ứng dụng Web MVP</a>
@@ -745,7 +745,7 @@ def build_arch_docs_html(mermaid_blocks: list[str]) -> str:
     <section class="card" id="layered">
       <h2>1. Kiến trúc Phân lớp Tổng thể (Modular Monolith)</h2>
       <p>Tách bạch rõ ràng giao diện Web SPA 8 màn hình, tầng API Gateway &amp; RBAC <span class="mono">/api/v1</span>, tầng dịch vụ miền nghiệp vụ, CSDL PostgreSQL 19 bảng và hợp đồng chỉ đọc <span class="mono">AiInputPayload</span> cho giai đoạn tích hợp AI sau.</p>
-      <div class="svg-wrap">{svg_layered_architecture()}</div>
+      <div class="svg-wrap">{svg_layered_architecture(operation_count)}</div>
       {mmd_details(0, "Kiến trúc phân lớp")}
     </section>
 
@@ -840,7 +840,12 @@ def build_pages(web_src: Path, openapi_path: Path, arch_md_path: Path, out_dir: 
 
     # 4. Generate static Architecture & UML page (embedded Clinical Blue SVGs + Mermaid source)
     mermaid_blocks = extract_mermaid_blocks(arch_md_path)
-    (out_dir / "docs" / "index.html").write_text(build_arch_docs_html(mermaid_blocks), encoding="utf-8", newline="\n")
+    operation_count = sum(
+        1 for path_item in spec.get("paths", {}).values()
+        for method in ("get", "post", "put", "patch", "delete")
+        if isinstance(path_item, dict) and isinstance(path_item.get(method), dict)
+    )
+    (out_dir / "docs" / "index.html").write_text(build_arch_docs_html(mermaid_blocks, operation_count), encoding="utf-8", newline="\n")
 
     print(f"[build_pages] Thành công -> {out_dir}")
     print(f"  - Web assets : {len(WEB_ASSETS)} tệp + config.js (mode=static) + .nojekyll")

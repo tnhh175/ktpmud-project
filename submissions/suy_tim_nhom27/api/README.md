@@ -71,6 +71,7 @@ Mọi tài nguyên có trạng thái thay đổi (`Patient`, `Visit`, `FormVersi
    - Nếu `rowVersion` của client nhỏ hơn hoặc khác `row_version` hiện tại trong CSDL (do một phiên làm việc khác vừa cập nhật), máy chủ từ chối ghi và trả về **`409 Conflict`** (`application/problem+json`) kèm trường `currentRowVersion` để giao diện hiển thị banner so sánh / tải lại bản mới nhất.
 2. **Bảo vệ Tính Bất biến bằng `409 Conflict` (Chốt `K4`, `K5`):**
    - **Bất biến Phiên bản Biểu mẫu (`K4`):** Gọi `PATCH /api/v1/admin/form-versions/{versionId}` (`updateFormVersion`) trên phiên bản có `status = published` hoặc `retired` sẽ trả ngay **`409 Conflict`** (đồng thời CSDL có trigger chặn `UPDATE`/`DELETE`). Muốn thay đổi biểu mẫu, Admin bắt buộc gọi `createFormVersionDraft` để tạo bản nháp mới.
+   - **Xóa bản nháp biểu mẫu:** `DELETE /api/v1/admin/form-versions/{versionId}` (`deleteFormVersionDraft`) chỉ dành cho Admin và chỉ xóa phiên bản còn `draft`, chưa gắn lượt khám. `If-Match` là tùy chọn ở endpoint này; nếu gửi thì phải khớp `rowVersion` hiện tại. Xóa thành công trả `200` với `deleted`, `versionId`, `versionLabel`; bản không tồn tại trả `404`, bản không được xóa hoặc lệch `If-Match` trả `409`, còn `If-Match` sai định dạng trả `422`.
    - **Khóa Lượt khám Đã xác nhận (`K5`):** Gọi `PUT /api/v1/visits/{visitId}/draft` (`saveVisitDraft`) hoặc gọi lại `confirmVisit` trên lượt khám đã có `status = confirmed` sẽ trả **`409 Conflict`**.
    - **Sửa/Bổ sung sau Xác nhận có Kiểm toán (`createVisitRevision`):** Khi cần bổ sung kết quả cận lâm sàng hoặc hiệu chỉnh sau khi đã xác nhận, bác sĩ gọi `POST /api/v1/visits/{visitId}/revisions` kèm `reason` (lý do bắt buộc). Hệ thống giữ nguyên bản chụp `VisitRevision` cũ đã xác nhận (không ghi đè lịch sử) và mở `revisionNo` kế tiếp. (Trong trường hợp hệ thống cấu hình khóa cứng tuyệt đối theo mặc định Q3, endpoint này trả `409 Conflict` với mã `VISIT_CONFIRMED_LOCKED`).
 
@@ -79,15 +80,15 @@ Mọi tài nguyên có trạng thái thay đổi (`Patient`, `Visit`, `FormVersi
 ## 5. Chuẩn hóa Phản hồi Lỗi (`RFC 9457 ProblemDetails`) & Phân trang
 
 ### 5.1. Phản hồi lỗi `application/problem+json`
-Tất cả các mã lỗi **`401`**, **`403`**, **`404`**, **`409`**, **`422`** trên toàn bộ 32 endpoint đều trả về cùng cấu trúc `ProblemDetails`:
+Tất cả các mã lỗi **`401`**, **`403`**, **`404`**, **`409`**, **`422`** trên toàn bộ 33 endpoint đều trả về cùng cấu trúc `ProblemDetails`:
 
 | Mã HTTP | Tình huống nghiệp vụ điển hình | Mã `code` chuẩn hóa | Trường mở rộng trong `ProblemDetails` |
 |---|---|---|---|
 | **`401 Unauthorized`** | Sai tên đăng nhập/mật khẩu; thiếu JWT; JWT hết hạn hoặc phiên `UserSession` đã bị thu hồi | `AUTH_INVALID_CREDENTIALS`, `AUTH_TOKEN_EXPIRED`, `AUTH_SESSION_REVOKED` | `correlationId` (giữ nguyên bản nháp đang nhập trên client để đăng nhập lại tại chỗ) |
 | **`403 Forbidden`** | Bác sĩ gọi `/admin/*`; Admin cố truy cập `/patients*` hoặc `/visits*`; tài khoản bị khóa (`is_active = false`) | `RBAC_ROLE_FORBIDDEN`, `CLINICAL_DATA_SEPARATION_ENFORCED`, `ACCOUNT_DEACTIVATED` | `correlationId` (mọi sự kiện `403` đều được ghi vào bảng `audit_log`) |
 | **`404 Not Found`** | Không tồn tại `patientId`, `visitId`, `userId`, `formId` hoặc `versionId` | `RESOURCE_NOT_FOUND` | `instance`, `correlationId` |
-| **`409 Conflict`** | Lệch `If-Match`/`rowVersion`; sửa `form_version` đã `published`; sửa `visit` đã `confirmed`; gọi `getVisitAiInput` trên lượt `draft`; trùng `username`; tự khóa Admin cuối cùng | `CONCURRENCY_ROW_VERSION_MISMATCH`, `FORM_VERSION_IMMUTABLE`, `VISIT_ALREADY_CONFIRMED`, `VISIT_NOT_CONFIRMED_FOR_AI_INPUT`, `DUPLICATE_USERNAME` | `currentRowVersion` (số nguyên `rowVersion` hiện có trên máy chủ) |
-| **`422 Unprocessable Entity`** | Giá trị trường sai kiểu hoặc vượt miền kỹ thuật (`SpO2 > 100`, `LVEF < 0`, `diastolic >= systolic`, `fromDate > toDate`); thiếu trường Tầng 3 khi gọi `confirmVisit` | `FIELD_VALIDATION_FAILED`, `TIER3_CONFIRM_REQUIREMENTS_UNMET` | `errors[]`: mảng `{ fieldCode, sectionCode, message, rejectedValue }` để UI tô đỏ và nhảy tới đúng ô |
+| **`409 Conflict`** | Lệch `If-Match`/`rowVersion`; sửa `form_version` đã `published`; xóa `form_version` không còn là `draft` hoặc đang có lượt khám; sửa `visit` đã `confirmed`; gọi `getVisitAiInput` trên lượt `draft`; trùng `username`; tự khóa Admin cuối cùng | `CONCURRENCY_ROW_VERSION_MISMATCH`, `FORM_VERSION_IMMUTABLE`, `FORM_VERSION_NOT_DRAFT`, `FORM_VERSION_IN_USE`, `VISIT_ALREADY_CONFIRMED`, `VISIT_NOT_CONFIRMED_FOR_AI_INPUT`, `DUPLICATE_USERNAME` | `currentRowVersion` (số nguyên `rowVersion` hiện có trên máy chủ) |
+| **`422 Unprocessable Entity`** | Giá trị trường sai kiểu hoặc vượt miền kỹ thuật (`SpO2 > 100`, `LVEF < 0`, `diastolic >= systolic`, `fromDate > toDate`); thiếu trường Tầng 3 khi gọi `confirmVisit`; `If-Match` của lệnh xóa bản nháp sai định dạng | `FIELD_VALIDATION_FAILED`, `TIER3_CONFIRM_REQUIREMENTS_UNMET`, `INVALID_IF_MATCH` | `errors[]`: mảng `{ fieldCode, sectionCode, message, rejectedValue }` để UI tô đỏ và nhảy tới đúng ô |
 
 ### 5.2. Chuẩn Phân trang (`PaginationMeta`)
 Các endpoint danh sách (`listPatients`, `listPatientVisits`, `listUsers`, `listAuditLogs`) sử dụng chung bộ tham số query `page` (mặc định `1`, `>= 1`) và `pageSize` (mặc định `20`, `1..100`), trả về đối tượng `pagination`:
@@ -124,7 +125,7 @@ Endpoint **`GET /api/v1/visits/{visitId}/ai-input`** (`operationId: getVisitAiIn
 
 ---
 
-## 7. Danh mục 32 Endpoint MVP theo 8 Màn hình (M1–M8)
+## 7. Danh mục 33 Endpoint MVP theo 8 Màn hình (M1–M8)
 
 | Màn hình | HTTP Method & Đường dẫn (`/api/v1`) | `operationId` | Vai trò được phép | Kiểm soát đồng thời |
 |---|---|---|---|---|
@@ -156,6 +157,7 @@ Endpoint **`GET /api/v1/visits/{visitId}/ai-input`** (`operationId: getVisitAiIn
 | **M7** | `POST /admin/forms/{formId}/versions` | `createFormVersionDraft` | `admin` (`doctor` → `403`) | Sinh `ETag`, trả `409` nếu đã có bản `draft` |
 | **M7** | `GET /admin/form-versions/{versionId}` | `getFormVersion` | `admin` (`doctor` → `403`) | Trả `ETag` |
 | **M7** | `PATCH /admin/form-versions/{versionId}` | `updateFormVersion` | `admin` (`doctor` → `403`) | Bắt buộc `If-Match`; trả `409` nếu đã `published` |
+| **M7** | `DELETE /admin/form-versions/{versionId}` | `deleteFormVersionDraft` | `admin` (`doctor` → `403`) | `If-Match` tùy chọn; nếu gửi mà lệch thì `409` |
 | **M7** | `GET /admin/form-versions/{versionId}/preview` | `previewFormVersion` | `admin` (`doctor` → `403`) | Tính khi gọi (không lưu bảng) |
 | **M7** | `GET /admin/form-versions/{versionId}/diff` | `diffFormVersion` | `admin` (`doctor` → `403`) | Tính khi gọi (không lưu bảng) |
 | **M7** | `POST /admin/form-versions/{versionId}/publish` | `publishFormVersion` | `admin` (`doctor` → `403`) | Bắt buộc `If-Match` → `409` |

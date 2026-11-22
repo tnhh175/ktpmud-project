@@ -795,6 +795,7 @@ def test_tc05_rbac_k8_matrix_admin_users_and_audit_logs(client: TestClient) -> N
         ("POST", f"/api/v1/admin/forms/{fake_id}/versions"),
         ("GET", f"/api/v1/admin/form-versions/{fake_id}"),
         ("PATCH", f"/api/v1/admin/form-versions/{fake_id}"),
+        ("DELETE", f"/api/v1/admin/form-versions/{fake_id}"),
         ("GET", f"/api/v1/admin/form-versions/{fake_id}/preview"),
         ("GET", f"/api/v1/admin/form-versions/{fake_id}/diff?baseVersionId={fake_id}"),
         ("POST", f"/api/v1/admin/form-versions/{fake_id}/publish"),
@@ -1064,9 +1065,9 @@ def test_tc06_form_version_immutability_diff_publish_and_visit_binding(
 
 
 # ---------------------------------------------------------------------------
-# TC-07 & TC-08: 32/32 OpenAPI Parity, K9 Scope Exclusion, Restart Persistence
+# TC-07 & TC-08: 33/33 OpenAPI Parity, K9 Scope Exclusion, Restart Persistence
 # ---------------------------------------------------------------------------
-def test_tc07_openapi_32_routes_k9_and_restart_persistence(temp_pg_dsn: str) -> None:
+def test_tc07_openapi_33_routes_k9_and_restart_persistence(temp_pg_dsn: str) -> None:
     spec_path = SUBMISSION_ROOT / "api" / "openapi.yaml"
     spec = yaml.safe_load(spec_path.read_text(encoding="utf-8"))
     spec_ops = {
@@ -1078,7 +1079,7 @@ def test_tc07_openapi_32_routes_k9_and_restart_persistence(temp_pg_dsn: str) -> 
 
     app1 = create_app(database_url=temp_pg_dsn, auth_secret=AUTH_SECRET, mount_web=True)
     app_ops = set(_iter_app_routes(app1))
-    assert len(spec_ops) == 32
+    assert len(spec_ops) == 33
     assert app_ops == spec_ops
 
     # Verify K9: zero excluded routes (import/excel/his/portal/predict)

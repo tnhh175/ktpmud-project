@@ -76,16 +76,20 @@
   }
 
   function toDatetimeLocal(iso) {
-    const d = iso ? new Date(iso) : new Date();
-    if (isNaN(d.getTime())) return new Date().toISOString().slice(0, 16);
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
     const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
     return local.toISOString().slice(0, 16);
   }
 
   function fromDatetimeLocal(val) {
-    if (!val) return new Date().toISOString();
+    if (!val) return null;
+    const parts = String(val).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,3})?)?$/);
+    if (!parts) return null;
     const d = new Date(val);
-    return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+    if (isNaN(d.getTime()) || d.getFullYear() !== Number(parts[1]) || d.getMonth() + 1 !== Number(parts[2]) || d.getDate() !== Number(parts[3]) || d.getHours() !== Number(parts[4]) || d.getMinutes() !== Number(parts[5]) || d.getSeconds() !== Number(parts[6] || 0)) return null;
+    return d.toISOString();
   }
 
   function formatSex(sex) {
@@ -276,6 +280,11 @@
       errorList: [],
       conflictError: null,
       dirty: false,
+      editVersion: 0,
+      loadGeneration: 0,
+      savePromise: null,
+      saveQueued: false,
+      savingVersion: null,
       lastSavedAt: null,
       autoPulseSourceIndex: null,
       highlightFieldCode: null,
@@ -484,16 +493,65 @@
   /* ------------------------------------------------------------------------
      Hash Router & Guarded Navigation
      ------------------------------------------------------------------------ */
+  let activeRouteHash = global.location.hash;
+  let activeRouteIndex = Number.isInteger((global.history.state || {}).suytimRouteIndex) ? global.history.state.suytimRouteIndex : 0;
+  let restoringRoute = null;
+  let allowedRouteHash = null;
+  global.history.replaceState(Object.assign({}, global.history.state, { suytimRouteIndex: activeRouteIndex }), '', global.location.href);
+
   function navigate(hash, skipDirtyGuard) {
     if (!skipDirtyGuard && state.screen === 'encounter' && state.encounter.dirty && hash !== global.location.hash) {
       openUnsavedGuardModal(hash);
       return;
     }
     if (global.location.hash === hash) {
+      if (state.screen === 'encounter' && state.encounter.dirty && !skipDirtyGuard) return;
       handleRoute();
     } else {
-      global.location.hash = hash;
+      activeRouteIndex += 1;
+      activeRouteHash = hash;
+      global.history.pushState({ suytimRouteIndex: activeRouteIndex }, '', hash);
+      handleRoute();
     }
+  }
+
+  function leaveGuardedRoute(modal) {
+    if (Number.isInteger(modal.targetHistoryIndex) && modal.targetHistoryIndex !== activeRouteIndex) {
+      allowedRouteHash = modal.targetHash;
+      global.history.go(modal.targetHistoryIndex - activeRouteIndex);
+    } else {
+      navigate(modal.targetHash, true);
+    }
+  }
+
+  function onHashChange() {
+    const hash = global.location.hash;
+    let index = (global.history.state || {}).suytimRouteIndex;
+    if (!Number.isInteger(index)) {
+      index = activeRouteIndex + 1;
+      global.history.replaceState(Object.assign({}, global.history.state, { suytimRouteIndex: index }), '', global.location.href);
+    }
+    if (restoringRoute) {
+      if (hash === activeRouteHash && index === activeRouteIndex) {
+        const destination = restoringRoute;
+        restoringRoute = null;
+        openUnsavedGuardModal(destination.hash, destination.index);
+      } else {
+        global.history.go(activeRouteIndex - index);
+      }
+      return;
+    }
+    if (hash === activeRouteHash && index === activeRouteIndex) return;
+    const allowed = allowedRouteHash === hash;
+    allowedRouteHash = null;
+    if (!allowed && state.screen === 'encounter' && state.encounter.dirty) {
+      restoringRoute = { hash: hash, index: index };
+      global.history.go(activeRouteIndex - index);
+      return;
+    }
+    activeRouteHash = hash;
+    activeRouteIndex = index;
+    handleRoute();
   }
 
   async function handleRoute() {
@@ -651,7 +709,11 @@
 
   async function loadEncounter(visitId) {
     const enc = state.encounter;
+    const generation = ++enc.loadGeneration;
     enc.visitId = visitId;
+    enc.savePromise = null;
+    enc.saveQueued = false;
+    enc.saving = false;
     enc.loading = true;
     enc.error = '';
     enc.conflictError = null;
@@ -664,6 +726,7 @@
         api.getVisitForm(visitId)
       ]);
       const ptRes = await api.getPatient(detail.visit.patientId);
+      if (generation !== enc.loadGeneration || enc.visitId !== visitId || state.screen !== 'encounter') return;
       enc.patient = ptRes.patient;
       enc.visit = detail.visit;
       enc.formStructure = formRes;
@@ -686,14 +749,17 @@
       enc.clinicalNote = detail.visit.clinicalNote || '';
       enc.infoSource = detail.visit.infoSource || '';
       enc.dirty = false;
+      enc.editVersion = 0;
       enc.lastSavedAt = detail.visit.updatedAt;
       if (formRes.sections && formRes.sections.length > 0 && !formRes.sections.some(function (s) { return s.sectionCode === enc.activeSectionCode; })) {
         enc.activeSectionCode = formRes.sections[0].sectionCode;
       }
     } catch (err) {
+      if (generation !== enc.loadGeneration || enc.visitId !== visitId || state.screen !== 'encounter') return;
       enc.error = (err && err.detail) || 'Không tải được biểu mẫu lượt khám.';
       if (err && (err.status === 401 || err.status === 403)) return handleAuthOrError(err);
     } finally {
+      if (generation !== enc.loadGeneration || enc.visitId !== visitId || state.screen !== 'encounter') return;
       enc.loading = false;
       render();
       if (enc.highlightFieldCode) {
@@ -2849,6 +2915,29 @@
   /* ------------------------------------------------------------------------
      Encounter & Preview Mutation Helpers
      ------------------------------------------------------------------------ */
+  function refreshEncounterSaveStatus() {
+    const enc = state.encounter;
+    if (state.screen !== 'encounter') return;
+    const badge = document.querySelector('.encounter-footer__status .badge');
+    if (badge) {
+      badge.className = 'badge ' + (enc.dirty ? 'badge--warn' : 'badge--success');
+      badge.textContent = enc.dirty ? 'Có thay đổi chưa lưu' : 'Đã lưu nháp · ' + formatDateTime(enc.lastSavedAt);
+    }
+    document.querySelectorAll('[data-action="save-draft"]').forEach(function (button) {
+      if (button.disabled !== enc.saving) {
+        button.disabled = enc.saving;
+        button.classList.toggle('is-loading', enc.saving);
+        button.innerHTML = enc.saving ? 'Đang lưu...' : ICONS.save + ' Lưu nháp';
+      }
+    });
+  }
+
+  function markEncounterDirty() {
+    state.encounter.editVersion += 1;
+    state.encounter.dirty = true;
+    refreshEncounterSaveStatus();
+  }
+
   function getFormTarget(isPreview) {
     if (isPreview) {
       return {
@@ -2880,7 +2969,7 @@
       numberInputAttribute: 'data-enc-num',
       getAutoPulseSourceIndex: function () { return state.encounter.autoPulseSourceIndex; },
       setAutoPulseSourceIndex: function (index) { state.encounter.autoPulseSourceIndex = index; },
-      markDirty: function () { state.encounter.dirty = true; }
+      markDirty: markEncounterDirty
     };
   }
 
@@ -2915,29 +3004,61 @@
     };
   }
 
-  async function saveEncounterDraft() {
+  function saveEncounterDraft() {
     const enc = state.encounter;
-    if (!enc.visit || enc.visit.status === 'confirmed') return false;
+    if (state.screen !== 'encounter' || enc.loading || !enc.visit || enc.visit.id !== enc.visitId || enc.visit.status === 'confirmed') return Promise.resolve(false);
+    if (enc.savePromise) {
+      if (enc.editVersion !== enc.savingVersion) enc.saveQueued = true;
+      return enc.savePromise;
+    }
+    const visitId = enc.visit.id;
+    const generation = enc.loadGeneration;
+    function isCurrent() {
+      return enc.visitId === visitId && enc.loadGeneration === generation && state.screen === 'encounter';
+    }
+    enc.savePromise = (async function () {
+      let ok;
+      do {
+        enc.saveQueued = false;
+        ok = await saveEncounterSnapshot(enc, isCurrent);
+      } while (ok && isCurrent() && enc.saveQueued && enc.dirty);
+      return ok && isCurrent();
+    })().finally(function () {
+      if (isCurrent()) enc.savePromise = null;
+    });
+    return enc.savePromise;
+  }
+
+  async function saveEncounterSnapshot(enc, isCurrent) {
+    const version = enc.editVersion;
+    const payload = clone(buildDraftSavePayload());
+    enc.savingVersion = version;
     enc.saving = true;
     enc.conflictError = null;
     enc.fieldErrors = {};
     enc.errorList = [];
-    render();
+    refreshEncounterSaveStatus();
     try {
-      const res = await api.saveVisitDraft(enc.visit.id, buildDraftSavePayload(), enc.visit.rowVersion);
+      const res = await api.saveVisitDraft(enc.visit.id, payload, payload.rowVersion);
+      if (!isCurrent()) return false;
+      if (!res || !res.visit || res.visit.id !== enc.visitId) throw new Error('Phản hồi lưu nháp không khớp lượt khám.');
       enc.visit = res.visit;
-      enc.valuesByDefId = {};
-      (res.values || []).forEach(function (v) { enc.valuesByDefId[v.fieldDefinitionId] = clone(v); });
-      enc.orthostaticBp = clone(res.orthostaticBp || []);
-      enc.medications = clone(res.medications || []);
-      enc.allergies = clone(res.allergies || []);
-      enc.labResults = clone(res.labResults || []);
+      if (enc.editVersion === version) {
+        enc.valuesByDefId = {};
+        (res.values || []).forEach(function (v) { enc.valuesByDefId[v.fieldDefinitionId] = clone(v); });
+        enc.orthostaticBp = clone(res.orthostaticBp || []);
+        enc.medications = clone(res.medications || []);
+        enc.allergies = clone(res.allergies || []);
+        enc.labResults = clone(res.labResults || []);
+        enc.dirty = false;
+      }
       enc.revisions = clone(res.revisions || []);
-      enc.dirty = false;
       enc.lastSavedAt = res.visit.updatedAt;
+      if (enc.editVersion === version) render();
       toast('Đã lưu nháp lượt khám thành công.', 'success');
       return true;
     } catch (err) {
+      if (!isCurrent()) return false;
       if (err && err.status === 422) {
         enc.errorList = err.errors || [];
         enc.fieldErrors = {};
@@ -2949,10 +3070,13 @@
       } else {
         handleAuthOrError(err, 'Không thể lưu nháp lượt khám.');
       }
+      if (isCurrent()) render();
       return false;
     } finally {
-      enc.saving = false;
-      render();
+      if (isCurrent()) {
+        enc.saving = false;
+        refreshEncounterSaveStatus();
+      }
     }
   }
 
@@ -2964,8 +3088,8 @@
     setTimeout(function () { el.classList.remove('field--highlight'); }, 2000);
   }
 
-  function openUnsavedGuardModal(targetHash) {
-    openModal({ type: 'unsaved-guard', targetHash: targetHash });
+  function openUnsavedGuardModal(targetHash, targetHistoryIndex) {
+    openModal({ type: 'unsaved-guard', targetHash: targetHash, targetHistoryIndex: targetHistoryIndex });
   }
 
   /* ------------------------------------------------------------------------
@@ -3509,25 +3633,29 @@
       return;
     }
     if (action === 'go-review') {
+      const visitId = state.encounter.visitId;
+      const generation = state.encounter.loadGeneration;
       if (state.encounter.dirty) {
         const ok = await saveEncounterDraft();
-        if (!ok) return;
+        if (!ok || state.encounter.dirty) return;
       }
+      if (state.encounter.visitId !== visitId || state.encounter.loadGeneration !== generation) return;
       navigate('#/visits/' + state.encounter.visitId + '/review', true);
       return;
     }
     if (action === 'discard-and-leave' && state.modal && state.modal.type === 'unsaved-guard') {
-      const dest = state.modal.targetHash;
+      const destination = state.modal;
       state.encounter.dirty = false;
       closeModal();
-      navigate(dest, true);
+      leaveGuardedRoute(destination);
       return;
     }
     if (action === 'save-and-leave' && state.modal && state.modal.type === 'unsaved-guard') {
-      const dest = state.modal.targetHash;
+      const destination = state.modal;
       closeModal();
       const ok = await saveEncounterDraft();
-      if (ok) navigate(dest, true);
+      if (ok && !state.encounter.dirty) leaveGuardedRoute(destination);
+      else if (ok) openModal(destination);
       return;
     }
     if (action === 'confirm-visit' && state.review.visit) {
@@ -3862,7 +3990,7 @@
     const vmKey = t.getAttribute('data-enc-visit-meta');
     if (vmKey) {
       state.encounter[vmKey] = t.value;
-      state.encounter.dirty = true;
+      markEncounterDirty();
       return;
     }
 
@@ -4018,7 +4146,7 @@
         ft.valuesByDefId[fd.id] = item;
       }
       ft.markDirty();
-      render();
+      t.classList.toggle('input--unfilled', !ft.valuesByDefId[fd.id]);
       return;
     }
 
@@ -4046,7 +4174,8 @@
         ft.valuesByDefId[fd.id] = item;
       }
       ft.markDirty();
-      render();
+      const choices = t.closest('.multi-choice-box');
+      if (choices) choices.classList.toggle('multi-choice-box--unfilled', !ft.valuesByDefId[fd.id]);
       return;
     }
 
@@ -4137,7 +4266,12 @@
     }
   });
 
-  global.addEventListener('hashchange', function () { handleRoute(); });
+  global.addEventListener('hashchange', onHashChange);
+  global.addEventListener('beforeunload', function (ev) {
+    if (state.screen !== 'encounter' || !state.encounter.dirty) return;
+    ev.preventDefault();
+    ev.returnValue = '';
+  });
 
   /* ------------------------------------------------------------------------
      Boot

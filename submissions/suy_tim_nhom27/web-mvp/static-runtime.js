@@ -915,7 +915,7 @@
           errors.push({ fieldCode: 'mach', sectionCode: 'sinh_ton_kham', message: 'Lần đo HA #' + (idx + 1) + ': Nhịp tim phải nằm trong 20–300 lần/phút.', rejectedValue: bp.heartRate });
         }
       }
-      if (!bp.measuredAt) {
+      if (!bp.measuredAt || !Number.isFinite(Date.parse(bp.measuredAt))) {
         errors.push({ fieldCode: 'thoi_diem_do_ha', sectionCode: 'sinh_ton_kham', message: 'Lần đo HA #' + (idx + 1) + ': bắt buộc có thời điểm đo.', rejectedValue: null });
       }
     });
@@ -941,7 +941,7 @@
         errors.push({ fieldCode: lab.labCode || 'can_lam_sang', sectionCode: 'can_lam_sang', message: 'Kết quả CLS #' + (idx + 1) + ': vui lòng chọn loại xét nghiệm / thăm dò.', rejectedValue: lab.labCode });
         return;
       }
-      if (!lab.measuredAt) {
+      if (!lab.measuredAt || !Number.isFinite(Date.parse(lab.measuredAt))) {
         errors.push({ fieldCode: fd.code, sectionCode: 'can_lam_sang', message: fd.labelVi + ' (#' + (idx + 1) + '): bắt buộc nhập thời điểm lấy mẫu/thực hiện.', rejectedValue: null });
       }
       if (fd.dataType === 'number' || fd.dataType === 'integer') {
