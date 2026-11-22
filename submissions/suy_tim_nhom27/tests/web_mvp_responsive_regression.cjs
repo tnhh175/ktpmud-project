@@ -197,7 +197,7 @@ async function checkWidth(browser, base, width) {
         await button.click();
         assert.equal(await button.getAttribute('aria-expanded'), 'true');
         assert.equal(await page.locator('#mobile-navigation').isVisible(), true);
-        assert.equal(await page.locator('#mobile-navigation .nav-item__label').isVisible(), true);
+        assert.equal(await page.locator('#mobile-navigation .sidebar__nav .nav-item__label').isVisible(), true);
         const data = await geometry(page, 'mobile menu', ['.mobile-topbar', '#mobile-navigation', '.workspace']);
         await page.keyboard.press('Escape');
         assert.equal(await button.getAttribute('aria-expanded'), 'false');
@@ -263,7 +263,7 @@ async function resizeAndInteract(browser, base) {
     await page.locator('.mobile-topbar').waitFor({ state: 'visible' });
     const menu = page.locator('[data-action="toggle-mobile-menu"]');
     await menu.click();
-    assert.equal(await page.locator('#mobile-navigation .nav-item__label').isVisible(), true, 'collapsed desktop preference must not hide mobile labels');
+    assert.equal(await page.locator('#mobile-navigation .sidebar__nav .nav-item__label').isVisible(), true, 'collapsed desktop preference must not hide mobile labels');
     await menu.click();
     await page.evaluate(() => { location.hash = '#/visits/20000000-0000-4000-8000-000000000202'; });
     const note = page.locator('#enc-clinical-note');

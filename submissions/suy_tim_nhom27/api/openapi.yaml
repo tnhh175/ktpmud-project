@@ -117,6 +117,40 @@ paths:
         '422':
           $ref: '#/components/responses/UnprocessableEntityError'
 
+  /auth/change-password:
+    post:
+      tags: [Auth]
+      operationId: changePassword
+      summary: "Bác sĩ tự đổi mật khẩu tài khoản hiện tại"
+      description: |
+        Chỉ tài khoản `doctor` đã xác thực được đổi mật khẩu của chính mình.
+        Mật khẩu hiện tại sai trả 422 với mã `CURRENT_PASSWORD_INCORRECT` và
+        `errors.fieldCode = currentPassword`. Mật khẩu mới trùng mật khẩu cũ
+        trả 422 `FIELD_VALIDATION_FAILED` tại `newPassword`.
+        Sau khi đổi thành công, giữ phiên hiện tại và thu hồi mọi phiên khác
+        của cùng người dùng. Không trả hoặc ghi mật khẩu, mã băm hay token.
+      x-screen: M1
+      x-allowed-roles: [doctor]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: "Thông tin tài khoản đã cập nhật, phiên hiện tại vẫn có hiệu lực"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppUser'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntityError'
+
   /auth/logout:
     post:
       tags: [Auth]
@@ -2596,7 +2630,7 @@ components:
           minimum: 0
 
     # =========================================================================
-    # 4. Các Schema Request / Response cho 32 Operation
+    # 4. Các Schema Request / Response cho các operation
     # =========================================================================
     LoginRequest:
       type: object
@@ -2613,6 +2647,22 @@ components:
           type: string
           format: password
           minLength: 1
+          maxLength: 128
+
+    ChangePasswordRequest:
+      type: object
+      additionalProperties: false
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+          format: password
+          minLength: 1
+          maxLength: 128
+        newPassword:
+          type: string
+          format: password
+          minLength: 8
           maxLength: 128
 
     RefreshTokenRequest:

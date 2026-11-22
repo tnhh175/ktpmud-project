@@ -8,6 +8,24 @@
 (function (global) {
   const STORAGE_KEY = 'suytim_mvp_static_db_v1';
   const SESSION_KEY = 'suytim_mvp_static_session_v1';
+  let authEpoch = 0;
+
+  function credentialStamp(user) {
+    return JSON.stringify([user.credentialVersion || 0, user.passwordSecret, user.passwordVerifier, user.role, user.isActive]);
+  }
+
+  async function derivePassword(password, salt, iterations) {
+    const key = await global.crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+    const bits = await global.crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: new Uint8Array(salt), iterations: iterations }, key, 256);
+    return Array.from(new Uint8Array(bits));
+  }
+
+  async function verifyPassword(user, password) {
+    if (!user.passwordVerifier) return user.passwordSecret === password;
+    const verifier = user.passwordVerifier;
+    const hash = await derivePassword(password, verifier.salt, verifier.iterations);
+    return hash.length === verifier.hash.length && hash.every(function (byte, index) { return byte === verifier.hash[index]; });
+  }
 
   class StaticApiError extends Error {
     constructor(status, code, title, detail, extra) {
@@ -747,7 +765,7 @@
     return catalogCache;
   }
 
-  async function loadDb() {
+  function readStoredDb() {
     const raw = global.localStorage.getItem(STORAGE_KEY);
     if (raw) {
       try {
@@ -759,6 +777,12 @@
         // Re-seed if corrupted
       }
     }
+    return null;
+  }
+
+  async function loadDb() {
+    const stored = readStoredDb();
+    if (stored) return stored;
     const cat = await ensureCatalog();
     const db = buildInitialDb(cat);
     saveDb(db);
@@ -811,11 +835,21 @@
   }
 
   function requireAuth(db, allowedRoles, entityTypeForAudit) {
+    // An async caller may have loaded this object before credentials were changed.
+    const stored = readStoredDb();
+    if (!stored) {
+      throw new StaticApiError(401, 'UNAUTHORIZED', 'Chưa xác thực', 'Dữ liệu đăng nhập đã thay đổi. Vui lòng đăng nhập lại.');
+    }
+    Object.assign(db, stored);
     const sess = getSession();
     if (!sess || !sess.userId) {
       throw new StaticApiError(401, 'UNAUTHORIZED', 'Chưa xác thực', 'Phiên đăng nhập chưa khởi tạo hoặc đã hết hạn. Vui lòng đăng nhập lại.');
     }
     const user = db.users.find(function (u) { return u.id === sess.userId; });
+    if (user && (sess.credentialVersion || 0) !== (user.credentialVersion || 0)) {
+      setSession(null);
+      throw new StaticApiError(401, 'UNAUTHORIZED', 'Phiên đăng nhập đã hết hạn', 'Mật khẩu đã thay đổi. Vui lòng đăng nhập lại.');
+    }
     if (!user || !user.isActive) {
       setSession(null);
       throw new StaticApiError(403, 'ACCOUNT_LOCKED', 'Tài khoản không khả dụng', 'Tài khoản đã bị khóa hoặc không tồn tại.');
@@ -1248,6 +1282,7 @@
     ApiError: StaticApiError,
 
     async resetLocalData() {
+      authEpoch += 1;
       global.localStorage.removeItem(STORAGE_KEY);
       setSession(null);
       await loadDb();
@@ -1255,14 +1290,21 @@
 
     /* ---------------- M1: Auth ---------------- */
     async login(payload) {
-      const db = await loadDb();
+      const epoch = ++authEpoch;
+      let db = await loadDb();
       const uname = String((payload && payload.username) || '').trim();
       const pwd = String((payload && payload.password) || '');
       if (!uname || !pwd) {
         throw new StaticApiError(422, 'VALIDATION_ERROR', 'Thiếu thông tin đăng nhập', 'Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.');
       }
-      const user = db.users.find(function (u) { return u.username.toLowerCase() === uname.toLowerCase(); });
-      if (!user || user.passwordSecret !== pwd) {
+      let user = db.users.find(function (u) { return u.username.toLowerCase() === uname.toLowerCase(); });
+      const stamp = user && credentialStamp(user);
+      const valid = user && await verifyPassword(user, pwd);
+      db = readStoredDb();
+      if (!db) throw new StaticApiError(401, 'UNAUTHORIZED', 'Thông tin đăng nhập đã thay đổi', 'Vui lòng đăng nhập lại.');
+      user = db.users.find(function (u) { return u.username.toLowerCase() === uname.toLowerCase(); });
+      if (epoch !== authEpoch) throw new StaticApiError(401, 'UNAUTHORIZED', 'Phiên đăng nhập đã thay đổi', 'Vui lòng đăng nhập lại.');
+      if (!valid || !user || credentialStamp(user) !== stamp) {
         appendAudit(db, user || null, 'login_failed', 'user_session', null, 'failure', { attemptedUsername: uname });
         saveDb(db);
         throw new StaticApiError(401, 'INVALID_CREDENTIALS', 'Đăng nhập thất bại', 'Sai tên đăng nhập hoặc mật khẩu.');
@@ -1277,7 +1319,7 @@
       user.updatedAt = nowIso;
       const accessToken = 'static-jwt-' + makeUuid();
       const refreshToken = 'static-rt-' + makeUuid();
-      setSession({ userId: user.id, role: user.role, accessToken: accessToken, refreshToken: refreshToken });
+      setSession({ userId: user.id, role: user.role, accessToken: accessToken, refreshToken: refreshToken, credentialVersion: user.credentialVersion || 0 });
       appendAudit(db, user, 'login', 'user_session', user.id, 'success', { role: user.role });
       saveDb(db);
       return {
@@ -1305,22 +1347,65 @@
     },
 
     async logout() {
-      const db = await loadDb();
+      const epoch = ++authEpoch;
       const sess = getSession();
-      if (sess && sess.userId) {
+      await loadDb();
+      const db = readStoredDb();
+      if (db && sess && sess.userId) {
         const user = db.users.find(function (u) { return u.id === sess.userId; });
         if (user) {
           appendAudit(db, user, 'logout', 'user_session', user.id, 'success', {});
           saveDb(db);
         }
       }
-      setSession(null);
+      if (epoch === authEpoch) setSession(null);
       return null;
     },
 
     async getCurrentUser() {
       const db = await loadDb();
       const user = requireAuth(db, ['doctor', 'admin'], 'user_session');
+      return sanitizeUser(user);
+    },
+
+    async changePassword(payload) {
+      let db = await loadDb();
+      let user = requireAuth(db, ['doctor'], 'user_session');
+      const session = getSession();
+      const epoch = authEpoch;
+      const stamp = credentialStamp(user);
+      const current = payload && payload.currentPassword;
+      const next = payload && payload.newPassword;
+      function invalid(field, message, code) {
+        return new StaticApiError(422, code || 'FIELD_VALIDATION_FAILED', 'Chưa đổi được mật khẩu', message, { errors: [{ fieldCode: field, message: message }] });
+      }
+      if (typeof current !== 'string' || Array.from(current).length < 1 || Array.from(current).length > 128) {
+        throw invalid('currentPassword', 'Mật khẩu hiện tại phải có từ 1 đến 128 ký tự.');
+      }
+      if (typeof next !== 'string' || Array.from(next).length < 8 || Array.from(next).length > 128 || next === current) {
+        throw invalid('newPassword', 'Mật khẩu mới phải có từ 8 đến 128 ký tự và khác mật khẩu hiện tại.');
+      }
+      const valid = await verifyPassword(user, current);
+      const salt = Array.from(global.crypto.getRandomValues(new Uint8Array(16)));
+      const hash = valid ? await derivePassword(next, salt, 600000) : null;
+      // Read and commit without yielding so a stale attempt cannot clear a newer session.
+      db = readStoredDb();
+      if (!db) throw invalid('currentPassword', 'Thông tin đăng nhập đã thay đổi. Vui lòng thử lại.', 'CURRENT_PASSWORD_INCORRECT');
+      user = requireAuth(db, ['doctor'], 'user_session');
+      const activeSession = getSession();
+      if (epoch !== authEpoch || user.id !== session.userId || activeSession.accessToken !== session.accessToken || credentialStamp(user) !== stamp) {
+        throw invalid('currentPassword', 'Thông tin đăng nhập đã thay đổi. Vui lòng thử lại.', 'CURRENT_PASSWORD_INCORRECT');
+      }
+      if (!valid) throw invalid('currentPassword', 'Mật khẩu hiện tại chưa đúng.', 'CURRENT_PASSWORD_INCORRECT');
+      user.passwordVerifier = { salt: salt, hash: hash, iterations: 600000 };
+      delete user.passwordSecret;
+      user.credentialVersion = (user.credentialVersion || 0) + 1;
+      user.rowVersion = (user.rowVersion || 1) + 1;
+      user.updatedAt = new Date().toISOString();
+      activeSession.credentialVersion = user.credentialVersion;
+      appendAudit(db, user, 'user_update', 'app_user', user.id, 'success', { event: 'password_changed' });
+      saveDb(db);
+      setSession(activeSession);
       return sanitizeUser(user);
     },
 
@@ -2005,6 +2090,8 @@
       if (payload.resetPassword) {
         oneTimeSetupCode = 'RST-' + Math.random().toString(36).slice(2, 6).toUpperCase() + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
         u.passwordSecret = oneTimeSetupCode;
+        delete u.passwordVerifier;
+        u.credentialVersion = (u.credentialVersion || 0) + 1;
         diff.resetPassword = true;
       }
       u.rowVersion = (u.rowVersion || 1) + 1;

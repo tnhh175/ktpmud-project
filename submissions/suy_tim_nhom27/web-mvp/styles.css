@@ -2348,6 +2348,17 @@ button {
   overflow: hidden;
 }
 
+.change-password-form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.change-password-form .modal__head,
+.change-password-form .modal__foot {
+  flex-shrink: 0;
+}
+
 .modal__head {
   padding: 16px 20px;
   border-bottom: 1px solid var(--border-subtle);
@@ -2516,6 +2527,7 @@ button {
   .mobile-topbar__actions { margin-left: auto; }
   .mobile-drawer.is-open { display: block; }
   .topbar__sidebar-btn,
+  .topbar__password,
   .topbar__logout { display: none; }
 
   .topbar { padding: 10px 14px; }

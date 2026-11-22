@@ -22,6 +22,7 @@ from .db import normalize_ip, to_iso
 from .models import (
     AppUser,
     AuthTokenResponse,
+    ChangePasswordRequest,
     LoginRequest,
     LogoutRequest,
     ProblemError,
@@ -416,6 +417,7 @@ def login(body: LoginRequest, request: Request) -> dict[str, Any]:
                    row_version, created_at, updated_at
             FROM app_user
             WHERE lower(username) = lower(%s)
+            FOR UPDATE
             """,
             (username,),
         ).fetchone()
@@ -524,6 +526,96 @@ def login(body: LoginRequest, request: Request) -> dict[str, Any]:
         "expiresIn": ACCESS_TOKEN_TTL_SECONDS,
         "user": user_row_to_schema_dict(user_dict),
     }
+
+
+@router.post("/change-password", operation_id="changePassword", response_model=AppUser)
+def change_password(
+    body: ChangePasswordRequest,
+    request: Request,
+    principal: Principal = Depends(require_role("doctor", "app_user")),
+) -> dict[str, Any]:
+    """Change the doctor's password and revoke every other session atomically."""
+    with request.app.state.pool.connection() as conn:
+        user = conn.execute(
+            """
+            SELECT id, username, password_hash, full_name, role, is_active,
+                   row_version, created_at, updated_at
+            FROM app_user WHERE id = %s FOR UPDATE
+            """,
+            (str(principal.user_id),),
+        ).fetchone()
+        session = conn.execute(
+            """
+            SELECT id, revoked_at, expires_at
+            FROM user_session WHERE id = %s AND user_id = %s FOR UPDATE
+            """,
+            (str(principal.session_id), str(principal.user_id)),
+        ).fetchone()
+        if not session or session["revoked_at"] is not None:
+            raise ProblemError(
+                401, "AUTH_SESSION_REVOKED", "Phiên đăng nhập đã bị thu hồi",
+                "Phiên đăng nhập không còn hiệu lực. Vui lòng đăng nhập lại.",
+            )
+        if session["expires_at"] <= datetime.now(timezone.utc):
+            raise ProblemError(
+                401, "AUTH_TOKEN_EXPIRED", "Phiên đăng nhập đã hết hạn",
+                "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+            )
+        if user is None or not user["is_active"]:
+            raise ProblemError(
+                403, "ACCOUNT_DEACTIVATED", "Tài khoản đã bị tạm khóa",
+                "Tài khoản đã bị khóa — vui lòng liên hệ Quản trị viên.",
+            )
+        if user["role"] != "doctor":
+            raise ProblemError(
+                403, "RBAC_ROLE_FORBIDDEN", "Không đủ quyền truy cập",
+                "Chỉ Bác sĩ được tự đổi mật khẩu bằng chức năng này.",
+            )
+        if not verify_password(body.currentPassword, user["password_hash"]):
+            raise ProblemError(
+                422, "CURRENT_PASSWORD_INCORRECT", "Mật khẩu hiện tại không đúng",
+                "Mật khẩu hiện tại không đúng.",
+                errors=[{"fieldCode": "currentPassword", "message": "Mật khẩu hiện tại không đúng."}],
+            )
+        if body.newPassword == body.currentPassword:
+            raise ProblemError(
+                422, "FIELD_VALIDATION_FAILED", "Mật khẩu mới không hợp lệ",
+                "Mật khẩu mới phải khác mật khẩu hiện tại.",
+                errors=[{"fieldCode": "newPassword", "message": "Mật khẩu mới phải khác mật khẩu hiện tại."}],
+            )
+        updated = conn.execute(
+            """
+            UPDATE app_user SET password_hash = %s WHERE id = %s
+            RETURNING id, username, full_name, role, is_active,
+                      row_version, created_at, updated_at
+            """,
+            (hash_password(body.newPassword), str(principal.user_id)),
+        ).fetchone()
+        conn.execute(
+            """
+            UPDATE user_session SET revoked_at = GREATEST(now(), created_at)
+            WHERE user_id = %s AND id <> %s AND revoked_at IS NULL
+            """,
+            (str(principal.user_id), str(principal.session_id)),
+        )
+        last_login = conn.execute(
+            "SELECT max(created_at) AS last_login_at FROM user_session WHERE user_id = %s",
+            (str(principal.user_id),),
+        ).fetchone()
+        record_audit_log(
+            conn,
+            actor_user_id=principal.user_id,
+            action="user_update",
+            entity_type="app_user",
+            entity_id=principal.user_id,
+            ip=get_client_ip(request),
+            request_id=get_request_id(request),
+            detail={"event": "password_changed"},
+        )
+        conn.commit()
+    result = dict(updated)
+    result["last_login_at"] = last_login["last_login_at"] if last_login else None
+    return user_row_to_schema_dict(result)
 
 
 @router.post("/refresh", operation_id="refreshToken", response_model=AuthTokenResponse)

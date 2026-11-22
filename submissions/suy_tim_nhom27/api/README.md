@@ -41,6 +41,7 @@ Hệ thống cung cấp REST API có tiền tố chung **`/api/v1`**, phục v�
    - `refreshToken`: Chuỗi ngẫu nhiên độ entropy cao, chỉ lưu **mã băm** (`refresh_token_hash`) trong bảng `user_session` kèm `expires_at` và `revoked_at`.
    - `POST /api/v1/auth/refresh` (`refreshToken`): Kiểm tra phiên chưa hết hạn và chưa thu hồi để xoay vòng token mới.
    - `POST /api/v1/auth/logout` (`logout`): Đánh dấu `revoked_at = NOW()` trên `user_session` và ghi `AuditLog` (`action = logout`).
+3. **Bác sĩ tự đổi mật khẩu (`POST /api/v1/auth/change-password` — `changePassword`):** Chỉ tài khoản `doctor` đang đăng nhập được gửi `currentPassword` và `newPassword` (8–128 ký tự). Sai mật khẩu hiện tại trả `422 CURRENT_PASSWORD_INCORRECT` tại `currentPassword`; mật khẩu mới trùng mật khẩu cũ trả `422 FIELD_VALIDATION_FAILED` tại `newPassword`. Thành công trả `AppUser`, giữ phiên hiện tại, thu hồi mọi phiên khác của cùng tài khoản và ghi `user_update` không chứa giá trị mật khẩu.
 
 ---
 
@@ -51,6 +52,7 @@ Hệ thống áp dụng nguyên tắc **Tách quyền Quản trị khỏi Dữ l
 | Nhóm Endpoint | Đường dẫn (`/api/v1/...`) | Bác sĩ (`doctor`) | Quản trị viên (`admin`) | Chính sách kiểm soát & Kiểm toán |
 |---|---|:---:|:---:|---|
 | **Phiên xác thực (M1)** | `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/me` | Cho phép | Cho phép | Xác thực danh tính và định tuyến giao diện theo `role` từ server. |
+| **Đổi mật khẩu (M1)** | `/auth/change-password` | **Cho phép, chỉ đổi cho mình** | **`403 Forbidden`** | Giữ phiên hiện tại; thu hồi các phiên khác sau khi đổi thành công. |
 | **Hồ sơ bệnh nhân (M2, M3)** | `/patients`, `/patients/{patientId}` | **Cho phép** | **`403 Forbidden`** | `admin` không có quyền đọc hay chỉnh sửa hồ sơ bệnh nhân. |
 | **Lượt khám & Lâm sàng (M3, M4, M5)** | `/patients/{patientId}/visits`, `/visits/{visitId}`, `/visits/{visitId}/form`, `/visits/{visitId}/draft`, `/visits/{visitId}/review`, `/visits/{visitId}/confirm`, `/visits/{visitId}/revisions`, `/visits/{visitId}/ai-input` | **Cho phép** | **`403 Forbidden`** | `admin` tuyệt đối không được đọc `visit`, `visit_value`, `visit_orthostatic_bp`, `visit_medication`, `visit_allergy`, `visit_lab_result`, `visit_revision` hay `AiInputPayload`. Mọi truy cập trái phép trả `403`. |
 | **Quản trị tài khoản & Quyền (M6)** | `/admin/users`, `/admin/users/{userId}`, `/admin/users/permission-preview` | **`403 Forbidden`** | **Cho phép** | `doctor` gọi trực tiếp URL quản trị trả `403`. Không bao giờ lộ `password_hash`. |
@@ -82,7 +84,7 @@ Mọi tài nguyên có trạng thái thay đổi (`Patient`, `Visit`, `FormVersi
 ## 5. Chuẩn hóa Phản hồi Lỗi (`RFC 9457 ProblemDetails`) & Phân trang
 
 ### 5.1. Phản hồi lỗi `application/problem+json`
-Tất cả các mã lỗi **`401`**, **`403`**, **`404`**, **`409`**, **`422`** trên toàn bộ 33 endpoint đều trả về cùng cấu trúc `ProblemDetails`:
+Tất cả các mã lỗi **`401`**, **`403`**, **`404`**, **`409`**, **`422`** trên toàn bộ 34 endpoint đều trả về cùng cấu trúc `ProblemDetails`:
 
 | Mã HTTP | Tình huống nghiệp vụ điển hình | Mã `code` chuẩn hóa | Trường mở rộng trong `ProblemDetails` |
 |---|---|---|---|
@@ -90,7 +92,7 @@ Tất cả các mã lỗi **`401`**, **`403`**, **`404`**, **`409`**, **`422`** 
 | **`403 Forbidden`** | Bác sĩ gọi `/admin/*`; Admin cố truy cập `/patients*` hoặc `/visits*`; tài khoản bị khóa (`is_active = false`) | `RBAC_ROLE_FORBIDDEN`, `CLINICAL_DATA_SEPARATION_ENFORCED`, `ACCOUNT_DEACTIVATED` | `correlationId` (mọi sự kiện `403` đều được ghi vào bảng `audit_log`) |
 | **`404 Not Found`** | Không tồn tại `patientId`, `visitId`, `userId`, `formId` hoặc `versionId` | `RESOURCE_NOT_FOUND` | `instance`, `correlationId` |
 | **`409 Conflict`** | Lệch `If-Match`/`rowVersion`; sửa `form_version` đã `published`; xóa `form_version` không còn là `draft` hoặc đang có lượt khám; sửa `visit` đã `confirmed`; gọi `getVisitAiInput` trên lượt `draft`; trùng `username`; tự khóa Admin cuối cùng | `CONCURRENCY_ROW_VERSION_MISMATCH`, `FORM_VERSION_IMMUTABLE`, `FORM_VERSION_NOT_DRAFT`, `FORM_VERSION_IN_USE`, `VISIT_ALREADY_CONFIRMED`, `VISIT_NOT_CONFIRMED_FOR_AI_INPUT`, `DUPLICATE_USERNAME` | `currentRowVersion` (số nguyên `rowVersion` hiện có trên máy chủ) |
-| **`422 Unprocessable Entity`** | Giá trị trường sai kiểu hoặc vượt miền kỹ thuật (`SpO2 > 100`, `LVEF < 0`, `diastolic >= systolic`, `fromDate > toDate`); thiếu trường Tầng 3 khi gọi `confirmVisit`; `If-Match` của lệnh xóa bản nháp sai định dạng | `FIELD_VALIDATION_FAILED`, `TIER3_CONFIRM_REQUIREMENTS_UNMET`, `INVALID_IF_MATCH` | `errors[]`: mảng `{ fieldCode, sectionCode, message, rejectedValue }` để UI tô đỏ và nhảy tới đúng ô |
+| **`422 Unprocessable Entity`** | Giá trị trường sai kiểu hoặc vượt miền kỹ thuật (`SpO2 > 100`, `LVEF < 0`, `diastolic >= systolic`, `fromDate > toDate`); thiếu trường Tầng 3 khi gọi `confirmVisit`; mật khẩu hiện tại sai khi bác sĩ tự đổi; `If-Match` của lệnh xóa bản nháp sai định dạng | `FIELD_VALIDATION_FAILED`, `CURRENT_PASSWORD_INCORRECT`, `TIER3_CONFIRM_REQUIREMENTS_UNMET`, `INVALID_IF_MATCH` | `errors[]`: mảng `{ fieldCode, sectionCode, message, rejectedValue }` để UI tô đỏ và nhảy tới đúng ô |
 
 ### 5.2. Chuẩn Phân trang (`PaginationMeta`)
 Các endpoint danh sách (`listPatients`, `listPatientVisits`, `listUsers`, `listAuditLogs`) sử dụng chung bộ tham số query `page` (mặc định `1`, `>= 1`) và `pageSize` (mặc định `20`, `1..100`), trả về đối tượng `pagination`:
@@ -127,12 +129,13 @@ Endpoint **`GET /api/v1/visits/{visitId}/ai-input`** (`operationId: getVisitAiIn
 
 ---
 
-## 7. Danh mục 33 Endpoint MVP theo 8 Màn hình (M1–M8)
+## 7. Danh mục 34 Endpoint MVP theo 8 Màn hình (M1–M8)
 
 | Màn hình | HTTP Method & Đường dẫn (`/api/v1`) | `operationId` | Vai trò được phép | Kiểm soát đồng thời |
 |---|---|---|---|---|
 | **M1** | `POST /auth/login` | `login` | Công khai (`doctor`, `admin`) | — |
 | **M1** | `POST /auth/refresh` | `refreshToken` | `doctor`, `admin` | — |
+| **M1** | `POST /auth/change-password` | `changePassword` | `doctor` (`admin` → `403`) | Khóa tài khoản, giữ phiên hiện tại, thu hồi phiên khác |
 | **M1** | `POST /auth/logout` | `logout` | `doctor`, `admin` | — |
 | **M1** | `GET /auth/me` | `getCurrentUser` | `doctor`, `admin` | — |
 | **M2** | `GET /patients` | `listPatients` | `doctor` (`admin` → `403`) | — |

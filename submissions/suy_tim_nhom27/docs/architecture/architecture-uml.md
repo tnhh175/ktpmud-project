@@ -9,7 +9,7 @@
 - Hợp đồng kiến trúc & đặt tên: `CONTRACT.md` (Chốt `K1`–`K10`, Mục 4)
 - Đề xuất chuẩn hóa 3NF `multi_choice`: `CR-W1-01.md` (`visit_value_option` / `VisitValueOption`)
 - Nguồn sự thật CSDL (Mốc S1): [`schema_metadata.json`](../../database/schema_metadata.json) (`19` bảng, `10` enum, `121` trường catalog = `95 mvp + 26 can_xac_nhan`)
-- Nguồn sự thật API (Mốc S2): [`openapi.yaml`](../../api/openapi.yaml) (`OpenAPI 3.1.0`, `33 operationId`, `74` schemas)
+- Nguồn sự thật API (Mốc S2): [`openapi.yaml`](../../api/openapi.yaml) (`OpenAPI 3.1.0`, `34 operationId`, `75` schemas)
 - Bản bàn giao gốc: `BAN-GIAO-DEV-web-suy-tim-hai-luong-2026-11-19.md` (Mục 6.1, 6.3)
 
 ---

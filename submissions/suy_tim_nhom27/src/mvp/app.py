@@ -113,12 +113,22 @@ def create_app(
             loc = [str(part) for part in err.get("loc", ()) if part not in ("body", "query", "path", "header")]
             field_code = loc[-1] if loc else "request"
             inp = err.get("input")
-            if isinstance(inp, (dict, list)):
+            secret_field = any(
+                marker in part.lower()
+                for part in loc
+                for marker in ("password", "token", "secret", "credential", "setupcode")
+            )
+            credential_request = request.url.path.startswith("/api/v1/auth/")
+            if isinstance(inp, (dict, list)) or secret_field or credential_request:
                 inp = None
             formatted_errors.append(
                 {
                     "fieldCode": field_code,
-                    "message": err.get("msg", "Dữ liệu không hợp lệ."),
+                    "message": (
+                        "Dữ liệu không hợp lệ."
+                        if secret_field or credential_request
+                        else err.get("msg", "Dữ liệu không hợp lệ.")
+                    ),
                     "rejectedValue": inp,
                 }
             )

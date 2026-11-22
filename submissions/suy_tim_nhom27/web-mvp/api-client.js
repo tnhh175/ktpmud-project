@@ -1,7 +1,7 @@
 'use strict';
 
 /* ==========================================================================
-   API Client Abstraction (33 OpenAPI 3.1 Operations)
+   API Client Abstraction (34 OpenAPI 3.1 Operations)
    Hai adapter dùng chung một giao diện:
      - mode: 'api'    -> HTTP fetch tới /api/v1/* kèm Bearer JWT & If-Match
      - mode: 'static' -> StaticRuntime (localStorage trên trình duyệt)
@@ -197,6 +197,7 @@
         return null;
       },
       getCurrentUser() { return request('GET', '/auth/me'); },
+      changePassword(payload) { return request('POST', '/auth/change-password', { body: payload }); },
 
       /* Patients */
       listPatients(params) { return request('GET', '/patients' + buildQuery(params)); },
@@ -283,6 +284,7 @@
       refreshToken: function () { return adapter.refreshToken(); },
       logout: function () { return adapter.logout(); },
       getCurrentUser: function () { return adapter.getCurrentUser(); },
+      changePassword: function (p) { return adapter.changePassword(p); },
       listPatients: function (p) { return adapter.listPatients(p); },
       createPatient: function (p) { return adapter.createPatient(p); },
       getPatient: function (id) { return adapter.getPatient(id); },

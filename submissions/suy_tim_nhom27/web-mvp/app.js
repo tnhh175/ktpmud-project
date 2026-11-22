@@ -1030,6 +1030,7 @@
           '</div>' +
           '<div id="mobile-navigation" class="mobile-drawer' + (state.mobileMenuOpen ? ' is-open' : '') + '">' +
             '<nav class="sidebar__nav">' + navHtml + '</nav>' +
+            (!isAdmin ? '<button type="button" class="nav-item" data-action="open-change-password">' + ICONS.shield + '<span class="nav-item__label">Đổi mật khẩu</span></button>' : '') +
           '</div>' +
           '<header class="topbar">' +
             '<div class="topbar__left">' +
@@ -1038,6 +1039,7 @@
             '</div>' +
             '<div class="topbar__right">' +
               '<span class="badge badge--blue topbar__user">' + esc(u.fullName) + '</span>' +
+              (!isAdmin ? '<button type="button" class="btn btn--secondary btn--sm topbar__password" data-action="open-change-password">Đổi mật khẩu</button>' : '') +
               '<button type="button" class="btn btn--secondary btn--sm topbar__logout" data-action="logout">' + ICONS.logout + '<span>Đăng xuất</span></button>' +
             '</div>' +
           '</header>' +
@@ -2574,13 +2576,33 @@
              Admin 2-Step User Permission Modal, Lock/Reset Password, Setup Code)
      ------------------------------------------------------------------------ */
   function openModal(modalObj) {
+    if (state.modal && state.modal.type === 'change-password') {
+      document.querySelectorAll('#change-password-form input').forEach(function (input) { input.value = ''; });
+      document.getElementById('app-root').inert = false;
+    }
     state.modal = modalObj;
     renderModal();
   }
 
   function closeModal() {
+    const m = state.modal;
+    if (m && m.type === 'change-password' && m.pending) return;
+    if (m && m.type === 'change-password') {
+      document.querySelectorAll('#change-password-form input').forEach(function (input) { input.value = ''; });
+      document.getElementById('app-root').inert = false;
+    }
     state.modal = null;
     renderModal();
+    if (m && m.type === 'change-password') {
+      const trigger = m.returnFocus;
+      const fallback = document.querySelector('[data-action="toggle-mobile-menu"]');
+      if (trigger && trigger.isConnected && trigger.getClientRects().length) trigger.focus();
+      else if (fallback && fallback.getClientRects().length) fallback.focus();
+      else {
+        const desktop = document.querySelector('.topbar__password');
+        if (desktop) desktop.focus();
+      }
+    }
   }
 
   function renderModal() {
@@ -2594,7 +2616,27 @@
       return;
     }
     backdrop.hidden = false;
+    if (m.type === 'change-password' && document.getElementById('change-password-form')) return;
     let html = '';
+
+    if (m.type === 'change-password') {
+      const fields = [
+        { id: 'cp-current', name: 'currentPassword', label: 'Mật khẩu hiện tại', min: 1, autocomplete: 'current-password' },
+        { id: 'cp-new', name: 'newPassword', label: 'Mật khẩu mới', min: 8, autocomplete: 'new-password' },
+        { id: 'cp-confirm', name: 'confirmPassword', label: 'Xác nhận mật khẩu mới', min: 8, autocomplete: 'new-password' }
+      ];
+      html = '<form id="change-password-form" class="change-password-form" novalidate>' +
+        '<div class="modal__head"><h2 class="modal__title" id="modal-title">Đổi mật khẩu</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Đóng">' + ICONS.x + '</button></div>' +
+        '<div class="modal__body"><p class="field__help" id="cp-help">Mật khẩu mới có từ 8 đến 128 ký tự và khác mật khẩu hiện tại. ' +
+          (api.isStatic ? 'Thay đổi chỉ áp dụng trên trình duyệt này. Các tab khác của tài khoản sẽ cần đăng nhập lại.' : 'Các phiên đăng nhập khác sẽ kết thúc sau khi đổi.') + '</p>' +
+        '<p class="field__error" id="cp-error" role="alert" hidden></p>' +
+        fields.map(function (field) {
+          return '<div class="field"><label class="field__label" for="' + field.id + '">' + field.label + '</label>' +
+            '<div class="password-wrap"><input class="input" type="password" id="' + field.id + '" name="' + field.name + '" autocomplete="' + field.autocomplete + '" minlength="' + field.min + '" maxlength="256" required aria-describedby="cp-help cp-error">' +
+            '<button type="button" class="password-toggle" data-password-toggle="' + field.id + '" aria-controls="' + field.id + '" aria-label="Hiện ' + field.label.toLowerCase() + '" aria-pressed="false">' + ICONS.eye + '</button></div></div>';
+        }).join('') + '</div>' +
+        '<div class="modal__foot"><button type="button" class="btn btn--secondary" data-action="close-modal">Hủy</button><button type="submit" class="btn btn--primary" id="cp-submit">Đổi mật khẩu</button></div></form>';
+    }
 
     if (m.type === 'patient-form') {
       const isEdit = Boolean(m.patientId);
@@ -2795,6 +2837,67 @@
     }
 
     dialog.innerHTML = html;
+    if (m.type === 'change-password') {
+      document.getElementById('app-root').inert = true;
+      document.getElementById('cp-current').focus();
+    }
+  }
+
+  function passwordFormError(message, fieldId) {
+    const error = document.getElementById('cp-error');
+    if (error) { error.textContent = message; error.hidden = !message; }
+    document.querySelectorAll('#change-password-form input').forEach(function (input) {
+      input.setAttribute('aria-invalid', String(input.id === fieldId));
+    });
+    const input = document.getElementById(fieldId);
+    if (input) input.focus();
+  }
+
+  async function submitPasswordChange() {
+    const m = state.modal;
+    if (!m || m.type !== 'change-password' || m.pending) return;
+    const current = document.getElementById('cp-current').value;
+    const next = document.getElementById('cp-new').value;
+    const confirm = document.getElementById('cp-confirm').value;
+    if (Array.from(current).length < 1 || Array.from(current).length > 128) {
+      passwordFormError('Nhập mật khẩu hiện tại, tối đa 128 ký tự.', 'cp-current'); return;
+    }
+    if (Array.from(next).length < 8 || Array.from(next).length > 128 || next === current) {
+      passwordFormError('Mật khẩu mới phải có từ 8 đến 128 ký tự và khác mật khẩu hiện tại.', 'cp-new'); return;
+    }
+    if (next !== confirm) {
+      passwordFormError('Xác nhận mật khẩu mới chưa khớp.', 'cp-confirm'); return;
+    }
+    const actor = state.user;
+    const form = document.getElementById('change-password-form');
+    const submit = document.getElementById('cp-submit');
+    passwordFormError('', '');
+    m.pending = true;
+    form.setAttribute('aria-busy', 'true');
+    form.querySelectorAll('input, button').forEach(function (control) { control.disabled = true; });
+    submit.textContent = 'Đang đổi mật khẩu…';
+    try {
+      const updated = await api.changePassword({ currentPassword: current, newPassword: next });
+      if (state.user !== actor) return;
+      state.user = updated;
+      m.pending = false;
+      if (state.modal === m) closeModal();
+      toast('Đã đổi mật khẩu', 'success');
+    } catch (err) {
+      if (state.user !== actor) return;
+      m.pending = false;
+      if (state.modal !== m) {
+        toast('Chưa đổi được mật khẩu. Vui lòng thử lại.', 'error');
+        return;
+      }
+      form.removeAttribute('aria-busy');
+      form.querySelectorAll('input, button').forEach(function (control) { control.disabled = false; });
+      submit.textContent = 'Đổi mật khẩu';
+      const code = err && (err.code || (err.problem && err.problem.code));
+      if (code === 'CURRENT_PASSWORD_INCORRECT') passwordFormError('Mật khẩu hiện tại chưa đúng. Vui lòng nhập lại.', 'cp-current');
+      else if (err && err.status === 422) passwordFormError('Mật khẩu mới chưa hợp lệ. Hãy dùng từ 8 đến 128 ký tự và khác mật khẩu hiện tại.', 'cp-new');
+      else passwordFormError('Chưa đổi được mật khẩu. Vui lòng thử lại.', '');
+    }
   }
 
   /* ------------------------------------------------------------------------
@@ -3089,6 +3192,11 @@
      Global Event Delegation (Clicks, Inputs, Changes, Submits, Shortcuts)
      ------------------------------------------------------------------------ */
   document.addEventListener('submit', async function (ev) {
+    if (ev.target && ev.target.id === 'change-password-form') {
+      ev.preventDefault();
+      await submitPasswordChange();
+      return;
+    }
     if (ev.target && ev.target.id === 'login-form') {
       ev.preventDefault();
       const lf = state.login;
@@ -3117,6 +3225,22 @@
   document.addEventListener('click', async function (ev) {
     const target = ev.target.closest('button, a, [data-ed-section], [data-ed-field]');
     if (!target) return;
+
+    const passwordToggle = target.getAttribute('data-password-toggle');
+    if (passwordToggle) {
+      const input = document.getElementById(passwordToggle);
+      if (input) {
+        const start = input.selectionStart;
+        const end = input.selectionEnd;
+        input.type = input.type === 'password' ? 'text' : 'password';
+        const visible = input.type === 'text';
+        target.setAttribute('aria-pressed', String(visible));
+        target.setAttribute('aria-label', (visible ? 'Ẩn ' : 'Hiện ') + document.querySelector('label[for="' + passwordToggle + '"]').textContent.toLowerCase());
+        input.focus();
+        input.setSelectionRange(start, end);
+      }
+      return;
+    }
 
     // Login password toggle
     if (target.id === 'btn-toggle-pw') {
@@ -3445,6 +3569,13 @@
     // Named actions
     const action = target.getAttribute('data-action');
     if (!action) return;
+
+    if (action === 'open-change-password' && state.user && state.user.role === 'doctor') {
+      const mobile = Boolean(target.closest('.mobile-drawer'));
+      setMobileMenuOpen(false);
+      openModal({ type: 'change-password', pending: false, returnFocus: mobile ? document.querySelector('[data-action="toggle-mobile-menu"]') : target });
+      return;
+    }
 
     if (action === 'toggle-sidebar') {
       state.sidebarCollapsed = !state.sidebarCollapsed;
@@ -4211,6 +4342,18 @@
 
   // Keyboard shortcuts (/, Ctrl+S, Escape, Alt+ArrowUp/Down)
   document.addEventListener('keydown', function (ev) {
+    if (state.modal && state.modal.type === 'change-password') {
+      if (ev.key === 'Escape') { ev.preventDefault(); closeModal(); }
+      if (ev.key === 'Tab') {
+        const controls = Array.from(document.querySelectorAll('#change-password-form input:not(:disabled), #change-password-form button:not(:disabled)'));
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (!first) ev.preventDefault();
+        else if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }
+        else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first.focus(); }
+      }
+      return;
+    }
     if (ev.key === 'Escape' && state.modal) {
       closeModal();
       return;

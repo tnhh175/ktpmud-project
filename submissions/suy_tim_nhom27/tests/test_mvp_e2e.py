@@ -1064,9 +1064,9 @@ def test_tc06_form_version_immutability_diff_publish_and_visit_binding(
 
 
 # ---------------------------------------------------------------------------
-# TC-07 & TC-08: 33/33 OpenAPI Parity, K9 Scope Exclusion, Restart Persistence
+# TC-07 & TC-08: 34/34 OpenAPI Parity, K9 Scope Exclusion, Restart Persistence
 # ---------------------------------------------------------------------------
-def test_tc07_openapi_33_routes_k9_and_restart_persistence(temp_pg_dsn: str) -> None:
+def test_tc07_openapi_34_routes_k9_and_restart_persistence(temp_pg_dsn: str) -> None:
     spec_path = SUBMISSION_ROOT / "api" / "openapi.yaml"
     spec = yaml.safe_load(spec_path.read_text(encoding="utf-8"))
     spec_ops = {
@@ -1078,7 +1078,7 @@ def test_tc07_openapi_33_routes_k9_and_restart_persistence(temp_pg_dsn: str) -> 
 
     app1 = create_app(database_url=temp_pg_dsn, auth_secret=AUTH_SECRET, mount_web=True)
     app_ops = set(_iter_app_routes(app1))
-    assert len(spec_ops) == 33
+    assert len(spec_ops) == 34
     assert app_ops == spec_ops
 
     # Verify K9: zero excluded routes (import/excel/his/portal/predict)
