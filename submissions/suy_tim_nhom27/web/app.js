@@ -3171,7 +3171,13 @@
 
     const tier4Cards = (r.tier4AiModules || []).map(function (m) {
       const missingCodes = Array.isArray(m.missingFieldCodes) ? m.missingFieldCodes : [];
-      const isReady = Boolean(m.ready) || missingCodes.length === 0;
+      const isReady = Boolean(m.ready);
+      const reasonCodes = new Set();
+      const reasons = (m.issues || []).filter(function (issue) {
+        if (missingCodes.includes(issue.fieldCode) || reasonCodes.has(issue.issueCode)) return false;
+        reasonCodes.add(issue.issueCode);
+        return true;
+      }).map(function (issue) { return issue.messageVi; });
       const missingChipsHtml = missingCodes.map(function (code) {
         const label = (defByCode[code] && defByCode[code].labelVi) || AI_FALLBACK_FIELD_LABELS[code] || code;
         const secCode = resolveFieldSectionCode(rev.formRes, code);
@@ -3189,14 +3195,16 @@
           '<div class="ai-module-card__body">' +
             '<div class="version-card__top">' +
               '<strong>' + esc(formatAiModuleLabel(m.aiModuleCode)) + '</strong>' +
-              (isReady ? '<span class="badge badge--success">Đủ biến dự kiến</span>' : '<span class="badge badge--info">Thiếu ' + missingCodes.length + ' trường</span>') +
+              (isReady ? '<span class="badge badge--success">Đủ biến dự kiến</span>' : '<span class="badge badge--info">' + (missingCodes.length ? 'Thiếu ' + missingCodes.length + ' trường' : 'Chưa sẵn sàng') + '</span>') +
             '</div>' +
             (isReady
               ? '<div class="cell-sub">Đáp ứng bộ biến dự kiến cho module này.</div>'
-              : '<div class="ai-missing-block">' +
+              : (missingCodes.length ? '<div class="ai-missing-block">' +
                   '<div class="ai-missing-block__label">Còn thiếu (bấm vào từng trường để đi tới biểu mẫu):</div>' +
                   '<div class="ai-missing-chips">' + missingChipsHtml + '</div>' +
-                '</div>') +
+                '</div>' : '') +
+                (reasons.length ? '<div class="cell-sub">Chưa sẵn sàng vì: ' + esc(reasons.join(' ')) + '</div>' :
+                  (!missingCodes.length ? '<div class="cell-sub">Chưa sẵn sàng vì: Cần kiểm tra chất lượng dữ liệu xuất AI.</div>' : ''))) +
           '</div>' +
           (!isReady && firstCode
             ? '<div class="ai-module-card__footer">' +

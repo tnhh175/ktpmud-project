@@ -684,7 +684,9 @@ def test_tc04_review_confirm_db_lock_revision_and_ai_input(
     assert rev["tier3ConfirmErrors"] == []
     mod_map = {m["aiModuleCode"]: m for m in rev["tier4AiModules"]}
     assert mod_map["ai_diagnosis"]["ready"] is False
-    assert "mach" in mod_map["ai_diagnosis"]["missingFieldCodes"]
+    # v1.1 cards use the HF export registry, including variables not collected by this form.
+    assert any(i["issueCode"] == "NOT_COLLECTED" for i in mod_map["ai_diagnosis"]["issues"])
+    assert "allergy_list_state" in mod_map["ai_medsafety"]["missingFieldCodes"]
 
     # Confirm atomically
     conf_res = client.post(

@@ -1371,8 +1371,13 @@
         return false;
       }
       if (fd.storageLevel === 'orthostatic_bp') return (visit.orthostaticBp || []).length > 0;
-      if (fd.storageLevel === 'medication') return (visit.medications || []).length > 0;
-      if (fd.storageLevel === 'allergy') return (visit.allergies || []).length > 0;
+      if (fd.storageLevel === 'medication') return (visit.medications || []).length > 0 || visit.medicationListState === 'none';
+      if (fd.storageLevel === 'allergy') {
+        if (fd.code === 'di_ung_thuoc_can_quang') {
+          return (visit.allergies || []).some(function (a) { return a.agentCategory === 'contrast_media'; });
+        }
+        return (visit.allergies || []).length > 0 || visit.allergyListState === 'none';
+      }
       if (fd.storageLevel === 'lab_result') {
         return (visit.labResults || []).some(function (l) {
           return l.labCode === fd.code || fd.code === 'cls_don_vi' || fd.code === 'cls_thoi_diem';
@@ -1435,6 +1440,17 @@
     };
 
     const tier4AiModules = ['ai_diagnosis', 'ai_lab_test', 'ai_treatment', 'ai_medsafety'].map(function (modCode) {
+      const contrastOverride = ((formVer && formVer.definitionOverrides) || {}).di_ung_thuoc_can_quang;
+      if (contrastOverride && contrastOverride.storageLevel === 'visit_value') {
+        // HF quality is evaluated by the server; static mode cannot export this contract.
+        return {
+          aiModuleCode: modCode,
+          ready: false,
+          missingFieldCodes: [],
+          issues: [{ issueCode: 'STATIC_EXPORT_UNAVAILABLE', fieldCode: null,
+            messageVi: 'Bản demo tĩnh chưa đánh giá được chất lượng JSON HF; dùng bản có máy chủ để kiểm tra và xuất AI.' }]
+        };
+      }
       const reqCodes = moduleRequiredMap[modCode] || [];
       const missing = [];
       reqCodes.forEach(function (code) {
@@ -1446,7 +1462,8 @@
       return {
         aiModuleCode: modCode,
         ready: missing.length === 0,
-        missingFieldCodes: missing
+        missingFieldCodes: missing,
+        issues: []
       };
     });
 

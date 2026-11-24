@@ -3647,6 +3647,11 @@ components:
             type: string
           type: array
           title: Missingfieldcodes
+        issues:
+          items:
+            $ref: '#/components/schemas/AiReadinessIssue'
+          type: array
+          title: Issues
       type: object
       required:
       - aiModuleCode
@@ -5418,6 +5423,24 @@ components:
       required:
       - doctorUserIds
       title: ReplaceAssignments
+    AiReadinessIssue:
+      properties:
+        issueCode:
+          type: string
+          title: Issuecode
+        fieldCode:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Fieldcode
+        messageVi:
+          type: string
+          title: Messagevi
+      type: object
+      required:
+      - issueCode
+      - messageVi
+      title: AiReadinessIssue
     Assignment:
       properties:
         id:

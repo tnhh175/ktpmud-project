@@ -794,10 +794,17 @@ class SectionReviewSummary(BaseModel):
     errorCount: int
 
 
+class AiReadinessIssue(BaseModel):
+    issueCode: str
+    fieldCode: str | None = None
+    messageVi: str
+
+
 class AiModuleReadiness(BaseModel):
     aiModuleCode: AiModuleCode
     ready: bool
     missingFieldCodes: list[str]
+    issues: list[AiReadinessIssue] = Field(default_factory=list)
 
 
 class VisitReviewResponse(BaseModel):

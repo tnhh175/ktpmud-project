@@ -1412,11 +1412,11 @@ def _compute_review_and_ai_payload(
         if sl == "orthostatic_bp":
             return len(detail["orthostaticBp"]) > 0
         if sl == "medication":
-            return len(detail["medications"]) > 0
+            return len(detail["medications"]) > 0 or v.get("medicationListState") == "none"
         if sl == "allergy":
             if fd["code"] == "di_ung_thuoc_can_quang":
                 return any(a.get("agentCategory") == "contrast_media" for a in detail["allergies"])
-            return len(detail["allergies"]) > 0
+            return len(detail["allergies"]) > 0 or v.get("allergyListState") == "none"
         if sl == "lab_result":
             if fd["code"] in ("cls_don_vi", "cls_thoi_diem"):
                 return len(detail["labResults"]) > 0
@@ -1645,6 +1645,33 @@ def _compute_review_and_ai_payload(
             "labResults": detail["labResults"],
             "modules": tier4_modules,
         }
+
+    from .hf_ai import evaluate_quality, has_hf_registry, readiness_from_quality
+    version_config = conn.execute(
+        "SELECT definition_overrides FROM form_version WHERE id=%s", (v["formVersionId"],)
+    ).fetchone()
+    if has_hf_registry(version_config["definition_overrides"] or {}):
+        # Confirmed reviews must use the same immutable source as JSON export.
+        frozen = None
+        if v["status"] == "confirmed":
+            frozen = conn.execute(
+                "SELECT snapshot_data FROM visit_revision WHERE visit_id=%s AND revision_no=%s "
+                "AND revision_type='confirmed_snapshot'",
+                (str(visit_id), v["currentRevisionNo"]),
+            ).fetchone()
+        if frozen:
+            quality_snapshot = frozen["snapshot_data"]
+        else:
+            # Also used inside confirm, before its new revision has been inserted.
+            from .hf_form import export_snapshot
+            quality_snapshot = {**(ai_payload or {}), "hfSource": export_snapshot(conn, visit_id)}
+        source_form = (quality_snapshot.get("hfSource") or {}).get("form") or {}
+        tier4_modules = readiness_from_quality(evaluate_quality(quality_snapshot), source_form)
+        review_payload["tier4AiModules"] = tier4_modules
+        if v["status"] == "confirmed":
+            review_payload["readinessTier"] = "ai_ready" if all(m["ready"] for m in tier4_modules) else "confirmed"
+        if ai_payload is not None:
+            ai_payload["modules"] = tier4_modules
 
     return review_payload, ai_payload
 

@@ -25,7 +25,8 @@ def wrap(state='not_collected',value=None,unit=None):
 def normalize_unit(unit):
     return {'µmol/L':'umol/L','μmol/L':'umol/L','kg/m²':'kg/m2','lần/phút':'/min','tuổi':'years'}.get(unit,unit)
 
-def project(snapshot, *, secret, key_version, module=None):
+def _project_data(snapshot, encode_id, module=None):
+    """Shared normalization and quality rules; identifier encoding has no clinical role."""
     source=snapshot.get('hfSource') or {}
     detail=source.get('detail') or {}
     visit=detail.get('visit') or {}
@@ -43,7 +44,7 @@ def project(snapshot, *, secret, key_version, module=None):
         item=wrap(unit=unit)
         if transform.startswith('hmac-'):
             identity=source.get(src)
-            if identity: item=wrap('answered',token(secret,key_version,'p' if code=='MA_BN' else 'e',identity))
+            if identity: item=wrap('answered',encode_id('p' if code=='MA_BN' else 'e',identity))
         elif transform=='age-at-confirm-v1' and source.get('age') is not None:
             item=wrap('answered',source['age'],unit)
         elif transform=='sex-code-v1' and source:
@@ -68,16 +69,17 @@ def project(snapshot, *, secret, key_version, module=None):
             item=wrap('not_collected',unit=unit)
         values[code]=item
         if item['valueState']!='answered' and transform not in ('lab-series-v1',):
-            issue('NOT_COLLECTED' if item['valueState']=='not_collected' else 'MISSING_VALUE','values.'+code,src or code,mods,'Chưa có dữ liệu phù hợp hợp đồng.')
+            issue('NOT_COLLECTED' if item['valueState']=='not_collected' else 'MISSING_VALUE','values.'+code,src or code,mods,
+                  'Có biến chưa được thu thập hoặc chưa có ánh xạ trong hợp đồng AI.' if item['valueState']=='not_collected' else 'Chưa có dữ liệu phù hợp hợp đồng.')
     observations={'bloodPressure':[],'labs':[],'allergyDetails':[],'diagnoses':[]}
     for bp in detail.get('orthostaticBp',[]):
-        observations['bloodPressure'].append({'measurementId':token(secret,key_version,'b',bp['id']),'position':bp['position'],'minuteAfter':bp.get('minuteAfter'),'measuredAt':bp['measuredAt'],'values':{'HA_TAM_THU':bp['systolic'],'HA_TAM_TRUONG':bp['diastolic'],'TAN_SO_TIM':bp.get('heartRate')}})
+        observations['bloodPressure'].append({'measurementId':encode_id('b',bp['id']),'position':bp['position'],'minuteAfter':bp.get('minuteAfter'),'measuredAt':bp['measuredAt'],'values':{'HA_TAM_THU':bp['systolic'],'HA_TAM_TRUONG':bp['diastolic'],'TAN_SO_TIM':bp.get('heartRate')}})
     lab_map={e['source']:e for e in REGISTRY['inputs'] if e['transform']=='lab-series-v1'}
     for lab in detail.get('labResults',[]):
         fd=defs.get(lab['labCode'],{});entry=lab_map.get(lab['labCode']);value=lab.get('valueNum');unit=normalize_unit(lab.get('unit'));state='answered' if type(value) in (int,float) and math.isfinite(value) else 'not_collected'
         if entry and unit!=entry['canonicalUnit']:
-            issue('UNIT_UNSUPPORTED','observations.labs.'+token(secret,key_version,'l',lab['id']),lab['labCode'],entry['requiredForModules'],'Đơn vị kết quả chưa tương thích.');state='not_collected'
-        observations['labs'].append({'observationId':token(secret,key_version,'l',lab['id']),'fieldCode':lab['labCode'],'aiCode':entry['aiCode'] if entry else None,'valueState':state,'valueNum':value if state=='answered' else None,'valueText':None,'unit':unit if unit in ('pg/mL','%','umol/L','mmol/L','ng/mL','mIU/L','g/L','10^9/L','10^12/L','U/L','mL/min/1.73m2') else None,'measuredAt':lab['measuredAt']})
+            issue('UNIT_UNSUPPORTED','observations.labs.'+encode_id('l',lab['id']),lab['labCode'],entry['requiredForModules'],'Đơn vị kết quả chưa tương thích.');state='not_collected'
+        observations['labs'].append({'observationId':encode_id('l',lab['id']),'fieldCode':lab['labCode'],'aiCode':entry['aiCode'] if entry else None,'valueState':state,'valueNum':value if state=='answered' else None,'valueText':None,'unit':unit if unit in ('pg/mL','%','umol/L','mmol/L','ng/mL','mIU/L','g/L','10^9/L','10^12/L','U/L','mL/min/1.73m2') else None,'measuredAt':lab['measuredAt']})
         if lab.get('valueText'):
             issue('FREE_TEXT_WITHHELD','observations.labs',lab['labCode'],('ai_diagnosis','ai_lab_test','ai_treatment'),'Kết luận chữ được giữ trong hồ sơ; cần quy trình rà định danh trước xuất.')
         if not lab.get('measuredAt'):
@@ -92,10 +94,10 @@ def project(snapshot, *, secret, key_version, module=None):
             found=coding in CATALOG[catalogkey]['entries']
             if key=='medications':
                 if row.get('status')!='active':continue
-                items.append({'recordId':token(secret,key_version,'m',row['id']),'code':coding if found else None,'system':'ATC','version':CATALOG['atc']['systemVersion'],'display':CATALOG['atc']['entries'].get(coding),'hospitalVerified':False,'dose':row.get('dose'),'unit':row.get('unit') if row.get('unit') in ('mg','g','mcg','mL','IU') else None,'status':row['status']})
+                items.append({'recordId':encode_id('m',row['id']),'code':coding if found else None,'system':'ATC','version':CATALOG['atc']['systemVersion'],'display':CATALOG['atc']['entries'].get(coding),'hospitalVerified':False,'dose':row.get('dose'),'unit':row.get('unit') if row.get('unit') in ('mg','g','mcg','mL','IU') else None,'status':row['status']})
             elif key=='allergies':
                 if found:items.append(coding)
-                observations['allergyDetails'].append({'recordId':token(secret,key_version,'a',row['id']),'code':coding if found else None,'system':'ATC','version':CATALOG['atc']['systemVersion'],'kind':row['kind'],'category':row['agentCategory'],'hospitalVerified':False})
+                observations['allergyDetails'].append({'recordId':encode_id('a',row['id']),'code':coding if found else None,'system':'ATC','version':CATALOG['atc']['systemVersion'],'kind':row['kind'],'category':row['agentCategory'],'hospitalVerified':False})
             else:
                 if row['role']=='secondary' and found:items.append(coding)
                 observations['diagnoses'].append({'code':coding,'display':CATALOG['icd10']['entries'].get(coding),'role':row['role'],'system':'ICD-10','version':CATALOG['icd10']['systemVersion'],'hospitalVerified':False})
@@ -108,6 +110,58 @@ def project(snapshot, *, secret, key_version, module=None):
         if key=='medications' and items:issue('DRUG_STRUCTURE_UNSUPPORTED','arrays.'+code,key,mods,'Chưa đủ dữ liệu cấu trúc để kiểm tra DDI.')
     modules=[{'module':m,'status':'blocked' if any(i['module']==m for i in issues) else 'ready','issueCount':sum(i['module']==m for i in issues)} for m in MODULES]
     quality={'status':'blocked' if any(m['status']=='blocked' for m in modules if module is None or m['module']==module) else 'ready','requestedModule':module,'issues':issues,'modules':modules}
+    return values, arrays, observations, quality
+
+
+def evaluate_quality(snapshot, module=None):
+    """Evaluate without HMAC configuration, export metadata, or audit writes."""
+    return _project_data(snapshot, lambda kind, identity: str(identity), module)[3]
+
+
+def has_hf_registry(overrides):
+    # This pinned override distinguishes v1.1 and its clones from archived v1.0.
+    # Form placement edits must not change which quality contract is used.
+    return (overrides.get('di_ung_thuoc_can_quang') or {}).get('storageLevel') == 'visit_value'
+
+
+def readiness_from_quality(quality, form):
+    """Adapt quality issues to review links without introducing clinical rules."""
+    definitions = {f['code']: f for f in form.get('fieldDefinitions', [])}
+    visible = {f['fieldCode'] for s in form.get('sections', []) for f in s['fields']
+               if f['isVisible'] and not f['isReadonly']}
+    editable = {c for c in visible if not definitions[c].get('computed')
+                and definitions[c]['storageLevel'] != 'patient'}
+    aliases = {'medicationListState': 'medication_list_state',
+               'allergyListState': 'allergy_list_state',
+               'diagnosisListState': 'diagnosis_list_state',
+               'medications': 'thuoc_drugname', 'allergies': 'diung_allergen',
+               'diagnoses': 'icd_code', 'age': 'luot_tuoi', 'sex': 'bn_gioi_tinh'}
+    fillable_issues = {'MISSING_VALUE', 'LIST_UNKNOWN', 'LAB_MISSING', 'TIME_MISSING',
+                       'UNIT_UNSUPPORTED', 'UNIT_OR_TYPE_UNSUPPORTED'}
+    modules = []
+    for module in quality['modules']:
+        issues = []
+        missing = []
+        for issue in quality['issues']:
+            if issue['module'] != module['module']:
+                continue
+            code = aliases.get(issue['fieldCode'], issue['fieldCode'])
+            code = code if code in definitions else None
+            issues.append({'issueCode': issue['issueCode'], 'fieldCode': code,
+                           'messageVi': issue['messageVi']})
+            if issue['issueCode'] in fillable_issues and code in editable and code not in missing:
+                missing.append(code)
+        modules.append({'aiModuleCode': module['module'], 'ready': module['status'] == 'ready',
+                        'missingFieldCodes': missing, 'issues': issues})
+    return modules
+
+
+def project(snapshot, *, secret, key_version, module=None):
+    source = snapshot.get('hfSource') or {}
+    form = source.get('form') or {}
+    values, arrays, observations, quality = _project_data(
+        snapshot, lambda kind, identity: token(secret, key_version, kind, identity), module
+    )
     return {'contractVersion':'hf-ai-input/1.0','variableTableVersion':'3.0','mappingVersion':'hf-map/1.0','jsonSchemaId':'urn:hfcare:ai-input:1.0','profile':'HF','form':{'versionId':(form.get('formVersion') or {}).get('id',snapshot.get('formVersionId')),'definitionHash':digest(form)},'revision':{'number':snapshot.get('revisionNo',1),'status':'confirmed','snapshotHash':digest(snapshot)},'export':{'id':str(uuid4()),'exportedAt':datetime.now(timezone.utc).isoformat()},'privacy':{'profile':'ai-pseudonym-v1','keyVersion':key_version},'values':values,'arrays':arrays,'observations':observations,'quality':quality}
 
 
