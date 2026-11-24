@@ -7,6 +7,10 @@
 !scripts/
 !scripts/run_mvp.py
 !scripts/bootstrap_hosted_mvp.py
+!api/
+!api/hf-code-catalog-0.1.json
+!api/schemas/
+!api/schemas/hf-ai-input-1.0.schema.json
 !database/
 !database/schema.sql
 !database/seed.sql
@@ -18,5 +22,7 @@
 !web/api-client.js
 !web/app.js
 !web/styles.css
+!web/static-runtime.js
+!web/catalog-seed.json
 **/__pycache__/
 **/*.pyc

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 import math
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, Header, Request, Response
@@ -11,6 +11,7 @@ import psycopg
 from psycopg.types.json import Jsonb
 
 from .audit import record_audit_log
+from .care import require_visit_access, audit_access
 from .auth import Principal, get_client_ip, get_request_id, require_role
 from .db import num_to_json, parse_if_match, to_date_iso, to_iso
 from .models import (
@@ -66,6 +67,17 @@ _CORE_AI_MODULE_BASELINE: dict[str, list[str]] = {
 }
 
 
+def field_runtime_metadata(row):
+    rule = row.get("validation_rule") or {}
+    storage = row["storage_level"]
+    bp_paths = {"huyet_ap_tam_thu":"systolic", "huyet_ap_tam_truong":"diastolic", "thoi_diem_do_ha":"measuredAt", "tu_the_do_ha":"position"}
+    bp_paths.update({"cls_don_vi":"unit", "cls_thoi_diem":"measuredAt", "cls_ecg_thoi_diem":"measuredAt", "cls_sieu_am_tim_thoi_diem":"measuredAt", "cls_xquang_thoi_diem":"measuredAt", "cls_troponin_loai":"labSubtype"})
+    groups = {"orthostatic_bp":"orthostaticBp", "medication":"medications", "allergy":"allergies", "lab_result":"labResults", "diagnosis":"diagnoses"}
+    computed = bool(row["is_calculated"]) or storage == "computed"
+    system = computed or storage in ("patient", "visit", "diagnosis")
+    return {"system":system,"computed":computed,"locked":system,"repeatGroup":rule.get("repeatGroup",groups.get(storage)),"memberPath":rule.get("memberPath",bp_paths.get(row["code"]))}
+
+
 def field_def_row_to_dict(
     row: dict[str, Any],
     options: list[dict[str, Any]] | None = None,
@@ -81,6 +93,7 @@ def field_def_row_to_dict(
         "scopeStatus": row["scope_status"],
         "storageLevel": row["storage_level"],
         "isCalculated": bool(row["is_calculated"]),
+        **field_runtime_metadata(row),
         "minValue": num_to_json(row.get("min_value"), "number"),
         "maxValue": num_to_json(row.get("max_value"), "number"),
         "validationRule": row.get("validation_rule"),
@@ -282,6 +295,9 @@ def load_form_version_bundle(
     ]
 
     field_defs = load_field_definitions_with_children(conn, field_ids=referenced_def_ids)
+    overrides = fv_row.get("definition_overrides") or {}
+    from .hf_form import apply_definition_overrides
+    apply_definition_overrides(field_defs, overrides)
     return form_version_row_to_dict(fv_row), sections, field_defs
 
 
@@ -318,10 +334,12 @@ def _load_visit_detail_dict(conn: psycopg.Connection[Any], visit_id: UUID | str)
     v_row = conn.execute(
         """
         SELECT
-            v.*,
+            v.*,pc.full_name AS creator_name,pu.full_name AS editor_name,
             fv.version_label AS form_version_label,
             (SELECT MAX(vr.revision_no) FROM visit_revision vr WHERE vr.visit_id = v.id) AS max_revision_no
         FROM visit v
+        JOIN app_user pc ON pc.id=v.created_by
+        JOIN app_user pu ON pu.id=COALESCE(v.updated_by,v.created_by)
         JOIN form_version fv ON fv.id = v.form_version_id
         WHERE v.id = %s
         """,
@@ -435,6 +453,7 @@ def _load_visit_detail_dict(conn: psycopg.Connection[Any], visit_id: UUID | str)
         "allergies": [allergy_row_to_dict(r) for r in alg_rows],
         "labResults": [lab_row_to_dict(r) for r in lab_rows],
         "revisions": [revision_row_to_dict(r) for r in rev_rows],
+        "diagnoses": ([{"code":r["code"],"display":r["display"],"role":r["role"]} for r in conn.execute("SELECT * FROM visit_diagnosis WHERE visit_id=%s ORDER BY role,code",(str(visit_id),)).fetchall()] if "diagnosis_list_state" in v_row else []),
     }
 
 
@@ -493,7 +512,7 @@ def _validate_and_normalize_draft(
 ]:
     errors: list[dict[str, Any]] = []
 
-    all_defs = load_field_definitions_with_children(conn)
+    _, _, all_defs = load_form_version_bundle(conn, form_version_id)
     def_by_id = {d["id"]: d for d in all_defs}
     def_by_code = {d["code"]: d for d in all_defs}
 
@@ -555,6 +574,10 @@ def _validate_and_normalize_draft(
                     "rejectedValue": fd["code"],
                 }
             )
+            continue
+
+        if fd["code"] == "nhiet_do" and v.valueState == "answered" and v.unit not in (None,"°C"):
+            errors.append({"fieldCode":"nhiet_do","sectionCode":"sinh_ton_kham","message":"Nhiệt độ dùng đơn vị °C.","rejectedValue":None})
             continue
 
         if fd["storageLevel"] != "visit_value":
@@ -1206,7 +1229,7 @@ def _validate_and_normalize_draft(
             )
             continue
         fd = def_by_code.get(lab.labCode)
-        if not fd or fd["storageLevel"] != "lab_result":
+        if not fd or fd["id"] not in registered_def_ids or fd["storageLevel"] != "lab_result":
             errors.append(
                 {
                     "fieldCode": lab.labCode or "cls_bnp",
@@ -1322,6 +1345,8 @@ def _validate_and_normalize_draft(
                 }
             )
 
+    from .hf_form import synchronize_contrast_allergy
+    synchronize_contrast_allergy(all_defs, normalized_values, normalized_allergies, body.allergyListState, errors)
     return (
         errors,
         normalized_values,
@@ -1374,6 +1399,16 @@ def _compute_review_and_ai_payload(
             if fd["code"] == "luot_tuoi":
                 return bool(pt_row and _compute_age(pt_row, visit_dt) is not None)
             return False
+        if sl == "visit":
+            return bool(v.get(fd.get("memberPath")))
+        if sl == "diagnosis":
+            return bool(detail.get("diagnoses")) or v.get("diagnosisListState") == "none"
+        if fd.get("repeatGroup") and fd.get("memberPath"):
+            rows = detail.get(fd["repeatGroup"], [])
+            if rows:
+                return all(row.get(fd["memberPath"]) is not None and row.get(fd["memberPath"]) != "" for row in rows)
+            state_key = {"medications":"medicationListState","allergies":"allergyListState","diagnoses":"diagnosisListState"}.get(fd["repeatGroup"])
+            return bool(state_key and v.get(state_key) == "none")
         if sl == "orthostatic_bp":
             return len(detail["orthostaticBp"]) > 0
         if sl == "medication":
@@ -1627,7 +1662,9 @@ def get_visit(
 ) -> dict[str, Any]:
     pool = request.app.state.pool
     with pool.connection() as conn:
+        access = require_visit_access(conn, visitId, principal, write=False)
         detail = _load_visit_detail_dict(conn, visitId)
+        detail["access"] = access
     response.headers["ETag"] = f'"{detail["visit"]["rowVersion"]}"'
     return detail
 
@@ -1644,6 +1681,7 @@ def get_visit_form(
 ) -> dict[str, Any]:
     pool = request.app.state.pool
     with pool.connection() as conn:
+        access = require_visit_access(conn, visitId, principal, write=False)
         v_row = conn.execute(
             "SELECT id, form_version_id FROM visit WHERE id = %s",
             (str(visitId),),
@@ -1681,6 +1719,7 @@ def save_visit_draft(
 ) -> dict[str, Any]:
     pool = request.app.state.pool
     with pool.connection() as conn:
+        access = require_visit_access(conn, visitId, principal, write=True)
         v_row = conn.execute(
             "SELECT * FROM visit WHERE id = %s FOR UPDATE",
             (str(visitId),),
@@ -1727,6 +1766,11 @@ def save_visit_draft(
             form_version_id=v_row["form_version_id"],
             body=body,
         )
+        from .hf_form import validate_lists
+        list_states = validate_lists(body, v_row, errors)
+        if body.diagnoses:
+            codes = conn.execute("SELECT fd.code FROM form_field ff JOIN field_definition fd ON fd.id=ff.field_definition_id WHERE ff.form_version_id=%s AND fd.code='icd_code'",(str(v_row["form_version_id"]),)).fetchall()
+            if not codes: errors.append({"fieldCode":"icd_code","message":"ICD không thuộc phiên bản lượt khám.","rejectedValue":None})
         if errors:
             raise ProblemError(
                 422,
@@ -1740,13 +1784,15 @@ def save_visit_draft(
         updated_visit = conn.execute(
             """
             UPDATE visit
-            SET clinical_note = %s,
+            SET updated_by = %s,
+                clinical_note = %s,
                 info_source = %s,
                 row_version = row_version + 1
             WHERE id = %s AND row_version = %s
             RETURNING row_version
             """,
             (
+                str(principal.user_id),
                 body.clinicalNote if "clinicalNote" in body.model_fields_set else v_row.get("clinical_note"),
                 body.infoSource if "infoSource" in body.model_fields_set else v_row.get("info_source"),
                 str(visitId),
@@ -1897,8 +1943,20 @@ def save_visit_draft(
                 ),
             )
 
-        conn.commit()
+        if "diagnosis_list_state" in v_row:
+            conn.execute("UPDATE visit SET medication_list_state=%s,allergy_list_state=%s,diagnosis_list_state=%s WHERE id=%s",(*list_states,str(visitId)))
+            conn.execute("DELETE FROM visit_diagnosis WHERE visit_id=%s",(str(visitId),))
+            for med,norm in zip(body.medications,norm_meds):
+                if med.atcCode:
+                    conn.execute("UPDATE visit_medication SET atc_code=%s WHERE id=%s AND visit_id=%s",(med.atcCode,norm["id"],str(visitId)))
+            for alg,norm in zip(body.allergies,norm_algs):
+                if alg.atcCode:
+                    conn.execute("UPDATE visit_allergy SET atc_code=%s WHERE id=%s AND visit_id=%s",(alg.atcCode,norm["id"],str(visitId)))
+            for dx in body.diagnoses:
+                conn.execute("INSERT INTO visit_diagnosis(visit_id,code,display,role) VALUES(%s,%s,%s,%s)",(str(visitId),dx.code,dx.display.strip(),dx.role))
         detail = _load_visit_detail_dict(conn, visitId)
+        detail["access"] = access
+        conn.commit()
 
     response.headers["ETag"] = f'"{detail["visit"]["rowVersion"]}"'
     return detail
@@ -1916,6 +1974,7 @@ def get_visit_review(
 ) -> dict[str, Any]:
     pool = request.app.state.pool
     with pool.connection() as conn:
+        access = require_visit_access(conn, visitId, principal, write=False)
         review_payload, _ = _compute_review_and_ai_payload(conn, visitId)
     return review_payload
 
@@ -1938,6 +1997,7 @@ def confirm_visit(
     ip_addr = get_client_ip(request)
 
     with pool.connection() as conn:
+        access = require_visit_access(conn, visitId, principal, write=True)
         v_row = conn.execute(
             "SELECT * FROM visit WHERE id = %s FOR UPDATE",
             (str(visitId),),
@@ -1971,6 +2031,7 @@ def confirm_visit(
                 current_row_version=current_rv,
             )
 
+        conn.execute("SELECT id FROM patient WHERE id=%s FOR SHARE",(str(v_row["patient_id"]),))
         review_payload, _ = _compute_review_and_ai_payload(conn, visitId)
         if not review_payload["canConfirm"]:
             raise ProblemError(
@@ -1991,7 +2052,8 @@ def confirm_visit(
         updated_row = conn.execute(
             """
             UPDATE visit
-            SET status = 'confirmed',
+            SET updated_by = %s,
+                status = 'confirmed',
                 confirmed_at = now(),
                 confirmed_by = %s,
                 confirm_note = %s,
@@ -2002,6 +2064,7 @@ def confirm_visit(
             """,
             (
                 str(principal.user_id),
+                str(principal.user_id),
                 body.confirmNote,
                 next_rev_no,
                 str(visitId),
@@ -2009,7 +2072,12 @@ def confirm_visit(
             ),
         ).fetchone()
 
+        updated_row["creator_name"] = conn.execute("SELECT full_name FROM app_user WHERE id=%s", (updated_row["created_by"],)).fetchone()["full_name"]
+        updated_row["editor_name"] = principal.full_name
         _, ai_snapshot = _compute_review_and_ai_payload(conn, visitId)
+        ai_snapshot = ai_snapshot or {}
+        from .hf_form import export_snapshot
+        ai_snapshot["hfSource"] = export_snapshot(conn, visitId)
         conn.execute(
             """
             INSERT INTO visit_revision (
@@ -2092,6 +2160,7 @@ def create_visit_revision(
     ip_addr = get_client_ip(request)
 
     with pool.connection() as conn:
+        access = require_visit_access(conn, visitId, principal, write=True)
         v_row = conn.execute(
             "SELECT * FROM visit WHERE id = %s FOR UPDATE",
             (str(visitId),),
@@ -2165,7 +2234,8 @@ def create_visit_revision(
         amended_visit = conn.execute(
             """
             UPDATE visit
-            SET status = 'draft',
+            SET updated_by = %s,
+                status = 'draft',
                 confirmed_at = NULL,
                 confirmed_by = NULL,
                 confirm_note = NULL,
@@ -2174,7 +2244,7 @@ def create_visit_revision(
             WHERE id = %s AND row_version = %s
             RETURNING *
             """,
-            (next_rev_no, str(visitId), current_rv),
+            (str(principal.user_id), next_rev_no, str(visitId), current_rv),
         ).fetchone()
         if not amended_visit:
             raise ProblemError(
@@ -2219,6 +2289,7 @@ def get_visit_ai_input(
 ) -> dict[str, Any]:
     pool = request.app.state.pool
     with pool.connection() as conn:
+        access = require_visit_access(conn, visitId, principal, write=False)
         v_row = conn.execute(
             "SELECT id, status, row_version FROM visit WHERE id = %s",
             (str(visitId),),
@@ -2239,4 +2310,11 @@ def get_visit_ai_input(
                 current_row_version=int(v_row["row_version"]),
             )
         _, ai_payload = _compute_review_and_ai_payload(conn, visitId)
+        audit_access(conn, request, principal, "ai_input_export", "visit", visitId, {"contractVersion": "legacy"})
     return ai_payload or {}
+
+
+@router.get("/visits/{visitId}/ai-input/hf/1.0", operation_id="getVisitHfAiInputV1", responses={409:{"description":"Visit not confirmed"},422:{"description":"AI_INPUT_NOT_READY with quality"},503:{"description":"HMAC key unavailable"}})
+def get_visit_hf_ai_input(visitId: UUID, request: Request, module: Literal["ai_diagnosis","ai_lab_test","ai_treatment","ai_medsafety"] | None = None, diagnostic: bool = False, principal: Principal = Depends(_require_doctor_visit)):
+    from .hf_ai import export_hf_input
+    return export_hf_input(visitId,request,principal,module,diagnostic)

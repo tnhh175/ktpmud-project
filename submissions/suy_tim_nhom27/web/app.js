@@ -40,7 +40,8 @@
     x: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
     code: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
     refresh: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>',
-    panelLeft: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>'
+    panelLeft: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>',
+    download: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'
   };
 
   /* ------------------------------------------------------------------------
@@ -133,9 +134,13 @@
       user_update: 'Cập nhật tài khoản / Quyền',
       form_version_create: 'Tạo bản nháp biểu mẫu',
       form_version_update: 'Cập nhật bản nháp biểu mẫu',
+      form_version_delete: 'Xóa bản nháp biểu mẫu',
       form_version_publish: 'Phát hành phiên bản biểu mẫu',
       patient_create: 'Tạo hồ sơ bệnh nhân',
-      visit_confirm: 'Xác nhận lượt khám / Bản sửa'
+      visit_confirm: 'Xác nhận lượt khám / Bản sửa',
+      ai_input_export: 'Xuất JSON đầu vào AI',
+      care_assignment_add: 'Phân công bác sĩ phụ trách',
+      care_assignment_revoke: 'Thu hồi phân công bác sĩ'
     };
     return map[act] || act;
   }
@@ -148,9 +153,38 @@
       patient: 'Hồ sơ bệnh nhân',
       visit: 'Lượt khám',
       visit_revision: 'Bản sửa lượt khám',
+      care_assignment: 'Phân công phụ trách',
       audit_log: 'Nhật ký hệ thống'
     };
     return map[ent] || ent || '—';
+  }
+
+  const NOT_FOUND_OR_NO_ACCESS_MSG = 'Không tìm thấy hoặc bạn không có quyền với hồ sơ này.';
+
+  function formatClinicalError(err, fallback) {
+    if (err && err.status === 404) return NOT_FOUND_OR_NO_ACCESS_MSG;
+    return (err && err.detail) || fallback || 'Đã xảy ra lỗi khi tải dữ liệu.';
+  }
+
+  function isAssignmentActiveNow(a) {
+    if (!a || a.revokedAt) return false;
+    return true;
+  }
+
+  function renderAssignedDoctorsBadges(doctors, access, currentUser) {
+    const list = Array.isArray(doctors) ? doctors : [];
+    if (list.length > 0) {
+      return '<div class="assigned-doctors-list">' + list.map(function (d) {
+        const name = typeof d === 'string' ? d : (d.fullName || d.doctorName || d.username || 'Bác sĩ');
+        return '<span class="badge badge--blue badge--xs">' + esc(name) + '</span>';
+      }).join('') + '</div>';
+    }
+    if (access && (access.assignmentId || access.assignedAt)) {
+      const label = currentUser && currentUser.fullName ? currentUser.fullName : 'Được phân công';
+      return '<div class="assigned-doctors-list"><span class="badge badge--blue badge--xs">' + esc(label) + '</span>' +
+        (access.assignedAt ? '<span class="cell-sub tabular">Từ ' + esc(formatDateOnly(access.assignedAt)) + '</span>' : '') + '</div>';
+    }
+    return '<span class="badge badge--neutral">Chưa phân công</span>';
   }
 
   function formatDataTypeVi(dt) {
@@ -175,12 +209,14 @@
   function formatStorageLevelVi(lvl) {
     const map = {
       patient: 'Hồ sơ bệnh nhân',
+      visit: 'Siêu dữ liệu lượt khám (Hệ thống)',
       visit_value: 'Trường dữ liệu lượt khám',
       computed: 'Tự tính toán',
       orthostatic_bp: 'Bảng đo huyết áp theo tư thế',
       medication: 'Danh sách thuốc hiện dùng',
       allergy: 'Danh sách dị ứng / ADR',
-      lab_result: 'Danh sách kết quả cận lâm sàng'
+      lab_result: 'Danh sách kết quả cận lâm sàng',
+      diagnosis: 'Danh sách chẩn đoán ICD-10'
     };
     return map[lvl] || lvl || '—';
   }
@@ -190,7 +226,13 @@
       ai_diagnosis: 'Module 1: Hỗ trợ Chẩn đoán Suy tim',
       ai_lab_test: 'Module 2: Hỗ trợ Chỉ định Cận lâm sàng',
       ai_treatment: 'Module 3: Hỗ trợ Định hướng Điều trị',
-      ai_medsafety: 'Module 4: Hỗ trợ An toàn Thuốc (MedSafety)'
+      ai_medsafety: 'Module 4: Hỗ trợ An toàn Thuốc (MedSafety)',
+      hf_diagnosis: 'Module 1: Hỗ trợ Chẩn đoán Suy tim',
+      hf_lab_test: 'Module 2: Hỗ trợ Chỉ định Cận lâm sàng',
+      hf_lab: 'Module 2: Hỗ trợ Chỉ định Cận lâm sàng',
+      hf_gdmt: 'Module 3: Hỗ trợ Định hướng Điều trị (GDMT)',
+      hf_treatment: 'Module 3: Hỗ trợ Định hướng Điều trị',
+      hf_medsafety: 'Module 4: Hỗ trợ An toàn Thuốc (MedSafety)'
     };
     return map[code] || code;
   }
@@ -238,6 +280,26 @@
   }
 
   /* ------------------------------------------------------------------------
+     Review Summary Collapse Persistence (Session-Scoped)
+     ------------------------------------------------------------------------ */
+  const REVIEW_SUMMARY_COLLAPSED_LIMIT = 8;
+  const REVIEW_SUMMARY_STORAGE_KEY = 'suytim_review_summary_expanded';
+
+  function getReviewSummaryExpanded() {
+    try {
+      return global.sessionStorage.getItem(REVIEW_SUMMARY_STORAGE_KEY) === '1';
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  function setReviewSummaryExpanded(expanded) {
+    try {
+      global.sessionStorage.setItem(REVIEW_SUMMARY_STORAGE_KEY, expanded ? '1' : '0');
+    } catch (_e) {}
+  }
+
+  /* ------------------------------------------------------------------------
      Application State Store
      ------------------------------------------------------------------------ */
   const state = {
@@ -255,11 +317,12 @@
     patients: { items: [], q: '', status: '', loading: false, error: '' },
 
     // M3 Patient Profile
-    profile: { patientId: null, patient: null, latestVisitSummary: null, visits: [], loading: false, error: '' },
+    profile: { patientId: null, patient: null, latestVisitSummary: null, visits: [], careAssignments: [], careDoctors: [], careLoading: false, careError: '', loading: false, error: '' },
 
     // M4 Encounter
     encounter: {
       visitId: null,
+      access: null,
       patient: null,
       visit: null,
       formStructure: null,
@@ -270,6 +333,11 @@
       medications: [],
       allergies: [],
       labResults: [],
+      diagnoses: [],
+      medicationListState: 'unknown',
+      allergyListState: 'unknown',
+      diagnosisListState: 'unknown',
+      supportsListStates: false,
       revisions: [],
       clinicalNote: '',
       infoSource: '',
@@ -297,6 +365,7 @@
     // M5 Review
     review: {
       visitId: null,
+      access: null,
       visit: null,
       visitDetail: null,
       formRes: null,
@@ -307,6 +376,11 @@
       confirmNote: '',
       aiInputPayload: null,
       showAiPayload: false,
+      aiExportV1: null,
+      aiExportQuality: null,
+      aiExportError: '',
+      aiExportLoading: false,
+      aiExportIsDiagnostic: false,
       confirming: false,
       confirmError: '',
       loading: false,
@@ -329,12 +403,19 @@
       fieldSearch: '',
       activeTab: 'editor', // editor | preview | diff
       previewData: null,
+      previewError: '',
       previewValues: {},
       previewBp: [],
       previewAutoPulseSourceIndex: null,
       previewMeds: [],
       previewAllergies: [],
       previewLabs: [],
+      previewDiagnoses: [],
+      previewMedicationListState: 'unknown',
+      previewAllergyListState: 'unknown',
+      previewDiagnosisListState: 'unknown',
+      previewInfoSource: '',
+      previewClinicalNote: '',
       previewSectionCode: 'hanh_chinh',
       previewSearch: '',
       diffBaseVersionId: null,
@@ -358,6 +439,19 @@
       error: ''
     },
 
+    // M9 Admin Care Coordination (K8 compliant)
+    adminCare: {
+      q: '',
+      patients: [],
+      selectedPatientId: null,
+      selectedPatient: null,
+      assignments: [],
+      doctors: [],
+      loading: false,
+      assignmentsLoading: false,
+      error: ''
+    },
+
     // Modal state
     modal: null
   };
@@ -367,7 +461,8 @@
   const liveSearch = {
     patients: { timer: null, sequence: 0 },
     users: { timer: null, sequence: 0 },
-    audit: { timer: null, sequence: 0 }
+    audit: { timer: null, sequence: 0 },
+    adminCare: { timer: null, sequence: 0 }
   };
 
   function captureInputFocus(input) {
@@ -396,6 +491,7 @@
       if (kind === 'patients') loadPatients(options);
       else if (kind === 'users') loadAdminUsers(options);
       else if (kind === 'audit') loadAdminAudit(options);
+      else if (kind === 'adminCare') loadAdminCare(options);
     }, 180);
   }
 
@@ -606,6 +702,11 @@
       await loadAdminAudit();
       return;
     }
+    if (head === 'admin' && parts[1] === 'care') {
+      state.screen = 'admin-care';
+      await loadAdminCare();
+      return;
+    }
 
     global.location.hash = role === 'admin' ? '#/admin/users' : '#/patients';
   }
@@ -678,7 +779,8 @@
       state.profile.latestVisitSummary = ptRes.latestVisitSummary || null;
       state.profile.visits = (visRes && visRes.items) || [];
     } catch (err) {
-      state.profile.error = (err && err.detail) || 'Không tải được hồ sơ bệnh nhân.';
+      state.profile.patient = null;
+      state.profile.error = formatClinicalError(err, 'Không tải được hồ sơ bệnh nhân.');
       if (err && (err.status === 401 || err.status === 403)) return handleAuthOrError(err);
     } finally {
       state.profile.loading = false;
@@ -690,6 +792,7 @@
     const enc = state.encounter;
     const generation = ++enc.loadGeneration;
     enc.visitId = visitId;
+    enc.access = null;
     enc.savePromise = null;
     enc.saveQueued = false;
     enc.saving = false;
@@ -707,6 +810,7 @@
       const ptRes = await api.getPatient(detail.visit.patientId);
       if (generation !== enc.loadGeneration || enc.visitId !== visitId || state.screen !== 'encounter') return;
       enc.patient = ptRes.patient;
+      enc.access = detail.access || (ptRes.patient && ptRes.patient.access) || null;
       enc.visit = detail.visit;
       enc.formStructure = formRes;
       enc.defById = {};
@@ -723,6 +827,23 @@
       enc.medications = clone(detail.medications || []);
       enc.allergies = clone(detail.allergies || []);
       enc.labResults = clone(detail.labResults || []);
+      enc.diagnoses = clone(detail.diagnoses || []);
+      const hasV11Features = Boolean(
+        (formRes.formVersion && Number(formRes.formVersion.versionNo) >= 2) ||
+        (formRes.fieldDefinitions || []).some(function (fd) {
+          return fd.repeatGroup === 'diagnoses' || fd.storageLevel === 'diagnosis' || fd.code === 'nhiet_do';
+        })
+      );
+      enc.supportsListStates = Boolean(
+        hasV11Features ||
+        detail.visit.medicationListState !== undefined ||
+        detail.visit.allergyListState !== undefined ||
+        detail.visit.diagnosisListState !== undefined ||
+        detail.diagnoses !== undefined
+      );
+      enc.medicationListState = detail.visit.medicationListState || (enc.medications.length > 0 ? 'known' : 'unknown');
+      enc.allergyListState = detail.visit.allergyListState || (enc.allergies.length > 0 ? 'known' : 'unknown');
+      enc.diagnosisListState = detail.visit.diagnosisListState || (enc.diagnoses.length > 0 ? 'known' : 'unknown');
       enc.revisions = clone(detail.revisions || []);
       enc.autoPulseSourceIndex = null;
       enc.clinicalNote = detail.visit.clinicalNote || '';
@@ -735,7 +856,9 @@
       }
     } catch (err) {
       if (generation !== enc.loadGeneration || enc.visitId !== visitId || state.screen !== 'encounter') return;
-      enc.error = (err && err.detail) || 'Không tải được biểu mẫu lượt khám.';
+      enc.visit = null;
+      enc.formStructure = null;
+      enc.error = formatClinicalError(err, 'Không tải được biểu mẫu lượt khám.');
       if (err && (err.status === 401 || err.status === 403)) return handleAuthOrError(err);
     } finally {
       if (generation !== enc.loadGeneration || enc.visitId !== visitId || state.screen !== 'encounter') return;
@@ -756,12 +879,18 @@
   async function loadReview(visitId) {
     const rev = state.review;
     rev.visitId = visitId;
+    rev.access = null;
     rev.confirming = false;
     rev.confirmError = '';
     rev.loading = true;
     rev.error = '';
     rev.aiInputPayload = null;
     rev.showAiPayload = false;
+    rev.aiExportV1 = null;
+    rev.aiExportQuality = null;
+    rev.aiExportError = '';
+    rev.aiExportLoading = false;
+    rev.aiExportIsDiagnostic = false;
     render();
     try {
       const [visitDetail, formRes, reviewRes] = await Promise.all([
@@ -771,6 +900,7 @@
       ]);
       const ptRes = await api.getPatient(visitDetail.visit.patientId);
       rev.visit = visitDetail.visit;
+      rev.access = visitDetail.access || (ptRes.patient && ptRes.patient.access) || null;
       rev.visitDetail = visitDetail;
       rev.formRes = formRes;
       rev.revisions = visitDetail.revisions || [];
@@ -778,7 +908,9 @@
       rev.formVersion = formRes.formVersion;
       rev.data = reviewRes;
     } catch (err) {
-      rev.error = (err && err.detail) || 'Không tải được kết quả rà soát lượt khám.';
+      rev.visit = null;
+      rev.data = null;
+      rev.error = formatClinicalError(err, 'Không tải được kết quả rà soát lượt khám.');
       if (err && (err.status === 401 || err.status === 403)) return handleAuthOrError(err);
     } finally {
       rev.loading = false;
@@ -870,6 +1002,19 @@
         af.versions[0];
       af.diffBaseVersionId = detail.formVersion.basedOnVersionId || (published ? published.id : versionId);
       af.previewData = null;
+      af.previewError = '';
+      af.previewValues = {};
+      af.previewBp = [];
+      af.previewAutoPulseSourceIndex = null;
+      af.previewMeds = [];
+      af.previewAllergies = [];
+      af.previewLabs = [];
+      af.previewDiagnoses = [];
+      af.previewMedicationListState = 'unknown';
+      af.previewAllergyListState = 'unknown';
+      af.previewDiagnosisListState = 'unknown';
+      af.previewInfoSource = '';
+      af.previewClinicalNote = '';
       af.diffData = null;
       if (af.activeTab === 'preview') {
         af.previewData = await api.previewFormVersion(versionId);
@@ -914,6 +1059,59 @@
     }
   }
 
+  async function loadAdminCare(options) {
+    const opts = options || null;
+    const ac = state.adminCare;
+    ac.loading = true;
+    ac.error = '';
+    if (!opts) render();
+    try {
+      const [ptRes, docRes] = await Promise.all([
+        api.adminListCarePatients({ q: ac.q, page: 1, pageSize: 50 }),
+        api.adminListCareDoctors()
+      ]);
+      if (!isCurrentLiveSearch('adminCare', opts)) return;
+      ac.patients = (ptRes && ptRes.items) || [];
+      ac.doctors = (docRes && docRes.items) || [];
+      const keep = ac.patients.find(function (p) { return p.id === ac.selectedPatientId; }) || ac.patients[0] || null;
+      if (keep) {
+        ac.selectedPatientId = keep.id;
+        ac.selectedPatient = keep;
+        const caRes = await api.adminListPatientCareAssignments(keep.id);
+        ac.assignments = (caRes && caRes.items) || [];
+      } else {
+        ac.selectedPatientId = null;
+        ac.selectedPatient = null;
+        ac.assignments = [];
+      }
+    } catch (err) {
+      ac.error = (err && err.detail) || 'Không tải được dữ liệu phân công bác sĩ.';
+      if (err && (err.status === 401 || err.status === 403)) return handleAuthOrError(err);
+    } finally {
+      if (!isCurrentLiveSearch('adminCare', opts)) return;
+      ac.loading = false;
+      render();
+      restoreInputFocus(opts && opts.restoreFocus);
+    }
+  }
+
+  async function selectAdminCarePatient(patientId) {
+    const ac = state.adminCare;
+    ac.selectedPatientId = patientId;
+    ac.selectedPatient = ac.patients.find(function (p) { return p.id === patientId; }) || null;
+    ac.assignmentsLoading = true;
+    render();
+    try {
+      const caRes = await api.adminListPatientCareAssignments(patientId);
+      ac.assignments = (caRes && caRes.items) || [];
+    } catch (err) {
+      toast((err && err.detail) || 'Không tải được danh sách phân công.', 'error');
+    } finally {
+      ac.assignmentsLoading = false;
+      render();
+    }
+  }
+
   /* ------------------------------------------------------------------------
      Screen Renderers (M1 – M8 + 403 Forbidden)
      ------------------------------------------------------------------------ */
@@ -925,7 +1123,7 @@
           '<div class="brand-mark">' +
             '<div class="brand-mark__icon">' + ICONS.heart + '</div>' +
             '<div>' +
-              '<div class="brand-mark__name">Suytim-CDSS</div>' +
+              '<div class="brand-mark__name">HFCARE</div>' +
               '<div class="brand-mark__sub">Thu thập &amp; Xác nhận Dữ liệu Trước AI</div>' +
             '</div>' +
           '</div>' +
@@ -979,11 +1177,12 @@
     const navItems = isAdmin
       ? [
           { id: 'admin-accounts', hash: '#/admin/users', label: 'Tài khoản & Quyền', icon: ICONS.users },
+          { id: 'admin-care', hash: '#/admin/care', label: 'Phân công bác sĩ', icon: ICONS.shield },
           { id: 'admin-forms', hash: '#/admin/forms', label: 'Biểu mẫu & Phiên bản', icon: ICONS.layers },
           { id: 'admin-audit', hash: '#/admin/audit', label: 'Nhật ký hệ thống', icon: ICONS.list }
         ]
       : [
-          { id: 'patients', hash: '#/patients', label: 'Hồ sơ bệnh nhân', icon: ICONS.fileText }
+          { id: 'patients', hash: '#/patients', label: 'Bệnh nhân của tôi', icon: ICONS.fileText }
         ];
 
     const navHtml = navItems.map(function (item) {
@@ -1001,7 +1200,7 @@
               '<div class="brand-mark">' +
                 '<div class="brand-mark__icon">' + ICONS.heart + '</div>' +
                 '<div class="brand-mark__text">' +
-                  '<div class="brand-mark__name">Suytim-CDSS</div>' +
+                  '<div class="brand-mark__name">HFCARE</div>' +
                   '<div class="brand-mark__sub">Thu thập &amp; Xác nhận Dữ liệu</div>' +
                 '</div>' +
               '</div>' +
@@ -1014,7 +1213,7 @@
               '<span class="user-chip__avatar">' + esc(getInitials(u.fullName)) + '</span>' +
               '<span class="user-chip__meta">' +
                 '<span class="user-chip__name">' + esc(u.fullName) + '</span>' +
-                '<span class="user-chip__role mono">' + esc(u.username) + ' · ' + esc(roleLabel) + '</span>' +
+                '<span class="user-chip__role">' + esc(roleLabel) + '</span>' +
               '</span>' +
             '</button>' +
           '</div>' +
@@ -1023,7 +1222,7 @@
           '<div class="mobile-topbar">' +
             '<div class="brand-mark">' +
               '<div class="brand-mark__icon">' + ICONS.heart + '</div>' +
-              '<div><div class="brand-mark__name">Suytim-CDSS</div><div class="brand-mark__sub">' + esc(roleLabel) + '</div></div>' +
+              '<div><div class="brand-mark__name">HFCARE</div><div class="brand-mark__sub">' + esc(roleLabel) + '</div></div>' +
             '</div>' +
             '<div class="mobile-topbar__actions">' +
               '<button type="button" class="mobile-menu-btn mobile-account-btn" data-action="toggle-account-menu" aria-label="Tài khoản: ' + esc(u.fullName) + '" aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu"><span class="user-chip__avatar">' + esc(getInitials(u.fullName)) + '</span></button>' +
@@ -1147,18 +1346,25 @@
     } else if (ps.error) {
       listHtml = '<div class="banner banner--error"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__title">Không tải được danh sách</p><p class="banner__desc">' + esc(ps.error) + '</p></div></div><button type="button" class="btn btn--secondary btn--sm" data-action="reload-patients">Thử lại</button></div>';
     } else if (ps.items.length === 0) {
+      const hasFilters = Boolean((ps.q && ps.q.trim()) || ps.status);
       listHtml =
-        '<div class="empty-state">' +
-          '<h3 class="empty-state__title">Chưa có hồ sơ bệnh nhân nào khớp điều kiện</h3>' +
-          '<p class="empty-state__desc">Bắt đầu bằng cách tạo hồ sơ bệnh nhân mới với thông tin hành chính tối thiểu (mã <span class="mono">BN-xxxxx</span> sẽ được hệ thống tự cấp duy nhất).</p>' +
-          '<button type="button" class="btn btn--primary" data-action="open-create-patient">' + ICONS.plus + ' Tạo hồ sơ bệnh nhân</button>' +
+        '<div class="empty-state" data-empty-patients="true">' +
+          '<h3 class="empty-state__title">' + (hasFilters ? 'Không có bệnh nhân nào khớp điều kiện lọc' : 'Chưa có bệnh nhân nào được phân công cho bạn') + '</h3>' +
+          '<p class="empty-state__desc">' + (hasFilters
+            ? 'Danh sách "Bệnh nhân của tôi" chỉ hiển thị các hồ sơ bạn được phân công phụ trách. Hãy thử xóa từ khóa tìm kiếm hoặc đổi bộ lọc.'
+            : 'Bạn chỉ nhìn thấy hồ sơ bệnh nhân được phân công phụ trách. Bạn có thể tạo hồ sơ mới (hệ thống tự phân công bạn phụ trách) hoặc liên hệ Quản trị viên để được phân công vào hồ sơ hiện có.') + '</p>' +
+          '<div class="empty-state__actions">' +
+            '<button type="button" class="btn btn--primary" data-action="open-create-patient">' + ICONS.plus + ' Tạo hồ sơ bệnh nhân</button>' +
+          '</div>' +
         '</div>';
     } else {
       const rows = ps.items.map(function (it) {
         const pt = it.patient;
+        const doctors = pt.assignedDoctors || it.assignedDoctors || [];
         return (
           '<tr>' +
             '<td><div class="cell-primary mono">' + esc(pt.patientCode) + '</div><div class="cell-sub">' + esc(pt.fullName) + '</div></td>' +
+            '<td>' + renderAssignedDoctorsBadges(doctors, pt.access, state.user) + '</td>' +
             '<td><div>' + esc(formatSex(pt.sex)) + '</div><div class="cell-sub">' + esc(formatBirthPrecision(pt)) + '</div></td>' +
             '<td>' + (it.visitCount > 0 ? ('<div class="tabular">' + esc(formatDateTime(it.latestVisitDate)) + '</div><div class="cell-sub">' + it.visitCount + ' lượt khám</div>') : '<span class="cell-sub">Chưa ghi nhận</span>') + '</td>' +
             '<td>' + statusBadge(it.latestVisitStatus, it.latestVisitId) + '</td>' +
@@ -1169,12 +1375,14 @@
 
       const cards = ps.items.map(function (it) {
         const pt = it.patient;
+        const doctors = pt.assignedDoctors || it.assignedDoctors || [];
         return (
           '<article class="record-card">' +
             '<div class="record-card__top">' +
               '<div><div class="cell-primary mono">' + esc(pt.patientCode) + '</div><div class="cell-sub">' + esc(pt.fullName) + '</div></div>' +
               statusBadge(it.latestVisitStatus, it.latestVisitId) +
             '</div>' +
+            '<div style="margin-bottom:8px;"><span class="record-card__label">Bác sĩ phụ trách</span>' + renderAssignedDoctorsBadges(doctors, pt.access, state.user) + '</div>' +
             '<div class="record-card__meta">' +
               '<div><span class="record-card__label">Giới tính &amp; Tuổi</span>' + esc(formatSex(pt.sex) + ' · ' + formatBirthPrecision(pt)) + '</div>' +
               '<div><span class="record-card__label">Lượt khám gần nhất</span>' + (it.visitCount > 0 ? esc(formatDateTime(it.latestVisitDate) + ' (' + it.visitCount + ' lượt)') : 'Chưa có lượt') + '</div>' +
@@ -1186,15 +1394,17 @@
 
       listHtml =
         '<div class="card">' +
-          '<div class="table-wrap"><table class="data-table"><thead><tr><th>Mã hồ sơ &amp; Tên</th><th>Giới tính &amp; Độ chính xác tuổi</th><th>Lượt khám gần nhất</th><th>Trạng thái</th><th style="text-align:right;">Thao tác</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+          '<div class="table-wrap"><table class="data-table"><thead><tr><th>Mã hồ sơ &amp; Tên</th><th>Bác sĩ phụ trách</th><th>Giới tính &amp; Độ chính xác tuổi</th><th>Lượt khám gần nhất</th><th>Trạng thái</th><th style="text-align:right;">Thao tác</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
         '</div>' +
         '<div class="mobile-cards">' + cards + '</div>';
     }
 
     const body =
       '<div class="page-head">' +
-        '<div><h1 class="page-head__title">Hồ sơ bệnh nhân</h1></div>' +
-        '<div class="page-head__actions"><button type="button" class="btn btn--primary" data-action="open-create-patient">' + ICONS.plus + ' Tạo hồ sơ bệnh nhân</button></div>' +
+        '<div><h1 class="page-head__title">Bệnh nhân của tôi</h1><p class="page-head__sub">Danh sách hồ sơ bệnh nhân bạn được phân công phụ trách.</p></div>' +
+        '<div class="page-head__actions">' +
+          '<button type="button" class="btn btn--primary" data-action="open-create-patient">' + ICONS.plus + ' Tạo hồ sơ bệnh nhân</button>' +
+        '</div>' +
       '</div>' +
       '<div class="toolbar">' +
         '<div class="search-box"><span class="search-box__icon">' + ICONS.search + '</span><input type="search" class="input" id="patient-search" placeholder="Tìm theo mã BN-xxxxx hoặc tên hồ sơ..." value="' + esc(ps.q) + '"></div>' +
@@ -1202,7 +1412,7 @@
       '</div>' +
       listHtml;
 
-    return renderShell('<span class="breadcrumbs__current">Hồ sơ bệnh nhân</span>', body);
+    return renderShell('<span class="breadcrumbs__current">Bệnh nhân của tôi</span>', body);
   }
 
   /* ------------------------------------------------------------------------
@@ -1214,11 +1424,23 @@
       return renderShell('<button type="button" class="breadcrumbs__link" data-nav="#/patients">Hồ sơ bệnh nhân</button><span>/</span><span class="breadcrumbs__current">Đang tải...</span>', '<div class="skeleton-stack"><div class="skeleton-bar"></div><div class="skeleton-card"></div><div class="skeleton-card"></div></div>');
     }
     if (pr.error || !pr.patient) {
-      return renderShell('<button type="button" class="breadcrumbs__link" data-nav="#/patients">Hồ sơ bệnh nhân</button>', '<div class="banner banner--error"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(pr.error || 'Không tìm thấy hồ sơ.') + '</p></div></div><button type="button" class="btn btn--secondary btn--sm" data-nav="#/patients">Quay lại danh sách</button></div>');
+      return renderShell('<button type="button" class="breadcrumbs__link" data-nav="#/patients">Hồ sơ bệnh nhân</button>', '<div class="banner banner--error" role="alert"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(pr.error || NOT_FOUND_OR_NO_ACCESS_MSG) + '</p></div></div><button type="button" class="btn btn--secondary btn--sm" data-nav="#/patients">Quay lại danh sách</button></div>');
     }
 
     const pt = pr.patient;
     const sum = pr.latestVisitSummary;
+    const assignedDocs = pt.assignedDoctors || [];
+    const lastEditorName = pt.updatedByName || pt.lastEditedByName || '';
+
+    const assignedBoxHtml =
+      '<section class="card" data-assigned-doctors-box="true">' +
+        '<div class="card__header">' +
+          '<div><h2 class="card__title">Bác sĩ phụ trách hồ sơ</h2><p class="card__subtitle">Hồ sơ được phân công phụ trách cho bác sĩ (do Quản trị viên điều phối).</p></div>' +
+        '</div>' +
+        '<div class="card__body">' +
+          renderAssignedDoctorsBadges(assignedDocs, pt.access, state.user) +
+        '</div>' +
+      '</section>';
 
     let summaryBody = '';
     if (!sum) {
@@ -1254,10 +1476,12 @@
         '</div>';
     }
 
-    const timelineHtml = pr.visits.length === 0
+      const timelineHtml = pr.visits.length === 0
       ? '<p class="field__help">Chưa có lượt khám nào được tạo cho hồ sơ này.</p>'
       : '<div class="timeline">' + pr.visits.map(function (v) {
           const isConf = v.status === 'confirmed';
+          const perfDoc = v.performedByName || v.performingDoctorName || v.createdByName || '';
+          const lastEd = v.updatedByName || v.lastEditedByName || '';
           return (
             '<div class="timeline-item ' + (isConf ? 'timeline-item--confirmed' : 'timeline-item--draft') + '">' +
               '<div class="timeline-item__top">' +
@@ -1265,6 +1489,13 @@
                 (isConf ? '<span class="badge badge--success">Đã xác nhận</span>' : '<span class="badge badge--warn">Bản nháp</span>') +
               '</div>' +
               (v.chiefComplaint ? '<div class="cell-sub">' + esc(v.chiefComplaint) + '</div>' : '') +
+              (perfDoc || lastEd ? (
+                '<div class="cell-sub" data-visit-actors="true">' +
+                  (perfDoc ? 'Bác sĩ thực hiện: <strong>' + esc(perfDoc) + '</strong>' : '') +
+                  (perfDoc && lastEd ? ' · ' : '') +
+                  (lastEd ? 'Chỉnh sửa gần nhất: <strong>' + esc(lastEd) + '</strong>' : '') +
+                '</div>'
+              ) : '') +
               '<div class="field__meta-row">' +
                 '<span class="badge badge--blue">Biểu mẫu ' + esc(v.formVersionLabel || 'v1') + (v.currentRevisionNo > 1 ? ' · Bản sửa #' + esc(v.currentRevisionNo) : '') + '</span>' +
                 '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
@@ -1278,7 +1509,7 @@
 
       const body =
       '<div class="page-head">' +
-        '<div><h1 class="page-head__title"><span class="mono">' + esc(pt.patientCode) + '</span> · ' + esc(pt.fullName) + '</h1><p class="page-head__sub">Thông tin hành chính và danh sách các lượt khám theo thời gian.</p></div>' +
+        '<div><h1 class="page-head__title"><span class="mono">' + esc(pt.patientCode) + '</span> · ' + esc(pt.fullName) + '</h1><p class="page-head__sub">Thông tin hành chính, bác sĩ phụ trách và danh sách các lượt khám theo thời gian.</p></div>' +
         '<div class="page-head__actions">' +
           '<button type="button" class="btn btn--secondary" data-nav="#/patients">' + ICONS.arrowLeft + ' Về danh sách</button>' +
           '<button type="button" class="btn btn--primary" data-action="open-create-visit">' + ICONS.plus + ' Tạo lượt khám mới</button>' +
@@ -1294,9 +1525,10 @@
               '<div><div class="kv-item__label">Giới tính</div><div class="kv-item__value">' + esc(formatSex(pt.sex)) + '</div></div>' +
               '<div><div class="kv-item__label">Ngày sinh / Tuổi</div><div class="kv-item__value">' + esc(formatBirthPrecision(pt)) + '</div></div>' +
               '<div><div class="kv-item__label">Mã CCCD</div><div class="kv-item__value mono">' + esc(pt.externalPatientCode || 'Chưa ghi nhận') + '</div></div>' +
-              '<div><div class="kv-item__label">Cập nhật gần nhất</div><div class="kv-item__value tabular">' + esc(formatDateTime(pt.updatedAt)) + '</div></div>' +
+              '<div><div class="kv-item__label">Cập nhật gần nhất</div><div class="kv-item__value tabular">' + esc(formatDateTime(pt.updatedAt)) + (lastEditorName ? ' · ' + esc(lastEditorName) : '') + '</div></div>' +
             '</div></div>' +
           '</section>' +
+          assignedBoxHtml +
           '<section class="card">' +
             '<div class="card__header"><div><h2 class="card__title">Tóm tắt lượt đã xác nhận gần nhất (chỉ tham chiếu)</h2><p class="card__subtitle">Dữ liệu chỉ để đối chiếu, không tự sao chép sang lượt khám mới.</p></div></div>' +
             '<div class="card__body">' + summaryBody + '</div>' +
@@ -1315,10 +1547,10 @@
   }
 
   /* ------------------------------------------------------------------------
-     Shared Metadata-Driven Clinical Form Renderer (Used by BOTH M4 & M7 Preview!)
-     UI-06: Continuous vertical scroll across all 8 sections + left TOC sync
-     UI-07: Clean labels, hide technical codes/refs/internal Q-AI notes,
-            bring height/weight/BMI into Section 01 (without changing storage!)
+     Shared Metadata-Driven Clinical Form Renderer (Used by M4, M7 Preview & Editor)
+     Single source of truth: renders strictly from the form version bundle
+     (sections, field placements, customLabelVi, customHelpText, isVisible,
+     requiredForConfirm, displayOrder, repeatGroup, memberPath, system/computed).
      ------------------------------------------------------------------------ */
   function isValidMedRow(m) {
     return Boolean(m && m.drugName && String(m.drugName).trim());
@@ -1326,6 +1558,16 @@
 
   function isValidAllergyRow(a) {
     return Boolean(a && a.allergen && String(a.allergen).trim());
+  }
+
+  function isValidDiagnosisRow(d) {
+    return Boolean(d && ((d.code && String(d.code).trim()) || (d.display && String(d.display).trim())));
+  }
+
+  function isValidIcd10Format(code) {
+    const c = String(code || '').trim();
+    if (!c) return true;
+    return /^[A-Za-z]\d{2}(?:\.[A-Za-z0-9]{1,4})?$/.test(c);
   }
 
   function isValidLabRow(l, defByCode) {
@@ -1337,60 +1579,206 @@
     return Boolean(l.valueText && String(l.valueText).trim());
   }
 
-  function sanitizeDoctorHelpText(text) {
-    if (!text) return '';
-    let s = String(text).trim();
-    // Hide internal review/source references like (TL01 Bảng 3), (Q-AI-19), (TL06 ...)
-    if (/^\s*$/.test(s)) return '';
-    if (/\b(TL0[1-6]|Q-AI-\d+|Q-PM-\d+|STT\s*\d+|visit_|field_definition)\b/i.test(s)) {
-      return '';
-    }
-    return '';
+  function getFieldLabel(ff, fd) {
+    const custom = ff && ff.customLabelVi && String(ff.customLabelVi).trim();
+    return custom || (fd && fd.labelVi) || (ff && ff.fieldCode) || '';
   }
 
-  function buildContinuousSections(sections, defById) {
-    // UI-07: Surface chieu_cao_cm, can_nang_kg, bmi inside section 01 (hanh_chinh)
-    // right alongside age & sex for quick clinical overview, without duplicating them in section 03.
-    const movedCodes = { chieu_cao_cm: true, can_nang_kg: true, bmi: true };
-    const liftedFields = [];
-    (sections || []).forEach(function (sec) {
-      if (sec.sectionCode === 'hanh_chinh') return;
-      (sec.fields || []).forEach(function (ff) {
-        const fd = defById[ff.fieldDefinitionId];
-        if (fd && movedCodes[fd.code] && ff.isVisible) {
-          liftedFields.push(ff);
-        }
-      });
-    });
-    const order = { chieu_cao_cm: 1, can_nang_kg: 2, bmi: 3 };
-    liftedFields.sort(function (a, b) {
-      const ca = defById[a.fieldDefinitionId] ? defById[a.fieldDefinitionId].code : '';
-      const cb = defById[b.fieldDefinitionId] ? defById[b.fieldDefinitionId].code : '';
-      return (order[ca] || 9) - (order[cb] || 9);
-    });
-    return (sections || []).map(function (sec) {
-      if (sec.sectionCode === 'hanh_chinh') {
-        const existingIds = {};
-        (sec.fields || []).forEach(function (ff) { existingIds[ff.fieldDefinitionId] = true; });
-        const merged = (sec.fields || []).slice();
-        liftedFields.forEach(function (ff) {
-          if (!existingIds[ff.fieldDefinitionId]) merged.push(ff);
-        });
-        return Object.assign({}, sec, { fields: merged });
+  function sanitizeDoctorHelpText(text) {
+    if (!text) return '';
+    const s = String(text).trim();
+    if (!s) return '';
+    if (/\b(TL0[1-9]|Q-AI-\d+|Q-PM-\d+|CR-W\d+-\d+|STT\s*\d+|visit_[a-z_]+|field_definition|value_state|bảng\s+patient|NULL|G1\s+\d{1,2}\/\d{1,2}\/\d{4})\b/i.test(s)) {
+      return '';
+    }
+    return s;
+  }
+
+  function joinUniqueHelpTexts(entries) {
+    const seen = {};
+    const out = [];
+    (entries || []).forEach(function (e) {
+      const h = getFieldHelpText(e.ff, e.fd);
+      if (h && !seen[h]) {
+        seen[h] = true;
+        out.push(h);
       }
-      const filtered = (sec.fields || []).filter(function (ff) {
-        const fd = defById[ff.fieldDefinitionId];
-        return !(fd && movedCodes[fd.code]);
+    });
+    return out.join(' · ');
+  }
+
+  function getFieldHelpText(ff, fd) {
+    const custom = ff && ff.customHelpText && String(ff.customHelpText).trim();
+    if (custom) return sanitizeDoctorHelpText(custom);
+    return sanitizeDoctorHelpText(fd && fd.helpText);
+  }
+
+  function getFieldMetaFlags(ff, fd) {
+    const computed = Boolean(fd && (fd.computed || fd.isCalculated || fd.storageLevel === 'computed'));
+    const isVisitNote = Boolean(fd && (fd.code === 'info_source' || fd.code === 'clinical_note' || fd.memberPath === 'infoSource' || fd.memberPath === 'clinicalNote'));
+    const isListStateField = Boolean(fd && (
+      fd.code === 'medication_list_state' || fd.code === 'allergy_list_state' || fd.code === 'diagnosis_list_state' ||
+      fd.memberPath === 'medicationListState' || fd.memberPath === 'allergyListState' || fd.memberPath === 'diagnosisListState'
+    ));
+    const isVisitSystem = Boolean(isVisitNote || isListStateField || (fd && fd.storageLevel === 'visit'));
+    const isPatientSystem = Boolean(fd && fd.storageLevel === 'patient');
+    const system = Boolean((fd && fd.system) || computed || isVisitSystem || isPatientSystem);
+    const locked = Boolean((fd && fd.locked) || system || computed);
+    const readonlyInput = Boolean((ff && ff.isReadonly) || computed || isPatientSystem);
+    return {
+      computed: computed,
+      system: system,
+      locked: locked,
+      readonlyInput: readonlyInput,
+      isVisitNote: isVisitNote,
+      isListStateField: isListStateField,
+      isVisitSystem: isVisitSystem,
+      isPatientSystem: isPatientSystem
+    };
+  }
+
+  function getFieldRepeatInfo(fd) {
+    if (!fd) return null;
+    if (fd.repeatGroup) {
+      return { group: fd.repeatGroup, memberPath: fd.memberPath || null };
+    }
+    if (fd.storageLevel === 'orthostatic_bp') {
+      const bpMap = {
+        huyet_ap_tam_thu: 'systolic',
+        huyet_ap_tam_truong: 'diastolic',
+        thoi_diem_do_ha: 'measuredAt',
+        tu_the_do_ha: 'position',
+        nhip_tim_do_ha: 'heartRate',
+        phut_sau_doi_tu_the: 'minuteAfter'
+      };
+      return { group: 'orthostaticBp', memberPath: bpMap[fd.code] || fd.memberPath || null };
+    }
+    if (fd.storageLevel === 'medication') {
+      if (fd.code === 'thuoc_ghi_nhan') return { group: 'medications', memberPath: 'drugName' };
+      return null;
+    }
+    if (fd.storageLevel === 'allergy') {
+      if (fd.code === 'di_ung_adr') return { group: 'allergies', memberPath: 'allergen' };
+      // di_ung_thuoc_can_quang is a standalone boolean scalar field (do not swallow!)
+      return null;
+    }
+    if (fd.storageLevel === 'lab_result') {
+      return { group: 'labResults', memberPath: fd.memberPath || null };
+    }
+    if (fd.storageLevel === 'diagnosis') {
+      const dxMap = { icd_code: 'code', icd_display: 'display', icd_role: 'role' };
+      return { group: 'diagnoses', memberPath: dxMap[fd.code] || fd.memberPath || null };
+    }
+    return null;
+  }
+
+  function isLabMetadataColumnCode(fd) {
+    if (!fd) return false;
+    if (fd.memberPath && ['unit', 'measuredAt', 'labSubtype'].indexOf(fd.memberPath) >= 0) return true;
+    return ['cls_don_vi', 'cls_thoi_diem', 'cls_ecg_thoi_diem', 'cls_sieu_am_tim_thoi_diem', 'cls_xquang_thoi_diem', 'cls_troponin_loai'].indexOf(fd.code) >= 0;
+  }
+
+  function sortByDisplayOrder(list) {
+    return (list || []).slice().sort(function (a, b) {
+      return (Number(a.displayOrder) || 0) - (Number(b.displayOrder) || 0);
+    });
+  }
+
+  function hasVisitNotesPlacements(sections, defById) {
+    return (sections || []).some(function (sec) {
+      return (sec.fields || []).some(function (ff) {
+        const fd = defById && defById[ff.fieldDefinitionId];
+        const code = (fd && fd.code) || ff.fieldCode;
+        return code === 'info_source' || code === 'clinical_note' || (fd && (fd.memberPath === 'infoSource' || fd.memberPath === 'clinicalNote'));
       });
-      return Object.assign({}, sec, { fields: filtered });
+    });
+  }
+
+  function buildVirtualVisitNoteFields(section) {
+    return [
+      {
+        id: 'virtual-info_source',
+        formSectionId: section.id,
+        fieldDefinitionId: 'virtual-def-info_source',
+        fieldCode: 'info_source',
+        displayOrder: 901,
+        requiredForConfirm: false,
+        isVisible: true,
+        isReadonly: false,
+        customLabelVi: null,
+        customHelpText: null,
+        _virtualSystem: true,
+        _virtualDef: {
+          id: 'virtual-def-info_source',
+          code: 'info_source',
+          labelVi: 'Nguồn cung cấp thông tin lâm sàng',
+          sectionCode: 'ghi_chu',
+          dataType: 'text',
+          canonicalUnit: null,
+          scopeStatus: 'mvp',
+          storageLevel: 'visit',
+          isCalculated: false,
+          system: true,
+          computed: false,
+          locked: true,
+          memberPath: 'infoSource',
+          helpText: 'Người bệnh / Người nhà / Giấy tờ mang theo',
+          sourceRef: 'Siêu dữ liệu lượt khám (visit.info_source)'
+        }
+      },
+      {
+        id: 'virtual-clinical_note',
+        formSectionId: section.id,
+        fieldDefinitionId: 'virtual-def-clinical_note',
+        fieldCode: 'clinical_note',
+        displayOrder: 902,
+        requiredForConfirm: false,
+        isVisible: true,
+        isReadonly: false,
+        customLabelVi: null,
+        customHelpText: null,
+        _virtualSystem: true,
+        _virtualDef: {
+          id: 'virtual-def-clinical_note',
+          code: 'clinical_note',
+          labelVi: 'Ghi chú lâm sàng bổ sung của bác sĩ',
+          sectionCode: 'ghi_chu',
+          dataType: 'text',
+          canonicalUnit: null,
+          scopeStatus: 'mvp',
+          storageLevel: 'visit',
+          isCalculated: false,
+          system: true,
+          computed: false,
+          locked: true,
+          memberPath: 'clinicalNote',
+          helpText: 'Ghi nhận bối cảnh đặc biệt hoặc điểm cần lưu ý ở lần tái khám sau.',
+          sourceRef: 'Siêu dữ liệu lượt khám (visit.clinical_note)'
+        }
+      }
+    ];
+  }
+
+  function isV11Bundle(formVersion, sections, defById) {
+    if (formVersion && Number(formVersion.versionNo) >= 2) return true;
+    const allDefs = Object.values(defById || {});
+    if (allDefs.some(function (fd) { return fd.repeatGroup === 'diagnoses' || fd.storageLevel === 'diagnosis' || fd.code === 'nhiet_do'; })) {
+      return true;
+    }
+    return (sections || []).some(function (sec) {
+      return (sec.fields || []).some(function (ff) {
+        return ff.fieldCode === 'nhiet_do' || ff.fieldCode === 'icd_code' || ff.fieldCode === 'ts_thuoc_la';
+      });
     });
   }
 
   function renderClinicalSectionForm(ctx) {
     // ctx: { mode: 'encounter'|'preview', readonly, sections, defById, defByCode, valuesByDefId,
-    //        orthostaticBp, medications, allergies, labResults, patient, visit,
-    //        clinicalNote, infoSource, activeSectionCode, search, filter, fieldErrors }
-    const allSections = buildContinuousSections(ctx.sections || [], ctx.defById || {});
+    //        orthostaticBp, medications, allergies, labResults, diagnoses,
+    //        medicationListState, allergyListState, diagnosisListState, supportsListStates,
+    //        formVersion, patient, visit, clinicalNote, infoSource,
+    //        activeSectionCode, search, filter, fieldErrors }
+    const allSections = sortByDisplayOrder(ctx.sections || []);
     if (allSections.length === 0) return '<p class="field__help">Chưa có nhóm biểu mẫu nào.</p>';
 
     const q = String(ctx.search || '').trim().toLowerCase();
@@ -1398,16 +1786,92 @@
     const ro = Boolean(ctx.readonly);
     const prefix = ctx.mode === 'preview' ? 'prev-' : 'enc-';
     const isPreview = ctx.mode === 'preview';
+    const showListStates = Boolean(ctx.supportsListStates || isV11Bundle(ctx.formVersion, allSections, ctx.defById));
+    const bundleHasVisitNotes = hasVisitNotesPlacements(allSections, ctx.defById);
+
+    function renderListStateBar(kind, currentVal, titleLabel, barReadonly) {
+      if (!showListStates) return '';
+      const cur = currentVal || 'unknown';
+      const isDisabled = Boolean(ro || barReadonly);
+      const labels = {
+        known: 'Có',
+        none: 'Không có',
+        unknown: 'Chưa rõ'
+      };
+      return (
+        '<div class="list-state-bar" data-list-state-kind="' + esc(kind) + '">' +
+          '<span class="list-state-bar__label">' + esc(titleLabel) + ':</span>' +
+          '<div class="list-state-bar__group" role="group" aria-label="' + esc(titleLabel) + '">' +
+            ['known', 'none', 'unknown'].map(function (st) {
+              const activeCls = cur === st ? (' is-' + st) : '';
+              return '<button type="button" class="list-state-btn' + activeCls + '" data-' + prefix + 'list-state="' + esc(kind) + ':' + st + '" aria-pressed="' + (cur === st ? 'true' : 'false') + '"' + (isDisabled ? ' disabled' : '') + '>' + esc(labels[st]) + '</button>';
+            }).join('') +
+          '</div>' +
+        '</div>'
+      );
+    }
 
     function renderSingleField(ff) {
-      const fd = ctx.defById[ff.fieldDefinitionId];
-      let label = ff.customLabelVi || fd.labelVi;
-      if (fd.code === 'chieu_cao_cm') label = 'Chiều cao (lượt khám này)';
-      if (fd.code === 'can_nang_kg') label = 'Cân nặng (lượt khám này)';
+      const fd = ctx.defById[ff.fieldDefinitionId] || ff._virtualDef;
+      if (!fd) return '';
+      const label = getFieldLabel(ff, fd);
+      const helpText = getFieldHelpText(ff, fd);
+      const customHelp = ff.customHelpText && String(ff.customHelpText).trim() ? sanitizeDoctorHelpText(ff.customHelpText) : '';
       const val = ctx.valuesByDefId[fd.id] || null;
       const errMsg = (ctx.fieldErrors && ctx.fieldErrors[fd.code]) || '';
-      const isReadonly = ro || ff.isReadonly || fd.isCalculated || fd.storageLevel === 'patient';
+      const flags = getFieldMetaFlags(ff, fd);
+      const isReadonly = ro || flags.readonlyInput;
       const reqTag = ff.requiredForConfirm ? '<span class="badge badge--warn badge--xs">Bắt buộc</span>' : '';
+
+      // List-state system fields (medication_list_state, allergy_list_state, diagnosis_list_state)
+      if (flags.isListStateField) {
+        const kind = (fd.code === 'medication_list_state' || fd.memberPath === 'medicationListState')
+          ? 'medications'
+          : ((fd.code === 'allergy_list_state' || fd.memberPath === 'allergyListState') ? 'allergies' : 'diagnoses');
+        const curVal = kind === 'medications'
+          ? (ctx.medicationListState || ((ctx.medications || []).length > 0 ? 'known' : 'unknown'))
+          : (kind === 'allergies'
+              ? (ctx.allergyListState || ((ctx.allergies || []).length > 0 ? 'known' : 'unknown'))
+              : (ctx.diagnosisListState || ((ctx.diagnoses || []).length > 0 ? 'known' : 'unknown')));
+        const lsErr = errMsg || (ctx.fieldErrors && ctx.fieldErrors[fd.memberPath || '']) || '';
+        const labels = { known: 'Có', none: 'Không có', unknown: 'Chưa rõ' };
+        return (
+          '<div class="field field--span-2" data-field-code="' + esc(fd.code) + '" data-repeat-codes="' + esc(fd.code + (fd.memberPath ? ',' + fd.memberPath : '')) + '">' +
+            '<div class="list-state-bar" style="margin-bottom:0;" data-list-state-kind="' + esc(kind) + '">' +
+              '<span class="list-state-bar__label">' + esc(label) + ' ' + reqTag + '</span>' +
+              '<div class="list-state-bar__group" role="group" aria-label="' + esc(label) + '">' +
+                ['known', 'none', 'unknown'].map(function (st) {
+                  const activeCls = curVal === st ? (' is-' + st) : '';
+                  return '<button type="button" class="list-state-btn' + activeCls + '" data-' + prefix + 'list-state="' + esc(kind) + ':' + st + '" aria-pressed="' + (curVal === st ? 'true' : 'false') + '"' + (isReadonly ? ' disabled' : '') + '>' + esc(labels[st]) + '</button>';
+                }).join('') +
+              '</div>' +
+            '</div>' +
+            (helpText ? '<p class="field__help">' + esc(helpText) + '</p>' : '') +
+            (lsErr ? '<p class="field__error">' + ICONS.alert + ' ' + esc(lsErr) + '</p>' : '') +
+          '</div>'
+        );
+      }
+
+      // Visit-level system note fields (info_source, clinical_note)
+      if (flags.isVisitNote) {
+        const metaKey = fd.memberPath || (fd.code === 'info_source' ? 'infoSource' : 'clinicalNote');
+        const isNote = metaKey === 'clinicalNote' || fd.code === 'clinical_note';
+        const domId = prefix + (isNote ? 'clinical-note' : 'info-source');
+        const curText = isNote ? (ctx.clinicalNote || '') : (ctx.infoSource || '');
+        const ph = isNote
+          ? 'Ghi nhận bối cảnh đặc biệt hoặc điểm cần lưu ý ở lần tái khám sau...'
+          : 'Người bệnh / Người nhà / Giấy tờ mang theo';
+        return (
+          '<div class="field' + (isNote ? ' field--span-2' : '') + '" data-field-code="' + esc(fd.code) + '">' +
+            '<div class="field__label-row"><label class="field__label" for="' + esc(domId) + '">' + esc(label) + ' ' + reqTag + '</label></div>' +
+            (isNote
+              ? '<textarea id="' + esc(domId) + '" class="textarea' + (errMsg ? ' input--error' : '') + '" data-' + prefix + 'visit-meta="' + esc(metaKey) + '" placeholder="' + esc(ph) + '"' + (isReadonly ? ' disabled' : '') + '>' + esc(curText) + '</textarea>'
+              : '<input id="' + esc(domId) + '" type="text" class="input' + (errMsg ? ' input--error' : '') + '" data-' + prefix + 'visit-meta="' + esc(metaKey) + '" placeholder="' + esc(ph) + '" value="' + esc(curText) + '"' + (isReadonly ? ' disabled' : '') + '>') +
+            (helpText ? '<p class="field__help">' + esc(helpText) + '</p>' : '') +
+            (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
+          '</div>'
+        );
+      }
 
       // Special computed / patient cards
       if (fd.code === 'bmi') {
@@ -1418,9 +1882,9 @@
         const bmi = computeBmi(hVal, wVal);
         return (
           '<div class="bmi-card" data-field-code="bmi">' +
-            '<div class="bmi-card__label">' + esc(label) + '</div>' +
+            '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--blue badge--xs">Tự tính</span></div>' +
             '<div class="bmi-card__value">' + (bmi !== null ? esc(bmi) + ' kg/m²' : 'Chưa đủ dữ liệu') + '</div>' +
-            '<div class="bmi-card__note">Tự tính từ chiều cao và cân nặng của lượt khám này.</div>' +
+            '<div class="bmi-card__note">' + esc(customHelp || 'Tự tính từ chiều cao và cân nặng của lượt khám này.') + '</div>' +
           '</div>'
         );
       }
@@ -1430,17 +1894,17 @@
         if (isPreview) {
           return (
             '<div class="bmi-card" data-field-code="luot_tuoi">' +
-              '<div class="bmi-card__label">' + esc(label) + '</div>' +
+              '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--blue badge--xs">Tự tính</span></div>' +
               '<div class="bmi-card__value bmi-card__value--muted">Chưa có dữ liệu</div>' +
-              '<div class="bmi-card__note">Lấy theo ngày sinh / năm sinh trong hồ sơ bệnh nhân khi mở lượt khám thật.</div>' +
+              '<div class="bmi-card__note">' + esc(customHelp || 'Lấy theo ngày sinh / năm sinh trong hồ sơ bệnh nhân khi mở lượt khám thật.') + '</div>' +
             '</div>'
           );
         }
         return (
           '<div class="bmi-card" data-field-code="luot_tuoi">' +
-            '<div class="bmi-card__label">' + esc(label) + '</div>' +
+            '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--blue badge--xs">Tự tính</span></div>' +
             '<div class="bmi-card__value">' + (age !== null ? esc(age) + ' tuổi' : 'Chưa ghi nhận') + '</div>' +
-            '<div class="bmi-card__note">' + esc(ctx.patient ? formatBirthPrecision(ctx.patient) : 'Lấy từ hồ sơ hành chính') + '</div>' +
+            '<div class="bmi-card__note">' + esc(customHelp || (ctx.patient ? formatBirthPrecision(ctx.patient) : 'Lấy từ hồ sơ hành chính')) + '</div>' +
           '</div>'
         );
       }
@@ -1449,17 +1913,17 @@
         if (isPreview) {
           return (
             '<div class="bmi-card" data-field-code="bn_gioi_tinh">' +
-              '<div class="bmi-card__label">' + esc(label) + '</div>' +
+              '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--info badge--xs">Trường hệ thống</span></div>' +
               '<div class="bmi-card__value bmi-card__value--muted">Chưa có dữ liệu</div>' +
-              '<div class="bmi-card__note">Đồng bộ từ hồ sơ hành chính bệnh nhân.</div>' +
+              '<div class="bmi-card__note">' + esc(customHelp || 'Đồng bộ từ hồ sơ hành chính bệnh nhân.') + '</div>' +
             '</div>'
           );
         }
         return (
           '<div class="bmi-card" data-field-code="bn_gioi_tinh">' +
-            '<div class="bmi-card__label">' + esc(label) + '</div>' +
+            '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--info badge--xs">Trường hệ thống</span></div>' +
             '<div class="bmi-card__value bmi-card__value--sm">' + esc(ctx.patient ? formatSex(ctx.patient.sex) : 'Chưa ghi nhận') + '</div>' +
-            '<div class="bmi-card__note">Đồng bộ từ hồ sơ hành chính bệnh nhân.</div>' +
+            '<div class="bmi-card__note">' + esc(customHelp || 'Đồng bộ từ hồ sơ hành chính bệnh nhân.') + '</div>' +
           '</div>'
         );
       }
@@ -1468,28 +1932,37 @@
         const allMeds = ctx.medications || [];
         const validActiveCount = allMeds.filter(function (m) { return isValidMedRow(m) && m.status === 'active'; }).length;
         const validTotalCount = allMeds.filter(isValidMedRow).length;
-        const valLabel = validTotalCount === 0 ? 'Chưa ghi nhận thuốc' : (validActiveCount + ' thuốc đang dùng');
+        const valLabel = validTotalCount === 0
+          ? (ctx.medicationListState === 'none' ? '0 thuốc (đã xác nhận không dùng)' : 'Chưa ghi nhận thuốc')
+          : (validActiveCount + ' thuốc đang dùng');
         return (
           '<div class="bmi-card" data-field-code="so_luong_thuoc_dong_thoi">' +
-            '<div class="bmi-card__label">' + esc(label) + '</div>' +
+            '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--blue badge--xs">Tự tính</span></div>' +
             '<div class="bmi-card__value bmi-card__value--sm">' + esc(valLabel) + '</div>' +
-            '<div class="bmi-card__note">Chỉ đếm bản ghi thuốc đã nhập tên và ở trạng thái Đang dùng.</div>' +
+            '<div class="bmi-card__note">' + esc(customHelp || 'Chỉ đếm bản ghi thuốc đã nhập tên và ở trạng thái Đang dùng.') + '</div>' +
           '</div>'
         );
       }
 
-      if (fd.isCalculated) {
+      if (flags.computed) {
         return (
           '<div class="bmi-card" data-field-code="' + esc(fd.code) + '">' +
-            '<div class="bmi-card__label">' + esc(label) + '</div>' +
+            '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--blue badge--xs">Tự tính</span></div>' +
             '<div class="bmi-card__value bmi-card__value--muted">Tự tính khi có đủ dữ liệu</div>' +
+            (helpText ? '<div class="bmi-card__note">' + esc(helpText) + '</div>' : '') +
           '</div>'
         );
       }
 
       // Tri-state boolean (Chưa điền vs Chưa rõ vs Có vs Không)
       if (fd.dataType === 'boolean') {
-        const curState = !val ? 'unfilled' : (val.valueState === 'unknown' ? 'unknown' : (val.valueBool ? 'yes' : 'no'));
+        let effectiveVal = val;
+        if (!effectiveVal && fd.code === 'di_ung_thuoc_can_quang' && fd.storageLevel === 'allergy') {
+          if ((ctx.allergies || []).some(function (a) { return a && a.agentCategory === 'contrast_media'; })) {
+            effectiveVal = { valueState: 'answered', valueBool: true };
+          }
+        }
+        const curState = !effectiveVal ? 'unfilled' : (effectiveVal.valueState === 'unknown' ? 'unknown' : (effectiveVal.valueBool ? 'yes' : 'no'));
         const statusText = curState === 'unfilled' ? 'Chưa điền' : (curState === 'unknown' ? 'Chưa rõ' : (curState === 'yes' ? 'Có' : 'Không'));
         return (
           '<div class="tristate' + (curState === 'unfilled' ? ' tristate--unfilled' : '') + (errMsg ? ' tristate--error' : '') + '" data-field-code="' + esc(fd.code) + '">' +
@@ -1502,6 +1975,7 @@
               '<button type="button" class="tristate__btn' + (curState === 'yes' ? ' is-yes' : '') + '" data-' + prefix + 'tristate="' + esc(fd.id) + '" data-val="yes"' + (isReadonly ? ' disabled' : '') + '>Có</button>' +
               '<button type="button" class="tristate__btn' + (curState === 'no' ? ' is-no' : '') + '" data-' + prefix + 'tristate="' + esc(fd.id) + '" data-val="no"' + (isReadonly ? ' disabled' : '') + '>Không</button>' +
             '</div>' +
+            (helpText ? '<p class="field__help">' + esc(helpText) + '</p>' : '') +
             (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
           '</div>'
         );
@@ -1526,7 +2000,8 @@
               (fd.canonicalUnit ? ('<div class="input-unit-wrap">' + inputEl + '<span class="input-unit-wrap__unit">' + esc(fd.canonicalUnit) + '</span></div>') : inputEl) +
               '<button type="button" class="unknown-toggle' + (isUnknown ? ' is-active' : '') + '" data-' + prefix + 'toggle-unknown="' + esc(fd.id) + '"' + (isReadonly ? ' disabled' : '') + '>Chưa rõ</button>' +
             '</div>' +
-            (isZero ? '<span class="zero-chip">Đã nhập: 0</span>' : '') +
+            (isZero ? '<span class="zero-chip">Đã nhập: 0 (khác với để trống)</span>' : '') +
+            (helpText ? '<p class="field__help">' + esc(helpText) + '</p>' : '') +
             (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
           '</div>'
         );
@@ -1537,7 +2012,8 @@
         const isUnknown = val && val.valueState === 'unknown';
         const selId = val && val.valueState === 'answered' ? (val.fieldOptionId || '') : '';
         const cls = 'select' + (!val ? ' input--unfilled' : '') + (isUnknown ? ' input--unknown' : '') + (errMsg ? ' input--error' : '');
-        const opts = '<option value="">-- Chưa chọn --</option>' + (fd.options || []).map(function (o) {
+        const activeOpts = (fd.options || []).filter(function (o) { return o.isActive !== false; });
+        const opts = '<option value="">-- Chưa chọn --</option>' + activeOpts.map(function (o) {
           return '<option value="' + esc(o.id) + '"' + (selId === o.id ? ' selected' : '') + '>' + esc(o.labelVi) + '</option>';
         }).join('');
         return (
@@ -1547,6 +2023,7 @@
               '<select class="' + cls + '" data-' + prefix + 'select="' + esc(fd.id) + '"' + (isReadonly || isUnknown ? ' disabled' : '') + '>' + opts + '</select>' +
               '<button type="button" class="unknown-toggle' + (isUnknown ? ' is-active' : '') + '" data-' + prefix + 'toggle-unknown="' + esc(fd.id) + '"' + (isReadonly ? ' disabled' : '') + '>Chưa rõ</button>' +
             '</div>' +
+            (helpText ? '<p class="field__help">' + esc(helpText) + '</p>' : '') +
             (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
           '</div>'
         );
@@ -1559,7 +2036,8 @@
         if (val && val.valueState === 'answered' && Array.isArray(val.selectedOptions)) {
           val.selectedOptions.forEach(function (so) { chosenSet[so.fieldOptionId] = true; });
         }
-        const checks = (fd.options || []).map(function (o) {
+        const activeOpts = (fd.options || []).filter(function (o) { return o.isActive !== false; });
+        const checks = activeOpts.map(function (o) {
           return (
             '<label class="choice-row">' +
               '<input type="checkbox" data-' + prefix + 'multi="' + esc(fd.id) + '" value="' + esc(o.id) + '"' + (chosenSet[o.id] ? ' checked' : '') + (isReadonly || isUnknown ? ' disabled' : '') + '>' +
@@ -1571,6 +2049,7 @@
           '<div class="field" data-field-code="' + esc(fd.code) + '">' +
             '<div class="field__label-row"><span class="field__label">' + esc(label) + ' ' + reqTag + '</span><button type="button" class="unknown-toggle unknown-toggle--sm' + (isUnknown ? ' is-active' : '') + '" data-' + prefix + 'toggle-unknown="' + esc(fd.id) + '"' + (isReadonly ? ' disabled' : '') + '>Chưa rõ</button></div>' +
             '<div class="multi-choice-box' + (!val ? ' multi-choice-box--unfilled' : '') + '">' + checks + '</div>' +
+            (helpText ? '<p class="field__help">' + esc(helpText) + '</p>' : '') +
             (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
           '</div>'
         );
@@ -1580,209 +2059,678 @@
       const isUnknown = val && val.valueState === 'unknown';
       const txtVal = val && val.valueState === 'answered' ? (fd.dataType === 'date' ? (val.valueDate || '') : (val.valueText || '')) : '';
       const cls = 'input' + (!val ? ' input--unfilled' : '') + (isUnknown ? ' input--unknown' : '') + (errMsg ? ' input--error' : '');
+      const isNoteField = /_ghi_chu$/.test(fd.code);
       return (
         '<div class="field" data-field-code="' + esc(fd.code) + '">' +
           '<div class="field__label-row"><label class="field__label">' + esc(label) + ' ' + reqTag + '</label></div>' +
           '<div class="input-row-unknown">' +
-            '<input type="' + (fd.dataType === 'date' ? 'date' : 'text') + '" class="' + cls + '" data-' + prefix + 'text="' + esc(fd.id) + '" placeholder="' + (isUnknown ? 'Chưa rõ' : 'Nhập thông tin...') + '" value="' + esc(txtVal) + '"' + (isReadonly || isUnknown ? ' disabled' : '') + '>' +
+            '<input type="' + (fd.dataType === 'date' ? 'date' : 'text') + '" class="' + cls + '" data-' + prefix + 'text="' + esc(fd.id) + '" placeholder="' + (isUnknown ? 'Chưa rõ' : (isNoteField ? 'Ghi chú chi tiết (tùy chọn)...' : 'Nhập thông tin...')) + '" value="' + esc(txtVal) + '"' + (isReadonly || isUnknown ? ' disabled' : '') + '>' +
             '<button type="button" class="unknown-toggle' + (isUnknown ? ' is-active' : '') + '" data-' + prefix + 'toggle-unknown="' + esc(fd.id) + '"' + (isReadonly ? ' disabled' : '') + '>Chưa rõ</button>' +
           '</div>' +
+          (helpText ? '<p class="field__help">' + esc(helpText) + '</p>' : '') +
           (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
         '</div>'
       );
     }
 
-    function renderOneSection(section) {
-      const scalarFields = (section.fields || []).filter(function (ff) {
-        if (!ff.isVisible) return false;
-        const fd = ctx.defById[ff.fieldDefinitionId];
-        if (!fd) return false;
-        if (['orthostatic_bp', 'medication', 'allergy', 'lab_result'].indexOf(fd.storageLevel) >= 0) {
-          return false;
-        }
-        const label = (ff.customLabelVi || fd.labelVi).toLowerCase();
-        if (q && label.indexOf(q) === -1 && fd.code.toLowerCase().indexOf(q) === -1) return false;
-        const val = ctx.valuesByDefId[fd.id];
-        const errMsg = ctx.fieldErrors && ctx.fieldErrors[fd.code];
-        if (filter === 'unfilled' && fd.storageLevel === 'visit_value' && val) return false;
-        if (filter === 'error' && !errMsg) return false;
-        return true;
+    function renderOrthostaticBpBlock(entries, allBpEntriesInSec) {
+      const bps = ctx.orthostaticBp || [];
+      const hasAnyErr = entries.some(function (e) { return Boolean(ctx.fieldErrors && ctx.fieldErrors[e.fd.code]); });
+      if (filter === 'error' && !hasAnyErr) return '';
+      if (filter === 'unfilled' && bps.length > 0 && !q) return '';
+      if (q) {
+        const hit = 'huyết áp tư thế nhịp tim'.indexOf(q) >= 0 || entries.some(function (e) {
+          return getFieldLabel(e.ff, e.fd).toLowerCase().indexOf(q) >= 0 || e.fd.code.toLowerCase().indexOf(q) >= 0;
+        });
+        if (!hit) return '';
+      }
+
+      const configuredMembers = {};
+      allBpEntriesInSec.forEach(function (e) {
+        if (e.rep.memberPath) configuredMembers[e.rep.memberPath] = true;
       });
+      const visibleCols = entries.slice();
+      const allBpReadonly = visibleCols.length > 0 && visibleCols.every(function (e) { return Boolean(e.ff.isReadonly); });
+      const blockRo = ro || allBpReadonly;
+      // For v1.0 bundles that do not declare heartRate / minuteAfter placements, preserve supplementary columns
+      const extraCols = [];
+      if (!configuredMembers.heartRate) {
+        extraCols.push({ memberPath: 'heartRate', label: 'Nhịp tim (lần/phút)', required: false, readonly: blockRo, code: 'mach', help: '' });
+      }
+      if (!configuredMembers.minuteAfter) {
+        extraCols.push({ memberPath: 'minuteAfter', label: 'Phút sau đổi tư thế', required: false, readonly: blockRo, code: 'minuteAfter', help: '' });
+      }
+      const columns = visibleCols.map(function (e) {
+        return {
+          memberPath: e.rep.memberPath || e.fd.code,
+          label: getFieldLabel(e.ff, e.fd),
+          required: Boolean(e.ff.requiredForConfirm),
+          readonly: Boolean(ro || e.ff.isReadonly),
+          code: e.fd.code,
+          unit: e.fd.canonicalUnit || '',
+          help: getFieldHelpText(e.ff, e.fd)
+        };
+      }).concat(extraCols);
 
-      const scalarCards = scalarFields.map(renderSingleField).join('');
+      const repeatCodes = entries.map(function (e) { return e.fd.code; }).concat(['huyet_ap_tam_thu', 'huyet_ap_tam_truong', 'thoi_diem_do_ha', 'tu_the_do_ha', 'ha_nhip_tim', 'ha_phut_sau_doi_tu_the', 'orthostaticBp']).join(',');
+      const anyRequired = entries.some(function (e) { return e.ff.requiredForConfirm; });
+      const blockErrors = entries.map(function (e) {
+        return ctx.fieldErrors && ctx.fieldErrors[e.fd.code] ? (getFieldLabel(e.ff, e.fd) + ': ' + ctx.fieldErrors[e.fd.code]) : '';
+      }).filter(Boolean);
 
-      let repeatingHtml = '';
-      const showRepeatForFilter = filter === 'all' || (filter === 'unfilled' && !q);
+      function renderBpColumn(col, bp, idx) {
+        const colRo = Boolean(ro || col.readonly);
+        const reqBadge = col.required ? ' <span class="badge badge--warn badge--xs">Bắt buộc</span>' : '';
+        const lbl = esc(col.label) + (col.unit && col.label.indexOf(col.unit) === -1 ? ' (' + esc(col.unit) + ')' : '') + reqBadge;
+        const helpHtml = col.help ? '<p class="field__help">' + esc(col.help) + '</p>' : '';
+        if (col.memberPath === 'position') {
+          return (
+            '<div class="field" data-field-code="' + esc(col.code) + '"><label class="field__label">' + lbl + '</label>' +
+              '<select class="select" data-' + prefix + 'bp-field="' + idx + ':position"' + (colRo ? ' disabled' : '') + '>' +
+                '<option value="supine"' + (bp.position === 'supine' ? ' selected' : '') + '>Nằm</option>' +
+                '<option value="sitting"' + (bp.position === 'sitting' ? ' selected' : '') + '>Ngồi</option>' +
+                '<option value="standing"' + (bp.position === 'standing' ? ' selected' : '') + '>Đứng</option>' +
+              '</select>' + helpHtml +
+            '</div>'
+          );
+        }
+        if (col.memberPath === 'measuredAt') {
+          return (
+            '<div class="field" data-field-code="' + esc(col.code) + '"><label class="field__label">' + lbl + '</label>' +
+              '<input type="datetime-local" class="input" data-' + prefix + 'bp-field="' + idx + ':measuredAt" value="' + esc(toDatetimeLocal(bp.measuredAt)) + '"' + (colRo ? ' disabled' : '') + '>' + helpHtml +
+            '</div>'
+          );
+        }
+        const val = bp[col.memberPath] != null ? bp[col.memberPath] : '';
+        return (
+          '<div class="field" data-field-code="' + esc(col.code) + '"><label class="field__label">' + lbl + '</label>' +
+            '<input type="number" class="input" data-' + prefix + 'bp-field="' + idx + ':' + esc(col.memberPath) + '" value="' + esc(val) + '"' + (colRo ? ' disabled' : '') + '>' + helpHtml +
+          '</div>'
+        );
+      }
 
-      if (section.sectionCode === 'sinh_ton_kham' && (showRepeatForFilter || !q || 'huyết áp tư thế nhịp tim'.indexOf(q) >= 0)) {
-        const bps = ctx.orthostaticBp || [];
-        repeatingHtml =
-          '<div class="sub-heading">Huyết áp theo tư thế</div>' +
+      return (
+        '<div class="section-chunk" data-repeat-group="orthostaticBp" data-repeat-codes="' + esc(repeatCodes) + '" data-field-code="' + esc(entries[0].fd.code) + '">' +
+          '<div class="sub-heading">Huyết áp theo tư thế' + (anyRequired ? '<span class="sub-heading__meta"><span class="badge badge--warn badge--xs">Có cột bắt buộc</span></span>' : '') + '</div>' +
+          (blockErrors.length > 0 ? '<p class="field__error" style="margin-bottom:8px;">' + ICONS.alert + ' ' + esc(blockErrors.join(' · ')) + '</p>' : '') +
           '<div class="repeat-list">' +
             (bps.length === 0 ? '<p class="field__help">Chưa có lần đo huyết áp nào trong lượt khám này.</p>' : bps.map(function (bp, idx) {
               return (
-                '<div class="repeat-card" data-field-code="huyet_ap_tam_thu">' +
+                '<div class="repeat-card">' +
                   '<div class="repeat-card__head">' +
                     '<span class="repeat-card__title">Lần đo huyết áp #' + (idx + 1) + '</span>' +
-                    (!ro ? '<button type="button" class="btn btn--danger-outline btn--sm" data-' + prefix + 'remove-bp="' + idx + '">' + ICONS.trash + ' Xóa</button>' : '') +
+                    (!blockRo ? '<button type="button" class="btn btn--danger-outline btn--sm" data-' + prefix + 'remove-bp="' + idx + '">' + ICONS.trash + ' Xóa</button>' : '') +
                   '</div>' +
                   '<div class="form-grid-3">' +
-                    '<div class="field"><label class="field__label">Tư thế đo</label><select class="select" data-' + prefix + 'bp-field="' + idx + ':position"' + (ro ? ' disabled' : '') + '>' +
-                      '<option value="supine"' + (bp.position === 'supine' ? ' selected' : '') + '>Nằm</option>' +
-                      '<option value="sitting"' + (bp.position === 'sitting' ? ' selected' : '') + '>Ngồi</option>' +
-                      '<option value="standing"' + (bp.position === 'standing' ? ' selected' : '') + '>Đứng</option>' +
-                    '</select></div>' +
-                    '<div class="field"><label class="field__label">Tâm thu (mmHg)</label><input type="number" class="input" data-' + prefix + 'bp-field="' + idx + ':systolic" value="' + esc(bp.systolic != null ? bp.systolic : '') + '"' + (ro ? ' disabled' : '') + '></div>' +
-                    '<div class="field"><label class="field__label">Tâm trương (mmHg)</label><input type="number" class="input" data-' + prefix + 'bp-field="' + idx + ':diastolic" value="' + esc(bp.diastolic != null ? bp.diastolic : '') + '"' + (ro ? ' disabled' : '') + '></div>' +
-                    '<div class="field"><label class="field__label">Nhịp tim (lần/phút)</label><input type="number" class="input" data-' + prefix + 'bp-field="' + idx + ':heartRate" value="' + esc(bp.heartRate != null ? bp.heartRate : '') + '"' + (ro ? ' disabled' : '') + '></div>' +
-                    '<div class="field"><label class="field__label">Phút sau đổi tư thế</label><input type="number" class="input" data-' + prefix + 'bp-field="' + idx + ':minuteAfter" value="' + esc(bp.minuteAfter != null ? bp.minuteAfter : '') + '"' + (ro ? ' disabled' : '') + '></div>' +
-                    '<div class="field"><label class="field__label">Thời điểm đo</label><input type="datetime-local" class="input" data-' + prefix + 'bp-field="' + idx + ':measuredAt" value="' + esc(toDatetimeLocal(bp.measuredAt)) + '"' + (ro ? ' disabled' : '') + '></div>' +
+                    columns.map(function (col) { return renderBpColumn(col, bp, idx); }).join('') +
                   '</div>' +
                 '</div>'
               );
             }).join('')) +
-            (!ro ? '<div><button type="button" class="btn btn--secondary btn--sm" data-' + prefix + 'add-bp="1">' + ICONS.plus + ' Thêm lần đo huyết áp</button></div>' : '') +
-          '</div>';
+            (!blockRo ? '<div><button type="button" class="btn btn--secondary btn--sm" data-' + prefix + 'add-bp="1">' + ICONS.plus + ' Thêm lần đo huyết áp</button></div>' : '') +
+          '</div>' +
+        '</div>'
+      );
+    }
+
+    function renderMedicationsBlock(entries) {
+      const meds = ctx.medications || [];
+      const listState = ctx.medicationListState || (meds.length > 0 ? 'known' : 'unknown');
+      const primary = entries[0];
+      const headingLabel = entries.length === 1 ? getFieldLabel(primary.ff, primary.fd) : 'Thuốc hiện đang sử dụng';
+      const anyRequired = entries.some(function (e) { return e.ff.requiredForConfirm; });
+      const helpText = joinUniqueHelpTexts(entries);
+      const hasAnyErr = entries.some(function (e) { return Boolean(ctx.fieldErrors && ctx.fieldErrors[e.fd.code]); }) || Boolean(ctx.fieldErrors && ctx.fieldErrors.medicationListState);
+
+      if (filter === 'error' && !hasAnyErr) return '';
+      if (filter === 'unfilled' && (meds.some(isValidMedRow) || listState === 'none') && !q) return '';
+      if (q) {
+        const hit = ('thuốc kê đơn hoạt chất ' + headingLabel.toLowerCase()).indexOf(q) >= 0 || entries.some(function (e) {
+          return getFieldLabel(e.ff, e.fd).toLowerCase().indexOf(q) >= 0 || e.fd.code.toLowerCase().indexOf(q) >= 0;
+        });
+        if (!hit) return '';
       }
 
-      if (section.sectionCode === 'thuoc_di_ung' && (showRepeatForFilter || !q || 'thuốc dị ứng adr'.indexOf(q) >= 0)) {
-        const meds = ctx.medications || [];
-        const algs = ctx.allergies || [];
-        repeatingHtml =
-          '<div class="sub-heading">Thuốc hiện đang sử dụng</div>' +
+      const defaultMedCols = [
+        { path: 'drugName', label: 'Tên thuốc *' },
+        { path: 'medicationGroup', label: 'Nhóm thuốc *' },
+        { path: 'status', label: 'Trạng thái dùng' },
+        { path: 'dose', label: 'Liều dùng' },
+        { path: 'unit', label: 'Đơn vị' },
+        { path: 'frequency', label: 'Tần suất' },
+        { path: 'route', label: 'Đường dùng' },
+        { path: 'activeIngredient', label: 'Hoạt chất' },
+        { path: 'startedAt', label: 'Ngày bắt đầu' }
+      ];
+      const isGranular = entries.length > 1;
+      const cols = isGranular
+        ? entries.map(function (e) {
+            return {
+              path: e.rep.memberPath || e.fd.code,
+              label: getFieldLabel(e.ff, e.fd),
+              required: Boolean(e.ff.requiredForConfirm),
+              readonly: Boolean(ro || e.ff.isReadonly),
+              code: e.fd.code
+            };
+          })
+        : defaultMedCols.map(function (c) {
+            return {
+              path: c.path,
+              label: c.path === 'drugName' && primary.ff.customLabelVi ? primary.ff.customLabelVi : c.label,
+              required: c.path === 'drugName' && Boolean(primary.ff.requiredForConfirm),
+              readonly: Boolean(ro || primary.ff.isReadonly),
+              code: primary.fd.code
+            };
+          });
+      const blockRo = ro || (cols.length > 0 && cols.every(function (c) { return c.readonly; }));
+      const canMutateRows = !blockRo && !cols.some(function (c) { return c.path === 'drugName' && c.readonly; });
+
+      function renderMedCol(col, m, idx) {
+        const colRo = Boolean(ro || col.readonly);
+        const isMedGroup = col.path === 'medicationGroup';
+        const displayLabel = isMedGroup && col.label.indexOf('*') === -1 ? (col.label + ' *') : col.label;
+        const reqBadge = (col.required || isMedGroup) ? ' <span class="badge badge--warn badge--xs">Bắt buộc</span>' : '';
+        const lbl = esc(displayLabel) + reqBadge;
+        if (isMedGroup) {
+          const missingGroup = !m.medicationGroup;
+          return '<div class="field" data-field-code="' + esc(col.code || 'thuoc_nhom') + '"><label class="field__label">' + lbl + '</label><select class="select' + (missingGroup && !colRo ? ' input--error' : '') + '" data-' + prefix + 'med-field="' + idx + ':medicationGroup" required' + (colRo ? ' disabled' : '') + '>' +
+            '<option value=""' + (missingGroup ? ' selected' : '') + '>-- Chọn nhóm thuốc (bắt buộc) --</option>' +
+            '<option value="prescribed"' + (m.medicationGroup === 'prescribed' ? ' selected' : '') + '>Thuốc kê đơn</option>' +
+            '<option value="otc_supplement_tcm"' + (m.medicationGroup === 'otc_supplement_tcm' ? ' selected' : '') + '>Thuốc không kê đơn / TPCN / YHCT</option>' +
+          '</select>' +
+          (missingGroup && !colRo ? '<p class="field__error" data-med-group-required="true">' + ICONS.alert + ' Bắt buộc chọn nhóm thuốc trước khi lưu nháp.</p>' : '') +
+          '</div>';
+        }
+        if (col.path === 'status') {
+          return '<div class="field"><label class="field__label">' + lbl + '</label><select class="select" data-' + prefix + 'med-field="' + idx + ':status"' + (colRo ? ' disabled' : '') + '>' +
+            '<option value=""' + (!m.status ? ' selected' : '') + '>-- Chưa chọn --</option>' +
+            '<option value="active"' + (m.status === 'active' ? ' selected' : '') + '>Đang dùng</option>' +
+            '<option value="stopped"' + (m.status === 'stopped' ? ' selected' : '') + '>Đã ngưng</option>' +
+            '<option value="proposed"' + (m.status === 'proposed' ? ' selected' : '') + '>Dự kiến</option>' +
+          '</select></div>';
+        }
+        if (col.path === 'route') {
+          return '<div class="field"><label class="field__label">' + lbl + '</label><select class="select" data-' + prefix + 'med-field="' + idx + ':route"' + (colRo ? ' disabled' : '') + '>' +
+            '<option value=""' + (!m.route ? ' selected' : '') + '>-- Chưa chọn --</option>' +
+            '<option value="oral"' + (m.route === 'oral' ? ' selected' : '') + '>Uống</option>' +
+            '<option value="iv"' + (m.route === 'iv' ? ' selected' : '') + '>Tĩnh mạch</option>' +
+            '<option value="subcutaneous"' + (m.route === 'subcutaneous' ? ' selected' : '') + '>Tiêm dưới da</option>' +
+            '<option value="inhaled"' + (m.route === 'inhaled' ? ' selected' : '') + '>Hít / Xịt</option>' +
+            '<option value="other"' + (m.route === 'other' ? ' selected' : '') + '>Khác</option>' +
+          '</select></div>';
+        }
+        if (col.path === 'dose') {
+          return '<div class="field"><label class="field__label">' + lbl + '</label><input type="number" step="any" class="input" data-' + prefix + 'med-field="' + idx + ':dose" value="' + esc(m.dose != null ? m.dose : '') + '"' + (colRo ? ' disabled' : '') + '></div>';
+        }
+        if (col.path === 'startedAt') {
+          return '<div class="field"><label class="field__label">' + lbl + '</label><input type="date" class="input" data-' + prefix + 'med-field="' + idx + ':startedAt" value="' + esc(m.startedAt || '') + '"' + (colRo ? ' disabled' : '') + '></div>';
+        }
+        const phMap = { drugName: 'VD: Sacubitril/Valsartan', unit: 'mg, viên...', frequency: '1 lần/ngày', activeIngredient: 'VD: Bisoprolol', strength: 'VD: 50mg', note: 'Ghi chú...' };
+        return '<div class="field"><label class="field__label">' + lbl + '</label><input type="text" class="input" data-' + prefix + 'med-field="' + idx + ':' + esc(col.path) + '" value="' + esc(m[col.path] || '') + '" placeholder="' + esc(phMap[col.path] || '') + '"' + (colRo ? ' disabled' : '') + '></div>';
+      }
+
+      const repeatCodes = entries.map(function (e) { return e.fd.code; }).concat(['thuoc_ghi_nhan', 'thuoc_muc_do_tuan_thu', 'so_luong_thuoc_dong_thoi', 'co_da_thuoc', 'medication_list_state', 'medicationListState', 'medications']).join(',');
+      const errText = (ctx.fieldErrors && (ctx.fieldErrors.thuoc_ghi_nhan || ctx.fieldErrors.medication_list_state || ctx.fieldErrors.medicationListState || ctx.fieldErrors.medications)) || '';
+      const hasExplicitListStateField = (ctx.sections || []).some(function (s) {
+        return (s.fields || []).some(function (f) { return f.isVisible && f.fieldCode === 'medication_list_state'; });
+      });
+      const emptyMsg = showListStates && listState === 'none'
+        ? 'Bác sĩ đã xác nhận người bệnh hiện KHÔNG sử dụng thuốc nào.'
+        : (showListStates && listState === 'known'
+            ? 'Đã chọn "Có dùng thuốc" — vui lòng bấm "+ Thêm thuốc đang dùng" để ghi nhận ít nhất 1 dòng.'
+            : 'Chưa ghi nhận thuốc nào trong lượt khám này (không suy thành không dùng thuốc).');
+
+      return (
+        '<div class="section-chunk" data-repeat-group="medications" data-repeat-codes="' + esc(repeatCodes) + '" data-field-code="' + esc(primary.fd.code) + '">' +
+          '<div class="sub-heading">' + esc(headingLabel) + (anyRequired ? '<span class="sub-heading__meta"><span class="badge badge--warn badge--xs">Bắt buộc</span></span>' : '') + '</div>' +
+          (helpText ? '<p class="field__help" style="margin-bottom:8px;">' + esc(helpText) + '</p>' : '') +
+          (!hasExplicitListStateField ? renderListStateBar('medications', listState, 'Trạng thái danh sách thuốc', blockRo) : '') +
+          (errText ? '<p class="field__error" style="margin-bottom:8px;">' + ICONS.alert + ' ' + esc(errText) + '</p>' : '') +
           '<div class="repeat-list">' +
-            (meds.length === 0 ? '<p class="field__help">Chưa ghi nhận thuốc nào trong lượt khám này (không suy thành không dùng thuốc).</p>' : meds.map(function (m, idx) {
-              const incomplete = !isValidMedRow(m);
+            (meds.length === 0 ? '<p class="field__help">' + esc(emptyMsg) + '</p>' : meds.map(function (m, idx) {
+              const incomplete = !isValidMedRow(m) || !m.medicationGroup;
               return (
-                '<div class="repeat-card' + (incomplete ? ' repeat-card--incomplete' : '') + '" data-field-code="thuoc_ghi_nhan">' +
+                '<div class="repeat-card' + (incomplete ? ' repeat-card--incomplete' : '') + '">' +
                   '<div class="repeat-card__head">' +
                     '<span class="repeat-card__title">Thuốc #' + (idx + 1) + (m.drugName ? ' — ' + esc(m.drugName) : '') + (incomplete ? ' <span class="badge badge--warn badge--xs">Chưa hoàn tất</span>' : '') + '</span>' +
-                    (!ro ? '<button type="button" class="btn btn--danger-outline btn--sm" data-' + prefix + 'remove-med="' + idx + '">' + ICONS.trash + ' Xóa</button>' : '') +
+                    (canMutateRows ? '<button type="button" class="btn btn--danger-outline btn--sm" data-' + prefix + 'remove-med="' + idx + '">' + ICONS.trash + ' Xóa</button>' : '') +
                   '</div>' +
                   '<div class="form-grid-3">' +
-                    '<div class="field"><label class="field__label">Tên thuốc *</label><input type="text" class="input" data-' + prefix + 'med-field="' + idx + ':drugName" value="' + esc(m.drugName || '') + '" placeholder="VD: Sacubitril/Valsartan"' + (ro ? ' disabled' : '') + '></div>' +
-                    '<div class="field"><label class="field__label">Phân nhóm thuốc</label><select class="select" data-' + prefix + 'med-field="' + idx + ':medicationGroup"' + (ro ? ' disabled' : '') + '>' +
-                      '<option value=""' + (!m.medicationGroup ? ' selected' : '') + '>-- Chưa chọn --</option>' +
-                      '<option value="prescribed"' + (m.medicationGroup === 'prescribed' ? ' selected' : '') + '>Thuốc kê đơn</option>' +
-                      '<option value="otc_supplement_tcm"' + (m.medicationGroup === 'otc_supplement_tcm' ? ' selected' : '') + '>Thuốc không kê đơn / TPCN / YHCT</option>' +
-                    '</select></div>' +
-                    '<div class="field"><label class="field__label">Trạng thái dùng</label><select class="select" data-' + prefix + 'med-field="' + idx + ':status"' + (ro ? ' disabled' : '') + '>' +
-                      '<option value=""' + (!m.status ? ' selected' : '') + '>-- Chưa chọn --</option>' +
-                      '<option value="active"' + (m.status === 'active' ? ' selected' : '') + '>Đang dùng</option>' +
-                      '<option value="stopped"' + (m.status === 'stopped' ? ' selected' : '') + '>Đã ngưng</option>' +
-                      '<option value="proposed"' + (m.status === 'proposed' ? ' selected' : '') + '>Dự kiến</option>' +
-                    '</select></div>' +
-                    '<div class="field"><label class="field__label">Liều dùng</label><input type="number" step="any" class="input" data-' + prefix + 'med-field="' + idx + ':dose" value="' + esc(m.dose != null ? m.dose : '') + '"' + (ro ? ' disabled' : '') + '></div>' +
-                    '<div class="field"><label class="field__label">Đơn vị</label><input type="text" class="input" data-' + prefix + 'med-field="' + idx + ':unit" value="' + esc(m.unit || '') + '" placeholder="mg, viên..."' + (ro ? ' disabled' : '') + '></div>' +
-                    '<div class="field"><label class="field__label">Tần suất</label><input type="text" class="input" data-' + prefix + 'med-field="' + idx + ':frequency" value="' + esc(m.frequency || '') + '" placeholder="1 lần/ngày"' + (ro ? ' disabled' : '') + '></div>' +
-                    '<div class="field"><label class="field__label">Đường dùng</label><select class="select" data-' + prefix + 'med-field="' + idx + ':route"' + (ro ? ' disabled' : '') + '>' +
-                      '<option value=""' + (!m.route ? ' selected' : '') + '>-- Chưa chọn --</option>' +
-                      '<option value="oral"' + (m.route === 'oral' ? ' selected' : '') + '>Uống</option>' +
-                      '<option value="iv"' + (m.route === 'iv' ? ' selected' : '') + '>Tĩnh mạch</option>' +
-                      '<option value="subcutaneous"' + (m.route === 'subcutaneous' ? ' selected' : '') + '>Tiêm dưới da</option>' +
-                      '<option value="inhaled"' + (m.route === 'inhaled' ? ' selected' : '') + '>Hít / Xịt</option>' +
-                      '<option value="other"' + (m.route === 'other' ? ' selected' : '') + '>Khác</option>' +
-                    '</select></div>' +
-                    '<div class="field"><label class="field__label">Hoạt chất</label><input type="text" class="input" data-' + prefix + 'med-field="' + idx + ':activeIngredient" value="' + esc(m.activeIngredient || '') + '"' + (ro ? ' disabled' : '') + '></div>' +
-                    '<div class="field"><label class="field__label">Ngày bắt đầu</label><input type="date" class="input" data-' + prefix + 'med-field="' + idx + ':startedAt" value="' + esc(m.startedAt || '') + '"' + (ro ? ' disabled' : '') + '></div>' +
+                    cols.map(function (col) { return renderMedCol(col, m, idx); }).join('') +
                   '</div>' +
                 '</div>'
               );
             }).join('')) +
-            (!ro ? '<div><button type="button" class="btn btn--secondary btn--sm" data-' + prefix + 'add-med="1">' + ICONS.plus + ' Thêm thuốc đang dùng</button></div>' : '') +
+            (canMutateRows && (!showListStates || listState !== 'none') ? '<div><button type="button" class="btn btn--secondary btn--sm" data-' + prefix + 'add-med="1">' + ICONS.plus + ' Thêm thuốc đang dùng</button></div>' : '') +
           '</div>' +
-          '<div class="sub-heading">Tiền sử Dị ứng / Phản ứng có hại thuốc (ADR)</div>' +
-          '<div class="repeat-list">' +
-            (algs.length === 0 ? '<p class="field__help">Chưa ghi nhận dị ứng hoặc ADR nào (không suy thành không dị ứng).</p>' : algs.map(function (a, idx) {
-              const incomplete = !isValidAllergyRow(a);
-              return (
-                '<div class="repeat-card' + (incomplete ? ' repeat-card--incomplete' : '') + '" data-field-code="di_ung_adr">' +
-                  '<div class="repeat-card__head">' +
-                    '<span class="repeat-card__title">Dị ứng / ADR #' + (idx + 1) + (a.allergen ? ' — ' + esc(a.allergen) : '') + (incomplete ? ' <span class="badge badge--warn badge--xs">Chưa hoàn tất</span>' : '') + '</span>' +
-                    (!ro ? '<button type="button" class="btn btn--danger-outline btn--sm" data-' + prefix + 'remove-allergy="' + idx + '">' + ICONS.trash + ' Xóa</button>' : '') +
-                  '</div>' +
-                  '<div class="form-grid-3">' +
-                    '<div class="field"><label class="field__label">Tác nhân *</label><input type="text" class="input" data-' + prefix + 'allergy-field="' + idx + ':allergen" value="' + esc(a.allergen || '') + '" placeholder="VD: Thuốc cản quang iod, Penicillin"' + (ro ? ' disabled' : '') + '></div>' +
-                    '<div class="field"><label class="field__label">Loại phản ứng</label><select class="select" data-' + prefix + 'allergy-field="' + idx + ':kind"' + (ro ? ' disabled' : '') + '>' +
-                      '<option value="allergy"' + (a.kind === 'allergy' ? ' selected' : '') + '>Dị ứng</option>' +
-                      '<option value="adr"' + (a.kind === 'adr' ? ' selected' : '') + '>Phản ứng có hại (ADR)</option>' +
-                      '<option value="intolerance"' + (a.kind === 'intolerance' ? ' selected' : '') + '>Không dung nạp</option>' +
-                    '</select></div>' +
-                    '<div class="field"><label class="field__label">Nhóm tác nhân</label><select class="select" data-' + prefix + 'allergy-field="' + idx + ':agentCategory"' + (ro ? ' disabled' : '') + '>' +
-                      '<option value="therapeutic_drug"' + (a.agentCategory === 'therapeutic_drug' ? ' selected' : '') + '>Thuốc điều trị</option>' +
-                      '<option value="contrast_media"' + (a.agentCategory === 'contrast_media' ? ' selected' : '') + '>Thuốc cản quang</option>' +
-                      '<option value="other"' + (a.agentCategory === 'other' ? ' selected' : '') + '>Khác</option>' +
-                    '</select></div>' +
-                    '<div class="field"><label class="field__label">Mức độ</label><select class="select" data-' + prefix + 'allergy-field="' + idx + ':severity"' + (ro ? ' disabled' : '') + '>' +
-                      '<option value="unknown"' + (a.severity === 'unknown' ? ' selected' : '') + '>Chưa rõ</option>' +
-                      '<option value="mild"' + (a.severity === 'mild' ? ' selected' : '') + '>Nhẹ</option>' +
-                      '<option value="moderate"' + (a.severity === 'moderate' ? ' selected' : '') + '>Trung bình</option>' +
-                      '<option value="severe"' + (a.severity === 'severe' ? ' selected' : '') + '>Nặng</option>' +
-                    '</select></div>' +
-                    '<div class="field field--span-2"><label class="field__label">Biểu hiện lâm sàng</label><input type="text" class="input" data-' + prefix + 'allergy-field="' + idx + ':reaction" value="' + esc(a.reaction || '') + '" placeholder="VD: Mày đay, phù mạch, ho khan..."' + (ro ? ' disabled' : '') + '></div>' +
-                  '</div>' +
-                '</div>'
-              );
-            }).join('')) +
-            (!ro ? '<div><button type="button" class="btn btn--secondary btn--sm" data-' + prefix + 'add-allergy="1">' + ICONS.plus + ' Thêm bản ghi dị ứng / ADR</button></div>' : '') +
-          '</div>';
+        '</div>'
+      );
+    }
+
+    function renderAllergiesBlock(entries) {
+      const algs = ctx.allergies || [];
+      const listState = ctx.allergyListState || (algs.length > 0 ? 'known' : 'unknown');
+      const primary = entries[0];
+      const headingLabel = entries.length === 1 ? getFieldLabel(primary.ff, primary.fd) : 'Tiền sử Dị ứng / Phản ứng có hại thuốc (ADR)';
+      const anyRequired = entries.some(function (e) { return e.ff.requiredForConfirm; });
+      const helpText = joinUniqueHelpTexts(entries);
+      const hasAnyErr = entries.some(function (e) { return Boolean(ctx.fieldErrors && ctx.fieldErrors[e.fd.code]); }) || Boolean(ctx.fieldErrors && ctx.fieldErrors.allergyListState);
+
+      if (filter === 'error' && !hasAnyErr) return '';
+      if (filter === 'unfilled' && (algs.some(isValidAllergyRow) || listState === 'none') && !q) return '';
+      if (q) {
+        const hit = ('dị ứng adr phản ứng ' + headingLabel.toLowerCase()).indexOf(q) >= 0 || entries.some(function (e) {
+          return getFieldLabel(e.ff, e.fd).toLowerCase().indexOf(q) >= 0 || e.fd.code.toLowerCase().indexOf(q) >= 0;
+        });
+        if (!hit) return '';
       }
 
-      if (section.sectionCode === 'can_lam_sang' && (showRepeatForFilter || !q || 'cận lâm sàng xét nghiệm bnp creatinin siêu âm ecg'.indexOf(q) >= 0)) {
-        const labs = ctx.labResults || [];
-        const labDefs = Object.values(ctx.defById).filter(function (fd) {
-          return fd.storageLevel === 'lab_result' &&
-            ['cls_don_vi', 'cls_thoi_diem', 'cls_ecg_thoi_diem', 'cls_sieu_am_tim_thoi_diem', 'cls_xquang_thoi_diem', 'cls_troponin_loai'].indexOf(fd.code) === -1;
+      const defaultAlgCols = [
+        { path: 'allergen', label: 'Tác nhân *' },
+        { path: 'kind', label: 'Loại phản ứng' },
+        { path: 'agentCategory', label: 'Nhóm tác nhân' },
+        { path: 'severity', label: 'Mức độ' },
+        { path: 'reaction', label: 'Biểu hiện lâm sàng', span2: true }
+      ];
+      const isGranular = entries.length > 1;
+      const cols = isGranular
+        ? entries.map(function (e) {
+            return {
+              path: e.rep.memberPath || e.fd.code,
+              label: getFieldLabel(e.ff, e.fd),
+              required: Boolean(e.ff.requiredForConfirm),
+              readonly: Boolean(ro || e.ff.isReadonly),
+              span2: e.rep.memberPath === 'reaction'
+            };
+          })
+        : defaultAlgCols.map(function (c) {
+            return {
+              path: c.path,
+              label: c.path === 'allergen' && primary.ff.customLabelVi ? primary.ff.customLabelVi : c.label,
+              required: c.path === 'allergen' && Boolean(primary.ff.requiredForConfirm),
+              readonly: Boolean(ro || primary.ff.isReadonly),
+              span2: Boolean(c.span2)
+            };
+          });
+      const blockRo = ro || (cols.length > 0 && cols.every(function (c) { return c.readonly; }));
+      const canMutateRows = !blockRo && !cols.some(function (c) { return c.path === 'allergen' && c.readonly; });
+
+      function renderAlgCol(col, a, idx) {
+        const colRo = Boolean(ro || col.readonly);
+        const reqBadge = col.required ? ' <span class="badge badge--warn badge--xs">Bắt buộc</span>' : '';
+        const lbl = esc(col.label) + reqBadge;
+        const wrapCls = 'field' + (col.span2 ? ' field--span-2' : '');
+        if (col.path === 'kind') {
+          return '<div class="' + wrapCls + '"><label class="field__label">' + lbl + '</label><select class="select" data-' + prefix + 'allergy-field="' + idx + ':kind"' + (colRo ? ' disabled' : '') + '>' +
+            '<option value="allergy"' + (a.kind === 'allergy' ? ' selected' : '') + '>Dị ứng</option>' +
+            '<option value="adr"' + (a.kind === 'adr' ? ' selected' : '') + '>Phản ứng có hại (ADR)</option>' +
+            '<option value="intolerance"' + (a.kind === 'intolerance' ? ' selected' : '') + '>Không dung nạp</option>' +
+          '</select></div>';
+        }
+        if (col.path === 'agentCategory') {
+          return '<div class="' + wrapCls + '"><label class="field__label">' + lbl + '</label><select class="select" data-' + prefix + 'allergy-field="' + idx + ':agentCategory"' + (colRo ? ' disabled' : '') + '>' +
+            '<option value="therapeutic_drug"' + (a.agentCategory === 'therapeutic_drug' ? ' selected' : '') + '>Thuốc điều trị</option>' +
+            '<option value="contrast_media"' + (a.agentCategory === 'contrast_media' ? ' selected' : '') + '>Thuốc cản quang</option>' +
+            '<option value="other"' + (a.agentCategory === 'other' ? ' selected' : '') + '>Khác</option>' +
+          '</select></div>';
+        }
+        if (col.path === 'severity') {
+          return '<div class="' + wrapCls + '"><label class="field__label">' + lbl + '</label><select class="select" data-' + prefix + 'allergy-field="' + idx + ':severity"' + (colRo ? ' disabled' : '') + '>' +
+            '<option value="unknown"' + (a.severity === 'unknown' ? ' selected' : '') + '>Chưa rõ</option>' +
+            '<option value="mild"' + (a.severity === 'mild' ? ' selected' : '') + '>Nhẹ</option>' +
+            '<option value="moderate"' + (a.severity === 'moderate' ? ' selected' : '') + '>Trung bình</option>' +
+            '<option value="severe"' + (a.severity === 'severe' ? ' selected' : '') + '>Nặng</option>' +
+          '</select></div>';
+        }
+        if (col.path === 'recordedAt') {
+          return '<div class="' + wrapCls + '"><label class="field__label">' + lbl + '</label><input type="datetime-local" class="input" data-' + prefix + 'allergy-field="' + idx + ':recordedAt" value="' + esc(toDatetimeLocal(a.recordedAt)) + '"' + (colRo ? ' disabled' : '') + '></div>';
+        }
+        const ph = col.path === 'allergen' ? 'VD: Thuốc cản quang iod, Penicillin' : 'VD: Mày đay, phù mạch, ho khan...';
+        return '<div class="' + wrapCls + '"><label class="field__label">' + lbl + '</label><input type="text" class="input" data-' + prefix + 'allergy-field="' + idx + ':' + esc(col.path) + '" value="' + esc(a[col.path] || '') + '" placeholder="' + esc(ph) + '"' + (colRo ? ' disabled' : '') + '></div>';
+      }
+
+      const repeatCodes = entries.map(function (e) { return e.fd.code; }).concat(['di_ung_adr', 'allergy_list_state', 'allergyListState', 'allergies']).join(',');
+      const errText = (ctx.fieldErrors && (ctx.fieldErrors.di_ung_adr || ctx.fieldErrors.allergy_list_state || ctx.fieldErrors.allergyListState || ctx.fieldErrors.allergies)) || '';
+      const hasExplicitListStateField = (ctx.sections || []).some(function (s) {
+        return (s.fields || []).some(function (f) { return f.isVisible && f.fieldCode === 'allergy_list_state'; });
+      });
+      const emptyMsg = showListStates && listState === 'none'
+        ? 'Bác sĩ đã xác nhận người bệnh KHÔNG có tiền sử dị ứng / ADR thuốc.'
+        : (showListStates && listState === 'known'
+            ? 'Đã chọn "Có dị ứng / ADR" — vui lòng bấm "+ Thêm bản ghi dị ứng / ADR" để ghi nhận ít nhất 1 dòng.'
+            : 'Chưa ghi nhận dị ứng hoặc ADR nào (không suy thành không dị ứng).');
+
+      return (
+        '<div class="section-chunk" data-repeat-group="allergies" data-repeat-codes="' + esc(repeatCodes) + '" data-field-code="' + esc(primary.fd.code) + '">' +
+          '<div class="sub-heading">' + esc(headingLabel) + (anyRequired ? '<span class="sub-heading__meta"><span class="badge badge--warn badge--xs">Bắt buộc</span></span>' : '') + '</div>' +
+          (helpText ? '<p class="field__help" style="margin-bottom:8px;">' + esc(helpText) + '</p>' : '') +
+          (!hasExplicitListStateField ? renderListStateBar('allergies', listState, 'Trạng thái danh sách dị ứng / ADR', blockRo) : '') +
+          (errText ? '<p class="field__error" style="margin-bottom:8px;">' + ICONS.alert + ' ' + esc(errText) + '</p>' : '') +
+          '<div class="repeat-list">' +
+            (algs.length === 0 ? '<p class="field__help">' + esc(emptyMsg) + '</p>' : algs.map(function (a, idx) {
+              const incomplete = !isValidAllergyRow(a);
+              return (
+                '<div class="repeat-card' + (incomplete ? ' repeat-card--incomplete' : '') + '">' +
+                  '<div class="repeat-card__head">' +
+                    '<span class="repeat-card__title">Dị ứng / ADR #' + (idx + 1) + (a.allergen ? ' — ' + esc(a.allergen) : '') + (incomplete ? ' <span class="badge badge--warn badge--xs">Chưa hoàn tất</span>' : '') + '</span>' +
+                    (canMutateRows ? '<button type="button" class="btn btn--danger-outline btn--sm" data-' + prefix + 'remove-allergy="' + idx + '">' + ICONS.trash + ' Xóa</button>' : '') +
+                  '</div>' +
+                  '<div class="form-grid-3">' +
+                    cols.map(function (col) { return renderAlgCol(col, a, idx); }).join('') +
+                  '</div>' +
+                '</div>'
+              );
+            }).join('')) +
+            (canMutateRows && (!showListStates || listState !== 'none') ? '<div><button type="button" class="btn btn--secondary btn--sm" data-' + prefix + 'add-allergy="1">' + ICONS.plus + ' Thêm bản ghi dị ứng / ADR</button></div>' : '') +
+          '</div>' +
+        '</div>'
+      );
+    }
+
+    function renderDiagnosesBlock(entries) {
+      const dxs = ctx.diagnoses || [];
+      const listState = ctx.diagnosisListState || (dxs.length > 0 ? 'known' : 'unknown');
+      const anyRequired = entries.some(function (e) { return e.ff.requiredForConfirm; });
+      const helpText = joinUniqueHelpTexts(entries);
+      const hasAnyErr = entries.some(function (e) { return Boolean(ctx.fieldErrors && ctx.fieldErrors[e.fd.code]); }) || Boolean(ctx.fieldErrors && (ctx.fieldErrors.diagnoses || ctx.fieldErrors.diagnosisListState));
+
+      if (filter === 'error' && !hasAnyErr) return '';
+      if (filter === 'unfilled' && (dxs.some(isValidDiagnosisRow) || listState === 'none') && !q) return '';
+      if (q) {
+        const hit = 'icd chẩn đoán chính phụ mã bệnh'.indexOf(q) >= 0 || entries.some(function (e) {
+          return getFieldLabel(e.ff, e.fd).toLowerCase().indexOf(q) >= 0 || e.fd.code.toLowerCase().indexOf(q) >= 0;
         });
-        repeatingHtml =
-          '<div class="sub-heading">Kết quả Cận lâm sàng đã có</div>' +
+        if (!hit) return '';
+      }
+
+      const cols = entries.map(function (e) {
+        return {
+          path: e.rep.memberPath || (e.fd.code === 'icd_code' ? 'code' : (e.fd.code === 'icd_display' ? 'display' : 'role')),
+          label: getFieldLabel(e.ff, e.fd),
+          required: Boolean(e.ff.requiredForConfirm),
+          readonly: Boolean(ro || e.ff.isReadonly),
+          code: e.fd.code
+        };
+      });
+      const blockRo = ro || (cols.length > 0 && cols.every(function (c) { return c.readonly; }));
+      const canMutateRows = !blockRo && !cols.some(function (c) { return c.path === 'code' && c.readonly; });
+      const hasPrimary = dxs.some(function (d) { return d && d.role === 'primary'; });
+      const repeatCodes = entries.map(function (e) { return e.fd.code; }).concat(['diagnosis_list_state', 'diagnosisListState', 'diagnoses']).join(',');
+      const errText = (ctx.fieldErrors && (ctx.fieldErrors.diagnoses || ctx.fieldErrors.icd_code || ctx.fieldErrors.icd_display || ctx.fieldErrors.icd_role || ctx.fieldErrors.diagnosis_list_state || ctx.fieldErrors.diagnosisListState)) || '';
+      const hasExplicitListStateField = (ctx.sections || []).some(function (s) {
+        return (s.fields || []).some(function (f) { return f.isVisible && f.fieldCode === 'diagnosis_list_state'; });
+      });
+      const emptyMsg = listState === 'none'
+        ? 'Bác sĩ đã xác nhận chưa có mã chẩn đoán ICD ghi nhận.'
+        : (listState === 'known'
+            ? 'Đã chọn "Có mã ICD" — vui lòng bấm "+ Thêm ICD chính" hoặc "+ Thêm ICD phụ".'
+            : 'Chưa ghi nhận mã chẩn đoán ICD-10 (tối đa 1 ICD chính, nhiều ICD phụ).');
+
+      function renderDxCol(col, d, idx) {
+        const colRo = Boolean(ro || col.readonly);
+        const reqBadge = col.required ? ' <span class="badge badge--warn badge--xs">Bắt buộc</span>' : '';
+        const lbl = esc(col.label) + reqBadge;
+        if (col.path === 'role') {
+          return (
+            '<div class="field" data-field-code="' + esc(col.code) + '"><label class="field__label">' + lbl + '</label>' +
+              '<select class="select" data-' + prefix + 'dx-field="' + idx + ':role"' + (colRo ? ' disabled' : '') + '>' +
+                '<option value="primary"' + (d.role === 'primary' ? ' selected' : '') + '>ICD chính</option>' +
+                '<option value="secondary"' + (d.role !== 'primary' ? ' selected' : '') + '>ICD phụ</option>' +
+              '</select>' +
+            '</div>'
+          );
+        }
+        if (col.path === 'code') {
+          const badFmt = d.code && !isValidIcd10Format(d.code);
+          const unverified = d.verified === false || d.catalogStatus === 'unverified';
+          return (
+            '<div class="field" data-field-code="' + esc(col.code) + '"><label class="field__label">' + lbl + '</label>' +
+              '<input type="text" class="input mono' + (badFmt ? ' input--error' : '') + '" data-' + prefix + 'dx-field="' + idx + ':code" value="' + esc(d.code || '') + '" placeholder="VD: I50.9, E11.9"' + (colRo ? ' disabled' : '') + '>' +
+              (badFmt ? '<p class="field__error">' + ICONS.alert + ' Định dạng ICD-10: 1 chữ + 2 số, tùy chọn dấu chấm + 1–4 ký tự (VD: I50.9).</p>' : '') +
+              (unverified ? '<span class="badge badge--warn badge--xs">Chưa xác minh trong danh mục bệnh viện</span>' : '') +
+            '</div>'
+          );
+        }
+        return (
+          '<div class="field" data-field-code="' + esc(col.code) + '"><label class="field__label">' + lbl + '</label>' +
+            '<input type="text" class="input" data-' + prefix + 'dx-field="' + idx + ':display" value="' + esc(d.display || '') + '" placeholder="VD: Suy tim không đặc hiệu"' + (colRo ? ' disabled' : '') + '>' +
+          '</div>'
+        );
+      }
+
+      return (
+        '<div class="section-chunk" data-repeat-group="diagnoses" data-repeat-codes="' + esc(repeatCodes) + '" data-field-code="icd_code">' +
+          '<div class="sub-heading">Chẩn đoán ICD-10 (ICD chính &amp; các ICD phụ)' + (anyRequired ? '<span class="sub-heading__meta"><span class="badge badge--warn badge--xs">Bắt buộc</span></span>' : '') + '</div>' +
+          (helpText ? '<p class="field__help" style="margin-bottom:8px;">' + esc(helpText) + '</p>' : '') +
+          (!hasExplicitListStateField ? renderListStateBar('diagnoses', listState, 'Trạng thái danh sách chẩn đoán ICD-10', blockRo) : '') +
+          (errText ? '<p class="field__error" style="margin-bottom:8px;">' + ICONS.alert + ' ' + esc(errText) + '</p>' : '') +
+          '<div class="repeat-list">' +
+            (dxs.length === 0 ? '<p class="field__help">' + esc(emptyMsg) + '</p>' : dxs.map(function (d, idx) {
+              const incomplete = !isValidDiagnosisRow(d);
+              const isPrimary = d.role === 'primary';
+              return (
+                '<div class="repeat-card' + (incomplete ? ' repeat-card--incomplete' : '') + '">' +
+                  '<div class="repeat-card__head">' +
+                    '<span class="repeat-card__title">' +
+                      '<span class="badge ' + (isPrimary ? 'badge--blue' : 'badge--neutral') + ' badge--xs">' + (isPrimary ? 'ICD chính' : 'ICD phụ') + '</span> ' +
+                      (d.code ? '<span class="mono">' + esc(d.code) + '</span>' : 'Chẩn đoán #' + (idx + 1)) +
+                      (d.display ? ' — ' + esc(d.display) : '') +
+                      (incomplete ? ' <span class="badge badge--warn badge--xs">Chưa hoàn tất</span>' : '') +
+                    '</span>' +
+                    (canMutateRows ? '<button type="button" class="btn btn--danger-outline btn--sm" data-' + prefix + 'remove-dx="' + idx + '">' + ICONS.trash + ' Xóa</button>' : '') +
+                  '</div>' +
+                  '<div class="form-grid-3">' +
+                    cols.map(function (col) { return renderDxCol(col, d, idx); }).join('') +
+                  '</div>' +
+                '</div>'
+              );
+            }).join('')) +
+            (canMutateRows && listState !== 'none' ? (
+              '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+                (!hasPrimary ? '<button type="button" class="btn btn--secondary btn--sm" data-' + prefix + 'add-dx="primary">' + ICONS.plus + ' Thêm ICD chính</button>' : '') +
+                '<button type="button" class="btn btn--secondary btn--sm" data-' + prefix + 'add-dx="secondary">' + ICONS.plus + ' Thêm ICD phụ</button>' +
+              '</div>'
+            ) : '') +
+          '</div>' +
+        '</div>'
+      );
+    }
+
+    function renderLabsBlock(visibleLabEntries) {
+      const labs = ctx.labResults || [];
+      // Dropdown options come STRICTLY from visible placements in THIS form version's section (respecting displayOrder & customLabelVi)
+      const selectableLabs = visibleLabEntries.filter(function (e) { return !isLabMetadataColumnCode(e.fd); });
+      if (selectableLabs.length === 0) return '';
+
+      const metaByCode = {};
+      visibleLabEntries.forEach(function (e) {
+        if (isLabMetadataColumnCode(e.fd)) metaByCode[e.fd.code] = e;
+      });
+      const selectableByCode = {};
+      selectableLabs.forEach(function (e) { selectableByCode[e.fd.code] = e; });
+
+      const hasAnyErr = visibleLabEntries.some(function (e) { return Boolean(ctx.fieldErrors && ctx.fieldErrors[e.fd.code]); }) || Boolean(ctx.fieldErrors && ctx.fieldErrors.can_lam_sang);
+      if (filter === 'error' && !hasAnyErr) return '';
+      if (filter === 'unfilled' && labs.some(function (l) { return isValidLabRow(l, ctx.defByCode); }) && !q) return '';
+      if (q) {
+        const hit = 'cận lâm sàng xét nghiệm bnp creatinin siêu âm ecg'.indexOf(q) >= 0 || selectableLabs.some(function (e) {
+          return getFieldLabel(e.ff, e.fd).toLowerCase().indexOf(q) >= 0 || e.fd.code.toLowerCase().indexOf(q) >= 0;
+        });
+        if (!hit) return '';
+      }
+
+      const unitMeta = metaByCode.cls_result_unit || metaByCode.cls_don_vi;
+      const timeMeta = metaByCode.cls_result_measured_at || metaByCode.cls_thoi_diem;
+      const troponinTypeMeta = metaByCode.cls_troponin_loai;
+      const unitColLabel = unitMeta ? getFieldLabel(unitMeta.ff, unitMeta.fd) : 'Đơn vị';
+      const timeColLabel = timeMeta ? getFieldLabel(timeMeta.ff, timeMeta.fd) : 'Thời điểm lấy mẫu / thực hiện *';
+      const requiredLabs = selectableLabs.filter(function (e) { return e.ff.requiredForConfirm; });
+      const allLabsReadonly = selectableLabs.every(function (e) { return Boolean(e.ff.isReadonly); });
+      const blockRo = ro || allLabsReadonly;
+      const repeatCodes = visibleLabEntries.map(function (e) { return e.fd.code; }).concat([
+        'cls_don_vi', 'cls_thoi_diem', 'cls_ecg_thoi_diem', 'cls_sieu_am_tim_thoi_diem',
+        'cls_xquang_thoi_diem', 'cls_troponin_loai', 'cls_result_unit', 'cls_result_measured_at',
+        'thay_doi_bnp_ntprobnp_ef', 'can_lam_sang'
+      ]).join(',');
+
+      return (
+        '<div class="section-chunk" data-repeat-group="labResults" data-repeat-codes="' + esc(repeatCodes) + '" data-field-code="can_lam_sang">' +
+          '<div class="sub-heading">Kết quả Cận lâm sàng đã có' + (requiredLabs.length > 0 ? '<span class="sub-heading__meta"><span class="badge badge--warn badge--xs">Có ' + requiredLabs.length + ' xét nghiệm bắt buộc</span></span>' : '') + '</div>' +
+          (requiredLabs.length > 0 ? '<p class="field__help" style="margin-bottom:8px;">Bắt buộc khi xác nhận: ' + esc(requiredLabs.map(function (e) { return getFieldLabel(e.ff, e.fd); }).join(', ')) + '.</p>' : '') +
           '<div class="repeat-list">' +
             (labs.length === 0 ? '<p class="field__help">Chưa có kết quả cận lâm sàng nào được ghi nhận trong lượt khám này.</p>' : labs.map(function (lab, idx) {
-              const curDef = lab.labCode ? ctx.defByCode[lab.labCode] : null;
+              const curEntry = lab.labCode ? selectableByCode[lab.labCode] : null;
+              const curDef = curEntry ? curEntry.fd : (lab.labCode ? ctx.defByCode[lab.labCode] : null);
+              const curLabel = curEntry ? getFieldLabel(curEntry.ff, curEntry.fd) : (curDef ? curDef.labelVi : (lab.labCode || ''));
+              const curHelp = curEntry ? getFieldHelpText(curEntry.ff, curEntry.fd) : '';
               const isNumericLab = curDef && (curDef.dataType === 'number' || curDef.dataType === 'integer');
+              const isCbcPanel = curDef && curDef.code === 'cls_cong_thuc_mau';
               const incomplete = !isValidLabRow(lab, ctx.defByCode);
-              const optHtml = '<option value="">-- Chọn loại xét nghiệm / thăm dò --</option>' + labDefs.map(function (ld) {
-                return '<option value="' + esc(ld.code) + '"' + (ld.code === lab.labCode ? ' selected' : '') + '>' + esc(ld.labelVi) + '</option>';
+              const rowErr = (lab.labCode && ctx.fieldErrors && ctx.fieldErrors[lab.labCode]) || '';
+              const rowRo = Boolean(blockRo || (curEntry && curEntry.ff.isReadonly));
+              const unitRo = Boolean(rowRo || (unitMeta && unitMeta.ff.isReadonly));
+              const timeRo = Boolean(rowRo || (timeMeta && timeMeta.ff.isReadonly));
+              const subtypeRo = Boolean(rowRo || (troponinTypeMeta && troponinTypeMeta.ff.isReadonly));
+
+              let optHtml = '<option value="">-- Chọn loại xét nghiệm / thăm dò --</option>' + selectableLabs.map(function (e) {
+                const optLabel = getFieldLabel(e.ff, e.fd) + (e.ff.requiredForConfirm ? ' *' : '');
+                return '<option value="' + esc(e.fd.code) + '"' + (e.fd.code === lab.labCode ? ' selected' : '') + '>' + esc(optLabel) + '</option>';
               }).join('');
+              // Preserve historical saved row code if that lab was hidden in a later edit
+              if (lab.labCode && !curEntry && curDef) {
+                optHtml += '<option value="' + esc(curDef.code) + '" selected>' + esc(curDef.labelVi) + ' (đã ẩn)</option>';
+              }
+
+              const showTroponinSubtype = curDef && curDef.code === 'cls_troponin' && troponinTypeMeta && troponinTypeMeta.fd && (troponinTypeMeta.fd.options || []).length > 0;
+              const subtypeFieldHtml = showTroponinSubtype
+                ? (
+                    '<div class="field" data-field-code="cls_troponin_loai"><label class="field__label">' + esc(getFieldLabel(troponinTypeMeta.ff, troponinTypeMeta.fd)) + '</label>' +
+                      '<select class="select" data-' + prefix + 'lab-field="' + idx + ':labSubtype"' + (subtypeRo ? ' disabled' : '') + '>' +
+                        '<option value="">-- Chọn loại Troponin --</option>' +
+                        (troponinTypeMeta.fd.options || []).map(function (o) {
+                          return '<option value="' + esc(o.optionCode) + '"' + (lab.labSubtype === o.optionCode ? ' selected' : '') + '>' + esc(o.labelVi) + '</option>';
+                        }).join('') +
+                      '</select>' +
+                    '</div>' +
+                    '<div class="field"><label class="field__label">Ghi chú nguồn / mẫu xét nghiệm</label><input type="text" class="input" data-' + prefix + 'lab-field="' + idx + ':note" value="' + esc(lab.note || '') + '"' + (rowRo ? ' disabled' : '') + '></div>'
+                  )
+                : '<div class="field field--span-2"><label class="field__label">Ghi chú nguồn / loại phụ (VD: hs-TnT)</label><input type="text" class="input" data-' + prefix + 'lab-field="' + idx + ':note" value="' + esc(lab.note || '') + '"' + (rowRo ? ' disabled' : '') + '></div>';
+
               return (
                 '<div class="repeat-card' + (incomplete ? ' repeat-card--incomplete' : '') + '" data-field-code="' + esc(lab.labCode || 'can_lam_sang') + '">' +
                   '<div class="repeat-card__head">' +
-                    '<span class="repeat-card__title">Cận lâm sàng #' + (idx + 1) + (curDef ? ' — ' + esc(curDef.labelVi) : '') + (incomplete ? ' <span class="badge badge--warn badge--xs">Chưa hoàn tất</span>' : '') + '</span>' +
-                    (!ro ? '<button type="button" class="btn btn--danger-outline btn--sm" data-' + prefix + 'remove-lab="' + idx + '">' + ICONS.trash + ' Xóa</button>' : '') +
+                    '<span class="repeat-card__title">Cận lâm sàng #' + (idx + 1) + (curLabel ? ' — ' + esc(curLabel) : '') + (incomplete ? ' <span class="badge badge--warn badge--xs">Chưa hoàn tất</span>' : '') + '</span>' +
+                    (!rowRo ? '<button type="button" class="btn btn--danger-outline btn--sm" data-' + prefix + 'remove-lab="' + idx + '">' + ICONS.trash + ' Xóa</button>' : '') +
                   '</div>' +
                   '<div class="form-grid-3">' +
-                    '<div class="field"><label class="field__label">Loại xét nghiệm / thăm dò *</label><select class="select" data-' + prefix + 'lab-field="' + idx + ':labCode"' + (ro ? ' disabled' : '') + '>' + optHtml + '</select></div>' +
+                    '<div class="field"><label class="field__label">Loại xét nghiệm / thăm dò *</label><select class="select" data-' + prefix + 'lab-field="' + idx + ':labCode"' + (rowRo ? ' disabled' : '') + '>' + optHtml + '</select></div>' +
                     (!curDef
                       ? '<div class="field field--span-2"><label class="field__label">Giá trị kết quả</label><input type="text" class="input" placeholder="Vui lòng chọn loại xét nghiệm trước..." disabled></div>'
                       : (isNumericLab
-                        ? ('<div class="field"><label class="field__label">Giá trị số *</label><input type="number" step="any" class="input" data-' + prefix + 'lab-field="' + idx + ':valueNum" value="' + esc(lab.valueNum != null ? lab.valueNum : '') + '"' + (ro ? ' disabled' : '') + '></div>' +
-                           '<div class="field"><label class="field__label">Đơn vị</label><input type="text" class="input" data-' + prefix + 'lab-field="' + idx + ':unit" value="' + esc(lab.unit || (curDef && curDef.canonicalUnit) || '') + '"' + (ro ? ' disabled' : '') + '></div>')
-                        : ('<div class="field field--span-2"><label class="field__label">Kết quả / Kết luận mô tả *</label><input type="text" class="input" data-' + prefix + 'lab-field="' + idx + ':valueText" value="' + esc(lab.valueText || '') + '" placeholder="Nhập kết quả đọc ECG / X-quang / Siêu âm tim..."' + (ro ? ' disabled' : '') + '></div>'))) +
-                    '<div class="field"><label class="field__label">Thời điểm lấy mẫu / thực hiện *</label><input type="datetime-local" class="input" data-' + prefix + 'lab-field="' + idx + ':measuredAt" value="' + esc(lab.measuredAt ? toDatetimeLocal(lab.measuredAt) : '') + '"' + (ro ? ' disabled' : '') + '></div>' +
-                    '<div class="field field--span-2"><label class="field__label">Ghi chú nguồn / loại phụ (VD: hs-TnT)</label><input type="text" class="input" data-' + prefix + 'lab-field="' + idx + ':note" value="' + esc(lab.note || '') + '"' + (ro ? ' disabled' : '') + '></div>' +
+                        ? ('<div class="field"><label class="field__label">Giá trị số *</label><input type="number" step="any" class="input" data-' + prefix + 'lab-field="' + idx + ':valueNum" value="' + esc(lab.valueNum != null ? lab.valueNum : '') + '"' + (rowRo ? ' disabled' : '') + '></div>' +
+                           '<div class="field"><label class="field__label">' + esc(unitColLabel) + '</label><input type="text" class="input" data-' + prefix + 'lab-field="' + idx + ':unit" value="' + esc(lab.unit || (curDef && curDef.canonicalUnit) || '') + '"' + (unitRo ? ' disabled' : '') + '></div>')
+                        : (isCbcPanel
+                            ? '<div class="field field--span-2"><label class="field__label">Kết quả công thức máu (các chỉ số kèm đơn vị) *</label><textarea class="textarea" data-' + prefix + 'lab-field="' + idx + ':valueText" placeholder="VD: Hb 118 g/L, Hct 36%, WBC 7.2 G/L, PLT 230 G/L..."' + (rowRo ? ' disabled' : '') + '>' + esc(lab.valueText || '') + '</textarea></div>'
+                            : '<div class="field field--span-2"><label class="field__label">Kết quả / Kết luận mô tả *</label><input type="text" class="input" data-' + prefix + 'lab-field="' + idx + ':valueText" value="' + esc(lab.valueText || '') + '" placeholder="Nhập kết quả đọc ECG / X-quang / Siêu âm tim / chức năng gan..."' + (rowRo ? ' disabled' : '') + '></div>'))) +
+                    '<div class="field"><label class="field__label">' + esc(timeColLabel) + '</label><input type="datetime-local" class="input" data-' + prefix + 'lab-field="' + idx + ':measuredAt" value="' + esc(lab.measuredAt ? toDatetimeLocal(lab.measuredAt) : '') + '"' + (timeRo ? ' disabled' : '') + '></div>' +
+                    subtypeFieldHtml +
                   '</div>' +
+                  (curHelp ? '<p class="field__help">' + esc(curHelp) + '</p>' : '') +
+                  (rowErr ? '<p class="field__error">' + ICONS.alert + ' ' + esc(rowErr) + '</p>' : '') +
                 '</div>'
               );
             }).join('')) +
-            (!ro ? '<div><button type="button" class="btn btn--secondary btn--sm" data-' + prefix + 'add-lab="1">' + ICONS.plus + ' Thêm kết quả cận lâm sàng</button></div>' : '') +
-          '</div>';
+            (!blockRo ? '<div><button type="button" class="btn btn--secondary btn--sm" data-' + prefix + 'add-lab="1">' + ICONS.plus + ' Thêm kết quả cận lâm sàng</button></div>' : '') +
+          '</div>' +
+        '</div>'
+      );
+    }
+
+    function renderOneSection(section) {
+      const sortedFields = sortByDisplayOrder(section.fields || []);
+      const allEntries = sortedFields.map(function (ff) {
+        const fd = ctx.defById[ff.fieldDefinitionId];
+        return fd ? { ff: ff, fd: fd, rep: getFieldRepeatInfo(fd) } : null;
+      }).filter(Boolean);
+
+      // Collect visible repeating entries per group (preserving displayOrder)
+      const visibleByGroup = {};
+      const allByGroup = {};
+      allEntries.forEach(function (entry) {
+        if (!entry.rep) return;
+        const g = entry.rep.group;
+        allByGroup[g] = allByGroup[g] || [];
+        allByGroup[g].push(entry);
+        if (entry.ff.isVisible) {
+          visibleByGroup[g] = visibleByGroup[g] || [];
+          visibleByGroup[g].push(entry);
+        }
+      });
+
+      // Walk placements in exact displayOrder so scalar chunks & repeating blocks stay synchronized with Editor
+      const chunks = [];
+      let pendingScalars = [];
+      const emittedGroups = {};
+
+      function flushScalars() {
+        if (pendingScalars.length === 0) return;
+        const cardsHtml = pendingScalars.map(function (e) { return renderSingleField(e.ff); }).join('');
+        if (cardsHtml) {
+          chunks.push('<div class="section-chunk"><div class="form-grid-2">' + cardsHtml + '</div></div>');
+        }
+        pendingScalars = [];
       }
 
-      let visitNotesHtml = '';
-      if (section.sectionCode === 'ghi_chu' && ctx.mode === 'encounter' && (showRepeatForFilter || !q || 'ghi chú nguồn thông tin'.indexOf(q) >= 0)) {
-        visitNotesHtml =
-          '<div class="sub-heading">Nguồn thông tin &amp; Ghi chú bác sĩ cho lượt khám</div>' +
-          '<div class="form-grid-2">' +
-            '<div class="field"><label class="field__label" for="enc-info-source">Nguồn cung cấp thông tin lâm sàng</label>' +
-              '<input id="enc-info-source" type="text" class="input" data-enc-visit-meta="infoSource" placeholder="Người bệnh / Người nhà / Giấy tờ mang theo" value="' + esc(ctx.infoSource || '') + '"' + (ro ? ' disabled' : '') + '>' +
-            '</div>' +
-            '<div class="field"><label class="field__label" for="enc-clinical-note">Ghi chú lâm sàng bổ sung của bác sĩ</label>' +
-              '<textarea id="enc-clinical-note" class="textarea" data-enc-visit-meta="clinicalNote" placeholder="Ghi nhận bối cảnh đặc biệt hoặc điểm cần lưu ý ở lần tái khám sau..."' + (ro ? ' disabled' : '') + '>' + esc(ctx.clinicalNote || '') + '</textarea>' +
-            '</div>' +
-          '</div>';
+      allEntries.forEach(function (entry) {
+        if (!entry.ff.isVisible) return;
+        if (entry.rep) {
+          const g = entry.rep.group;
+          if (emittedGroups[g]) return;
+          emittedGroups[g] = true;
+          flushScalars();
+          let blockHtml = '';
+          if (g === 'orthostaticBp') blockHtml = renderOrthostaticBpBlock(visibleByGroup[g] || [], allByGroup[g] || []);
+          else if (g === 'medications') blockHtml = renderMedicationsBlock(visibleByGroup[g] || []);
+          else if (g === 'allergies') blockHtml = renderAllergiesBlock(visibleByGroup[g] || []);
+          else if (g === 'diagnoses') blockHtml = renderDiagnosesBlock(visibleByGroup[g] || []);
+          else if (g === 'labResults') blockHtml = renderLabsBlock(visibleByGroup[g] || []);
+          if (blockHtml) chunks.push(blockHtml);
+          return;
+        }
+
+        // Scalar / computed / patient / visit field filtering
+        const lbl = getFieldLabel(entry.ff, entry.fd).toLowerCase();
+        if (q && lbl.indexOf(q) === -1 && entry.fd.code.toLowerCase().indexOf(q) === -1) return;
+        const val = ctx.valuesByDefId[entry.fd.id];
+        const errMsg = ctx.fieldErrors && ctx.fieldErrors[entry.fd.code];
+        const flags = getFieldMetaFlags(entry.ff, entry.fd);
+        if (filter === 'unfilled') {
+          if (flags.isVisitSystem) {
+            const metaText = (entry.fd.memberPath === 'clinicalNote' || entry.fd.code === 'clinical_note') ? ctx.clinicalNote : ctx.infoSource;
+            if (metaText && String(metaText).trim()) return;
+          } else if (entry.fd.storageLevel === 'visit_value' || entry.fd.code === 'di_ung_thuoc_can_quang') {
+            if (val) return;
+          }
+        }
+        if (filter === 'error' && !errMsg) return;
+        pendingScalars.push(entry);
+      });
+
+      // Legacy v1.0 fallback: if Nhóm 8 does not yet carry info_source / clinical_note placements,
+      // render them identically in BOTH Preview and Encounter so all 3 screens stay synchronized!
+      if (section.sectionCode === 'ghi_chu' && !bundleHasVisitNotes) {
+        const showNotes = filter === 'all' || (filter === 'unfilled' && (!ctx.infoSource || !ctx.clinicalNote));
+        const matchQ = !q || 'nguồn cung cấp thông tin lâm sàng ghi chú bác sĩ info_source clinical_note'.indexOf(q) >= 0;
+        if (showNotes && matchQ) {
+          buildVirtualVisitNoteFields(section).forEach(function (vff) {
+            pendingScalars.push({ ff: vff, fd: vff._virtualDef, rep: null });
+          });
+        }
       }
 
-      if ((q || filter !== 'all') && !scalarCards && !repeatingHtml && !visitNotesHtml) {
+      flushScalars();
+
+      if ((q || filter !== 'all') && chunks.length === 0) {
         return '';
       }
 
@@ -1793,9 +2741,7 @@
             '<div><h2 class="card__title">' + String(section.displayOrder).padStart(2, '0') + '. ' + esc(section.titleVi) + '</h2></div>' +
           '</div>' +
           '<div class="card__body">' +
-            (repeatingHtml ? repeatingHtml : '') +
-            (scalarCards ? ((repeatingHtml ? '<div class="sub-heading">Các trường dữ liệu chi tiết</div>' : '') + '<div class="form-grid-2">' + scalarCards + '</div>') : (repeatingHtml || visitNotesHtml ? '' : '<p class="field__help">Không có trường nào khớp bộ lọc hiện tại trong nhóm này.</p>')) +
-            visitNotesHtml +
+            (chunks.length > 0 ? chunks.join('') : '<p class="field__help">Không có trường hiển thị nào trong nhóm này.</p>') +
           '</div>' +
         '</section>'
       );
@@ -1815,26 +2761,59 @@
     let filled = 0;
     let total = 0;
     let hasErr = false;
+    const seenGroups = {};
+    let hasVisitNoteInSec = false;
+
     (sec.fields || []).forEach(function (ff) {
       if (!ff.isVisible) return;
       const fd = defById[ff.fieldDefinitionId];
       if (!fd) return;
       if (enc.fieldErrors && enc.fieldErrors[fd.code]) hasErr = true;
-      if (fd.storageLevel === 'visit_value') {
+      const rep = getFieldRepeatInfo(fd);
+      if (rep) {
+        if (rep.group === 'labResults' && isLabMetadataColumnCode(fd)) return;
+        seenGroups[rep.group] = true;
+        return;
+      }
+      const flags = getFieldMetaFlags(ff, fd);
+      if (flags.isListStateField) {
+        return;
+      }
+      if (flags.isVisitNote) {
+        hasVisitNoteInSec = true;
+        total += 1;
+        const txt = (fd.memberPath === 'clinicalNote' || fd.code === 'clinical_note') ? enc.clinicalNote : enc.infoSource;
+        if (txt && String(txt).trim()) filled += 1;
+        return;
+      }
+      if (fd.storageLevel === 'visit_value' || fd.code === 'di_ung_thuoc_can_quang' || fd.code === 'thuoc_muc_do_tuan_thu') {
         total += 1;
         if (valuesByDefId[fd.id]) filled += 1;
       }
     });
-    if (sec.sectionCode === 'sinh_ton_kham') {
+
+    if (sec.sectionCode === 'ghi_chu' && !hasVisitNoteInSec && !hasVisitNotesPlacements((enc.formStructure && enc.formStructure.sections) || [], defById)) {
+      total += 2;
+      if (enc.infoSource && String(enc.infoSource).trim()) filled += 1;
+      if (enc.clinicalNote && String(enc.clinicalNote).trim()) filled += 1;
+    }
+    if (seenGroups.orthostaticBp) {
       total += 1;
       if ((enc.orthostaticBp || []).some(function (b) { return b && b.systolic != null && b.diastolic != null; })) filled += 1;
     }
-    if (sec.sectionCode === 'thuoc_di_ung') {
-      total += 2;
-      if ((enc.medications || []).some(isValidMedRow)) filled += 1;
-      if ((enc.allergies || []).some(isValidAllergyRow)) filled += 1;
+    if (seenGroups.medications) {
+      total += 1;
+      if ((enc.medications || []).some(isValidMedRow) || enc.medicationListState === 'none') filled += 1;
     }
-    if (sec.sectionCode === 'can_lam_sang') {
+    if (seenGroups.allergies) {
+      total += 1;
+      if ((enc.allergies || []).some(isValidAllergyRow) || enc.allergyListState === 'none') filled += 1;
+    }
+    if (seenGroups.diagnoses) {
+      total += 1;
+      if ((enc.diagnoses || []).some(isValidDiagnosisRow) || enc.diagnosisListState === 'none') filled += 1;
+    }
+    if (seenGroups.labResults) {
       total += 1;
       if ((enc.labResults || []).some(function (l) { return isValidLabRow(l, defByCode || enc.defByCode); })) filled += 1;
     }
@@ -1847,15 +2826,15 @@
       return renderShell('<span class="breadcrumbs__current">Đang tải lượt khám...</span>', '<div class="skeleton-stack"><div class="skeleton-bar"></div><div class="skeleton-card"></div><div class="skeleton-card"></div></div>');
     }
     if (enc.error || !enc.visit || !enc.formStructure) {
-      return renderShell('<button type="button" class="breadcrumbs__link" data-nav="#/patients">Hồ sơ bệnh nhân</button>', '<div class="banner banner--error"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(enc.error || 'Không tìm thấy lượt khám.') + '</p></div></div><button type="button" class="btn btn--secondary btn--sm" data-nav="#/patients">Quay lại</button></div>');
+      return renderShell('<button type="button" class="breadcrumbs__link" data-nav="#/patients">Hồ sơ bệnh nhân</button>', '<div class="banner banner--error" role="alert"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(enc.error || NOT_FOUND_OR_NO_ACCESS_MSG) + '</p></div></div><button type="button" class="btn btn--secondary btn--sm" data-nav="#/patients">Quay lại</button></div>');
     }
 
     const v = enc.visit;
     const pt = enc.patient;
     const isConf = v.status === 'confirmed';
-    const continuousSections = buildContinuousSections(enc.formStructure.sections || [], enc.defById);
+    const sections = sortByDisplayOrder(enc.formStructure.sections || []);
 
-    const railHtml = continuousSections.map(function (sec) {
+    const railHtml = sections.map(function (sec) {
       const p = countSectionProgress(sec, enc.defById, enc.valuesByDefId, enc, enc.defByCode);
       return (
         '<button type="button" class="rail-btn' + (sec.sectionCode === enc.activeSectionCode ? ' is-active' : '') + '" data-enc-section="' + esc(sec.sectionCode) + '">' +
@@ -1894,7 +2873,8 @@
           '<div class="jump-list">' + enc.errorList.map(function (e) {
             const fd = enc.defByCode[e.fieldCode];
             const fLabel = (fd && fd.labelVi) || e.fieldCode;
-            return '<button type="button" class="jump-chip jump-chip--error" data-jump-field="' + esc(e.sectionCode + ':' + e.fieldCode) + '">' + esc(fLabel + ': ' + e.message) + '</button>';
+            const secCode = e.sectionCode || resolveFieldSectionCode(enc.formStructure, e.fieldCode);
+            return '<button type="button" class="jump-chip jump-chip--error" data-jump-field="' + esc(secCode + ':' + e.fieldCode) + '">' + esc(fLabel + ': ' + e.message) + '</button>';
           }).join('') + '</div></div>' +
         '</div>' +
       '</div>'
@@ -1911,6 +2891,12 @@
       medications: enc.medications,
       allergies: enc.allergies,
       labResults: enc.labResults,
+      diagnoses: enc.diagnoses,
+      medicationListState: enc.medicationListState,
+      allergyListState: enc.allergyListState,
+      diagnosisListState: enc.diagnosisListState,
+      supportsListStates: enc.supportsListStates,
+      formVersion: enc.formStructure.formVersion,
       patient: pt,
       visit: v,
       clinicalNote: enc.clinicalNote,
@@ -1936,6 +2922,9 @@
       '</div>'
     );
 
+    const perfDoctorName = v.performedByName || v.performingDoctorName || v.createdByName || '';
+    const lastEditorName = v.updatedByName || v.lastEditedByName || '';
+
     const body =
       '<div class="encounter-sticky-head">' +
         '<div>' +
@@ -1947,6 +2936,8 @@
           '</div>' +
           '<div class="encounter-sticky-head__meta">' +
             '<span class="tabular">' + esc(formatDateTime(v.visitDate)) + ' · ' + esc(formatVisitType(v.visitType)) + '</span>' +
+            (perfDoctorName ? ' · <span data-visit-performer="true">Bác sĩ thực hiện: <strong>' + esc(perfDoctorName) + '</strong></span>' : '') +
+            (lastEditorName ? ' · <span data-visit-last-editor="true">Chỉnh sửa gần nhất: <strong>' + esc(lastEditorName) + '</strong></span>' : '') +
           '</div>' +
         '</div>' +
         '<div class="encounter-sticky-head__right">' +
@@ -1989,7 +2980,7 @@
       return renderShell('<span class="breadcrumbs__current">Đang tổng hợp dữ liệu rà soát...</span>', '<div class="skeleton-stack"><div class="skeleton-bar"></div><div class="skeleton-card"></div></div>');
     }
     if (rev.error || !rev.data || !rev.visit) {
-      return renderShell('<button type="button" class="breadcrumbs__link" data-nav="#/patients">Hồ sơ bệnh nhân</button>', '<div class="banner banner--error"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(rev.error || 'Không có dữ liệu rà soát.') + '</p></div></div></div>');
+      return renderShell('<button type="button" class="breadcrumbs__link" data-nav="#/patients">Hồ sơ bệnh nhân</button>', '<div class="banner banner--error" role="alert"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(rev.error || NOT_FOUND_OR_NO_ACCESS_MSG) + '</p></div></div><button type="button" class="btn btn--secondary btn--sm" data-nav="#/patients">Quay lại danh sách</button></div>');
     }
 
     const r = rev.data;
@@ -2044,6 +3035,8 @@
           label: 'Thuốc đã ghi nhận (' + validMeds.length + ')',
           value: validMeds.map(function (m) { return m.drugName + (m.dose ? ' ' + m.dose + (m.unit || '') : ''); }).join(', ')
         });
+      } else if (v.medicationListState === 'none') {
+        summaryItems.push({ label: 'Danh sách thuốc', value: 'Đã xác nhận không dùng thuốc' });
       }
       const validAlgs = (rev.visitDetail.allergies || []).filter(isValidAllergyRow);
       if (validAlgs.length > 0) {
@@ -2051,6 +3044,19 @@
           label: 'Dị ứng / ADR (' + validAlgs.length + ')',
           value: validAlgs.map(function (a) { return a.allergen + (a.reaction ? ' (' + a.reaction + ')' : ''); }).join(', ')
         });
+      } else if (v.allergyListState === 'none') {
+        summaryItems.push({ label: 'Dị ứng / ADR', value: 'Đã xác nhận không có dị ứng / ADR' });
+      }
+      const validDxs = (rev.visitDetail.diagnoses || []).filter(isValidDiagnosisRow);
+      if (validDxs.length > 0) {
+        summaryItems.push({
+          label: 'Chẩn đoán ICD-10 (' + validDxs.length + ')',
+          value: validDxs.map(function (d) {
+            return (d.role === 'primary' ? '[Chính] ' : '[Phụ] ') + (d.code || '') + (d.display ? ' - ' + d.display : '');
+          }).join(' · ')
+        });
+      } else if (v.diagnosisListState === 'none') {
+        summaryItems.push({ label: 'Chẩn đoán ICD-10', value: 'Đã xác nhận chưa có mã ICD' });
       }
       const validLabs = (rev.visitDetail.labResults || []).filter(function (l) { return isValidLabRow(l, defByCode); });
       if (validLabs.length > 0) {
@@ -2063,17 +3069,50 @@
           }).join(' · ')
         });
       }
+      if (v.infoSource && String(v.infoSource).trim()) {
+        summaryItems.push({ label: 'Nguồn cung cấp thông tin lâm sàng', value: v.infoSource });
+      }
+      if (v.clinicalNote && String(v.clinicalNote).trim()) {
+        summaryItems.push({ label: 'Ghi chú lâm sàng bổ sung', value: v.clinicalNote });
+      }
     }
 
+    const summaryCollapsible = summaryItems.length > REVIEW_SUMMARY_COLLAPSED_LIMIT;
+    const summaryExpanded = !summaryCollapsible || getReviewSummaryExpanded();
+    const visibleSummaryItems = summaryExpanded ? summaryItems : summaryItems.slice(0, REVIEW_SUMMARY_COLLAPSED_LIMIT);
+    const hiddenSummaryCount = Math.max(0, summaryItems.length - REVIEW_SUMMARY_COLLAPSED_LIMIT);
+    const summaryToggleLabel = summaryExpanded ? 'Thu gọn' : ('Xem thêm (' + hiddenSummaryCount + ')');
+
     const enteredSummaryHtml =
-      '<section class="card" style="margin-top:16px;">' +
-        '<div class="card__header"><div><h2 class="card__title">Tóm tắt các giá trị đã ghi nhận (' + summaryItems.length + ')</h2><p class="card__subtitle">Rà nhanh các thông tin đã điền trước khi xác nhận lượt khám.</p></div></div>' +
+      '<section class="card" id="review-recorded-summary" data-summary-expanded="' + (summaryExpanded ? 'true' : 'false') + '" style="margin-top:16px;">' +
+        '<div class="card__header">' +
+          '<div><h2 class="card__title">Tóm tắt các giá trị đã ghi nhận (' + summaryItems.length + ')</h2><p class="card__subtitle">Rà nhanh các thông tin đã điền trước khi xác nhận lượt khám.</p></div>' +
+          (summaryCollapsible
+            ? '<div class="summary-card__actions">' +
+                '<button type="button" class="btn btn--secondary btn--sm" data-action="toggle-review-summary" aria-expanded="' + (summaryExpanded ? 'true' : 'false') + '" aria-controls="review-summary-grid">' +
+                  (summaryExpanded ? ICONS.up : ICONS.down) + ' ' + esc(summaryToggleLabel) +
+                '</button>' +
+              '</div>'
+            : '') +
+        '</div>' +
         '<div class="card__body">' +
           (summaryItems.length === 0
             ? '<p class="field__help">Chưa có giá trị lâm sàng nào được nhập trong lượt khám này.</p>'
-            : '<div class="kv-grid">' + summaryItems.map(function (it) {
+            : '<div id="review-summary-grid" class="kv-grid kv-grid--summary">' + visibleSummaryItems.map(function (it) {
                 return '<div><div class="kv-item__label">' + esc(it.label) + '</div><div class="kv-item__value">' + esc(it.value) + '</div></div>';
-              }).join('') + '</div>') +
+              }).join('') + '</div>' +
+              (summaryCollapsible
+                ? '<div class="summary-collapse-bar">' +
+                    '<span class="summary-collapse-bar__meta">' +
+                      (summaryExpanded
+                        ? ('Đang hiển thị đầy đủ ' + summaryItems.length + '/' + summaryItems.length + ' mục đã ghi nhận.')
+                        : ('Đang hiển thị ' + visibleSummaryItems.length + '/' + summaryItems.length + ' mục đầu để dễ xem thẻ độ sẵn sàng AI bên dưới.')) +
+                    '</span>' +
+                    '<button type="button" class="btn btn--secondary btn--sm" data-action="toggle-review-summary" aria-expanded="' + (summaryExpanded ? 'true' : 'false') + '" aria-controls="review-summary-grid">' +
+                      (summaryExpanded ? ICONS.up : ICONS.down) + ' ' + esc(summaryToggleLabel) +
+                    '</button>' +
+                  '</div>'
+                : '')) +
         '</div>' +
       '</section>';
 
@@ -2120,17 +3159,52 @@
       '</div>'
     );
 
+    const AI_FALLBACK_FIELD_LABELS = {
+      thuoc_ghi_nhan: 'Danh sách thuốc đang dùng',
+      di_ung_adr: 'Tiền sử dị ứng / ADR',
+      cls_don_vi: 'Đơn vị xét nghiệm',
+      cls_thoi_diem: 'Thời điểm xét nghiệm',
+      cls_ecg_thoi_diem: 'Thời điểm điện tâm đồ (ECG)',
+      cls_sieu_am_tim_thoi_diem: 'Thời điểm siêu âm tim',
+      cls_xquang_thoi_diem: 'Thời điểm X-quang ngực'
+    };
+
     const tier4Cards = (r.tier4AiModules || []).map(function (m) {
-      const missingLabels = (m.missingFieldCodes || []).map(function (code) {
-        return (defByCode[code] && defByCode[code].labelVi) || code;
-      });
+      const missingCodes = Array.isArray(m.missingFieldCodes) ? m.missingFieldCodes : [];
+      const isReady = Boolean(m.ready) || missingCodes.length === 0;
+      const missingChipsHtml = missingCodes.map(function (code) {
+        const label = (defByCode[code] && defByCode[code].labelVi) || AI_FALLBACK_FIELD_LABELS[code] || code;
+        const secCode = resolveFieldSectionCode(rev.formRes, code);
+        return (
+          '<button type="button" class="jump-chip jump-chip--info ai-missing-chip" data-review-jump="' + esc(secCode + ':' + code) + '" data-ai-missing-field="' + esc(code) + '" title="' + esc('Đi tới trường ' + label + ' trên biểu mẫu lượt khám') + '">' +
+            esc(label) +
+          '</button>'
+        );
+      }).join('');
+      const firstCode = !isReady ? missingCodes[0] : '';
+      const firstSec = firstCode ? resolveFieldSectionCode(rev.formRes, firstCode) : '';
+      const firstLabel = firstCode ? ((defByCode[firstCode] && defByCode[firstCode].labelVi) || AI_FALLBACK_FIELD_LABELS[firstCode] || firstCode) : '';
       return (
-        '<div class="card" style="padding:14px;">' +
-          '<div class="version-card__top">' +
-            '<strong>' + esc(formatAiModuleLabel(m.aiModuleCode)) + '</strong>' +
-            (m.ready ? '<span class="badge badge--success">Đủ biến dự kiến</span>' : '<span class="badge badge--info">Thiếu ' + missingLabels.length + ' trường</span>') +
+        '<div class="card ai-module-card ' + (isReady ? 'ai-module-card--ready' : 'ai-module-card--missing') + '" data-ai-readiness-module="' + esc(m.aiModuleCode) + '">' +
+          '<div class="ai-module-card__body">' +
+            '<div class="version-card__top">' +
+              '<strong>' + esc(formatAiModuleLabel(m.aiModuleCode)) + '</strong>' +
+              (isReady ? '<span class="badge badge--success">Đủ biến dự kiến</span>' : '<span class="badge badge--info">Thiếu ' + missingCodes.length + ' trường</span>') +
+            '</div>' +
+            (isReady
+              ? '<div class="cell-sub">Đáp ứng bộ biến dự kiến cho module này.</div>'
+              : '<div class="ai-missing-block">' +
+                  '<div class="ai-missing-block__label">Còn thiếu (bấm vào từng trường để đi tới biểu mẫu):</div>' +
+                  '<div class="ai-missing-chips">' + missingChipsHtml + '</div>' +
+                '</div>') +
           '</div>' +
-          '<div class="cell-sub" style="margin-top:6px;">' + (m.ready ? 'Đáp ứng bộ biến dự kiến cho module này.' : ('Còn thiếu: ' + esc(missingLabels.join(', ')))) + '</div>' +
+          (!isReady && firstCode
+            ? '<div class="ai-module-card__footer">' +
+                '<button type="button" class="btn btn--secondary btn--sm ai-module-card__first-btn" data-review-jump="' + esc(firstSec + ':' + firstCode) + '" data-ai-module-first-missing="' + esc(m.aiModuleCode) + '" title="' + esc('Đi tới trường thiếu đầu tiên: ' + firstLabel) + '">' +
+                  'Đi tới trường thiếu đầu tiên ' + ICONS.arrowRight +
+                '</button>' +
+              '</div>'
+            : '') +
         '</div>'
       );
     }).join('');
@@ -2151,6 +3225,86 @@
         }).join('') + '</div></div>' +
       '</section>'
     ) : '';
+
+    const isDoctor = Boolean(state.user && state.user.role === 'doctor');
+
+    function renderAiQualityPanel() {
+      const q = rev.aiExportQuality;
+      const errMsg = rev.aiExportError;
+      if (!q && !errMsg) return '';
+      const isReady = Boolean(q && q.status === 'ready');
+      const modules = (q && Array.isArray(q.modules)) ? q.modules : [];
+      const issues = (q && Array.isArray(q.issues)) ? q.issues : [];
+
+      const statusBanner = !q
+        ? '<div class="banner banner--error" style="margin-bottom:0;" role="alert"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__title">Không thể xuất JSON cho AI</p><p class="banner__desc">' + esc(errMsg) + '</p></div></div></div>'
+        : (isReady
+            ? '<div class="banner banner--success" style="margin-bottom:0;"><div class="banner__main">' + ICONS.checkCircle + '<div><p class="banner__title">Sẵn sàng gửi AI (hf-ai-input/1.0)</p><p class="banner__desc">Tất cả module kiểm tra đạt chất lượng. Tệp JSON ẩn danh đã được chuẩn bị để tải xuống.</p></div></div></div>'
+            : '<div class="banner banner--error" style="margin-bottom:0;" role="alert"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__title">Bị chặn (Blocked) — Chưa đủ điều kiện gửi AI</p><p class="banner__desc">' + esc(errMsg || ('Phát hiện ' + issues.length + ' vấn đề chất lượng dữ liệu theo hợp đồng hf-ai-input/1.0. Gói này KHÔNG được coi là sẵn sàng gửi AI.')) + '</p></div></div>' +
+                '<div class="banner__actions"><button type="button" class="btn btn--secondary btn--sm" data-action="export-ai-json-diagnostic">' + ICONS.download + ' Tải gói chẩn đoán (diagnostic)</button></div>' +
+              '</div>');
+
+      const modCardsHtml = modules.length > 0 ? (
+        '<div class="ai-quality-modules">' + modules.map(function (m) {
+          const mReady = m.status === 'ready';
+          const count = Number(m.issueCount || 0);
+          return (
+            '<div class="ai-quality-card ' + (mReady ? 'ai-quality-card--ready' : 'ai-quality-card--blocked') + '" data-ai-module-status="' + esc(m.status || 'blocked') + '">' +
+              '<div class="version-card__top">' +
+                '<strong>' + esc(formatAiModuleLabel(m.module)) + '</strong>' +
+                (mReady
+                  ? '<span class="badge badge--success">Sẵn sàng (ready)</span>'
+                  : '<span class="badge badge--error">Bị chặn (blocked' + (count > 0 ? ' · ' + count : '') + ')</span>') +
+              '</div>' +
+            '</div>'
+          );
+        }).join('') + '</div>'
+      ) : '';
+
+      const issueListHtml = issues.length > 0 ? (
+        '<div>' +
+          '<div class="kv-item__label" style="margin-bottom:6px;">Danh sách lỗi / thiếu dữ liệu theo trường (' + issues.length + ') — bấm vào từng dòng để nhảy tới đúng ô</div>' +
+          '<div class="ai-issue-list">' + issues.map(function (iss) {
+            const fc = iss.fieldCode || '';
+            const fd = fc ? defByCode[fc] : null;
+            const fieldTitle = (fd && fd.labelVi) || fc || iss.path || 'Trường dữ liệu';
+            const isWarn = iss.severity === 'warning' || iss.severity === 'warn';
+            return (
+              '<button type="button" class="ai-issue-item' + (isWarn ? ' ai-issue-item--warn' : '') + '" data-ai-issue-jump="' + esc(fc) + '">' +
+                '<div class="ai-issue-item__main">' +
+                  '<div><strong>' + esc(fieldTitle) + '</strong>: ' + esc(iss.messageVi || iss.issueCode || 'Thiếu hoặc không hợp lệ') + '</div>' +
+                  '<div class="ai-issue-item__meta">' +
+                    (iss.module ? esc(formatAiModuleLabel(iss.module)) + ' · ' : '') +
+                    (iss.path ? '<span class="mono">' + esc(iss.path) + '</span> · ' : '') +
+                    '<span class="mono">' + esc(iss.issueCode || '') + '</span>' +
+                  '</div>' +
+                '</div>' +
+                '<span class="badge ' + (isWarn ? 'badge--warn' : 'badge--error') + ' badge--xs">' + (fc ? 'Mở ô →' : (isWarn ? 'Cảnh báo' : 'Lỗi')) + '</span>' +
+              '</button>'
+            );
+          }).join('') + '</div>' +
+        '</div>'
+      ) : '';
+
+      const payloadHtml = rev.aiExportV1 ? (
+        '<div>' +
+          '<div class="field__meta-row" style="margin-bottom:8px;">' +
+            '<strong>' + (rev.aiExportIsDiagnostic ? 'Gói chẩn đoán JSON (diagnostic — KHÔNG dùng gửi AI)' : 'Gói JSON đầu vào AI (hf-ai-input/1.0)') + '</strong>' +
+            '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+              '<button type="button" class="btn btn--secondary btn--sm" data-action="download-ai-json-v1">' + ICONS.download + ' Tải tệp .json</button>' +
+              '<button type="button" class="btn btn--secondary btn--sm" data-action="copy-ai-json-v1">Sao chép JSON</button>' +
+            '</div>' +
+          '</div>' +
+          '<pre class="json-viewer">' + esc(JSON.stringify(rev.aiExportV1, null, 2)) + '</pre>' +
+        '</div>'
+      ) : '';
+
+      return (
+        '<div class="ai-quality-panel ' + (q ? (isReady ? 'ai-quality-panel--ready' : 'ai-quality-panel--blocked') : 'ai-quality-panel--blocked') + '" data-ai-quality-status="' + esc(q ? (q.status || 'blocked') : 'error') + '">' +
+          statusBanner + modCardsHtml + issueListHtml + payloadHtml +
+        '</div>'
+      );
+    }
 
     const gateHtml = !isConf ? (
       '<section class="confirm-gate">' +
@@ -2177,23 +3331,34 @@
         '<div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between;align-items:center;">' +
           '<button type="button" class="btn btn--secondary" data-nav="#/visits/' + esc(v.id) + '">Xem biểu mẫu chỉ đọc</button>' +
           '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
-            '<button type="button" class="btn btn--navy" data-action="load-ai-payload">' + ICONS.code + ' Xuất gói dữ liệu chuẩn</button>' +
+            (isDoctor ? '<button type="button" class="btn btn--navy' + (rev.aiExportLoading ? ' is-loading' : '') + '" data-action="export-ai-json-v1"' + (rev.aiExportLoading ? ' disabled' : '') + '>' + (rev.aiExportLoading ? '' : ICONS.download) + (rev.aiExportLoading ? 'Đang kiểm tra & xuất...' : ' Xuất JSON cho AI') + '</button>' : '') +
+            (isDoctor ? '<button type="button" class="btn btn--secondary" data-action="load-ai-payload">' + ICONS.code + ' Xem gói chuẩn cũ</button>' : '') +
             '<button type="button" class="btn btn--primary" data-action="open-create-revision">Tạo bản sửa mới</button>' +
           '</div>' +
         '</div>' +
+        renderAiQualityPanel() +
         (rev.showAiPayload && rev.aiInputPayload ? (
           '<div>' +
-            '<div class="field__meta-row" style="margin-bottom:8px;"><strong>Gói dữ liệu chuẩn hóa JSON</strong><button type="button" class="btn btn--secondary btn--sm" data-action="copy-ai-payload">Sao chép JSON</button></div>' +
+            '<div class="field__meta-row" style="margin-bottom:8px;"><strong>Gói dữ liệu chuẩn hóa JSON (phiên bản cũ)</strong><button type="button" class="btn btn--secondary btn--sm" data-action="copy-ai-payload">Sao chép JSON</button></div>' +
             '<pre class="json-viewer">' + esc(JSON.stringify(rev.aiInputPayload, null, 2)) + '</pre>' +
           '</div>'
         ) : '') +
       '</section>'
     );
 
+    const perfDoctorName = v.performedByName || v.performingDoctorName || v.createdByName || '';
+    const lastEditorName = v.updatedByName || v.lastEditedByName || '';
+
     const body =
       '<div class="page-head">' +
-        '<div><h1 class="page-head__title">Xem lại &amp; Xác nhận dữ liệu lượt khám</h1><p class="page-head__sub"><span class="mono">' + esc(pt ? pt.patientCode : '') + '</span> · ' + esc(pt ? pt.fullName : '') + ' · <span class="mono">' + esc(v.visitCode) + '</span></p></div>' +
-        '<div class="page-head__actions"><button type="button" class="btn btn--secondary" data-nav="#/visits/' + esc(v.id) + '">' + ICONS.arrowLeft + ' Về biểu mẫu lượt khám</button></div>' +
+        '<div><h1 class="page-head__title">Xem lại &amp; Xác nhận dữ liệu lượt khám</h1><p class="page-head__sub"><span class="mono">' + esc(pt ? pt.patientCode : '') + '</span> · ' + esc(pt ? pt.fullName : '') + ' · <span class="mono">' + esc(v.visitCode) + '</span>' +
+          (perfDoctorName ? ' · Bác sĩ thực hiện: <strong>' + esc(perfDoctorName) + '</strong>' : '') +
+          (lastEditorName ? ' · Chỉnh sửa gần nhất: <strong>' + esc(lastEditorName) + '</strong>' : '') +
+        '</p></div>' +
+        '<div class="page-head__actions">' +
+          '<button type="button" class="btn btn--secondary" data-action="scroll-to-ai-readiness">' + ICONS.down + ' Tới phần độ sẵn sàng AI</button>' +
+          '<button type="button" class="btn btn--secondary" data-nav="#/visits/' + esc(v.id) + '">' + ICONS.arrowLeft + ' Về biểu mẫu lượt khám</button>' +
+        '</div>' +
       '</div>' +
       '<div class="stats-4">' +
         '<div class="stat-card stat-card--blue"><div class="stat-card__label">Đã nhập</div><div class="stat-card__num">' + r.totalAnswered + '</div></div>' +
@@ -2208,7 +3373,7 @@
       '</section>' +
       '<div class="mobile-cards" style="margin-top:12px;">' + secCards + '</div>' +
       enteredSummaryHtml +
-      '<section class="card" style="margin-top:16px;">' +
+      '<section class="card" id="review-ai-readiness" style="margin-top:16px;">' +
         '<div class="card__header"><div><h2 class="card__title">Đối chiếu độ sẵn sàng dữ liệu cho 4 Module AI (Danh sách dự kiến, chờ nhóm AI xác nhận)</h2><p class="card__subtitle">Chỉ mang tính tham khảo đối chiếu — <strong>không chặn xác nhận lượt khám</strong> và không chạy dự đoán AI trong phạm vi hệ thống thu thập dữ liệu.</p></div></div>' +
         '<div class="card__body"><div class="ai-module-grid">' + tier4Cards + '</div></div>' +
       '</section>' +
@@ -2367,22 +3532,34 @@
       if (af.activeTab === 'editor') {
         const secs = af.draftSections || [];
         const activeSec = secs.find(function (s) { return s.sectionCode === af.selectedSectionCode; }) || secs[0];
+        const editorHasVisitNotes = hasVisitNotesPlacements(secs, defMap);
+
+        function getEditorSectionFields(sec) {
+          const base = (sec && sec.fields) ? sec.fields.slice() : [];
+          if (sec && sec.sectionCode === 'ghi_chu' && !editorHasVisitNotes) {
+            return base.concat(buildVirtualVisitNoteFields(sec));
+          }
+          return base;
+        }
+
         const secListHtml = secs.map(function (s, idx) {
-          const visCount = (s.fields || []).filter(function (f) { return f.isVisible; }).length;
+          const sFields = getEditorSectionFields(s);
+          const visCount = sFields.filter(function (f) { return f.isVisible; }).length;
           return (
             '<div class="editor-item' + (activeSec && s.sectionCode === activeSec.sectionCode ? ' is-selected' : '') + '" data-ed-section="' + esc(s.sectionCode) + '">' +
-              '<div class="editor-item__text"><div class="editor-item__name">' + String(idx + 1).padStart(2, '0') + '. ' + esc(s.titleVi) + '</div><div class="editor-item__sub">' + visCount + '/' + (s.fields || []).length + ' trường hiển thị</div></div>' +
+              '<div class="editor-item__text"><div class="editor-item__name">' + String(idx + 1).padStart(2, '0') + '. ' + esc(s.titleVi) + '</div><div class="editor-item__sub">' + visCount + '/' + sFields.length + ' trường hiển thị</div></div>' +
             '</div>'
           );
         }).join('');
 
-        const fieldsInSec = activeSec ? (activeSec.fields || []) : [];
+        const realFieldsInSec = activeSec ? (activeSec.fields || []) : [];
+        const fieldsInSec = activeSec ? getEditorSectionFields(activeSec) : [];
         const fq = String(af.fieldSearch || '').trim().toLowerCase();
         const filteredFields = fieldsInSec.map(function (ff, origIdx) {
           return { ff: ff, origIdx: origIdx };
         }).filter(function (entry) {
           if (!fq) return true;
-          const fd = defMap[entry.ff.fieldDefinitionId] || {};
+          const fd = defMap[entry.ff.fieldDefinitionId] || entry.ff._virtualDef || {};
           const lbl = String(entry.ff.customLabelVi || fd.labelVi || '').toLowerCase();
           const code = String(fd.code || entry.ff.fieldCode || '').toLowerCase();
           return lbl.indexOf(fq) >= 0 || code.indexOf(fq) >= 0;
@@ -2393,18 +3570,23 @@
           : filteredFields.map(function (entry) {
               const ff = entry.ff;
               const idx = entry.origIdx;
-              const fd = defMap[ff.fieldDefinitionId] || {};
+              const fd = defMap[ff.fieldDefinitionId] || ff._virtualDef || {};
+              const flags = getFieldMetaFlags(ff, fd);
               const sel = ff.fieldDefinitionId === af.selectedFieldDefId;
+              const badges = [];
+              if (flags.computed) badges.push('<span class="badge badge--blue badge--xs">Tự tính</span>');
+              if (flags.system) badges.push('<span class="badge badge--info badge--xs">Trường hệ thống</span>');
               return (
-                '<div class="editor-item' + (sel ? ' is-selected' : '') + (!ff.isVisible ? ' is-hidden-field' : '') + '" data-ed-field="' + esc(ff.fieldDefinitionId) + '">' +
+                '<div class="editor-item' + (sel ? ' is-selected' : '') + (!ff.isVisible ? ' is-hidden-field' : '') + '" data-ed-field="' + esc(ff.fieldDefinitionId) + '" data-ed-field-code="' + esc(fd.code || ff.fieldCode || '') + '">' +
                   '<div class="editor-item__text">' +
-                    '<div class="editor-item__name">' + esc(ff.customLabelVi || fd.labelVi || ff.fieldCode) + '</div>' +
+                    '<div class="editor-item__name">' + esc(getFieldLabel(ff, fd)) + '</div>' +
                     '<div class="editor-item__sub">' + esc(formatDataTypeVi(fd.dataType)) + (!ff.isVisible ? ' · Đang ẩn' : '') + (ff.requiredForConfirm ? ' · Bắt buộc xác nhận' : '') + '</div>' +
+                    (badges.length > 0 ? '<div class="editor-item__badges">' + badges.join('') + '</div>' : '') +
                   '</div>' +
-                  (isDraft && !fq ? (
+                  (isDraft && !fq && !ff._virtualSystem ? (
                     '<div class="order-btns">' +
                       '<button type="button" class="icon-btn" title="Lên (Alt+↑)" data-move-field="' + idx + ':-1"' + (idx === 0 ? ' disabled' : '') + '>' + ICONS.up + '</button>' +
-                      '<button type="button" class="icon-btn" title="Xuống (Alt+↓)" data-move-field="' + idx + ':1"' + (idx === fieldsInSec.length - 1 ? ' disabled' : '') + '>' + ICONS.down + '</button>' +
+                      '<button type="button" class="icon-btn" title="Xuống (Alt+↓)" data-move-field="' + idx + ':1"' + (idx >= realFieldsInSec.length - 1 ? ' disabled' : '') + '>' + ICONS.down + '</button>' +
                     '</div>'
                   ) : '') +
                 '</div>'
@@ -2412,19 +3594,54 @@
             }).join('');
 
         const activeFF = fieldsInSec.find(function (ff) { return ff.fieldDefinitionId === af.selectedFieldDefId; }) || (filteredFields[0] && filteredFields[0].ff) || fieldsInSec[0];
-        const activeFD = activeFF ? (defMap[activeFF.fieldDefinitionId] || {}) : null;
+        const activeFD = activeFF ? (defMap[activeFF.fieldDefinitionId] || activeFF._virtualDef || {}) : null;
+        const activeFlags = activeFF && activeFD ? getFieldMetaFlags(activeFF, activeFD) : null;
+        const canEditPlacement = Boolean(isDraft && activeFF && !activeFF._virtualSystem);
+        const lockRequiredProp = Boolean(!canEditPlacement || (activeFlags && (activeFlags.computed || activeFlags.readonlyInput)));
 
+        let systemExplainHtml = '';
+        if (activeFF && activeFD && activeFlags && (activeFlags.computed || activeFlags.system)) {
+          let explainText = '';
+          if (activeFD.code === 'bmi') {
+            explainText = 'Tự động tính BMI (kg/m²) từ Chiều cao và Cân nặng của cùng lượt khám. Bác sĩ không nhập trực tiếp; khóa kiểu dữ liệu, đường lưu và công thức tính.';
+          } else if (activeFlags.computed) {
+            explainText = 'Trường hệ thống tự tính toán, hiển thị chỉ đọc ở màn Bác sĩ. Khóa kiểu nhập, mức lưu trữ, công thức và tùy chọn bắt buộc nhập.';
+          } else if (activeFlags.isListStateField) {
+            explainText = 'Trường hệ thống xác nhận trạng thái cấp danh sách (Có / Không có / Chưa rõ), lưu trực tiếp trên lượt khám để phân biệt "Đã xác nhận không có" với "Chưa rõ". Khóa mã trường, kiểu dữ liệu và đường lưu; Quản trị viên được sửa nhãn, hướng dẫn, thứ tự và hiển thị.';
+          } else if (activeFlags.isVisitNote) {
+            explainText = activeFF._virtualSystem
+              ? 'Trường siêu dữ liệu mặc định của lượt khám trên phiên bản v1.0 (lưu ở visit.infoSource / visit.clinicalNote). Phiên bản v1.1 đưa 2 trường này vào cấu hình để Quản trị viên tùy chỉnh nhãn, hướng dẫn, hiển thị và thứ tự.'
+              : 'Trường hệ thống của lượt khám (lưu ở visit.infoSource / visit.clinicalNote). Khóa mã trường, kiểu dữ liệu và đường lưu; Quản trị viên được sửa nhãn hiển thị, hướng dẫn, thứ tự, hiển thị và bắt buộc.';
+          } else if (activeFlags.isPatientSystem) {
+            explainText = 'Trường hệ thống đồng bộ từ hồ sơ hành chính bệnh nhân, chỉ đọc trên màn lượt khám. Khóa kiểu nhập, đường lưu và tùy chọn bắt buộc nhập.';
+          } else {
+            explainText = 'Trường hệ thống (khóa mã trường, kiểu dữ liệu và mức lưu trữ). Quản trị viên chỉ chỉnh các thuộc tính hiển thị được phép.';
+          }
+          systemExplainHtml =
+            '<div class="editor-system-note" data-system-field-note="' + esc(activeFD.code || '') + '">' +
+              '<div class="editor-system-note__head">' +
+                (activeFlags.computed ? '<span class="badge badge--blue badge--xs">Tự tính</span>' : '') +
+                '<span class="badge badge--info badge--xs">Trường hệ thống</span>' +
+                (activeFlags.locked ? '<span class="badge badge--neutral badge--xs">Khóa thuộc tính hệ thống</span>' : '') +
+              '</div>' +
+              '<div>' + esc(explainText) + '</div>' +
+            '</div>';
+        }
+
+        const defaultHelpPlaceholder = activeFD ? sanitizeDoctorHelpText(activeFD.helpText) : '';
         const propHtml = !activeFF || !activeFD ? '<p class="field__help">Chọn một trường ở cột giữa để xem hoặc cấu hình thuộc tính.</p>' : (
-          '<div class="field"><label class="field__label">Nhãn hiển thị tiếng Việt</label><input class="input" data-ed-prop="customLabelVi" value="' + esc(activeFF.customLabelVi || activeFD.labelVi) + '"' + (!isDraft ? ' disabled' : '') + '></div>' +
-          '<div class="field"><label class="field__label">Kiểu nhập liệu</label><input class="input" value="' + esc(formatDataTypeVi(activeFD.dataType) + (activeFD.canonicalUnit ? ' · Đơn vị: ' + activeFD.canonicalUnit : '')) + '" disabled></div>' +
-          '<div class="field"><label class="field__label">Ghi chú hướng dẫn bác sĩ (tùy chọn)</label><textarea class="textarea" data-ed-prop="customHelpText"' + (!isDraft ? ' disabled' : '') + '>' + esc(activeFF.customHelpText || '') + '</textarea></div>' +
-          '<label class="choice-row"><input type="checkbox" data-ed-prop="isVisible"' + (activeFF.isVisible ? ' checked' : '') + (!isDraft ? ' disabled' : '') + '><span><strong>Hiển thị trường này cho lượt khám mới</strong><div class="cell-sub">Tắt để ngừng dùng ở lượt mới mà không làm mất dữ liệu lượt cũ.</div></span></label>' +
-          '<label class="choice-row"><input type="checkbox" data-ed-prop="requiredForConfirm"' + (activeFF.requiredForConfirm ? ' checked' : '') + (!isDraft ? ' disabled' : '') + '><span><strong>Bắt buộc khi xác nhận lượt khám</strong><div class="cell-sub">Lưu nháp vẫn cho phép bỏ trống; chỉ yêu cầu khi bấm Xác nhận.</div></span></label>' +
+          systemExplainHtml +
+          '<div class="field"><label class="field__label">Nhãn hiển thị tiếng Việt</label><input class="input" data-ed-prop="customLabelVi" value="' + esc(activeFF.customLabelVi || activeFD.labelVi) + '"' + (!canEditPlacement ? ' disabled' : '') + '></div>' +
+          '<div class="field"><label class="field__label">Kiểu nhập liệu (khóa hệ thống)</label><input class="input" value="' + esc(formatDataTypeVi(activeFD.dataType) + (activeFD.canonicalUnit ? ' · Đơn vị: ' + activeFD.canonicalUnit : '')) + '" disabled></div>' +
+          '<div class="field"><label class="field__label">Ghi chú hướng dẫn bác sĩ (tùy chọn)</label><textarea class="textarea" data-ed-prop="customHelpText" placeholder="' + esc(defaultHelpPlaceholder || 'Nhập hướng dẫn lâm sàng hiển thị cho bác sĩ...') + '"' + (!canEditPlacement ? ' disabled' : '') + '>' + esc(activeFF.customHelpText || '') + '</textarea></div>' +
+          '<label class="choice-row"><input type="checkbox" data-ed-prop="isVisible"' + (activeFF.isVisible ? ' checked' : '') + (!canEditPlacement ? ' disabled' : '') + '><span><strong>Hiển thị trường này cho lượt khám mới</strong><div class="cell-sub">Tắt để ngừng dùng ở lượt mới mà không làm mất dữ liệu lượt cũ.</div></span></label>' +
+          '<label class="choice-row"><input type="checkbox" data-ed-prop="requiredForConfirm"' + (activeFF.requiredForConfirm ? ' checked' : '') + (lockRequiredProp ? ' disabled' : '') + '><span><strong>Bắt buộc khi xác nhận lượt khám</strong><div class="cell-sub">' + (activeFlags && (activeFlags.computed || activeFlags.readonlyInput) ? 'Khóa: không áp dụng bắt buộc nhập tay cho trường tự tính / chỉ đọc.' : 'Lưu nháp vẫn cho phép bỏ trống; chỉ yêu cầu khi bấm Xác nhận.') + '</div></span></label>' +
           '<details class="details-tech">' +
             '<summary>Thông tin kỹ thuật (mã trường &amp; nguồn)</summary>' +
             '<div class="details-tech__body">' +
               '<div class="field"><label class="field__label">Mã chuẩn hóa (field_definition.code)</label><input class="input mono" value="' + esc(activeFD.code) + '" disabled></div>' +
               '<div class="field"><label class="field__label">Mức lưu trữ &amp; Phạm vi</label><input class="input" value="' + esc(formatStorageLevelVi(activeFD.storageLevel) + ' · ' + formatScopeVi(activeFD.scopeStatus)) + '" disabled></div>' +
+              (activeFD.repeatGroup ? '<div class="field"><label class="field__label">Nhóm lặp &amp; Cột (repeatGroup / memberPath)</label><input class="input mono" value="' + esc(activeFD.repeatGroup + (activeFD.memberPath ? '.' + activeFD.memberPath : '')) + '" disabled></div>' : '') +
               '<div class="field"><label class="field__label">Nguồn tham chiếu chuyên môn</label><input class="input" value="' + esc(activeFD.sourceRef || '—') + '" disabled></div>' +
             '</div>' +
           '</details>'
@@ -2432,7 +3649,7 @@
 
         tabBody =
           '<div class="editor-3pane">' +
-            '<div class="editor-pane"><div class="editor-pane__head"><h3 class="editor-pane__title">1. Nhóm biểu mẫu (8)</h3></div><div class="editor-pane__scroll">' + secListHtml + '</div></div>' +
+            '<div class="editor-pane"><div class="editor-pane__head"><h3 class="editor-pane__title">1. Nhóm biểu mẫu (' + secs.length + ')</h3></div><div class="editor-pane__scroll">' + secListHtml + '</div></div>' +
             '<div class="editor-pane">' +
               '<div class="editor-pane__head"><h3 class="editor-pane__title">2. Trường trong nhóm (' + filteredFields.length + '/' + fieldsInSec.length + ')</h3><span class="kbd">Alt+↑/↓</span></div>' +
               '<div class="editor-pane__search"><input type="search" id="admin-form-field-search" class="input" placeholder="Tìm trường theo tên hoặc mã..." value="' + esc(af.fieldSearch) + '"></div>' +
@@ -2442,25 +3659,30 @@
           '</div>';
       } else if (af.activeTab === 'preview') {
         const pd = af.previewData;
-        if (!pd) {
+        if (af.previewError) {
+          tabBody = '<div class="banner banner--error" role="alert"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__title">Không thể dựng bản xem trước</p><p class="banner__desc">' + esc(af.previewError) + '</p></div></div></div>';
+        } else if (!pd) {
           tabBody = '<div class="skeleton-stack"><div class="skeleton-bar"></div><div class="skeleton-card"></div></div>';
         } else {
           const pDefById = {};
           const pDefByCode = {};
           (pd.fieldDefinitions || []).forEach(function (fd) { pDefById[fd.id] = fd; pDefByCode[fd.code] = fd; });
-          const pRail = (pd.sections || []).map(function (s) {
+          const pSections = sortByDisplayOrder(pd.sections || []);
+          const pRail = pSections.map(function (s) {
             return '<button type="button" class="rail-btn' + (s.sectionCode === af.previewSectionCode ? ' is-active' : '') + '" data-prev-section="' + esc(s.sectionCode) + '"><span><span class="rail-btn__num">' + String(s.displayOrder).padStart(2, '0') + '</span>' + esc(s.titleVi) + '</span></button>';
           }).join('');
 
           tabBody =
-            '<div class="banner banner--blue"><div class="banner__main">' + ICONS.eye + '<div><p class="banner__title">' + esc(pd.previewBannerVi) + '</p></div></div></div>' +
+            '<div class="banner banner--blue"><div class="banner__main">' + ICONS.eye + '<div><p class="banner__title">' + esc(pd.previewBannerVi) + '</p>' +
+              (af.draftDirty ? '<p class="banner__desc">Đang xem trước trạng thái đang chỉnh sửa (chưa lưu xuống CSDL). Quay lại tab "Chỉnh sửa biểu mẫu" để Lưu hoặc Hủy chỉnh sửa.</p>' : '') +
+            '</div></div></div>' +
             '<div class="encounter-layout">' +
               '<aside class="group-rail"><div class="group-rail__title">Mục lục 8 nhóm</div>' + pRail + '</aside>' +
               '<div class="form-canvas">' +
                 renderClinicalSectionForm({
                   mode: 'preview',
                   readonly: false,
-                  sections: pd.sections,
+                  sections: pSections,
                   defById: pDefById,
                   defByCode: pDefByCode,
                   valuesByDefId: af.previewValues,
@@ -2468,6 +3690,14 @@
                   medications: af.previewMeds,
                   allergies: af.previewAllergies,
                   labResults: af.previewLabs,
+                  diagnoses: af.previewDiagnoses,
+                  medicationListState: af.previewMedicationListState,
+                  allergyListState: af.previewAllergyListState,
+                  diagnosisListState: af.previewDiagnosisListState,
+                  supportsListStates: isV11Bundle(pd.formVersion, pSections, pDefById),
+                  formVersion: pd.formVersion,
+                  clinicalNote: af.previewClinicalNote,
+                  infoSource: af.previewInfoSource,
                   patient: null,
                   visit: null,
                   activeSectionCode: af.previewSectionCode,
@@ -2483,6 +3713,9 @@
           return '<option value="' + esc(v.id) + '"' + (v.id === af.diffBaseVersionId ? ' selected' : '') + '>' + esc(v.versionLabel + ' (' + formatVerStatus(v.status) + ')') + '</option>';
         }).join('');
         const dd = af.diffData;
+        const unsavedDiffWarn = af.draftDirty
+          ? '<div class="banner banner--warn"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__title">Có chỉnh sửa chưa lưu trên bản nháp</p><p class="banner__desc">Bảng so sánh dưới đây phản ánh bản nháp đã lưu trên máy chủ. Bấm "Lưu bản nháp" ở thanh trên để cập nhật thay đổi mới nhất trước khi phát hành.</p></div></div></div>'
+          : '';
         let diffContent = '<div class="skeleton-stack"><div class="skeleton-bar"></div></div>';
         if (dd) {
           if (!dd.hasChanges) {
@@ -2512,6 +3745,7 @@
         ) : '';
 
         tabBody =
+          unsavedDiffWarn +
           '<div class="toolbar">' +
             '<div class="field" style="max-width:340px;width:100%;"><label class="field__label" for="diff-base-select">So sánh ' + esc(fv.versionLabel) + ' với phiên bản gốc:</label><select id="diff-base-select" class="select">' + baseOpts + '</select></div>' +
           '</div>' +
@@ -2599,13 +3833,13 @@
         '<input type="search" id="audit-q" class="input" placeholder="Tìm người thực hiện hoặc mã yêu cầu..." value="' + esc(aa.q) + '">' +
         '<select id="audit-action" class="select">' +
           '<option value="">Tất cả hành động</option>' +
-          ['login', 'logout', 'login_failed', 'user_create', 'user_update', 'form_version_create', 'form_version_update', 'form_version_delete', 'form_version_publish', 'patient_create', 'visit_confirm'].map(function (a) {
+          ['login', 'logout', 'login_failed', 'user_create', 'user_update', 'form_version_create', 'form_version_update', 'form_version_delete', 'form_version_publish', 'patient_create', 'visit_confirm', 'ai_input_export', 'care_assignment_add', 'care_assignment_revoke'].map(function (a) {
             return '<option value="' + a + '"' + (aa.action === a ? ' selected' : '') + '>' + esc(formatAuditAction(a)) + '</option>';
           }).join('') +
         '</select>' +
         '<select id="audit-entity" class="select">' +
           '<option value="">Tất cả đối tượng</option>' +
-          ['app_user', 'user_session', 'patient', 'visit', 'visit_revision', 'form_version'].map(function (e) {
+          ['app_user', 'user_session', 'patient', 'visit', 'visit_revision', 'form_version', 'care_assignment'].map(function (e) {
             return '<option value="' + e + '"' + (aa.entityType === e ? ' selected' : '') + '>' + esc(formatAuditEntity(e)) + '</option>';
           }).join('') +
         '</select>' +
@@ -2615,6 +3849,104 @@
       listHtml;
 
     return renderShell('<span class="breadcrumbs__current">Nhật ký hệ thống</span>', body);
+  }
+
+  /* ------------------------------------------------------------------------
+     M9: Admin Care Coordination (Multi-doctor assignment + history, K8 compliant)
+     ------------------------------------------------------------------------ */
+  function renderAdminCare() {
+    const ac = state.adminCare;
+    let contentHtml = '';
+
+    if (ac.error) {
+      contentHtml = '<div class="banner banner--error" role="alert"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(ac.error) + '</p></div></div></div>';
+    } else if (ac.loading) {
+      contentHtml = '<div class="skeleton-stack"><div class="skeleton-bar"></div><div class="skeleton-card"></div></div>';
+    } else {
+      const ptListHtml = ac.patients.length === 0
+        ? '<div class="empty-state"><h3 class="empty-state__title">Không tìm thấy hồ sơ nào</h3><p class="empty-state__desc">Thử thay đổi từ khóa mã hoặc tên bệnh nhân.</p></div>'
+        : '<div class="care-admin-list">' + ac.patients.map(function (p) {
+            const sel = p.id === ac.selectedPatientId;
+            const docs = p.assignedDoctors || (p.primaryDoctorName ? [p.primaryDoctorName] : []);
+            return (
+              '<button type="button" class="care-patient-item' + (sel ? ' is-selected' : '') + '" data-admin-care-patient="' + esc(p.id) + '">' +
+                '<div class="care-patient-item__top">' +
+                  '<strong class="mono">' + esc(p.patientCode) + '</strong>' +
+                  '<span class="badge ' + (docs.length > 0 ? 'badge--blue' : 'badge--warn') + ' badge--xs">' + (docs.length > 0 ? (docs.length + ' bác sĩ') : 'Chưa phân công') + '</span>' +
+                '</div>' +
+                '<div class="cell-sub">' + esc(p.fullName) + '</div>' +
+                (docs.length > 0 ? '<div style="margin-top:4px;">' + renderAssignedDoctorsBadges(docs) + '</div>' : '') +
+              '</button>'
+            );
+          }).join('') + '</div>';
+
+      let detailHtml = '<div class="empty-state"><h3 class="empty-state__title">Chọn một bệnh nhân ở danh sách bên trái</h3><p class="empty-state__desc">Quản trị viên chỉ xem mã và tên hồ sơ để phân công nhiều bác sĩ phụ trách và xem lịch sử phân công, không xem dữ liệu lâm sàng.</p></div>';
+      if (ac.selectedPatient) {
+        const sp = ac.selectedPatient;
+        const activeList = (ac.assignments || []).filter(isAssignmentActiveNow);
+        const historyList = (ac.assignments || []).filter(function (a) { return !isAssignmentActiveNow(a); });
+
+        const renderAdminRow = function (a, allowRevoke) {
+          const active = isAssignmentActiveNow(a);
+          const stBadge = a.revokedAt
+            ? '<span class="badge badge--neutral badge--xs">Đã thu hồi</span>'
+            : '<span class="badge badge--success badge--xs">Đang phụ trách</span>';
+          const assignedByText = a.assignedByName ? (' · Phân công bởi ' + a.assignedByName) : '';
+          const revokedText = a.revokedAt ? (' · Thu hồi lúc ' + formatDateTime(a.revokedAt) + (a.revokedByName ? (' bởi ' + a.revokedByName) : '')) : '';
+          return (
+            '<div class="care-row' + (!active ? ' care-row--inactive' : '') + '">' +
+              '<div class="care-row__main">' +
+                '<div class="care-row__top"><strong>' + esc(a.doctorName || 'Bác sĩ') + '</strong>' + stBadge + '</div>' +
+                '<div class="cell-sub tabular">Từ ' + esc(formatDateTime(a.assignedAt || a.validFrom)) + esc(assignedByText) + esc(revokedText) + '</div>' +
+                (a.note || a.reason ? '<div class="cell-sub">Ghi chú: ' + esc(a.note || a.reason) + '</div>' : '') +
+              '</div>' +
+              (allowRevoke && active ? '<button type="button" class="btn btn--danger-outline btn--sm" data-admin-revoke-assignment="' + esc(a.id) + '">Thu hồi</button>' : '') +
+            '</div>'
+          );
+        };
+
+        detailHtml =
+          '<div class="card">' +
+            '<div class="card__header">' +
+              '<div><h2 class="card__title"><span class="mono">' + esc(sp.patientCode) + '</span> · ' + esc(sp.fullName) + '</h2><p class="card__subtitle">Đang phân công cho <strong>' + activeList.length + '</strong> bác sĩ (không hiển thị dữ liệu lâm sàng theo K8).</p></div>' +
+              '<div class="care-box__actions">' +
+                '<button type="button" class="btn btn--secondary btn--sm" data-action="admin-open-replace-assignments">' + ICONS.users + ' Chọn nhiều bác sĩ</button>' +
+                '<button type="button" class="btn btn--primary btn--sm" data-action="admin-open-add-assignment">' + ICONS.userPlus + ' Thêm bác sĩ phụ trách</button>' +
+              '</div>' +
+            '</div>' +
+            '<div class="card__body">' +
+              (ac.assignmentsLoading
+                ? '<div class="skeleton-stack"><div class="skeleton-bar"></div></div>'
+                : (activeList.length === 0
+                    ? '<p class="field__help">Hồ sơ này chưa có bác sĩ nào được phân công.</p>'
+                    : '<div class="care-list">' + activeList.map(function (a) { return renderAdminRow(a, true); }).join('') + '</div>') +
+                  '<div style="margin-top:16px;" data-assignment-history="true">' +
+                    '<div class="sub-heading">Lịch sử phân công (' + (ac.assignments || []).length + ')</div>' +
+                    (historyList.length === 0
+                      ? '<p class="field__help">Chưa có lượt thu hồi phân công nào trước đó.</p>'
+                      : '<div class="care-list">' + historyList.map(function (a) { return renderAdminRow(a, false); }).join('') + '</div>') +
+                  '</div>') +
+            '</div>' +
+          '</div>';
+      }
+
+      contentHtml =
+        '<div class="toolbar">' +
+          '<div class="search-box"><span class="search-box__icon">' + ICONS.search + '</span><input type="search" id="admin-care-search" class="input" placeholder="Tìm theo mã BN-xxxxx hoặc tên bệnh nhân..." value="' + esc(ac.q) + '"></div>' +
+        '</div>' +
+        '<div class="care-admin-grid">' +
+          '<div class="card"><div class="card__header"><div><h2 class="card__title">Danh mục bệnh nhân (' + ac.patients.length + ')</h2><p class="card__subtitle">Chỉ mã hồ sơ, tên bệnh nhân và bác sĩ phụ trách.</p></div></div><div class="card__body" style="padding:10px;">' + ptListHtml + '</div></div>' +
+          '<div>' + detailHtml + '</div>' +
+        '</div>';
+    }
+
+    const body =
+      '<div class="page-head">' +
+        '<div><h1 class="page-head__title">Phân công bác sĩ phụ trách</h1><p class="page-head__sub">Thêm hoặc thu hồi nhiều bác sĩ phụ trách cho từng hồ sơ và theo dõi lịch sử phân công. Quản trị viên chỉ thấy mã và tên hồ sơ, không thấy dữ liệu lâm sàng (K8).</p></div>' +
+      '</div>' +
+      contentHtml;
+
+    return renderShell('<span class="breadcrumbs__current">Phân công bác sĩ</span>', body);
   }
 
   /* ------------------------------------------------------------------------
@@ -2876,6 +4208,56 @@
         '</div>';
     }
 
+    if (m.type === 'admin-add-care-assignment') {
+      const assignedIds = {};
+      (m.activeDoctorIds || []).forEach(function (id) { assignedIds[id] = true; });
+      const availDocs = (m.doctors || []).filter(function (d) { return !assignedIds[d.id]; });
+      const opts = '<option value="">-- Chọn bác sĩ đang hoạt động --</option>' + availDocs.map(function (d) {
+        return '<option value="' + esc(d.id) + '"' + (m.doctorUserId === d.id ? ' selected' : '') + '>' + esc(d.fullName + ' (' + d.username + ')') + '</option>';
+      }).join('');
+      html =
+        '<div class="modal__head"><h2 class="modal__title" id="modal-title">Thêm bác sĩ phụ trách · ' + esc(m.patientCode || '') + '</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Đóng">' + ICONS.x + '</button></div>' +
+        '<div class="modal__body">' +
+          '<div class="banner banner--info" style="margin-bottom:0;"><div class="banner__main">' + ICONS.shield + '<div><p class="banner__desc">Bệnh nhân <strong>' + esc(m.patientName || '') + '</strong> (<span class="mono">' + esc(m.patientCode || '') + '</span>) có thể được phân công cho nhiều bác sĩ cùng phụ trách. Lịch sử phân công sẽ được lưu vết.</p></div></div></div>' +
+          (m.error ? '<div class="banner banner--error" role="alert"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(m.error) + '</p></div></div></div>' : '') +
+          (availDocs.length === 0
+            ? '<p class="field__help">Tất cả bác sĩ đang hoạt động đã được phân công cho hồ sơ này.</p>'
+            : (
+                '<div class="field"><label class="field__label" for="aca-doctor">Bác sĩ phụ trách *</label><select id="aca-doctor" class="select">' + opts + '</select></div>' +
+                '<div class="field"><label class="field__label" for="aca-reason">Ghi chú / Lý do phân công (tùy chọn)</label><input id="aca-reason" class="input" value="' + esc(m.reason || '') + '" placeholder="VD: Phân công theo dõi tái khám tim mạch"></div>'
+              )) +
+        '</div>' +
+        '<div class="modal__foot">' +
+          '<button type="button" class="btn btn--secondary" data-action="close-modal">Hủy</button>' +
+          (availDocs.length > 0 ? '<button type="button" class="btn btn--primary" data-action="submit-admin-add-assignment">' + ICONS.checkCircle + ' Xác nhận phân công</button>' : '') +
+        '</div>';
+    }
+
+    if (m.type === 'admin-replace-care-assignments') {
+      const checkedMap = {};
+      (m.selectedDoctorIds || []).forEach(function (id) { checkedMap[id] = true; });
+      const checks = (m.doctors || []).map(function (d) {
+        return (
+          '<label class="choice-row">' +
+            '<input type="checkbox" name="acr-doctor" value="' + esc(d.id) + '"' + (checkedMap[d.id] ? ' checked' : '') + '>' +
+            '<span><strong>' + esc(d.fullName) + '</strong> <span class="cell-sub mono">(' + esc(d.username) + ')</span></span>' +
+          '</label>'
+        );
+      }).join('');
+      html =
+        '<div class="modal__head"><h2 class="modal__title" id="modal-title">Cập nhật danh sách bác sĩ · ' + esc(m.patientCode || '') + '</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Đóng">' + ICONS.x + '</button></div>' +
+        '<div class="modal__body">' +
+          '<div class="banner banner--info" style="margin-bottom:0;"><div class="banner__main">' + ICONS.shield + '<div><p class="banner__desc">Chọn các bác sĩ được phân công cho <strong>' + esc(m.patientName || '') + '</strong>. Bỏ chọn sẽ thu hồi quyền và ghi vào lịch sử phân công.</p></div></div></div>' +
+          (m.error ? '<div class="banner banner--error" role="alert"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(m.error) + '</p></div></div></div>' : '') +
+          '<div class="radio-group">' + (checks || '<p class="field__help">Chưa có bác sĩ đang hoạt động nào.</p>') + '</div>' +
+          '<div class="field"><label class="field__label" for="acr-reason">Ghi chú thay đổi (tùy chọn)</label><input id="acr-reason" class="input" value="' + esc(m.reason || '') + '" placeholder="VD: Cập nhật nhóm bác sĩ phụ trách tim mạch"></div>' +
+        '</div>' +
+        '<div class="modal__foot">' +
+          '<button type="button" class="btn btn--secondary" data-action="close-modal">Hủy</button>' +
+          '<button type="button" class="btn btn--primary" data-action="submit-admin-replace-assignments">' + ICONS.checkCircle + ' Lưu phân công</button>' +
+        '</div>';
+    }
+
     dialog.innerHTML = html;
     if (m.type === 'change-password') {
       document.getElementById('app-root').inert = true;
@@ -3023,6 +4405,7 @@
     else if (state.screen === 'encounter') html = renderEncounter();
     else if (state.screen === 'review') html = renderReview();
     else if (state.screen === 'admin-accounts') html = renderAdminUsers();
+    else if (state.screen === 'admin-care') html = renderAdminCare();
     else if (state.screen === 'admin-forms') html = renderAdminForms();
     else if (state.screen === 'admin-audit') html = renderAdminAudit();
     else html = renderLogin();
@@ -3060,6 +4443,7 @@
   function getFormTarget(isPreview) {
     if (isPreview) {
       return {
+        isPreview: true,
         valuesByDefId: state.adminForms.previewValues,
         defById: (function () {
           const m = {};
@@ -3071,6 +4455,12 @@
         medications: state.adminForms.previewMeds,
         allergies: state.adminForms.previewAllergies,
         labResults: state.adminForms.previewLabs,
+        diagnoses: state.adminForms.previewDiagnoses,
+        setListState: function (kind, val) {
+          if (kind === 'medications') state.adminForms.previewMedicationListState = val;
+          else if (kind === 'allergies') state.adminForms.previewAllergyListState = val;
+          else if (kind === 'diagnoses') state.adminForms.previewDiagnosisListState = val;
+        },
         numberInputAttribute: 'data-prev-num',
         getAutoPulseSourceIndex: function () { return state.adminForms.previewAutoPulseSourceIndex; },
         setAutoPulseSourceIndex: function (index) { state.adminForms.previewAutoPulseSourceIndex = index; },
@@ -3078,6 +4468,7 @@
       };
     }
     return {
+      isPreview: false,
       valuesByDefId: state.encounter.valuesByDefId,
       defById: state.encounter.defById,
       visitId: state.encounter.visitId,
@@ -3085,6 +4476,12 @@
       medications: state.encounter.medications,
       allergies: state.encounter.allergies,
       labResults: state.encounter.labResults,
+      diagnoses: state.encounter.diagnoses,
+      setListState: function (kind, val) {
+        if (kind === 'medications') state.encounter.medicationListState = val;
+        else if (kind === 'allergies') state.encounter.allergyListState = val;
+        else if (kind === 'diagnoses') state.encounter.diagnosisListState = val;
+      },
       numberInputAttribute: 'data-enc-num',
       getAutoPulseSourceIndex: function () { return state.encounter.autoPulseSourceIndex; },
       setAutoPulseSourceIndex: function (index) { state.encounter.autoPulseSourceIndex = index; },
@@ -3110,8 +4507,12 @@
 
   function buildDraftSavePayload() {
     const enc = state.encounter;
-    const values = Object.keys(enc.valuesByDefId).map(function (k) { return enc.valuesByDefId[k]; }).filter(Boolean);
-    return {
+    const values = Object.keys(enc.valuesByDefId).map(function (k) { return enc.valuesByDefId[k]; }).filter(function (v) {
+      if (!v) return false;
+      const fd = enc.defById[v.fieldDefinitionId] || enc.defByCode[v.fieldCode];
+      return !fd || fd.storageLevel === 'visit_value';
+    });
+    const payload = {
       rowVersion: enc.visit.rowVersion,
       clinicalNote: enc.clinicalNote || null,
       infoSource: enc.infoSource || null,
@@ -3121,6 +4522,19 @@
       allergies: enc.allergies,
       labResults: enc.labResults
     };
+    if (enc.supportsListStates) {
+      payload.medicationListState = enc.medicationListState || (enc.medications.length > 0 ? 'known' : 'unknown');
+      payload.allergyListState = enc.allergyListState || (enc.allergies.length > 0 ? 'known' : 'unknown');
+      payload.diagnosisListState = enc.diagnosisListState || (enc.diagnoses.length > 0 ? 'known' : 'unknown');
+      payload.diagnoses = (enc.diagnoses || []).map(function (d) {
+        return {
+          code: String(d.code || '').trim().toUpperCase(),
+          display: String(d.display || '').trim(),
+          role: d.role === 'primary' ? 'primary' : 'secondary'
+        };
+      });
+    }
+    return payload;
   }
 
   function saveEncounterDraft() {
@@ -3169,6 +4583,10 @@
         enc.medications = clone(res.medications || []);
         enc.allergies = clone(res.allergies || []);
         enc.labResults = clone(res.labResults || []);
+        if (res.diagnoses !== undefined) enc.diagnoses = clone(res.diagnoses || []);
+        if (res.visit && res.visit.medicationListState !== undefined) enc.medicationListState = res.visit.medicationListState;
+        if (res.visit && res.visit.allergyListState !== undefined) enc.allergyListState = res.visit.allergyListState;
+        if (res.visit && res.visit.diagnosisListState !== undefined) enc.diagnosisListState = res.visit.diagnosisListState;
         enc.dirty = false;
       }
       enc.revisions = clone(res.revisions || []);
@@ -3182,10 +4600,12 @@
         enc.errorList = err.errors || [];
         enc.fieldErrors = {};
         enc.errorList.forEach(function (e) { enc.fieldErrors[e.fieldCode] = e.message; });
-        toast('Còn ' + enc.errorList.length + ' lỗi kỹ thuật cần sửa trước khi lưu.', 'error');
+        toast(enc.errorList.length > 0 ? ('Còn ' + enc.errorList.length + ' lỗi kỹ thuật cần sửa trước khi lưu.') : ((err && err.detail) || 'Dữ liệu chưa hợp lệ.'), 'error');
       } else if (err && err.status === 409) {
         enc.conflictError = err.detail || 'Phát hiện xung đột phiên bản dữ liệu (409).';
         toast('Xung đột phiên bản dữ liệu (409) — không ghi đè âm thầm.', 'warn');
+      } else if (err && err.status === 404) {
+        toast(NOT_FOUND_OR_NO_ACCESS_MSG, 'error');
       } else {
         handleAuthOrError(err, 'Không thể lưu nháp lượt khám.');
       }
@@ -3199,12 +4619,105 @@
     }
   }
 
+  function triggerJsonDownload(filename, dataObj) {
+    const text = JSON.stringify(dataObj, null, 2);
+    const blob = new Blob([text], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () {
+      if (a.parentNode) a.parentNode.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
+  }
+
+  function resolveFieldSectionCode(formRes, fieldCode) {
+    if (!fieldCode) return 'hanh_chinh';
+    const sections = (formRes && formRes.sections) || [];
+    const defs = (formRes && formRes.fieldDefinitions) || [];
+    const defById = {};
+    const defByCode = {};
+    defs.forEach(function (fd) { defById[fd.id] = fd; defByCode[fd.code] = fd; });
+    for (let i = 0; i < sections.length; i++) {
+      const sec = sections[i];
+      const hit = (sec.fields || []).some(function (ff) {
+        const fd = defById[ff.fieldDefinitionId];
+        return ff.fieldCode === fieldCode || (fd && fd.code === fieldCode);
+      });
+      if (hit) return sec.sectionCode;
+    }
+    if (defByCode[fieldCode] && defByCode[fieldCode].sectionCode) return defByCode[fieldCode].sectionCode;
+    if (/^icd_|^diagnos/i.test(fieldCode)) return 'benh_su_dong_mac';
+    if (/^thuoc_|medication|co_da_thuoc|so_luong_thuoc/i.test(fieldCode)) return 'thuoc_di_ung';
+    if (/^di_ung_|^diung_|allergy/i.test(fieldCode)) return 'thuoc_di_ung';
+    if (/^cls_|lab|bnp|ntprobnp/i.test(fieldCode)) return 'can_lam_sang';
+    if (/huyet_ap|^ha_|bp/i.test(fieldCode)) return 'sinh_ton_kham';
+    if (/info_source|clinical_note/i.test(fieldCode)) return 'ghi_chu';
+    return 'hanh_chinh';
+  }
+
+  function findTargetElementForField(fieldCode) {
+    if (!fieldCode) return null;
+    let el = document.querySelector('[data-field-code="' + CSS.escape(fieldCode) + '"]');
+    if (el) return el;
+    const repeatBlocks = document.querySelectorAll('[data-repeat-codes]');
+    for (let i = 0; i < repeatBlocks.length; i++) {
+      const codes = String(repeatBlocks[i].getAttribute('data-repeat-codes') || '').split(',');
+      if (codes.indexOf(fieldCode) >= 0) return repeatBlocks[i];
+    }
+    let repeatGroup = null;
+    if (/^thuoc_|medication|co_da_thuoc|so_luong_thuoc/i.test(fieldCode)) repeatGroup = 'medications';
+    else if (/^di_ung_|^diung_|allergy/i.test(fieldCode)) repeatGroup = 'allergies';
+    else if (/^cls_|lab|bnp|ntprobnp/i.test(fieldCode)) repeatGroup = 'labResults';
+    else if (/^icd_|^diagnos/i.test(fieldCode)) repeatGroup = 'diagnoses';
+    else if (/huyet_ap|^ha_/i.test(fieldCode)) repeatGroup = 'orthostaticBp';
+    if (repeatGroup) {
+      el = document.querySelector('[data-repeat-group="' + repeatGroup + '"]');
+      if (el) return el;
+    }
+    const secCode = resolveFieldSectionCode(state.encounter.formStructure, fieldCode);
+    if (secCode) {
+      el = document.getElementById('enc-sec-' + secCode);
+      if (el) return el;
+    }
+    return null;
+  }
+
   function scrollToAndPulseField(fieldCode) {
-    const el = document.querySelector('[data-field-code="' + CSS.escape(fieldCode) + '"]');
+    if (!fieldCode) return;
+    const el = findTargetElementForField(fieldCode);
     if (!el) return;
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    el.classList.add('field--highlight');
-    setTimeout(function () { el.classList.remove('field--highlight'); }, 2000);
+    const secCode = resolveFieldSectionCode(state.encounter.formStructure, fieldCode);
+    if (secCode) {
+      scrollSpyLockUntil = Date.now() + 800;
+      setRailActiveButton('encounter', secCode);
+    }
+    if (typeof el.scrollIntoView === 'function') {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    if (el.classList) {
+      el.classList.remove('field--highlight');
+      try { void el.offsetWidth; } catch (_e) {}
+      el.classList.add('field--highlight');
+    }
+    const isReadonlyVisit = Boolean(state.encounter.visit && state.encounter.visit.status === 'confirmed');
+    if (!isReadonlyVisit && typeof el.querySelector === 'function') {
+      const focusable =
+        el.querySelector('input:not(:disabled):not([readonly]), select:not(:disabled), textarea:not(:disabled):not([readonly])') ||
+        el.querySelector('.tristate__btn:not(:disabled)') ||
+        el.querySelector('button:not(:disabled):not(.tristate__clear)') ||
+        el.querySelector('button:not(:disabled)');
+      if (focusable && typeof focusable.focus === 'function') {
+        try { focusable.focus({ preventScroll: true }); } catch (_e) {}
+      }
+    }
+    setTimeout(function () {
+      if (el.classList) el.classList.remove('field--highlight');
+    }, 2000);
   }
 
   function openUnsavedGuardModal(targetHash, targetHistoryIndex) {
@@ -3362,8 +4875,43 @@
     if (revJump) {
       const parts = revJump.split(':');
       state.encounter.activeSectionCode = parts[0];
+      state.encounter.fieldFilter = 'all';
+      state.encounter.fieldSearch = '';
       state.encounter.highlightFieldCode = parts[1];
       navigate('#/visits/' + state.review.visitId, true);
+      return;
+    }
+
+    // M5 AI issue jump to field on M4
+    const aiIssueCode = target.getAttribute('data-ai-issue-jump');
+    if (aiIssueCode !== null && state.review.visit) {
+      if (aiIssueCode) {
+        const secCode = resolveFieldSectionCode(state.review.formRes, aiIssueCode);
+        state.encounter.activeSectionCode = secCode;
+        state.encounter.fieldFilter = 'all';
+        state.encounter.fieldSearch = '';
+        state.encounter.highlightFieldCode = aiIssueCode;
+        navigate('#/visits/' + state.review.visitId, true);
+      }
+      return;
+    }
+
+    // List-state selector (known | none | unknown) for medications, allergies, diagnoses
+    const listStateAttr = target.getAttribute('data-enc-list-state') || target.getAttribute('data-prev-list-state');
+    if (listStateAttr) {
+      const isPrev = target.hasAttribute('data-prev-list-state');
+      const ft = getFormTarget(isPrev);
+      const parts = listStateAttr.split(':');
+      const kind = parts[0];
+      const nextState = parts[1];
+      ft.setListState(kind, nextState);
+      if (nextState === 'none' || nextState === 'unknown') {
+        if (kind === 'medications') ft.medications.length = 0;
+        else if (kind === 'allergies') ft.allergies.length = 0;
+        else if (kind === 'diagnoses') ft.diagnoses.length = 0;
+      }
+      ft.markDirty();
+      render();
       return;
     }
 
@@ -3383,6 +4931,30 @@
           const item = makeEmptyVisitValue(ft.visitId, fd, 'answered');
           item.valueBool = (val === 'yes');
           ft.valuesByDefId[fd.id] = item;
+        }
+        // Sync contrast media allergy row when backend stores di_ung_thuoc_can_quang under storageLevel='allergy'
+        if (fd.code === 'di_ung_thuoc_can_quang' && fd.storageLevel === 'allergy') {
+          if (val === 'yes') {
+            const hasContrast = (ft.allergies || []).some(function (a) { return a && a.agentCategory === 'contrast_media'; });
+            if (!hasContrast) {
+              ft.setListState('allergies', 'known');
+              ft.allergies.push({
+                kind: 'allergy',
+                agentCategory: 'contrast_media',
+                allergen: 'Thuốc cản quang',
+                reaction: '',
+                severity: 'unknown',
+                recordedAt: new Date().toISOString(),
+                note: null,
+                _autoContrast: true
+              });
+            }
+          } else {
+            for (let i = ft.allergies.length - 1; i >= 0; i--) {
+              if (ft.allergies[i] && ft.allergies[i]._autoContrast) ft.allergies.splice(i, 1);
+            }
+            if (ft.allergies.length === 0) ft.setListState('allergies', 'unknown');
+          }
         }
         ft.markDirty();
         render();
@@ -3442,6 +5014,7 @@
 
     if (target.hasAttribute('data-enc-add-med') || target.hasAttribute('data-prev-add-med')) {
       const ft = getFormTarget(target.hasAttribute('data-prev-add-med'));
+      ft.setListState('medications', 'known');
       ft.medications.push({ medicationGroup: '', drugName: '', activeIngredient: '', dose: null, unit: '', frequency: '', route: '', status: '', startedAt: null, note: null });
       ft.markDirty();
       render();
@@ -3452,6 +5025,7 @@
       const idx = Number(target.getAttribute(isPrev ? 'data-prev-remove-med' : 'data-enc-remove-med'));
       const ft = getFormTarget(isPrev);
       ft.medications.splice(idx, 1);
+      if (ft.medications.length === 0) ft.setListState('medications', 'unknown');
       ft.markDirty();
       render();
       return;
@@ -3459,6 +5033,7 @@
 
     if (target.hasAttribute('data-enc-add-allergy') || target.hasAttribute('data-prev-add-allergy')) {
       const ft = getFormTarget(target.hasAttribute('data-prev-add-allergy'));
+      ft.setListState('allergies', 'known');
       ft.allergies.push({ kind: 'allergy', agentCategory: 'therapeutic_drug', allergen: '', reaction: '', severity: 'unknown', recordedAt: new Date().toISOString(), note: null });
       ft.markDirty();
       render();
@@ -3469,6 +5044,30 @@
       const idx = Number(target.getAttribute(isPrev ? 'data-prev-remove-allergy' : 'data-enc-remove-allergy'));
       const ft = getFormTarget(isPrev);
       ft.allergies.splice(idx, 1);
+      if (ft.allergies.length === 0) ft.setListState('allergies', 'unknown');
+      ft.markDirty();
+      render();
+      return;
+    }
+
+    if (target.hasAttribute('data-enc-add-dx') || target.hasAttribute('data-prev-add-dx')) {
+      const isPrev = target.hasAttribute('data-prev-add-dx');
+      const reqRole = target.getAttribute(isPrev ? 'data-prev-add-dx' : 'data-enc-add-dx');
+      const ft = getFormTarget(isPrev);
+      ft.setListState('diagnoses', 'known');
+      const hasPrimary = ft.diagnoses.some(function (d) { return d && d.role === 'primary'; });
+      const role = reqRole === 'primary' && !hasPrimary ? 'primary' : 'secondary';
+      ft.diagnoses.push({ code: '', display: '', role: role });
+      ft.markDirty();
+      render();
+      return;
+    }
+    if (target.hasAttribute('data-enc-remove-dx') || target.hasAttribute('data-prev-remove-dx')) {
+      const isPrev = target.hasAttribute('data-prev-remove-dx');
+      const idx = Number(target.getAttribute(isPrev ? 'data-prev-remove-dx' : 'data-enc-remove-dx'));
+      const ft = getFormTarget(isPrev);
+      ft.diagnoses.splice(idx, 1);
+      if (ft.diagnoses.length === 0) ft.setListState('diagnoses', 'unknown');
       ft.markDirty();
       render();
       return;
@@ -3550,25 +5149,49 @@
     const formTab = target.getAttribute('data-form-tab');
     if (formTab) {
       const af = state.adminForms;
-      if (af.draftDirty && af.versionDetail && af.versionDetail.formVersion.status === 'draft' && formTab !== 'editor') {
-        try {
-          const fv = af.versionDetail.formVersion;
-          const saved = await api.updateFormVersion(fv.id, { rowVersion: fv.rowVersion, changeNote: fv.changeNote, sections: af.draftSections }, fv.rowVersion);
-          af.versionDetail = saved;
-          af.draftSections = clone(saved.sections || []);
-          af.draftDirty = false;
-        } catch (err) {
-          handleAuthOrError(err, 'Không thể tự động lưu nháp trước khi chuyển tab.');
-          return;
-        }
-      }
+      // Never auto-PATCH when switching to Preview (or Diff)!
       af.activeTab = formTab;
+      af.previewError = '';
+      if (formTab === 'preview') af.previewData = null;
       render();
       if (formTab === 'preview' && af.selectedVersionId) {
-        af.previewData = await api.previewFormVersion(af.selectedVersionId);
+        const fv = af.versionDetail && af.versionDetail.formVersion;
+        const isDirtyDraft = Boolean(af.draftDirty && fv && fv.status === 'draft');
+        try {
+          if (isDirtyDraft) {
+            try {
+              af.previewData = await api.previewFormVersionDraft(fv.id, {
+                rowVersion: fv.rowVersion,
+                changeNote: fv.changeNote,
+                sections: af.draftSections
+              });
+            } catch (postErr) {
+              if (postErr && postErr.status === 405) {
+                af.previewData = {
+                  isPreviewOnly: true,
+                  previewBannerVi: 'Chế độ xem trước góc nhìn Bác sĩ cho ' + fv.versionLabel + ' (trạng thái đang chỉnh sửa, chưa lưu nháp) — mọi thao tác nhập thử không được lưu vào hồ sơ bệnh án.',
+                  formVersion: fv,
+                  sections: clone(af.draftSections || []),
+                  fieldDefinitions: clone((af.versionDetail && af.versionDetail.fieldDefinitions) || [])
+                };
+              } else {
+                throw postErr;
+              }
+            }
+          } else {
+            af.previewData = await api.previewFormVersion(af.selectedVersionId);
+          }
+        } catch (err) {
+          af.previewError = (err && err.detail) || 'Không thể tải bản xem trước biểu mẫu.';
+          if (err && (err.status === 401 || err.status === 403)) return handleAuthOrError(err);
+        }
         render();
       } else if (formTab === 'diff' && af.selectedVersionId && af.diffBaseVersionId) {
-        af.diffData = await api.diffFormVersion(af.selectedVersionId, af.diffBaseVersionId);
+        try {
+          af.diffData = await api.diffFormVersion(af.selectedVersionId, af.diffBaseVersionId);
+        } catch (err) {
+          handleAuthOrError(err, 'Không thể tải bảng so sánh phiên bản.');
+        }
         render();
       }
       return;
@@ -3607,9 +5230,101 @@
       return;
     }
 
+    // M9 Admin Care patient selection & assignment revoke
+    const adminCarePtId = target.getAttribute('data-admin-care-patient');
+    if (adminCarePtId) {
+      await selectAdminCarePatient(adminCarePtId);
+      return;
+    }
+    const adminRevokeId = target.getAttribute('data-admin-revoke-assignment');
+    if (adminRevokeId && state.adminCare.selectedPatientId) {
+      try {
+        await api.adminRevokePatientCareAssignment(state.adminCare.selectedPatientId, adminRevokeId);
+        toast('Đã thu hồi phân công bác sĩ.', 'success');
+        await loadAdminCare();
+      } catch (err) {
+        handleAuthOrError(err, 'Không thể thu hồi phân công bác sĩ.');
+      }
+      return;
+    }
+
     // Named actions
     const action = target.getAttribute('data-action');
     if (!action) return;
+
+    if (action === 'admin-open-add-assignment' && state.adminCare.selectedPatient) {
+      const sp = state.adminCare.selectedPatient;
+      const activeIds = (state.adminCare.assignments || []).filter(isAssignmentActiveNow).map(function (a) { return a.doctorUserId; });
+      openModal({
+        type: 'admin-add-care-assignment',
+        patientId: sp.id,
+        patientCode: sp.patientCode,
+        patientName: sp.fullName,
+        doctors: state.adminCare.doctors || [],
+        activeDoctorIds: activeIds,
+        doctorUserId: '',
+        reason: '',
+        error: ''
+      });
+      return;
+    }
+    if (action === 'submit-admin-add-assignment' && state.modal && state.modal.type === 'admin-add-care-assignment') {
+      const m = state.modal;
+      const doctorId = (document.getElementById('aca-doctor') || {}).value || '';
+      const reason = ((document.getElementById('aca-reason') || {}).value || '').trim();
+      m.doctorUserId = doctorId;
+      m.reason = reason;
+      if (!doctorId) {
+        m.error = 'Vui lòng chọn bác sĩ phụ trách.';
+        renderModal();
+        return;
+      }
+      try {
+        const body = reason ? { doctorUserId: doctorId, reason: reason } : { doctorUserId: doctorId };
+        await api.adminAddPatientCareAssignment(m.patientId, body);
+        closeModal();
+        toast('Đã phân công bác sĩ phụ trách cho hồ sơ ' + m.patientCode + '.', 'success');
+        await loadAdminCare();
+      } catch (err) {
+        m.error = (err && err.detail) || 'Không thể thêm phân công bác sĩ.';
+        renderModal();
+      }
+      return;
+    }
+    if (action === 'admin-open-replace-assignments' && state.adminCare.selectedPatient) {
+      const sp = state.adminCare.selectedPatient;
+      const activeIds = (state.adminCare.assignments || []).filter(isAssignmentActiveNow).map(function (a) { return a.doctorUserId; });
+      openModal({
+        type: 'admin-replace-care-assignments',
+        patientId: sp.id,
+        patientCode: sp.patientCode,
+        patientName: sp.fullName,
+        doctors: state.adminCare.doctors || [],
+        selectedDoctorIds: activeIds,
+        reason: '',
+        error: ''
+      });
+      return;
+    }
+    if (action === 'submit-admin-replace-assignments' && state.modal && state.modal.type === 'admin-replace-care-assignments') {
+      const m = state.modal;
+      const checkedBoxes = Array.prototype.slice.call(document.querySelectorAll('input[name="acr-doctor"]:checked'));
+      const doctorUserIds = checkedBoxes.map(function (cb) { return cb.value; });
+      const reason = ((document.getElementById('acr-reason') || {}).value || '').trim();
+      m.selectedDoctorIds = doctorUserIds;
+      m.reason = reason;
+      try {
+        const body = reason ? { doctorUserIds: doctorUserIds, reason: reason } : { doctorUserIds: doctorUserIds };
+        await api.adminReplacePatientCareAssignments(m.patientId, body);
+        closeModal();
+        toast('Đã cập nhật danh sách bác sĩ phụ trách cho hồ sơ ' + m.patientCode + '.', 'success');
+        await loadAdminCare();
+      } catch (err) {
+        m.error = (err && err.detail) || 'Không thể cập nhật danh sách phân công.';
+        renderModal();
+      }
+      return;
+    }
 
     if (action === 'toggle-account-menu') {
       const menu = document.getElementById('account-menu');
@@ -3651,8 +5366,11 @@
       return;
     }
     if (action === 'logout') {
+      if (state.loggingOut) return;
+      state.loggingOut = true;
       closeAccountMenu(false);
       try { await api.logout(); } catch (_ignored) {}
+      state.loggingOut = false;
       state.user = null;
       state.encounter.dirty = false;
       state.login.error = '';
@@ -3834,6 +5552,87 @@
       } finally {
         rev.confirming = false;
         if (state.screen === 'review' && state.review.visitId === rev.visitId) render();
+      }
+      return;
+    }
+    if (action === 'toggle-review-summary') {
+      const nextExpanded = !getReviewSummaryExpanded();
+      setReviewSummaryExpanded(nextExpanded);
+      render();
+      return;
+    }
+    if (action === 'scroll-to-ai-readiness') {
+      const aiSec = document.getElementById('review-ai-readiness');
+      if (aiSec && typeof aiSec.scrollIntoView === 'function') {
+        aiSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (aiSec.classList) {
+          aiSec.classList.remove('field--highlight');
+          try { void aiSec.offsetWidth; } catch (_e) {}
+          aiSec.classList.add('field--highlight');
+          setTimeout(function () { aiSec.classList.remove('field--highlight'); }, 2000);
+        }
+      }
+      return;
+    }
+    if ((action === 'export-ai-json-v1' || action === 'export-ai-json-diagnostic') && state.review.visit) {
+      const rev = state.review;
+      const v = rev.visit;
+      const isDiag = action === 'export-ai-json-diagnostic';
+      rev.aiExportLoading = true;
+      rev.aiExportError = '';
+      render();
+      try {
+        const res = await api.getVisitAiInputV1(v.id, isDiag ? { diagnostic: true } : {});
+        rev.aiExportV1 = res;
+        rev.aiExportQuality = (res && res.quality) || null;
+        rev.aiExportIsDiagnostic = isDiag;
+        const isReady = Boolean(rev.aiExportQuality && rev.aiExportQuality.status === 'ready');
+        const fname = 'hf-ai-input-' + String(v.visitCode || v.id).replace(/[^a-zA-Z0-9_-]/g, '_') + '-r' + (v.currentRevisionNo || 1) + (isDiag ? '-diagnostic' : '') + '.json';
+        triggerJsonDownload(fname, res);
+        toast(isReady ? 'Đã xuất và tải xuống tệp JSON sẵn sàng gửi AI.' : 'Đã tải xuống tệp JSON chẩn đoán (trạng thái blocked — không dùng gửi AI).', isReady ? 'success' : 'warn');
+      } catch (err) {
+        const q = (err && (err.quality || (err.problem && err.problem.quality))) || null;
+        rev.aiExportV1 = null;
+        rev.aiExportIsDiagnostic = false;
+        rev.aiExportQuality = q;
+        if (err && err.status === 422 && q) {
+          rev.aiExportError = err.detail || 'Dữ liệu chưa sẵn sàng xuất cho AI (blocked).';
+          toast('Chưa thể xuất gói gửi AI — kiểm tra các mục bị chặn bên dưới.', 'warn');
+        } else if (err && (err.status === 501 || err.code === 'AI_EXPORT_STATIC_UNSUPPORTED')) {
+          rev.aiExportError = err.detail || 'Chế độ demo tĩnh không hỗ trợ xuất JSON cho AI; dùng bản có máy chủ.';
+          toast(rev.aiExportError, 'warn');
+        } else if (err && err.status === 503) {
+          rev.aiExportError = err.detail || 'Máy chủ chưa cấu hình khóa ẩn danh HMAC (HF_AI_HMAC_SECRET / HF_AI_KEY_VERSION).';
+          toast(rev.aiExportError, 'error');
+        } else if (err && err.status === 409) {
+          rev.aiExportError = err.detail || 'Lượt khám chưa được xác nhận nên chưa thể xuất JSON cho AI.';
+          toast(rev.aiExportError, 'warn');
+        } else if (err && err.status === 404) {
+          rev.aiExportError = NOT_FOUND_OR_NO_ACCESS_MSG;
+          toast(NOT_FOUND_OR_NO_ACCESS_MSG, 'error');
+        } else {
+          rev.aiExportError = (err && err.detail) || 'Không thể xuất gói JSON cho AI.';
+          handleAuthOrError(err, rev.aiExportError);
+        }
+      } finally {
+        rev.aiExportLoading = false;
+        if (state.screen === 'review' && state.review.visitId === rev.visitId) render();
+      }
+      return;
+    }
+    if (action === 'download-ai-json-v1' && state.review.aiExportV1 && state.review.visit) {
+      const v = state.review.visit;
+      const fname = 'hf-ai-input-' + String(v.visitCode || v.id).replace(/[^a-zA-Z0-9_-]/g, '_') + '-r' + (v.currentRevisionNo || 1) + (state.review.aiExportIsDiagnostic ? '-diagnostic' : '') + '.json';
+      triggerJsonDownload(fname, state.review.aiExportV1);
+      toast('Đã tải xuống tệp ' + fname, 'success');
+      return;
+    }
+    if (action === 'copy-ai-json-v1' && state.review.aiExportV1) {
+      try {
+        await navigator.clipboard.writeText(JSON.stringify(state.review.aiExportV1, null, 2));
+        toast('Đã sao chép JSON hf-ai-input/1.0 vào bộ nhớ tạm.', 'success');
+      } catch (_e) {
+        toast('Trình duyệt không cho phép sao chép tự động.', 'warn');
       }
       return;
     }
@@ -4025,6 +5824,8 @@
       const af = state.adminForms;
       af.draftSections = clone(af.versionDetail.sections || []);
       af.draftDirty = false;
+      af.previewData = null;
+      af.previewError = '';
       closeModal();
       toast('Đã hủy các chỉnh sửa chưa lưu trên bản nháp.', 'info');
       render();
@@ -4122,6 +5923,7 @@
     if (t.id === 'publish-note-input') { state.adminForms.publishNote = t.value; return; }
 
     if (t.id === 'admin-user-search') { state.adminUsers.q = t.value; scheduleLiveSearch('users', t); return; }
+    if (t.id === 'admin-care-search') { state.adminCare.q = t.value; scheduleLiveSearch('adminCare', t); return; }
     if (t.id === 'audit-q') { state.adminAudit.q = t.value; scheduleLiveSearch('audit', t); return; }
     if (t.id === 'admin-form-field-search') {
       const snap = captureInputFocus(t);
@@ -4131,11 +5933,17 @@
       return;
     }
 
-    // Visit metadata fields (infoSource, clinicalNote)
+    // Visit metadata fields (infoSource, clinicalNote) for Encounter & Preview
     const vmKey = t.getAttribute('data-enc-visit-meta');
     if (vmKey) {
       state.encounter[vmKey] = t.value;
       markEncounterDirty();
+      return;
+    }
+    const prevVmKey = t.getAttribute('data-prev-visit-meta');
+    if (prevVmKey) {
+      if (prevVmKey === 'infoSource') state.adminForms.previewInfoSource = t.value;
+      else if (prevVmKey === 'clinicalNote') state.adminForms.previewClinicalNote = t.value;
       return;
     }
 
@@ -4218,10 +6026,28 @@
       const parts = algAttr.split(':');
       const row = ft.allergies[Number(parts[0])];
       if (row) {
-        row[parts[1]] = t.value;
+        const k = parts[1];
+        row[k] = k === 'recordedAt' ? fromDatetimeLocal(t.value) : t.value;
         ft.markDirty();
         const card = t.closest('.repeat-card');
         if (card) card.classList.toggle('repeat-card--incomplete', !isValidAllergyRow(row));
+      }
+      return;
+    }
+
+    const dxAttr = t.getAttribute('data-enc-dx-field') || t.getAttribute('data-prev-dx-field');
+    if (dxAttr) {
+      const isPrev = t.hasAttribute('data-prev-dx-field');
+      const ft = getFormTarget(isPrev);
+      const parts = dxAttr.split(':');
+      const idx = Number(parts[0]);
+      const row = ft.diagnoses[idx];
+      if (row) {
+        const k = parts[1];
+        row[k] = k === 'code' ? t.value.toUpperCase() : t.value;
+        ft.markDirty();
+        const card = t.closest('.repeat-card');
+        if (card) card.classList.toggle('repeat-card--incomplete', !isValidDiagnosisRow(row));
       }
       return;
     }
@@ -4251,9 +6077,14 @@
       const af = state.adminForms;
       const sec = (af.draftSections || []).find(function (s) { return s.sectionCode === af.selectedSectionCode; });
       const ff = sec && (sec.fields || []).find(function (f) { return f.fieldDefinitionId === af.selectedFieldDefId; });
-      if (ff) {
+      if (ff && !ff._virtualSystem) {
         ff[edProp] = t.value;
         af.draftDirty = true;
+        if (edProp === 'customLabelVi') {
+          const selName = document.querySelector('[data-ed-field="' + CSS.escape(ff.fieldDefinitionId) + '"] .editor-item__name');
+          const fd = ((af.versionDetail && af.versionDetail.fieldDefinitions) || []).find(function (d) { return d.id === ff.fieldDefinitionId; });
+          if (selName) selName.textContent = getFieldLabel(ff, fd);
+        }
         const saveBtn = document.querySelector('[data-action="save-form-draft"]');
         if (saveBtn) saveBtn.disabled = false;
         const cancelBtn = document.querySelector('[data-action="cancel-form-draft-edits"]');
@@ -4324,6 +6155,35 @@
       return;
     }
 
+    // Diagnosis role/code change enforces at most 1 primary ICD and updates format feedback
+    const dxAttr = t.getAttribute('data-enc-dx-field') || t.getAttribute('data-prev-dx-field');
+    if (dxAttr) {
+      const isPrev = t.hasAttribute('data-prev-dx-field');
+      const ft = getFormTarget(isPrev);
+      const parts = dxAttr.split(':');
+      const idx = Number(parts[0]);
+      const k = parts[1];
+      const row = ft.diagnoses[idx];
+      if (row) {
+        if (k === 'role') {
+          const nextRole = t.value === 'primary' ? 'primary' : 'secondary';
+          if (nextRole === 'primary') {
+            ft.diagnoses.forEach(function (d, i) {
+              if (i !== idx && d && d.role === 'primary') d.role = 'secondary';
+            });
+          }
+          row.role = nextRole;
+          ft.markDirty();
+          render();
+        } else if (k === 'code') {
+          row.code = String(t.value || '').trim().toUpperCase();
+          ft.markDirty();
+          render();
+        }
+      }
+      return;
+    }
+
     // Lab code change updates default unit & re-renders numeric vs text input
     const labAttr = t.getAttribute('data-enc-lab-field') || t.getAttribute('data-prev-lab-field');
     if (labAttr && labAttr.endsWith(':labCode')) {
@@ -4341,9 +6201,9 @@
       return;
     }
 
-    // Med status change updates active count card
+    // Med status or medicationGroup change updates active count card / required indicator
     const medAttr = t.getAttribute('data-enc-med-field') || t.getAttribute('data-prev-med-field');
-    if (medAttr && medAttr.endsWith(':status')) {
+    if (medAttr && (medAttr.endsWith(':status') || medAttr.endsWith(':medicationGroup'))) {
       render();
       return;
     }
@@ -4358,7 +6218,10 @@
       const af = state.adminForms;
       const sec = (af.draftSections || []).find(function (s) { return s.sectionCode === af.selectedSectionCode; });
       const ff = sec && (sec.fields || []).find(function (f) { return f.fieldDefinitionId === af.selectedFieldDefId; });
-      if (ff) {
+      if (ff && !ff._virtualSystem) {
+        const fd = ((af.versionDetail && af.versionDetail.fieldDefinitions) || []).find(function (d) { return d.id === ff.fieldDefinitionId; });
+        const flags = getFieldMetaFlags(ff, fd);
+        if (edProp === 'requiredForConfirm' && (flags.computed || flags.readonlyInput)) return;
         ff[edProp] = Boolean(t.checked);
         af.draftDirty = true;
         render();

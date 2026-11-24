@@ -78,7 +78,7 @@ def bootstrap(conn: psycopg.Connection, admin: str, doctor: str, runtime: str) -
     conn.execute(sql.SQL("GRANT USAGE ON SCHEMA public TO {}").format(role))
     conn.execute(sql.SQL("GRANT SELECT ON ALL TABLES IN SCHEMA public TO {}").format(role))
     conn.execute(sql.SQL("""
-        GRANT INSERT, UPDATE ON app_user, user_session, patient, visit TO {}
+        GRANT INSERT, UPDATE ON app_user, user_session, patient, visit, patient_care_assignment TO {}
     """).format(role))
     conn.execute(sql.SQL("""
         GRANT INSERT ON audit_log, visit_revision TO {}
@@ -88,8 +88,9 @@ def bootstrap(conn: psycopg.Connection, admin: str, doctor: str, runtime: str) -
     """).format(role))
     conn.execute(sql.SQL("""
         GRANT INSERT, DELETE ON form_field, form_section, visit_value, visit_value_option,
-            visit_orthostatic_bp, visit_medication, visit_allergy, visit_lab_result TO {}
+            visit_orthostatic_bp, visit_medication, visit_allergy, visit_lab_result, visit_diagnosis TO {}
     """).format(role))
+    conn.execute(sql.SQL("GRANT UPDATE(atc_code) ON visit_medication, visit_allergy TO {}").format(role))
     conn.execute("CREATE TABLE hfcare_bootstrap (version integer PRIMARY KEY)")
     conn.execute("INSERT INTO hfcare_bootstrap (version) VALUES (1)")
     return True

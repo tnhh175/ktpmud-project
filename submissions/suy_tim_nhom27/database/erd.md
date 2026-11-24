@@ -1,12 +1,32 @@
 # Thiết kế ERD và Phân tích Chuẩn hóa 3NF (`erd.md`)
 
 **Tài liệu căn cứ:** `CONTRACT.md` (Mục 1, 3, 4), `CR-W1-01.md`, `BAN-GIAO-DEV-web-suy-tim-hai-luong-2026-11-19.md` (Mục 3, 6.1).  
-**Phạm vi CSDL:** PostgreSQL 16+ (đã kiểm chứng trên PostgreSQL 18.6) — `19` bảng chuẩn hóa 3NF, `10` kiểu `ENUM`, `13` hàm PL/pgSQL, `19` trigger bảo toàn dữ liệu.
+**Phạm vi CSDL:** PostgreSQL 16+ (đã kiểm chứng trên PostgreSQL 18.6) — `21` bảng chuẩn hóa 3NF, `10` kiểu `ENUM`, `13` hàm PL/pgSQL, `20` trigger bảo toàn dữ liệu.
 
 ---
 
 ## 1. Sơ đồ Thực thể – Quan hệ (Mermaid `erDiagram`)
 
+    patient_care_assignment {
+        uuid id PK
+        uuid patient_id FK
+        uuid doctor_user_id FK
+        timestamptz assigned_at
+        uuid assigned_by FK
+        text reason
+        timestamptz revoked_at
+        uuid revoked_by FK
+    }
+    visit_diagnosis {
+        uuid id PK
+        uuid visit_id FK
+        text code
+        text display
+        text role
+    }
+    patient ||--o{ patient_care_assignment : care_history
+    app_user ||--o{ patient_care_assignment : doctor
+    visit ||--o{ visit_diagnosis : diagnoses
 ```mermaid
 erDiagram
     app_user {
@@ -33,6 +53,7 @@ erDiagram
     }
 
     patient {
+        uuid updated_by FK
         uuid id PK
         varchar patient_code UK
         varchar external_patient_code
@@ -90,6 +111,7 @@ erDiagram
     }
 
     form_version {
+        jsonb definition_overrides
         uuid id PK
         uuid form_template_id FK
         integer version_no
@@ -127,6 +149,10 @@ erDiagram
     }
 
     visit {
+        uuid updated_by FK
+        text medication_list_state
+        text allergy_list_state
+        text diagnosis_list_state
         uuid id PK
         varchar visit_code UK
         varchar external_visit_code
@@ -181,6 +207,7 @@ erDiagram
     }
 
     visit_medication {
+        text atc_code
         uuid id PK
         uuid visit_id FK
         varchar medication_group
@@ -198,6 +225,7 @@ erDiagram
     }
 
     visit_allergy {
+        text atc_code
         uuid id PK
         uuid visit_id FK
         varchar kind
@@ -333,3 +361,7 @@ erDiagram
 | **Chống ghi đè đồng thời (Optimistic Concurrency)** | `row_version > 0` trên `app_user`, `patient`, `form_version`, `visit` | `trg_app_user_row_version` (BEFORE UPDATE) | `UPDATE ... WHERE id = $1 AND row_version = $expected` | Kiểm tra header `If-Match` / ETag, trả `409 Conflict` |
 | **Đơn vị bắt buộc cho xét nghiệm định lượng & tách BNP/Creatinin** | `chk_lab_unit_required_for_num`, `lab_code REFERENCES field_definition(code)` | `trg_visit_lab_guard` ép `storage_level = 'lab_result'` | — | Dropdown chọn loại XN tách biệt (`cls_bnp` vs `cls_nt_probnp`) và đơn vị hợp lệ |
 | **Admin không đọc bệnh án lâm sàng & nhật ký sạch PHI lâm sàng** | `chk_audit_detail_object` | `trg_audit_log_no_clinical_data` + `trg_audit_log_append_only` | Ghi `audit_log` cùng transaction tác vụ chính | Middleware RBAC tách route `doctor` / `admin`, trả `403` và log vi phạm |
+
+## Cập nhật v1.1
+
+`patient.updated_by`, `visit.updated_by` tham chiếu `app_user`; `form_version.definition_overrides` lưu cấu hình theo phiên bản. `visit` thêm trạng thái danh sách thuốc, dị ứng và chẩn đoán; `visit_medication`/`visit_allergy` thêm `atc_code`. Khởi tạo có v1.0 retired và v1.1 published; chỉ một phiên bản published mỗi template.

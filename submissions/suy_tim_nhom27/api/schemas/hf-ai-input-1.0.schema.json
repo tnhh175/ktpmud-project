@@ -1,0 +1,2530 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:hfcare:ai-input:1.0",
+  "type": "object",
+  "properties": {
+    "contractVersion": {
+      "const": "hf-ai-input/1.0"
+    },
+    "variableTableVersion": {
+      "const": "3.0"
+    },
+    "mappingVersion": {
+      "const": "hf-map/1.0"
+    },
+    "jsonSchemaId": {
+      "const": "urn:hfcare:ai-input:1.0"
+    },
+    "profile": {
+      "const": "HF"
+    },
+    "form": {
+      "type": "object",
+      "properties": {
+        "versionId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "definitionHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "versionId",
+        "definitionHash"
+      ],
+      "additionalProperties": false
+    },
+    "revision": {
+      "type": "object",
+      "properties": {
+        "number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "status": {
+          "const": "confirmed"
+        },
+        "snapshotHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "number",
+        "status",
+        "snapshotHash"
+      ],
+      "additionalProperties": false
+    },
+    "export": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "exportedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "exportedAt"
+      ],
+      "additionalProperties": false
+    },
+    "privacy": {
+      "type": "object",
+      "properties": {
+        "profile": {
+          "const": "ai-pseudonym-v1"
+        },
+        "keyVersion": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "profile",
+        "keyVersion"
+      ],
+      "additionalProperties": false
+    },
+    "values": {
+      "type": "object",
+      "properties": {
+        "MA_BN": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": null
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "string",
+                  "pattern": "^[pembla]_[0-9a-f]{64}$"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": null
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "MA_LK": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": null
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "string",
+                  "pattern": "^[pembla]_[0-9a-f]{64}$"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": null
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "TUOI": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "years"
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "years"
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "GIOI_TINH": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": null
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": null
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "KHOA_PHONG": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": null
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": null
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "THOI_GIAN_KHAM": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": null
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": null
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "BAC_SI_KHAM": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": null
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": null
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "CHIEU_CAO": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "cm"
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "cm"
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "CAN_NANG": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "kg"
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "kg"
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "BMI": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "kg/m2"
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "kg/m2"
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "HA_TAM_THU": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "mmHg"
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "mmHg"
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "HA_TAM_TRUONG": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "mmHg"
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "mmHg"
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "TAN_SO_TIM": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "/min"
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "/min"
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "SPO2": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "%"
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "%"
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "KHO_THO_NANG": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": null
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "integer",
+                  "enum": [
+                    0,
+                    1,
+                    2,
+                    3
+                  ]
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": null
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "PHU_CHI_DUOI": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": null
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "integer",
+                  "enum": [
+                    0,
+                    1,
+                    2
+                  ]
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": null
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "TINH_MACH_CO_NOI": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": null
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "integer",
+                  "enum": [
+                    0,
+                    1
+                  ]
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": null
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "RAN_AM_PHOI": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": null
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "integer",
+                  "enum": [
+                    0,
+                    1
+                  ]
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": null
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "BIEN_THIEN_CAN_NANG_7NGAY": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "kg"
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "kg"
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "TRIEU_CHUNG_KHONG_DIEN_HINH": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": null
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "integer",
+                  "enum": [
+                    0,
+                    1,
+                    2
+                  ]
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": null
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "DANH_GIA_SUY_YEU_FRAILTY": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": null
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "integer",
+                  "enum": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9
+                  ]
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": null
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "NT_PROBNP": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "pg/mL"
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "pg/mL"
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "BNP": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "pg/mL"
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "pg/mL"
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "EF_SIEU_AM_TIM": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "%"
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "%"
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "E_OVER_A_RATIO": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "ratio"
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "ratio"
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "CREATININE_MAU": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "umol/L"
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "umol/L"
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "EGFR_CKD_EPI": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "mL/min/1.73m2"
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "mL/min/1.73m2"
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "KALI_MAU": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "mmol/L"
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "mmol/L"
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "ECG_12_CHUYEN_DAO": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": null
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": null
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "XQUANG_NGUC_THANG": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": null
+                },
+                "valueState": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": null
+                },
+                "valueState": {
+                  "enum": [
+                    "unknown",
+                    "unfilled",
+                    "not_collected",
+                    "not_applicable"
+                  ]
+                },
+                "value": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "unit",
+                "valueState",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "MA_BN",
+        "MA_LK",
+        "TUOI",
+        "GIOI_TINH",
+        "KHOA_PHONG",
+        "THOI_GIAN_KHAM",
+        "BAC_SI_KHAM",
+        "CHIEU_CAO",
+        "CAN_NANG",
+        "BMI",
+        "HA_TAM_THU",
+        "HA_TAM_TRUONG",
+        "TAN_SO_TIM",
+        "SPO2",
+        "KHO_THO_NANG",
+        "PHU_CHI_DUOI",
+        "TINH_MACH_CO_NOI",
+        "RAN_AM_PHOI",
+        "BIEN_THIEN_CAN_NANG_7NGAY",
+        "TRIEU_CHUNG_KHONG_DIEN_HINH",
+        "DANH_GIA_SUY_YEU_FRAILTY",
+        "NT_PROBNP",
+        "BNP",
+        "EF_SIEU_AM_TIM",
+        "E_OVER_A_RATIO",
+        "CREATININE_MAU",
+        "EGFR_CKD_EPI",
+        "KALI_MAU",
+        "ECG_12_CHUYEN_DAO",
+        "XQUANG_NGUC_THANG"
+      ],
+      "additionalProperties": false
+    },
+    "arrays": {
+      "type": "object",
+      "properties": {
+        "TIEN_SU_DI_UNG": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "valueState": {
+                  "const": "answered"
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Z][0-9]{2}[A-Z]{2}[0-9]{2}$"
+                  }
+                },
+                "listState": {
+                  "const": "known"
+                }
+              },
+              "required": [
+                "valueState",
+                "items",
+                "listState"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "valueState": {
+                  "const": "answered"
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Z][0-9]{2}[A-Z]{2}[0-9]{2}$"
+                  },
+                  "maxItems": 0
+                },
+                "listState": {
+                  "const": "none"
+                }
+              },
+              "required": [
+                "valueState",
+                "items",
+                "listState"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "valueState": {
+                  "const": "unknown"
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Z][0-9]{2}[A-Z]{2}[0-9]{2}$"
+                  },
+                  "maxItems": 0
+                },
+                "listState": {
+                  "const": "unknown"
+                }
+              },
+              "required": [
+                "valueState",
+                "items",
+                "listState"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "DANH_MUC_THUOC_DANG_DUNG": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "valueState": {
+                  "const": "answered"
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "recordId": {
+                        "type": "string",
+                        "pattern": "^[pembla]_[0-9a-f]{64}$"
+                      },
+                      "code": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^[A-Z][0-9]{2}[A-Z]{2}[0-9]{2}$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "system": {
+                        "const": "ATC"
+                      },
+                      "version": {
+                        "type": "string"
+                      },
+                      "display": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "hospitalVerified": {
+                        "const": false
+                      },
+                      "dose": {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "unit": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "status": {
+                        "const": "active"
+                      }
+                    },
+                    "required": [
+                      "recordId",
+                      "code",
+                      "system",
+                      "version",
+                      "display",
+                      "hospitalVerified",
+                      "dose",
+                      "unit",
+                      "status"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "listState": {
+                  "const": "known"
+                }
+              },
+              "required": [
+                "valueState",
+                "items",
+                "listState"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "valueState": {
+                  "const": "answered"
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "recordId": {
+                        "type": "string",
+                        "pattern": "^[pembla]_[0-9a-f]{64}$"
+                      },
+                      "code": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^[A-Z][0-9]{2}[A-Z]{2}[0-9]{2}$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "system": {
+                        "const": "ATC"
+                      },
+                      "version": {
+                        "type": "string"
+                      },
+                      "display": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "hospitalVerified": {
+                        "const": false
+                      },
+                      "dose": {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "unit": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "status": {
+                        "const": "active"
+                      }
+                    },
+                    "required": [
+                      "recordId",
+                      "code",
+                      "system",
+                      "version",
+                      "display",
+                      "hospitalVerified",
+                      "dose",
+                      "unit",
+                      "status"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 0
+                },
+                "listState": {
+                  "const": "none"
+                }
+              },
+              "required": [
+                "valueState",
+                "items",
+                "listState"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "valueState": {
+                  "const": "unknown"
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "recordId": {
+                        "type": "string",
+                        "pattern": "^[pembla]_[0-9a-f]{64}$"
+                      },
+                      "code": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^[A-Z][0-9]{2}[A-Z]{2}[0-9]{2}$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "system": {
+                        "const": "ATC"
+                      },
+                      "version": {
+                        "type": "string"
+                      },
+                      "display": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "hospitalVerified": {
+                        "const": false
+                      },
+                      "dose": {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "unit": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "status": {
+                        "const": "active"
+                      }
+                    },
+                    "required": [
+                      "recordId",
+                      "code",
+                      "system",
+                      "version",
+                      "display",
+                      "hospitalVerified",
+                      "dose",
+                      "unit",
+                      "status"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 0
+                },
+                "listState": {
+                  "const": "unknown"
+                }
+              },
+              "required": [
+                "valueState",
+                "items",
+                "listState"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "BENH_DONG_MAC_ICD10": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "valueState": {
+                  "const": "answered"
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Z][0-9]{2}(\\.[A-Z0-9]{1,4})?$"
+                  }
+                },
+                "listState": {
+                  "const": "known"
+                }
+              },
+              "required": [
+                "valueState",
+                "items",
+                "listState"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "valueState": {
+                  "const": "answered"
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Z][0-9]{2}(\\.[A-Z0-9]{1,4})?$"
+                  },
+                  "maxItems": 0
+                },
+                "listState": {
+                  "const": "none"
+                }
+              },
+              "required": [
+                "valueState",
+                "items",
+                "listState"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "valueState": {
+                  "const": "unknown"
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Z][0-9]{2}(\\.[A-Z0-9]{1,4})?$"
+                  },
+                  "maxItems": 0
+                },
+                "listState": {
+                  "const": "unknown"
+                }
+              },
+              "required": [
+                "valueState",
+                "items",
+                "listState"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "TIEN_SU_DI_UNG",
+        "DANH_MUC_THUOC_DANG_DUNG",
+        "BENH_DONG_MAC_ICD10"
+      ],
+      "additionalProperties": false
+    },
+    "observations": {
+      "type": "object",
+      "properties": {
+        "bloodPressure": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "measurementId": {
+                "type": "string",
+                "pattern": "^[pembla]_[0-9a-f]{64}$"
+              },
+              "position": {
+                "enum": [
+                  "supine",
+                  "sitting",
+                  "standing"
+                ]
+              },
+              "minuteAfter": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "measuredAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "values": {
+                "type": "object",
+                "properties": {
+                  "HA_TAM_THU": {
+                    "type": "integer"
+                  },
+                  "HA_TAM_TRUONG": {
+                    "type": "integer"
+                  },
+                  "TAN_SO_TIM": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "HA_TAM_THU",
+                  "HA_TAM_TRUONG",
+                  "TAN_SO_TIM"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "measurementId",
+              "position",
+              "minuteAfter",
+              "measuredAt",
+              "values"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "labs": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "observationId": {
+                    "type": "string",
+                    "pattern": "^[pembla]_[0-9a-f]{64}$"
+                  },
+                  "fieldCode": {
+                    "type": "string"
+                  },
+                  "aiCode": {
+                    "anyOf": [
+                      {
+                        "enum": [
+                          "NT_PROBNP",
+                          "BNP",
+                          "EF_SIEU_AM_TIM",
+                          "CREATININE_MAU",
+                          "KALI_MAU"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "valueText": {
+                    "type": "null"
+                  },
+                  "unit": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "measuredAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "valueState": {
+                    "const": "answered"
+                  },
+                  "valueNum": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "observationId",
+                  "fieldCode",
+                  "aiCode",
+                  "valueText",
+                  "unit",
+                  "measuredAt",
+                  "valueState",
+                  "valueNum"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "observationId": {
+                    "type": "string",
+                    "pattern": "^[pembla]_[0-9a-f]{64}$"
+                  },
+                  "fieldCode": {
+                    "type": "string"
+                  },
+                  "aiCode": {
+                    "anyOf": [
+                      {
+                        "enum": [
+                          "NT_PROBNP",
+                          "BNP",
+                          "EF_SIEU_AM_TIM",
+                          "CREATININE_MAU",
+                          "KALI_MAU"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "valueText": {
+                    "type": "null"
+                  },
+                  "unit": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "measuredAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "valueState": {
+                    "const": "not_collected"
+                  },
+                  "valueNum": {
+                    "type": "null"
+                  }
+                },
+                "required": [
+                  "observationId",
+                  "fieldCode",
+                  "aiCode",
+                  "valueText",
+                  "unit",
+                  "measuredAt",
+                  "valueState",
+                  "valueNum"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "allergyDetails": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "recordId": {
+                "type": "string",
+                "pattern": "^[pembla]_[0-9a-f]{64}$"
+              },
+              "code": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "system": {
+                "const": "ATC"
+              },
+              "version": {
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "allergy",
+                  "adr",
+                  "intolerance"
+                ]
+              },
+              "category": {
+                "enum": [
+                  "therapeutic_drug",
+                  "contrast_media",
+                  "other"
+                ]
+              },
+              "hospitalVerified": {
+                "const": false
+              }
+            },
+            "required": [
+              "recordId",
+              "code",
+              "system",
+              "version",
+              "kind",
+              "category",
+              "hospitalVerified"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "diagnoses": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "pattern": "^[A-Z][0-9]{2}(\\.[A-Z0-9]{1,4})?$"
+              },
+              "display": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "role": {
+                "enum": [
+                  "primary",
+                  "secondary"
+                ]
+              },
+              "system": {
+                "const": "ICD-10"
+              },
+              "version": {
+                "type": "string"
+              },
+              "hospitalVerified": {
+                "const": false
+              }
+            },
+            "required": [
+              "code",
+              "display",
+              "role",
+              "system",
+              "version",
+              "hospitalVerified"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "bloodPressure",
+        "labs",
+        "allergyDetails",
+        "diagnoses"
+      ],
+      "additionalProperties": false
+    },
+    "quality": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "ready",
+            "blocked"
+          ]
+        },
+        "requestedModule": {
+          "anyOf": [
+            {
+              "enum": [
+                "ai_diagnosis",
+                "ai_lab_test",
+                "ai_treatment",
+                "ai_medsafety"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "issueCode": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "fieldCode": {
+                "type": "string"
+              },
+              "severity": {
+                "const": "error"
+              },
+              "module": {
+                "enum": [
+                  "ai_diagnosis",
+                  "ai_lab_test",
+                  "ai_treatment",
+                  "ai_medsafety"
+                ]
+              },
+              "messageVi": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "issueCode",
+              "path",
+              "fieldCode",
+              "severity",
+              "module",
+              "messageVi"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "modules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "module": {
+                "enum": [
+                  "ai_diagnosis",
+                  "ai_lab_test",
+                  "ai_treatment",
+                  "ai_medsafety"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "ready",
+                  "blocked"
+                ]
+              },
+              "issueCount": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "module",
+              "status",
+              "issueCount"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "status",
+        "requestedModule",
+        "issues",
+        "modules"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "contractVersion",
+    "variableTableVersion",
+    "mappingVersion",
+    "jsonSchemaId",
+    "profile",
+    "form",
+    "revision",
+    "export",
+    "privacy",
+    "values",
+    "arrays",
+    "observations",
+    "quality"
+  ],
+  "additionalProperties": false
+}

@@ -753,6 +753,10 @@ def create_form_version_draft(
             ),
         ).fetchone()
 
+        if base_ver.get("definition_overrides"):
+            from psycopg.types.json import Jsonb
+            conn.execute("UPDATE form_version SET definition_overrides=%s WHERE id=%s",(Jsonb(base_ver["definition_overrides"]),str(new_ver["id"])))
+
         base_sections = conn.execute(
             "SELECT * FROM form_section WHERE form_version_id = %s ORDER BY display_order ASC",
             (str(base_ver["id"]),),
@@ -853,6 +857,110 @@ def get_form_version(
     }
 
 
+def validate_form_configuration(conn, body, current_rv, version_id):
+    # Validate sections & fields
+    errors: list[dict[str, Any]] = []
+    if not body.sections:
+        errors.append(
+            {
+                "fieldCode": "sections",
+                "message": "Phiên bản biểu mẫu phải có ít nhất một nhóm.",
+                "rejectedValue": [],
+            }
+        )
+
+    valid_def_rows = conn.execute("SELECT id, code FROM field_definition").fetchall()
+    valid_def_ids = {str(r["id"]) for r in valid_def_rows}
+
+    seen_sec_codes: set[str] = set()
+    seen_sec_orders: set[int] = set()
+    seen_def_ids: set[str] = set()
+    # Preview must reject identifiers that PATCH cannot save, including IDs owned
+    # by another version. Accept fresh IDs, as PATCH already does for new rows.
+    for table, items in (('form_section', body.sections), ('form_field', [f for s in body.sections for f in s.fields])):
+        ids = [str(item.id) for item in items if item.id is not None]
+        owners = conn.execute(f'SELECT id, form_version_id FROM {table} WHERE id=ANY(%s::uuid[])', (ids,)).fetchall() if ids else []
+        if len(ids) != len(set(ids)) or any(str(row['form_version_id']) != str(version_id) for row in owners):
+            errors.append({'fieldCode':'sections','message':'ID nhóm/trường bị trùng hoặc thuộc phiên bản biểu mẫu khác.','rejectedValue':None})
+
+    for sec in body.sections:
+        if sec.sectionCode in seen_sec_codes:
+            errors.append(
+                {
+                    "fieldCode": sec.sectionCode,
+                    "sectionCode": sec.sectionCode,
+                    "message": f"Nhóm {sec.sectionCode} bị trùng lặp.",
+                    "rejectedValue": sec.sectionCode,
+                }
+            )
+        seen_sec_codes.add(sec.sectionCode)
+
+        if sec.displayOrder in seen_sec_orders:
+            errors.append(
+                {
+                    "fieldCode": sec.sectionCode,
+                    "sectionCode": sec.sectionCode,
+                    "message": f"Thứ tự nhóm {sec.displayOrder} bị trùng lặp.",
+                    "rejectedValue": sec.displayOrder,
+                }
+            )
+        seen_sec_orders.add(sec.displayOrder)
+
+        seen_field_orders: set[int] = set()
+        for ff in sec.fields:
+            fid = str(ff.fieldDefinitionId)
+            if fid not in valid_def_ids:
+                errors.append(
+                    {
+                        "fieldCode": ff.fieldCode or fid,
+                        "sectionCode": sec.sectionCode,
+                        "message": "fieldDefinitionId không tồn tại trong field_definition.",
+                        "rejectedValue": fid,
+                    }
+                )
+            if fid in seen_def_ids:
+                errors.append(
+                    {
+                        "fieldCode": ff.fieldCode or fid,
+                        "sectionCode": sec.sectionCode,
+                        "message": "Trường dữ liệu bị gắn lặp lại trong cùng phiên bản biểu mẫu.",
+                        "rejectedValue": fid,
+                    }
+                )
+            seen_def_ids.add(fid)
+
+            if ff.displayOrder in seen_field_orders:
+                errors.append(
+                    {
+                        "fieldCode": ff.fieldCode or fid,
+                        "sectionCode": sec.sectionCode,
+                        "message": f"Thứ tự trường {ff.displayOrder} bị trùng trong nhóm {sec.sectionCode}.",
+                        "rejectedValue": ff.displayOrder,
+                    }
+                )
+            seen_field_orders.add(ff.displayOrder)
+
+            if ff.customLabelVi is not None and len(ff.customLabelVi) > 200:
+                errors.append(
+                    {
+                        "fieldCode": ff.fieldCode or fid,
+                        "sectionCode": sec.sectionCode,
+                        "message": "customLabelVi không được vượt quá 200 ký tự.",
+                        "rejectedValue": ff.customLabelVi,
+                    }
+                )
+
+    if errors:
+        raise ProblemError(
+            422,
+            "FIELD_VALIDATION_FAILED",
+            "Cấu trúc biểu mẫu không hợp lệ",
+            errors[0]["message"],
+            current_row_version=current_rv,
+            errors=errors,
+        )
+
+
 @router.patch(
     "/form-versions/{versionId}",
     operation_id="updateFormVersion",
@@ -910,100 +1018,7 @@ def update_form_version(
                 current_row_version=current_rv,
             )
 
-        # Validate sections & fields
-        errors: list[dict[str, Any]] = []
-        if not body.sections:
-            errors.append(
-                {
-                    "fieldCode": "sections",
-                    "message": "Phiên bản biểu mẫu phải có ít nhất một nhóm.",
-                    "rejectedValue": [],
-                }
-            )
-
-        valid_def_rows = conn.execute("SELECT id, code FROM field_definition").fetchall()
-        valid_def_ids = {str(r["id"]) for r in valid_def_rows}
-
-        seen_sec_codes: set[str] = set()
-        seen_sec_orders: set[int] = set()
-        seen_def_ids: set[str] = set()
-
-        for sec in body.sections:
-            if sec.sectionCode in seen_sec_codes:
-                errors.append(
-                    {
-                        "fieldCode": sec.sectionCode,
-                        "sectionCode": sec.sectionCode,
-                        "message": f"Nhóm {sec.sectionCode} bị trùng lặp.",
-                        "rejectedValue": sec.sectionCode,
-                    }
-                )
-            seen_sec_codes.add(sec.sectionCode)
-
-            if sec.displayOrder in seen_sec_orders:
-                errors.append(
-                    {
-                        "fieldCode": sec.sectionCode,
-                        "sectionCode": sec.sectionCode,
-                        "message": f"Thứ tự nhóm {sec.displayOrder} bị trùng lặp.",
-                        "rejectedValue": sec.displayOrder,
-                    }
-                )
-            seen_sec_orders.add(sec.displayOrder)
-
-            seen_field_orders: set[int] = set()
-            for ff in sec.fields:
-                fid = str(ff.fieldDefinitionId)
-                if fid not in valid_def_ids:
-                    errors.append(
-                        {
-                            "fieldCode": ff.fieldCode or fid,
-                            "sectionCode": sec.sectionCode,
-                            "message": "fieldDefinitionId không tồn tại trong field_definition.",
-                            "rejectedValue": fid,
-                        }
-                    )
-                if fid in seen_def_ids:
-                    errors.append(
-                        {
-                            "fieldCode": ff.fieldCode or fid,
-                            "sectionCode": sec.sectionCode,
-                            "message": "Trường dữ liệu bị gắn lặp lại trong cùng phiên bản biểu mẫu.",
-                            "rejectedValue": fid,
-                        }
-                    )
-                seen_def_ids.add(fid)
-
-                if ff.displayOrder in seen_field_orders:
-                    errors.append(
-                        {
-                            "fieldCode": ff.fieldCode or fid,
-                            "sectionCode": sec.sectionCode,
-                            "message": f"Thứ tự trường {ff.displayOrder} bị trùng trong nhóm {sec.sectionCode}.",
-                            "rejectedValue": ff.displayOrder,
-                        }
-                    )
-                seen_field_orders.add(ff.displayOrder)
-
-                if ff.customLabelVi is not None and len(ff.customLabelVi) > 200:
-                    errors.append(
-                        {
-                            "fieldCode": ff.fieldCode or fid,
-                            "sectionCode": sec.sectionCode,
-                            "message": "customLabelVi không được vượt quá 200 ký tự.",
-                            "rejectedValue": ff.customLabelVi,
-                        }
-                    )
-
-        if errors:
-            raise ProblemError(
-                422,
-                "FIELD_VALIDATION_FAILED",
-                "Cấu trúc biểu mẫu không hợp lệ",
-                errors[0]["message"],
-                current_row_version=current_rv,
-                errors=errors,
-            )
+        validate_form_configuration(conn, body, current_rv, versionId)
 
         conn.execute("DELETE FROM form_field WHERE form_version_id = %s", (str(versionId),))
         conn.execute("DELETE FROM form_section WHERE form_version_id = %s", (str(versionId),))
@@ -1607,3 +1622,25 @@ def list_audit_logs(
         "items": items,
         "pagination": compute_pagination(page, pageSize, total_items),
     }
+
+
+@router.post("/form-versions/{versionId}/preview", operation_id="previewUnsavedFormVersion", response_model=FormVersionPreviewResponse, tags=["AdminForms"])
+def preview_unsaved_form_version(versionId: UUID, body: UpdateFormVersionRequest, request: Request, principal: Principal = Depends(_require_admin_forms)):
+    with request.app.state.pool.connection() as conn:
+        fv, _, _ = load_form_version_bundle(conn, versionId)
+        if fv["status"] != "draft":
+            raise ProblemError(409,"FORM_VERSION_IMMUTABLE","Phiên bản đã khóa","Chỉ xem trạng thái chưa lưu của bản nháp.")
+        if body.rowVersion is not None and body.rowVersion != fv["rowVersion"]:
+            raise ProblemError(409,"CONCURRENCY_ROW_VERSION_MISMATCH","Bản nháp đã đổi","Tải lại bản nháp.",current_row_version=fv["rowVersion"])
+        validate_form_configuration(conn,body,fv["rowVersion"],versionId)
+        ids = [str(ff.fieldDefinitionId) for sec in body.sections for ff in sec.fields]
+        definitions = load_field_definitions_with_children(conn,field_ids=ids)
+        row = conn.execute("SELECT definition_overrides FROM form_version WHERE id=%s",(str(versionId),)).fetchone()
+        from .hf_form import apply_definition_overrides
+        apply_definition_overrides(definitions, row['definition_overrides'])
+        lookup = {fd["id"]:fd["code"] for fd in definitions}
+        sections = [sec.model_dump(mode="json") for sec in body.sections]
+        for sec in sections:
+            sec["formVersionId"]=str(versionId)
+            for ff in sec["fields"]: ff.update(fieldCode=lookup[ff["fieldDefinitionId"]],formVersionId=str(versionId))
+    return {"isPreviewOnly":True,"previewBannerVi":"Xem trước trạng thái chưa lưu; không ghi dữ liệu.","formVersion":fv,"sections":sorted(sections,key=lambda x:x["displayOrder"]),"fieldDefinitions":definitions}

@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "generated_from": "trace-table.xlsx",
   "contract_source": "CONTRACT.md",
   "contract_changes": [
@@ -7,11 +7,11 @@
   ],
   "dialect": "PostgreSQL 16",
   "summary": {
-    "table_count": 19,
+    "table_count": 21,
     "enum_count": 10,
-    "mvp_field_count": 95,
+    "mvp_field_count": 140,
     "can_xac_nhan_field_count": 26,
-    "total_catalog_fields": 121,
+    "total_catalog_fields": 166,
     "ai_output_rows_excluded_count": 65,
     "ai_linked_m1_to_m2_rows_excluded_count": 5,
     "ai_output_codes_in_catalog": 0
@@ -78,7 +78,10 @@
       "form_version_update",
       "form_version_publish",
       "patient_create",
-      "visit_confirm"
+      "visit_confirm",
+      "ai_input_export",
+      "care_assignment_add",
+      "care_assignment_revoke"
     ]
   },
   "ai_modules": {
@@ -244,15 +247,15 @@
       "check_constraints": [
         {
           "name": "chk_app_user_username_fmt",
-          "expression": "length(trim(username)) >= 3 AND username ~ '^[a-zA-Z0-9_.-]+$'"
+          "expression": "length(pg_catalog.btrim(username)) >= 3 AND username ~ '^[a-zA-Z0-9_.-]+$'"
         },
         {
           "name": "chk_app_user_full_name_nonempty",
-          "expression": "length(trim(full_name)) > 0"
+          "expression": "length(pg_catalog.btrim(full_name)) > 0"
         },
         {
           "name": "chk_app_user_password_hash_nonempty",
-          "expression": "length(trim(password_hash)) > 0"
+          "expression": "length(pg_catalog.btrim(password_hash)) > 0"
         },
         {
           "name": "chk_app_user_row_version_pos",
@@ -394,7 +397,7 @@
       "check_constraints": [
         {
           "name": "chk_user_session_hash_nonempty",
-          "expression": "length(trim(refresh_token_hash)) > 0"
+          "expression": "length(pg_catalog.btrim(refresh_token_hash)) > 0"
         },
         {
           "name": "chk_user_session_expires_after_create",
@@ -538,6 +541,15 @@
           "primary_key": false,
           "unique": false,
           "description": "Thời điểm cập nhật"
+        },
+        {
+          "name": "updated_by",
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "primary_key": false,
+          "unique": false,
+          "description": "updated by"
         }
       ],
       "primary_key": [
@@ -553,6 +565,16 @@
             "id"
           ],
           "on_delete": "RESTRICT"
+        },
+        {
+          "columns": [
+            "updated_by"
+          ],
+          "ref_table": "app_user",
+          "ref_columns": [
+            "id"
+          ],
+          "on_delete": "NO ACTION"
         }
       ],
       "unique_constraints": [
@@ -570,7 +592,7 @@
         },
         {
           "name": "chk_patient_full_name_len",
-          "expression": "length(trim(full_name)) >= 2"
+          "expression": "length(pg_catalog.btrim(full_name)) >= 2"
         },
         {
           "name": "chk_patient_sex",
@@ -578,15 +600,15 @@
         },
         {
           "name": "chk_patient_birth_date_range",
-          "expression": "birth_date IS NULL OR (birth_date >= DATE '1900-01-01' AND birth_date <= CURRENT_DATE)"
+          "expression": "birth_date IS NULL OR (birth_date >= CAST('1900-01-01' AS date) AND birth_date <= CURRENT_DATE)"
         },
         {
           "name": "chk_patient_birth_year_range",
-          "expression": "birth_year IS NULL OR (birth_year BETWEEN 1900 AND 2100)"
+          "expression": "birth_year IS NULL OR birth_year BETWEEN 1900 AND 2100"
         },
         {
           "name": "chk_patient_declared_age_range",
-          "expression": "declared_age IS NULL OR (declared_age BETWEEN 0 AND 120)"
+          "expression": "declared_age IS NULL OR declared_age BETWEEN 0 AND 120"
         },
         {
           "name": "chk_patient_age_precision_mutex",
@@ -806,15 +828,15 @@
         },
         {
           "name": "chk_field_def_label_nonempty",
-          "expression": "length(trim(label_vi)) > 0"
+          "expression": "length(pg_catalog.btrim(label_vi)) > 0"
         },
         {
           "name": "chk_field_def_source_nonempty",
-          "expression": "length(trim(source_ref)) > 0"
+          "expression": "length(pg_catalog.btrim(source_ref)) > 0"
         },
         {
           "name": "chk_field_def_storage_level",
-          "expression": "storage_level IN ('patient', 'visit_value', 'computed', 'orthostatic_bp', 'medication', 'allergy', 'lab_result')"
+          "expression": "storage_level IN ('patient', 'visit_value', 'computed', 'orthostatic_bp', 'medication', 'allergy', 'lab_result', 'visit', 'diagnosis')"
         },
         {
           "name": "chk_field_def_min_max",
@@ -955,7 +977,7 @@
         },
         {
           "name": "chk_field_option_label_nonempty",
-          "expression": "length(trim(label_vi)) > 0"
+          "expression": "length(pg_catalog.btrim(label_vi)) > 0"
         },
         {
           "name": "chk_field_option_order_pos",
@@ -1124,7 +1146,7 @@
         },
         {
           "name": "chk_form_template_name_nonempty",
-          "expression": "length(trim(name)) > 0"
+          "expression": "length(pg_catalog.btrim(name)) > 0"
         }
       ],
       "indexes": [],
@@ -1249,6 +1271,15 @@
           "unique": false,
           "check": "row_version > 0",
           "description": "Phiên bản lạc quan ETag cho updateFormVersion"
+        },
+        {
+          "name": "definition_overrides",
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'{}'",
+          "primary_key": false,
+          "unique": false,
+          "description": "definition overrides"
         }
       ],
       "primary_key": [
@@ -1312,7 +1343,7 @@
         },
         {
           "name": "chk_form_version_label_nonempty",
-          "expression": "length(trim(version_label)) > 0"
+          "expression": "length(pg_catalog.btrim(version_label)) > 0"
         },
         {
           "name": "chk_form_version_not_self_based",
@@ -1453,7 +1484,7 @@
       "check_constraints": [
         {
           "name": "chk_form_section_title_nonempty",
-          "expression": "length(trim(title_vi)) > 0"
+          "expression": "length(pg_catalog.btrim(title_vi)) > 0"
         },
         {
           "name": "chk_form_section_order_pos",
@@ -1828,6 +1859,45 @@
           "unique": false,
           "check": "row_version > 0",
           "description": "Phiên bản lạc quan ETag chống ghi đè đồng thời"
+        },
+        {
+          "name": "medication_list_state",
+          "type": "text",
+          "nullable": false,
+          "default": "'unknown'",
+          "primary_key": false,
+          "unique": false,
+          "description": "medication list state",
+          "check": "medication_list_state IN ('known', 'none', 'unknown')"
+        },
+        {
+          "name": "allergy_list_state",
+          "type": "text",
+          "nullable": false,
+          "default": "'unknown'",
+          "primary_key": false,
+          "unique": false,
+          "description": "allergy list state",
+          "check": "allergy_list_state IN ('known', 'none', 'unknown')"
+        },
+        {
+          "name": "diagnosis_list_state",
+          "type": "text",
+          "nullable": false,
+          "default": "'unknown'",
+          "primary_key": false,
+          "unique": false,
+          "description": "diagnosis list state",
+          "check": "diagnosis_list_state IN ('known', 'none', 'unknown')"
+        },
+        {
+          "name": "updated_by",
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "primary_key": false,
+          "unique": false,
+          "description": "updated by"
         }
       ],
       "primary_key": [
@@ -1873,6 +1943,16 @@
             "id"
           ],
           "on_delete": "RESTRICT"
+        },
+        {
+          "columns": [
+            "updated_by"
+          ],
+          "ref_table": "app_user",
+          "ref_columns": [
+            "id"
+          ],
+          "on_delete": "NO ACTION"
         }
       ],
       "unique_constraints": [
@@ -2522,6 +2602,16 @@
           "primary_key": false,
           "unique": false,
           "description": "Thời điểm ghi nhận"
+        },
+        {
+          "name": "atc_code",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "primary_key": false,
+          "unique": false,
+          "description": "atc code",
+          "check": "atc_code ~ '^[A-Z][0-9]{2}[A-Z]{2}[0-9]{2}$'"
         }
       ],
       "primary_key": [
@@ -2547,7 +2637,7 @@
         },
         {
           "name": "chk_med_drug_name_nonempty",
-          "expression": "length(trim(drug_name)) > 0"
+          "expression": "length(pg_catalog.btrim(drug_name)) > 0"
         },
         {
           "name": "chk_med_dose_pos",
@@ -2684,6 +2774,16 @@
           "primary_key": false,
           "unique": false,
           "description": "Thời điểm lưu bản ghi"
+        },
+        {
+          "name": "atc_code",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "primary_key": false,
+          "unique": false,
+          "description": "atc code",
+          "check": "atc_code ~ '^[A-Z][0-9]{2}[A-Z]{2}[0-9]{2}$'"
         }
       ],
       "primary_key": [
@@ -2713,7 +2813,7 @@
         },
         {
           "name": "chk_allergy_allergen_nonempty",
-          "expression": "length(trim(allergen)) > 0"
+          "expression": "length(pg_catalog.btrim(allergen)) > 0"
         },
         {
           "name": "chk_allergy_severity",
@@ -2871,7 +2971,7 @@
       "check_constraints": [
         {
           "name": "chk_lab_has_value",
-          "expression": "value_num IS NOT NULL OR (value_text IS NOT NULL AND length(trim(value_text)) > 0)"
+          "expression": "value_num IS NOT NULL OR (value_text IS NOT NULL AND length(pg_catalog.btrim(value_text)) > 0)"
         },
         {
           "name": "chk_lab_value_num_nonneg",
@@ -2879,7 +2979,7 @@
         },
         {
           "name": "chk_lab_unit_required_for_num",
-          "expression": "value_num IS NULL OR (unit IS NOT NULL AND length(trim(unit)) > 0)"
+          "expression": "value_num IS NULL OR (unit IS NOT NULL AND length(pg_catalog.btrim(unit)) > 0)"
         }
       ],
       "indexes": [
@@ -3055,7 +3155,7 @@
         },
         {
           "name": "chk_visit_rev_reason_nonempty",
-          "expression": "length(trim(change_reason)) > 0"
+          "expression": "length(pg_catalog.btrim(change_reason)) > 0"
         },
         {
           "name": "chk_visit_rev_snapshot_obj",
@@ -3203,7 +3303,7 @@
       "check_constraints": [
         {
           "name": "chk_audit_entity_type_nonempty",
-          "expression": "length(trim(entity_type)) > 0"
+          "expression": "length(pg_catalog.btrim(entity_type)) > 0"
         },
         {
           "name": "chk_audit_outcome",
@@ -3259,6 +3359,282 @@
           "purpose": "Bảo đảm audit_log chỉ ghi nối (append-only), cấm sửa/xóa"
         }
       ]
+    },
+    {
+      "name": "visit_diagnosis",
+      "class_name": "VisitDiagnosis",
+      "description": "Chẩn đoán lượt khám.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "primary_key": true,
+          "unique": true,
+          "description": "id"
+        },
+        {
+          "name": "visit_id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "primary_key": false,
+          "unique": false,
+          "description": "visit id"
+        },
+        {
+          "name": "code",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "primary_key": false,
+          "unique": false,
+          "description": "code"
+        },
+        {
+          "name": "display",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "primary_key": false,
+          "unique": false,
+          "description": "display"
+        },
+        {
+          "name": "role",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "primary_key": false,
+          "unique": false,
+          "description": "role"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "columns": [
+            "visit_id"
+          ],
+          "ref_table": "visit",
+          "ref_columns": [
+            "id"
+          ],
+          "on_delete": "NO ACTION"
+        }
+      ],
+      "unique_constraints": [
+        {
+          "name": "uq_visit_diagnosis_code",
+          "columns": [
+            "visit_id",
+            "code"
+          ]
+        }
+      ],
+      "check_constraints": [
+        {
+          "name": "chk_visit_diagnosis_code",
+          "expression": "code ~ '^[A-Z][0-9]{2}(\\.[A-Z0-9]{1,4})?$'"
+        },
+        {
+          "name": "chk_visit_diagnosis_display",
+          "expression": "length(btrim(display)) BETWEEN 1 AND 200"
+        },
+        {
+          "name": "chk_visit_diagnosis_role",
+          "expression": "role IN ('primary', 'secondary')"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "ix_visit_diagnosis_primary",
+          "columns": [
+            "visit_id"
+          ],
+          "unique": true,
+          "where": "role = 'primary'"
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_visit_diagnosis_confirmed_guard",
+          "timing": "BEFORE",
+          "events": [
+            "INSERT",
+            "UPDATE",
+            "DELETE"
+          ],
+          "purpose": "Ch?n thay ??i ch?n ?o?n c?a l??t kh?m ?? x?c nh?n"
+        }
+      ]
+    },
+    {
+      "name": "patient_care_assignment",
+      "class_name": "PatientCareAssignment",
+      "description": "Lịch sử phân công bác sĩ và bệnh nhân.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "primary_key": true,
+          "unique": true,
+          "description": "id"
+        },
+        {
+          "name": "patient_id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "primary_key": false,
+          "unique": false,
+          "description": "patient id"
+        },
+        {
+          "name": "doctor_user_id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "primary_key": false,
+          "unique": false,
+          "description": "doctor user id"
+        },
+        {
+          "name": "assigned_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()",
+          "primary_key": false,
+          "unique": false,
+          "description": "assigned at"
+        },
+        {
+          "name": "assigned_by",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "primary_key": false,
+          "unique": false,
+          "description": "assigned by"
+        },
+        {
+          "name": "reason",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "primary_key": false,
+          "unique": false,
+          "description": "reason"
+        },
+        {
+          "name": "revoked_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "primary_key": false,
+          "unique": false,
+          "description": "revoked at"
+        },
+        {
+          "name": "revoked_by",
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "primary_key": false,
+          "unique": false,
+          "description": "revoked by"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "columns": [
+            "patient_id"
+          ],
+          "ref_table": "patient",
+          "ref_columns": [
+            "id"
+          ],
+          "on_delete": "NO ACTION"
+        },
+        {
+          "columns": [
+            "doctor_user_id"
+          ],
+          "ref_table": "app_user",
+          "ref_columns": [
+            "id"
+          ],
+          "on_delete": "NO ACTION"
+        },
+        {
+          "columns": [
+            "assigned_by"
+          ],
+          "ref_table": "app_user",
+          "ref_columns": [
+            "id"
+          ],
+          "on_delete": "NO ACTION"
+        },
+        {
+          "columns": [
+            "revoked_by"
+          ],
+          "ref_table": "app_user",
+          "ref_columns": [
+            "id"
+          ],
+          "on_delete": "NO ACTION"
+        }
+      ],
+      "unique_constraints": [],
+      "check_constraints": [
+        {
+          "name": "chk_care_reason_length",
+          "expression": "reason IS NULL OR length(reason) <= 1000"
+        },
+        {
+          "name": "chk_care_revocation_pair",
+          "expression": "(revoked_at IS NULL) = (revoked_by IS NULL)"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "ix_care_active_pair",
+          "columns": [
+            "patient_id",
+            "doctor_user_id"
+          ],
+          "unique": true,
+          "where": "revoked_at IS NULL"
+        },
+        {
+          "name": "ix_care_doctor_patient",
+          "columns": [
+            "doctor_user_id",
+            "patient_id"
+          ],
+          "unique": false,
+          "where": "revoked_at IS NULL"
+        },
+        {
+          "name": "ix_care_patient",
+          "columns": [
+            "patient_id",
+            "assigned_at DESC"
+          ],
+          "unique": false
+        }
+      ],
+      "triggers": []
     }
   ],
   "catalog_fields": {
@@ -3357,7 +3733,52 @@
       "xh_kha_nang_chi_tra",
       "xh_kha_nang_mua_su_dung_thuoc",
       "xh_kha_nang_tai_kham",
-      "xh_quan_he_nguoi_cham_soc"
+      "xh_quan_he_nguoi_cham_soc",
+      "nhiet_do",
+      "ts_thuoc_la",
+      "ts_thuoc_la_ghi_chu",
+      "ts_thuoc_lao",
+      "ts_thuoc_lao_ghi_chu",
+      "ts_ruou_bia",
+      "ts_ruou_bia_ghi_chu",
+      "ts_chat_gay_nghien",
+      "ts_chat_gay_nghien_ghi_chu",
+      "ts_khac",
+      "ts_khac_ghi_chu",
+      "cls_cong_thuc_mau",
+      "cls_glucose",
+      "cls_hba1c",
+      "cls_ferritin",
+      "cls_tsat",
+      "cls_tsh",
+      "info_source",
+      "clinical_note",
+      "cls_result_unit",
+      "cls_result_measured_at",
+      "icd_code",
+      "icd_display",
+      "icd_role",
+      "medication_list_state",
+      "allergy_list_state",
+      "diagnosis_list_state",
+      "ha_nhip_tim",
+      "ha_phut_sau_doi_tu_the",
+      "thuoc_medicationgroup",
+      "thuoc_drugname",
+      "thuoc_activeingredient",
+      "thuoc_strength",
+      "thuoc_dose",
+      "thuoc_unit",
+      "thuoc_frequency",
+      "thuoc_route",
+      "thuoc_status",
+      "thuoc_startedat",
+      "diung_kind",
+      "diung_agentcategory",
+      "diung_allergen",
+      "diung_reaction",
+      "diung_severity",
+      "diung_recordedat"
     ],
     "can_xac_nhan_codes": [
       "chan_doan_kieu_hinh_ef",

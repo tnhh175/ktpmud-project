@@ -8,6 +8,7 @@
 (function (global) {
   const STORAGE_KEY = 'suytim_mvp_static_db_v1';
   const SESSION_KEY = 'suytim_mvp_static_session_v1';
+  const CACHE_VERSION = 2;
   let authEpoch = 0;
 
   function credentialStamp(user) {
@@ -36,6 +37,7 @@
       this.title = title;
       this.detail = detail;
       this.errors = (extra && extra.errors) || [];
+      this.quality = (extra && extra.quality) || null;
       this.currentRowVersion = extra && extra.currentRowVersion !== undefined ? extra.currentRowVersion : null;
       this.problem = Object.assign({
         type: 'https://errors.suytim.local/' + String(code || 'error').toLowerCase(),
@@ -203,6 +205,7 @@
     const v10Id = '9965b491-5b78-5865-9220-53f7bc2c29fe';
     const v11Id = 'aa65b491-5b78-5865-9220-53f7bc2c29ff';
 
+    const draftOverrides = clone(catalog.draftVersionOverrides || {});
     const extraVisibleInV11 = {
       so_lan_cap_cuu_nhap_vien: true,
       muc_tieu_dieu_tri: true,
@@ -210,8 +213,21 @@
       lao_khoa_adl_iadl: true,
       lao_khoa_chuc_nang_nhan_thuc: true,
       lao_khoa_nguy_co_te_nga: true,
-      lao_khoa_kha_nang_nuot: true
+      lao_khoa_kha_nang_nuot: true,
+      cls_chuc_nang_gan: true,
+      chan_doan_kieu_hinh_ef: true
     };
+    (draftOverrides.visibleCodes || []).forEach(function (c) { extraVisibleInV11[c] = true; });
+    const retiredInV11 = {
+      cls_don_vi: true,
+      cls_thoi_diem: true,
+      cls_ecg_thoi_diem: true,
+      cls_sieu_am_tim_thoi_diem: true,
+      cls_xquang_thoi_diem: true,
+      thuoc_ghi_nhan: true,
+      di_ung_adr: true
+    };
+    (draftOverrides.hiddenCodes || []).forEach(function (c) { retiredInV11[c] = true; });
 
     function buildVersionSections(versionId, versionNo) {
       const secList = [];
@@ -221,6 +237,9 @@
         let order = 1;
         fieldDefs.forEach(function (fd) {
           if (fd.sectionCode !== sec.sectionCode) return;
+          const isV11Only = fd.sourceRef === 'G1 24/11/2026';
+          if (versionNo === 1 && isV11Only) return;
+          if (versionNo >= 2 && retiredInV11[fd.code]) return;
           const visible = fd.scopeStatus === 'mvp' || (versionNo >= 2 && Boolean(extraVisibleInV11[fd.code]));
           secFields.push({
             id: makeUuid(),
@@ -263,6 +282,7 @@
         publishedAt: '2026-10-01T08:15:00Z',
         publishedBy: admId,
         rowVersion: 2,
+        definitionOverrides: {},
         sections: buildVersionSections(v10Id, 1)
       },
       {
@@ -272,12 +292,13 @@
         versionLabel: 'v1.1',
         status: 'published',
         basedOnVersionId: v10Id,
-        changeNote: 'Bật bổ sung nhóm trường lão khoa cốt lõi và số lần nhập viện 12 tháng để bác sĩ theo dõi.',
+        changeNote: 'Phiên bản v1.1 theo G1 24/11/2026: sinh tồn/nhân trắc, ICD-10, 6 CLS mới, dị ứng cản quang tri-state và kiểu hình HFmrEF.',
         createdBy: admId,
         createdAt: '2026-11-01T08:00:00Z',
         publishedAt: '2026-11-01T09:00:00Z',
         publishedBy: admId,
         rowVersion: 2,
+        definitionOverrides: clone(draftOverrides),
         sections: buildVersionSections(v11Id, 2)
       }
     ];
@@ -738,8 +759,42 @@
       }
     ];
 
+    const careAssignments = [
+      {
+        id: '90000000-0000-4000-8000-000000000901',
+        patientId: p1Id,
+        doctorUserId: docId,
+        assignedAt: '2026-11-05T08:00:00Z',
+        assignedBy: docId,
+        reason: 'Phân công mặc định cho bác sĩ tạo hồ sơ.',
+        revokedAt: null,
+        revokedBy: null
+      },
+      {
+        id: '90000000-0000-4000-8000-000000000902',
+        patientId: p2Id,
+        doctorUserId: docId,
+        assignedAt: '2026-10-12T09:10:00Z',
+        assignedBy: docId,
+        reason: 'Phân công mặc định cho bác sĩ tạo hồ sơ.',
+        revokedAt: null,
+        revokedBy: null
+      },
+      {
+        id: '90000000-0000-4000-8000-000000000903',
+        patientId: p3Id,
+        doctorUserId: docId,
+        assignedAt: '2026-11-18T10:30:00Z',
+        assignedBy: docId,
+        reason: 'Phân công mặc định cho bác sĩ tạo hồ sơ.',
+        revokedAt: null,
+        revokedBy: null
+      }
+    ];
+
     return {
-      schemaVersion: catalog.schemaVersion || '1.0.0',
+      cacheVersion: CACHE_VERSION,
+      schemaVersion: catalog.schemaVersion || '1.1.0',
       nextPatientSeq: 104,
       nextVisitSeq: 2,
       formTemplate: template,
@@ -749,8 +804,143 @@
       users: users,
       patients: patients,
       visits: visits,
+      careAssignments: careAssignments,
       auditLogs: auditLogs
     };
+  }
+
+  function applyDefinitionOverrides(definitions, overrides) {
+    const ov = overrides || {};
+    return (definitions || []).map(function (orig) {
+      const def = clone(orig);
+      const override = ov[def.code] || {};
+      if (def.code === 'di_ung_thuoc_can_quang' && override.storageLevel === 'visit_value') {
+        def.storageLevel = 'visit_value';
+        def.repeatGroup = null;
+        def.memberPath = null;
+      }
+      const extras = Array.isArray(override.extraOptions) ? override.extraOptions : [];
+      if (def.code === 'chan_doan_kieu_hinh_ef') {
+        const allowHfmref = extras.some(function (o) { return o && o.optionCode === 'hfmref'; });
+        if (!allowHfmref) {
+          def.options = (def.options || []).filter(function (o) { return o && o.optionCode !== 'hfmref'; });
+        }
+      }
+      if (extras.length > 0) {
+        def.options = Array.isArray(def.options) ? def.options : [];
+        extras.forEach(function (opt) {
+          if (!def.options.some(function (o) { return o && o.optionCode === opt.optionCode; })) {
+            def.options.push(Object.assign({}, opt, { fieldDefinitionId: def.id }));
+          }
+        });
+      }
+      return def;
+    });
+  }
+
+  function getEffectiveDefinitions(db, formVersion) {
+    const overrides = formVersion && formVersion.definitionOverrides ? formVersion.definitionOverrides : {};
+    return applyDefinitionOverrides(db.fieldDefinitions || [], overrides);
+  }
+
+  function migrateStoredDb(stored, catalog) {
+    const catalogFields = clone(catalog.fields || []);
+    const draftOverrides = clone(catalog.draftVersionOverrides || {});
+    const hiddenSet = {};
+    (draftOverrides.hiddenCodes || []).forEach(function (c) { hiddenSet[c] = true; });
+    const visibleSet = { cls_chuc_nang_gan: true, chan_doan_kieu_hinh_ef: true };
+    (draftOverrides.visibleCodes || []).forEach(function (c) { visibleSet[c] = true; });
+
+    stored.fieldDefinitions = catalogFields;
+    stored.aiModules = clone(catalog.aiModules || stored.aiModules || []);
+    stored.schemaVersion = catalog.schemaVersion || '1.1.0';
+
+    (stored.formVersions || []).forEach(function (fv) {
+      const isV10 = Number(fv.versionNo) === 1 || fv.versionLabel === 'v1.0';
+      if (isV10) {
+        if (!fv.definitionOverrides) fv.definitionOverrides = {};
+        return;
+      }
+      // v1.1+ receives draftVersionOverrides (di_ung_thuoc_can_quang visit_value, hfmref, CLS placement cleanup)
+      fv.definitionOverrides = Object.assign({}, clone(draftOverrides), fv.definitionOverrides || {});
+      if (draftOverrides.di_ung_thuoc_can_quang) {
+        fv.definitionOverrides.di_ung_thuoc_can_quang = clone(draftOverrides.di_ung_thuoc_can_quang);
+      }
+      if (draftOverrides.chan_doan_kieu_hinh_ef) {
+        fv.definitionOverrides.chan_doan_kieu_hinh_ef = clone(draftOverrides.chan_doan_kieu_hinh_ef);
+      }
+      const existingByCode = {};
+      (fv.sections || []).forEach(function (sec) {
+        sec.fields = (sec.fields || []).filter(function (ff) {
+          if (hiddenSet[ff.fieldCode]) return false;
+          existingByCode[ff.fieldCode] = ff;
+          return true;
+        });
+      });
+      // Add any missing v1.1 placements while preserving existing placements & custom labels
+      (fv.sections || []).forEach(function (sec) {
+        let maxOrder = (sec.fields || []).reduce(function (m, f) { return Math.max(m, Number(f.displayOrder) || 0); }, 0);
+        catalogFields.forEach(function (fd) {
+          if (fd.sectionCode !== sec.sectionCode) return;
+          if (hiddenSet[fd.code]) return;
+          if (existingByCode[fd.code]) return;
+          sec.fields.push({
+            id: makeUuid(),
+            formVersionId: fv.id,
+            formSectionId: sec.id,
+            fieldDefinitionId: fd.id,
+            fieldCode: fd.code,
+            displayOrder: ++maxOrder,
+            requiredForConfirm: false,
+            isVisible: fd.scopeStatus === 'mvp' || Boolean(visibleSet[fd.code]),
+            isReadonly: Boolean(fd.isCalculated),
+            customLabelVi: null,
+            customHelpText: null
+          });
+        });
+      });
+    });
+
+    // Backfill creator assignments when missing
+    if (!Array.isArray(stored.careAssignments)) {
+      stored.careAssignments = [];
+      const seenPair = {};
+      (stored.patients || []).forEach(function (pt) {
+        const k = pt.id + ':' + pt.createdBy;
+        seenPair[k] = true;
+        stored.careAssignments.push({
+          id: makeUuid(),
+          patientId: pt.id,
+          doctorUserId: pt.createdBy,
+          assignedAt: pt.createdAt || new Date().toISOString(),
+          assignedBy: pt.createdBy,
+          reason: 'G1 legacy patient creator',
+          revokedAt: null,
+          revokedBy: null
+        });
+      });
+      (stored.visits || []).forEach(function (v) {
+        const pt = (stored.patients || []).find(function (p) { return p.id === v.patientId; });
+        const doc = (stored.users || []).find(function (u) { return u.id === v.createdBy && u.role === 'doctor'; });
+        const k = v.patientId + ':' + v.createdBy;
+        if (pt && doc && !seenPair[k]) {
+          seenPair[k] = true;
+          stored.careAssignments.push({
+            id: makeUuid(),
+            patientId: v.patientId,
+            doctorUserId: v.createdBy,
+            assignedAt: v.createdAt || new Date().toISOString(),
+            assignedBy: pt.createdBy,
+            reason: 'G1 legacy visit creator',
+            revokedAt: null,
+            revokedBy: null
+          });
+        }
+      });
+    }
+
+    stored.cacheVersion = CACHE_VERSION;
+    return stored;
   }
 
   let catalogCache = null;
@@ -770,7 +960,7 @@
     if (raw) {
       try {
         const parsed = JSON.parse(raw);
-        if (parsed && Array.isArray(parsed.fieldDefinitions) && parsed.fieldDefinitions.length === 121) {
+        if (parsed && Array.isArray(parsed.fieldDefinitions) && parsed.fieldDefinitions.length >= 1) {
           return parsed;
         }
       } catch (_e) {
@@ -782,8 +972,19 @@
 
   async function loadDb() {
     const stored = readStoredDb();
-    if (stored) return stored;
     const cat = await ensureCatalog();
+    const expectedDefCount = Array.isArray(cat.fields) ? cat.fields.length : 159;
+    if (stored) {
+      const needsMigration = stored.cacheVersion !== CACHE_VERSION ||
+        !Array.isArray(stored.fieldDefinitions) ||
+        stored.fieldDefinitions.length < expectedDefCount ||
+        !Array.isArray(stored.careAssignments);
+      if (needsMigration) {
+        migrateStoredDb(stored, cat);
+        saveDb(stored);
+      }
+      return stored;
+    }
     const db = buildInitialDb(cat);
     saveDb(db);
     return db;
@@ -873,18 +1074,79 @@
     return user;
   }
 
-  function findFieldDefMap(db) {
+  function findFieldDefMap(db, formVersion) {
+    const defs = formVersion ? getEffectiveDefinitions(db, formVersion) : (db.fieldDefinitions || []);
     const m = {};
-    db.fieldDefinitions.forEach(function (fd) {
+    defs.forEach(function (fd) {
       m[fd.id] = fd;
       m[fd.code] = fd;
     });
     return m;
   }
 
+  function isAssignmentActive(a) {
+    return Boolean(a && !a.revokedAt);
+  }
+
+  function resolvePatientAccess(db, patientId, doctorUserId) {
+    const found = (db.careAssignments || []).find(function (a) {
+      return a.patientId === patientId && a.doctorUserId === doctorUserId && isAssignmentActive(a);
+    });
+    if (!found) return null;
+    return {
+      assignmentId: found.id,
+      assignedAt: found.assignedAt || found.validFrom,
+      assignedBy: found.assignedBy
+    };
+  }
+
+  function requirePatientAccess(db, patientId, actor) {
+    const pt = db.patients.find(function (p) { return p.id === patientId; });
+    if (!pt) {
+      throw new StaticApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy hồ sơ', 'Không tìm thấy hồ sơ yêu cầu.');
+    }
+    const access = resolvePatientAccess(db, patientId, actor.id);
+    if (!access) {
+      throw new StaticApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy hồ sơ', 'Không tìm thấy hồ sơ yêu cầu.');
+    }
+    return { patient: pt, access: access };
+  }
+
+  function findUserName(db, userId) {
+    if (!userId) return null;
+    const u = (db.users || []).find(function (x) { return x.id === userId; });
+    return u ? u.fullName : null;
+  }
+
+  function formatAssignment(db, a) {
+    return {
+      id: a.id,
+      patientId: a.patientId,
+      doctorUserId: a.doctorUserId,
+      doctorName: findUserName(db, a.doctorUserId) || 'Bác sĩ',
+      assignedAt: a.assignedAt || a.validFrom,
+      assignedBy: a.assignedBy,
+      assignedByName: findUserName(db, a.assignedBy) || 'Hệ thống',
+      reason: a.reason || null,
+      revokedAt: a.revokedAt || null,
+      revokedBy: a.revokedBy || null,
+      revokedByName: a.revokedBy ? (findUserName(db, a.revokedBy) || 'Quản trị viên') : null
+    };
+  }
+
+  function formatPatientOut(db, pt, access) {
+    const out = clone(pt);
+    out.access = access || null;
+    out.updatedBy = pt.updatedBy || pt.createdBy;
+    out.updatedByName = findUserName(db, out.updatedBy);
+    return out;
+  }
+
   function validateVisitPayload(db, visit, payload) {
     const errors = [];
-    const defMap = findFieldDefMap(db);
+    const formVer = db.formVersions.find(function (fv) { return fv.id === visit.formVersionId; });
+    const effectiveDefs = getEffectiveDefinitions(db, formVer);
+    const defMap = findFieldDefMap(db, formVer);
     const values = Array.isArray(payload.values) ? payload.values : [];
 
     values.forEach(function (v) {
@@ -931,6 +1193,81 @@
       }
     });
 
+    // Synchronize contrast media allergy tri-state for v1.1 (storageLevel='visit_value')
+    const contrastDef = effectiveDefs.find(function (f) { return f.code === 'di_ung_thuoc_can_quang' && f.storageLevel === 'visit_value'; });
+    if (contrastDef) {
+      const answer = values.find(function (v) { return v.fieldDefinitionId === contrastDef.id || v.fieldCode === contrastDef.code; });
+      const allergies = Array.isArray(payload.allergies) ? payload.allergies : [];
+      const hasContrast = allergies.some(function (a) { return a && a.agentCategory === 'contrast_media'; });
+      const allergyState = payload.allergyListState !== undefined ? payload.allergyListState : (allergies.length > 0 ? 'known' : 'unknown');
+      const positive = Boolean(answer && answer.valueState === 'answered' && answer.valueBool === true);
+      if (hasContrast && !answer) {
+        values.push({
+          fieldDefinitionId: contrastDef.id,
+          fieldCode: contrastDef.code,
+          valueState: 'answered',
+          valueBool: true,
+          valueNum: null,
+          valueText: null,
+          valueDate: null,
+          fieldOptionId: null,
+          selectedOptions: [],
+          unit: null
+        });
+      } else if ((hasContrast && !positive) || (positive && allergyState === 'none')) {
+        errors.push({
+          fieldCode: contrastDef.code,
+          sectionCode: 'thuoc_di_ung',
+          message: 'Trạng thái dị ứng cản quang mâu thuẫn với danh sách dị ứng; hãy rà lại cả câu trả lời và các dòng tác nhân.',
+          rejectedValue: null
+        });
+      }
+    }
+
+    // List-state consistency checks (known requires rows; none/unknown must have 0 rows)
+    [
+      ['medication', 'medicationListState', payload.medications || [], 'thuoc_di_ung'],
+      ['allergy', 'allergyListState', payload.allergies || [], 'thuoc_di_ung'],
+      ['diagnosis', 'diagnosisListState', payload.diagnoses || [], 'benh_su_dong_mac']
+    ].forEach(function (spec) {
+      const rawState = payload[spec[1]];
+      if (rawState !== undefined && rawState !== null) {
+        const hasRows = spec[2].length > 0;
+        if ((rawState === 'known') !== hasRows) {
+          errors.push({
+            fieldCode: spec[0] + '_list_state',
+            sectionCode: spec[3],
+            message: 'Trạng thái danh sách "Có" cần có ít nhất 1 dòng; "Không có" / "Chưa rõ" không được kèm dòng dữ liệu.',
+            rejectedValue: rawState
+          });
+        }
+      }
+    });
+
+    // Diagnoses ICD-10 checks
+    if (Array.isArray(payload.diagnoses) && payload.diagnoses.length > 0) {
+      const seenIcd = {};
+      let primaryCount = 0;
+      payload.diagnoses.forEach(function (d, idx) {
+        const code = String((d && d.code) || '').trim().toUpperCase();
+        const disp = String((d && d.display) || '').trim();
+        if (!/^[A-Z]\d{2}(?:\.[A-Z0-9]{1,4})?$/.test(code)) {
+          errors.push({ fieldCode: 'icd_code', sectionCode: 'benh_su_dong_mac', message: 'ICD #' + (idx + 1) + ': mã ICD-10 không đúng định dạng.', rejectedValue: code });
+        }
+        if (seenIcd[code]) {
+          errors.push({ fieldCode: 'icd_code', sectionCode: 'benh_su_dong_mac', message: 'Mã ICD-10 bị trùng: ' + code, rejectedValue: code });
+        }
+        seenIcd[code] = true;
+        if (!disp) {
+          errors.push({ fieldCode: 'icd_display', sectionCode: 'benh_su_dong_mac', message: 'ICD #' + (idx + 1) + ': bắt buộc nhập tên bệnh.', rejectedValue: disp });
+        }
+        if (d.role === 'primary') primaryCount += 1;
+      });
+      if (primaryCount > 1) {
+        errors.push({ fieldCode: 'icd_role', sectionCode: 'benh_su_dong_mac', message: 'Chỉ được phép có tối đa 1 chẩn đoán chính.', rejectedValue: primaryCount });
+      }
+    }
+
     (payload.orthostaticBp || []).forEach(function (bp, idx) {
       const sys = Number(bp.systolic);
       const dia = Number(bp.diastolic);
@@ -955,6 +1292,9 @@
     });
 
     (payload.medications || []).forEach(function (med, idx) {
+      if (med.medicationGroup !== 'prescribed' && med.medicationGroup !== 'otc_supplement_tcm') {
+        errors.push({ fieldCode: 'thuoc_ghi_nhan', sectionCode: 'thuoc_di_ung', message: 'Thuốc #' + (idx + 1) + ': phân nhóm thuốc không hợp lệ.', rejectedValue: med.medicationGroup });
+      }
       if (!med.drugName || !String(med.drugName).trim()) {
         errors.push({ fieldCode: 'thuoc_ghi_nhan', sectionCode: 'thuoc_di_ung', message: 'Bản ghi thuốc #' + (idx + 1) + ': bắt buộc nhập tên thuốc.', rejectedValue: null });
       }
@@ -998,7 +1338,7 @@
 
   function buildVisitReview(db, visit) {
     const formVer = db.formVersions.find(function (fv) { return fv.id === visit.formVersionId; });
-    const defMap = findFieldDefMap(db);
+    const defMap = findFieldDefMap(db, formVer);
     const valByDefId = {};
     (visit.values || []).forEach(function (v) { valByDefId[v.fieldDefinitionId] = v; });
 
@@ -1198,10 +1538,15 @@
     };
   }
 
-  function stripVisitArrays(v) {
+  function stripVisitArrays(v, db) {
+    const updatedById = v.updatedBy || v.createdBy;
     return {
       id: v.id,
       visitCode: v.visitCode,
+      performedBy: v.createdBy,
+      performedByName: db ? findUserName(db, v.createdBy) : null,
+      updatedBy: updatedById,
+      updatedByName: db ? findUserName(db, updatedById) : null,
       externalVisitCode: v.externalVisitCode || null,
       patientId: v.patientId,
       formVersionId: v.formVersionId,
@@ -1210,6 +1555,9 @@
       chiefComplaint: v.chiefComplaint || null,
       clinicalNote: v.clinicalNote || null,
       infoSource: v.infoSource || null,
+      medicationListState: v.medicationListState || ((v.medications && v.medications.length > 0) ? 'known' : 'unknown'),
+      allergyListState: v.allergyListState || ((v.allergies && v.allergies.length > 0) ? 'known' : 'unknown'),
+      diagnosisListState: v.diagnosisListState || ((v.diagnoses && v.diagnoses.length > 0) ? 'known' : 'unknown'),
       status: v.status,
       currentRevisionNo: v.currentRevisionNo,
       createdBy: v.createdBy,
@@ -1412,25 +1760,27 @@
     /* ---------------- M2 & M3: Patients ---------------- */
     async listPatients(params) {
       const db = await loadDb();
-      requireAuth(db, ['doctor'], 'patient');
+      const actor = requireAuth(db, ['doctor'], 'patient');
       const opts = params || {};
       const q = String(opts.q || '').trim().toLowerCase();
       const statusFilter = opts.latestVisitStatus || '';
 
       let items = db.patients.map(function (pt) {
+        const access = resolvePatientAccess(db, pt.id, actor.id);
+        if (!access) return null;
         const pVisits = db.visits
           .filter(function (v) { return v.patientId === pt.id; })
           .sort(function (a, b) { return new Date(b.visitDate) - new Date(a.visitDate); });
         const latest = pVisits[0] || null;
         return {
-          patient: clone(pt),
+          patient: formatPatientOut(db, pt, access),
           visitCount: pVisits.length,
           latestVisitId: latest ? latest.id : null,
           latestVisitCode: latest ? latest.visitCode : null,
           latestVisitDate: latest ? latest.visitDate : null,
           latestVisitStatus: latest ? latest.status : 'none'
         };
-      });
+      }).filter(Boolean);
 
       if (q) {
         items = items.filter(function (item) {
@@ -1496,18 +1846,28 @@
         updatedAt: nowIso
       };
       db.patients.unshift(pt);
+      const assignmentId = makeUuid();
+      db.careAssignments = db.careAssignments || [];
+      db.careAssignments.unshift({
+        id: assignmentId,
+        patientId: pt.id,
+        doctorUserId: actor.id,
+        assignedAt: nowIso,
+        assignedBy: actor.id,
+        reason: 'Phân công mặc định cho bác sĩ tạo hồ sơ.',
+        revokedAt: null,
+        revokedBy: null
+      });
       appendAudit(db, actor, 'patient_create', 'patient', pt.id, 'success', { patientCode: pt.patientCode });
       saveDb(db);
-      return clone(pt);
+      return formatPatientOut(db, pt, { assignmentId: assignmentId, assignedAt: nowIso, assignedBy: actor.id });
     },
 
     async getPatient(patientId) {
       const db = await loadDb();
-      requireAuth(db, ['doctor'], 'patient');
-      const pt = db.patients.find(function (p) { return p.id === patientId; });
-      if (!pt) {
-        throw new StaticApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy hồ sơ', 'Không tồn tại hồ sơ bệnh nhân với mã định danh yêu cầu.');
-      }
+      const actor = requireAuth(db, ['doctor'], 'patient');
+      const check = requirePatientAccess(db, patientId, actor);
+      const pt = check.patient;
       const pVisits = db.visits
         .filter(function (v) { return v.patientId === pt.id; })
         .sort(function (a, b) { return new Date(b.visitDate) - new Date(a.visitDate); });
@@ -1536,18 +1896,16 @@
         };
       }
       return {
-        patient: clone(pt),
+        patient: formatPatientOut(db, pt, check.access),
         latestVisitSummary: latestVisitSummary
       };
     },
 
     async updatePatient(patientId, payload, ifMatch) {
       const db = await loadDb();
-      requireAuth(db, ['doctor'], 'patient');
-      const pt = db.patients.find(function (p) { return p.id === patientId; });
-      if (!pt) {
-        throw new StaticApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy hồ sơ', 'Không tồn tại hồ sơ bệnh nhân.');
-      }
+      const actor = requireAuth(db, ['doctor'], 'patient');
+      const check = requirePatientAccess(db, patientId, actor);
+      const pt = check.patient;
       const expected = parseIfMatch(ifMatch, payload && payload.rowVersion);
       if (expected === null || expected !== pt.rowVersion) {
         throw new StaticApiError(409, 'CONCURRENCY_ROW_VERSION_MISMATCH', 'Xung đột phiên bản dữ liệu (409)', 'Hồ sơ bệnh nhân đã được cập nhật ở phiên khác (rowVersion hiện tại: ' + pt.rowVersion + '). Vui lòng tải lại trước khi lưu.', { currentRowVersion: pt.rowVersion });
@@ -1565,20 +1923,22 @@
       if (payload.declaredAge !== undefined) pt.declaredAge = payload.declaredAge === null || payload.declaredAge === '' ? null : Number(payload.declaredAge);
       if (payload.externalPatientCode !== undefined) pt.externalPatientCode = payload.externalPatientCode ? String(payload.externalPatientCode).trim() : null;
       pt.rowVersion += 1;
+      pt.updatedBy = actor.id;
       pt.updatedAt = new Date().toISOString();
       saveDb(db);
-      return clone(pt);
+      return formatPatientOut(db, pt, check.access);
     },
 
     /* ---------------- M3, M4 & M5: Visits ---------------- */
     async listPatientVisits(patientId, params) {
       const db = await loadDb();
-      requireAuth(db, ['doctor'], 'visit');
+      const actor = requireAuth(db, ['doctor'], 'visit');
+      requirePatientAccess(db, patientId, actor);
       const opts = params || {};
       let items = db.visits
         .filter(function (v) { return v.patientId === patientId; })
         .map(function (v) {
-          const item = stripVisitArrays(v);
+          const item = stripVisitArrays(v, db);
           const fv = db.formVersions.find(function (f) { return f.id === v.formVersionId; });
           item.formVersionLabel = fv ? fv.versionLabel : 'v1';
           return item;
@@ -1593,10 +1953,7 @@
     async createVisit(patientId, payload) {
       const db = await loadDb();
       const actor = requireAuth(db, ['doctor'], 'visit');
-      const pt = db.patients.find(function (p) { return p.id === patientId; });
-      if (!pt) {
-        throw new StaticApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy bệnh nhân', 'Hồ sơ bệnh nhân không tồn tại.');
-      }
+      const pt = requirePatientAccess(db, patientId, actor).patient;
       const published = db.formVersions.find(function (fv) { return fv.status === 'published'; });
       if (!published) {
         throw new StaticApiError(409, 'NO_PUBLISHED_FORM_VERSION', 'Chưa có phiên bản biểu mẫu phát hành', 'Vui lòng yêu cầu Quản trị viên phát hành một phiên bản biểu mẫu.');
@@ -1637,34 +1994,38 @@
       db.visits.unshift(visit);
       pt.updatedAt = nowIso;
       saveDb(db);
-      return stripVisitArrays(visit);
+      return stripVisitArrays(visit, db);
     },
 
     async getVisit(visitId) {
       const db = await loadDb();
-      requireAuth(db, ['doctor'], 'visit');
+      const actor = requireAuth(db, ['doctor'], 'visit');
       const visit = db.visits.find(function (v) { return v.id === visitId; });
       if (!visit) {
-        throw new StaticApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy lượt khám', 'Lượt khám không tồn tại.');
+        throw new StaticApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy hồ sơ', 'Không tìm thấy hồ sơ yêu cầu.');
       }
+      const check = requirePatientAccess(db, visit.patientId, actor);
       return {
-        visit: stripVisitArrays(visit),
+        access: check.access,
+        visit: stripVisitArrays(visit, db),
         values: clone(visit.values || []),
         orthostaticBp: clone(visit.orthostaticBp || []),
         medications: clone(visit.medications || []),
         allergies: clone(visit.allergies || []),
         labResults: clone(visit.labResults || []),
+        diagnoses: clone(visit.diagnoses || []),
         revisions: clone(visit.revisions || [])
       };
     },
 
     async getVisitForm(visitId) {
       const db = await loadDb();
-      requireAuth(db, ['doctor'], 'visit');
+      const actor = requireAuth(db, ['doctor'], 'visit');
       const visit = db.visits.find(function (v) { return v.id === visitId; });
       if (!visit) {
-        throw new StaticApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy lượt khám', 'Lượt khám không tồn tại.');
+        throw new StaticApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy hồ sơ', 'Không tìm thấy hồ sơ yêu cầu.');
       }
+      requirePatientAccess(db, visit.patientId, actor);
       const fv = db.formVersions.find(function (f) { return f.id === visit.formVersionId; });
       if (!fv) {
         throw new StaticApiError(404, 'FORM_VERSION_NOT_FOUND', 'Không tìm thấy phiên bản biểu mẫu', 'Phiên bản biểu mẫu gắn với lượt khám không tồn tại.');
@@ -1673,17 +2034,18 @@
         visitId: visit.id,
         formVersion: formatVersionSummary(db, fv),
         sections: clone(fv.sections || []),
-        fieldDefinitions: clone(db.fieldDefinitions || [])
+        fieldDefinitions: getEffectiveDefinitions(db, fv)
       };
     },
 
     async saveVisitDraft(visitId, payload, ifMatch) {
       const db = await loadDb();
-      requireAuth(db, ['doctor'], 'visit');
+      const actor = requireAuth(db, ['doctor'], 'visit');
       const visit = db.visits.find(function (v) { return v.id === visitId; });
       if (!visit) {
-        throw new StaticApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy lượt khám', 'Lượt khám không tồn tại.');
+        throw new StaticApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy hồ sơ', 'Không tìm thấy hồ sơ yêu cầu.');
       }
+      requirePatientAccess(db, visit.patientId, actor);
       if (visit.status === 'confirmed') {
         throw new StaticApiError(409, 'VISIT_ALREADY_CONFIRMED', 'Lượt khám đã xác nhận (Chỉ đọc)', 'Không thể lưu đè trực tiếp lượt khám đã xác nhận. Hãy sử dụng "Tạo bản sửa mới (revision)" kèm lý do.', { currentRowVersion: visit.rowVersion });
       }
@@ -1692,7 +2054,8 @@
         throw new StaticApiError(409, 'CONCURRENCY_ROW_VERSION_MISMATCH', 'Xung đột sửa đồng thời (409)', 'Lượt khám này đã được cập nhật lên phiên bản dữ liệu r' + visit.rowVersion + ' ở một phiên khác. Hệ thống không ghi đè âm thầm.', { currentRowVersion: visit.rowVersion });
       }
 
-      const errors = validateVisitPayload(db, visit, payload || {});
+      const workPayload = clone(payload || {});
+      const errors = validateVisitPayload(db, visit, workPayload);
       if (errors.length > 0) {
         throw new StaticApiError(
           422,
@@ -1704,12 +2067,26 @@
       }
 
       const nowIso = new Date().toISOString();
-      const defMap = findFieldDefMap(db);
-      visit.clinicalNote = payload.clinicalNote !== undefined ? (payload.clinicalNote || null) : visit.clinicalNote;
-      visit.infoSource = payload.infoSource !== undefined ? (payload.infoSource || null) : visit.infoSource;
+      const formVer = db.formVersions.find(function (fv) { return fv.id === visit.formVersionId; });
+      const defMap = findFieldDefMap(db, formVer);
+      visit.clinicalNote = workPayload.clinicalNote !== undefined ? (workPayload.clinicalNote || null) : visit.clinicalNote;
+      visit.infoSource = workPayload.infoSource !== undefined ? (workPayload.infoSource || null) : visit.infoSource;
+      if (workPayload.medicationListState !== undefined) visit.medicationListState = workPayload.medicationListState;
+      if (workPayload.allergyListState !== undefined) visit.allergyListState = workPayload.allergyListState;
+      if (workPayload.diagnosisListState !== undefined) visit.diagnosisListState = workPayload.diagnosisListState;
+      if (Array.isArray(workPayload.diagnoses)) {
+        visit.diagnoses = workPayload.diagnoses.map(function (d) {
+          return {
+            id: d.id || makeUuid(),
+            code: String(d.code || '').trim().toUpperCase(),
+            display: String(d.display || '').trim(),
+            role: d.role === 'primary' ? 'primary' : 'secondary'
+          };
+        });
+      }
 
       // Enforce K2: normalize visit_value (omit unfilled, unknown -> all value cols null)
-      visit.values = (payload.values || []).map(function (v) {
+      visit.values = (workPayload.values || []).map(function (v) {
         const fd = defMap[v.fieldDefinitionId] || defMap[v.fieldCode];
         if (!fd) return null;
         if (v.valueState === 'unknown') {
@@ -1746,7 +2123,7 @@
         };
       }).filter(Boolean);
 
-      visit.orthostaticBp = (payload.orthostaticBp || []).map(function (bp) {
+      visit.orthostaticBp = (workPayload.orthostaticBp || []).map(function (bp) {
         return {
           id: bp.id || makeUuid(),
           visitId: visit.id,
@@ -1761,7 +2138,7 @@
         };
       });
 
-      visit.medications = (payload.medications || []).map(function (m) {
+      visit.medications = (workPayload.medications || []).map(function (m) {
         return {
           id: m.id || makeUuid(),
           visitId: visit.id,
@@ -1780,7 +2157,7 @@
         };
       });
 
-      visit.allergies = (payload.allergies || []).map(function (a) {
+      visit.allergies = (workPayload.allergies || []).map(function (a) {
         return {
           id: a.id || makeUuid(),
           visitId: visit.id,
@@ -1795,7 +2172,7 @@
         };
       });
 
-      visit.labResults = (payload.labResults || []).map(function (l) {
+      visit.labResults = (workPayload.labResults || []).map(function (l) {
         const fd = defMap[l.labCode];
         return {
           id: l.id || makeUuid(),
@@ -1812,27 +2189,30 @@
       });
 
       visit.rowVersion += 1;
+      visit.updatedBy = actor.id;
       visit.updatedAt = nowIso;
       saveDb(db);
 
       return {
-        visit: stripVisitArrays(visit),
+        visit: stripVisitArrays(visit, db),
         values: clone(visit.values),
         orthostaticBp: clone(visit.orthostaticBp),
         medications: clone(visit.medications),
         allergies: clone(visit.allergies),
         labResults: clone(visit.labResults),
+        diagnoses: clone(visit.diagnoses || []),
         revisions: clone(visit.revisions || [])
       };
     },
 
     async getVisitReview(visitId) {
       const db = await loadDb();
-      requireAuth(db, ['doctor'], 'visit');
+      const actor = requireAuth(db, ['doctor'], 'visit');
       const visit = db.visits.find(function (v) { return v.id === visitId; });
       if (!visit) {
-        throw new StaticApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy lượt khám', 'Lượt khám không tồn tại.');
+        throw new StaticApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy hồ sơ', 'Không tìm thấy hồ sơ yêu cầu.');
       }
+      requirePatientAccess(db, visit.patientId, actor);
       return buildVisitReview(db, visit);
     },
 
@@ -1841,8 +2221,9 @@
       const actor = requireAuth(db, ['doctor'], 'visit');
       const visit = db.visits.find(function (v) { return v.id === visitId; });
       if (!visit) {
-        throw new StaticApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy lượt khám', 'Lượt khám không tồn tại.');
+        throw new StaticApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy hồ sơ', 'Không tìm thấy hồ sơ yêu cầu.');
       }
+      requirePatientAccess(db, visit.patientId, actor);
       if (visit.status === 'confirmed') {
         throw new StaticApiError(409, 'VISIT_ALREADY_CONFIRMED', 'Lượt khám đã được xác nhận', 'Lượt khám này đã ở trạng thái đã xác nhận.', { currentRowVersion: visit.rowVersion });
       }
@@ -1861,6 +2242,7 @@
       visit.confirmedBy = actor.id;
       visit.confirmNote = (payload && payload.confirmNote) || null;
       visit.rowVersion += 1;
+      visit.updatedBy = actor.id;
       visit.updatedAt = nowIso;
       const revNo = (visit.revisions || []).length + 1;
       visit.currentRevisionNo = revNo;
@@ -1884,7 +2266,7 @@
         revisionNo: revNo
       });
       saveDb(db);
-      return stripVisitArrays(visit);
+      return stripVisitArrays(visit, db);
     },
 
     async createVisitRevision(visitId, payload, ifMatch) {
@@ -1892,8 +2274,9 @@
       const actor = requireAuth(db, ['doctor'], 'visit_revision');
       const visit = db.visits.find(function (v) { return v.id === visitId; });
       if (!visit) {
-        throw new StaticApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy lượt khám', 'Lượt khám không tồn tại.');
+        throw new StaticApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy hồ sơ', 'Không tìm thấy hồ sơ yêu cầu.');
       }
+      requirePatientAccess(db, visit.patientId, actor);
       if (visit.status !== 'confirmed') {
         throw new StaticApiError(409, 'VISIT_NOT_CONFIRMED', 'Lượt khám đang ở trạng thái nháp', 'Chỉ tạo bản sửa mới (revision) đối với lượt khám đã xác nhận.', { currentRowVersion: visit.rowVersion });
       }
@@ -1928,6 +2311,7 @@
       visit.confirmedBy = null;
       visit.confirmNote = null;
       visit.rowVersion += 1;
+      visit.updatedBy = actor.id;
       visit.updatedAt = nowIso;
 
       appendAudit(db, actor, 'visit_confirm', 'visit_revision', rev.id, 'success', {
@@ -1942,15 +2326,33 @@
 
     async getVisitAiInput(visitId) {
       const db = await loadDb();
-      requireAuth(db, ['doctor'], 'visit');
+      const actor = requireAuth(db, ['doctor'], 'visit');
       const visit = db.visits.find(function (v) { return v.id === visitId; });
       if (!visit) {
-        throw new StaticApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy lượt khám', 'Lượt khám không tồn tại.');
+        throw new StaticApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy hồ sơ', 'Không tìm thấy hồ sơ yêu cầu.');
       }
+      requirePatientAccess(db, visit.patientId, actor);
       if (visit.status !== 'confirmed') {
         throw new StaticApiError(409, 'VISIT_NOT_CONFIRMED_FOR_AI_INPUT', 'Chưa xác nhận lượt khám', 'Chỉ xuất hợp đồng AiInputPayload cho lượt khám đã ở trạng thái confirmed.');
       }
       return buildAiInputPayload(db, visit);
+    },
+
+    async getVisitAiInputV1(visitId) {
+      const db = await loadDb();
+      const actor = requireAuth(db, ['doctor'], 'visit');
+      const visit = db.visits.find(function (v) { return v.id === visitId; });
+      if (!visit) {
+        throw new StaticApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy hồ sơ', 'Không tìm thấy hồ sơ yêu cầu.');
+      }
+      requirePatientAccess(db, visit.patientId, actor);
+      // Block hf-ai-input/1.0 export in static mode — never emit unprotected payload under ai-pseudonym-v1.
+      throw new StaticApiError(
+        501,
+        'AI_EXPORT_STATIC_UNSUPPORTED',
+        'Không hỗ trợ xuất JSON cho AI ở chế độ tĩnh',
+        'Chế độ demo tĩnh không hỗ trợ xuất JSON cho AI (hf-ai-input/1.0); dùng bản có máy chủ để bảo đảm ẩn danh HMAC và bản chụp bất biến.'
+      );
     },
 
     /* ---------------- M6: Admin Users ---------------- */
@@ -2205,6 +2607,7 @@
         publishedAt: null,
         publishedBy: null,
         rowVersion: 1,
+        definitionOverrides: clone(base.definitionOverrides || {}),
         sections: newSections
       };
       db.formVersions.unshift(draft);
@@ -2227,7 +2630,7 @@
       return {
         formVersion: formatVersionSummary(db, fv),
         sections: clone(fv.sections || []),
-        fieldDefinitions: clone(db.fieldDefinitions || [])
+        fieldDefinitions: getEffectiveDefinitions(db, fv)
       };
     },
 
@@ -2263,7 +2666,7 @@
       return {
         formVersion: formatVersionSummary(db, fv),
         sections: clone(fv.sections),
-        fieldDefinitions: clone(db.fieldDefinitions || [])
+        fieldDefinitions: getEffectiveDefinitions(db, fv)
       };
     },
 
@@ -2279,7 +2682,32 @@
         previewBannerVi: 'Chế độ xem trước góc nhìn Bác sĩ cho ' + fv.versionLabel + ' — mọi thao tác nhập thử không được lưu vào hồ sơ bệnh án.',
         formVersion: formatVersionSummary(db, fv),
         sections: clone(fv.sections || []),
-        fieldDefinitions: clone(db.fieldDefinitions || [])
+        fieldDefinitions: getEffectiveDefinitions(db, fv)
+      };
+    },
+
+    async previewFormVersionDraft(versionId, payload) {
+      const db = await loadDb();
+      requireAuth(db, ['admin'], 'form_version');
+      const fv = db.formVersions.find(function (x) { return x.id === versionId; });
+      if (!fv) {
+        throw new StaticApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy phiên bản biểu mẫu', 'Phiên bản biểu mẫu không tồn tại.');
+      }
+      if (fv.status !== 'draft') {
+        throw new StaticApiError(409, 'FORM_VERSION_NOT_DRAFT', 'Chỉ xem trước trạng thái chưa lưu cho bản nháp', 'Phiên bản này không còn ở trạng thái bản nháp.', { currentRowVersion: fv.rowVersion });
+      }
+      if (payload && payload.rowVersion !== undefined && payload.rowVersion !== null && Number(payload.rowVersion) !== fv.rowVersion) {
+        throw new StaticApiError(409, 'CONCURRENCY_ROW_VERSION_MISMATCH', 'Xung đột phiên bản bản nháp (409)', 'Bản nháp đã được cập nhật ở phiên khác.', { currentRowVersion: fv.rowVersion });
+      }
+      if (!payload || !Array.isArray(payload.sections) || payload.sections.length === 0) {
+        throw new StaticApiError(422, 'INVALID_SECTIONS', 'Cấu trúc nhóm biểu mẫu không hợp lệ', 'Bản nháp xem trước phải có danh sách nhóm hợp lệ.');
+      }
+      return {
+        isPreviewOnly: true,
+        previewBannerVi: 'Chế độ xem trước góc nhìn Bác sĩ cho ' + fv.versionLabel + ' (trạng thái đang chỉnh sửa, chưa lưu nháp) — không ghi dữ liệu xuống CSDL.',
+        formVersion: formatVersionSummary(db, fv),
+        sections: clone(payload.sections),
+        fieldDefinitions: getEffectiveDefinitions(db, fv)
       };
     },
 
@@ -2458,6 +2886,155 @@
       });
       saveDb(db);
       return { deleted: true, versionId: fv.id, versionLabel: fv.versionLabel };
+    },
+
+    /* ---------------- Admin Care Assignments (Simplified Demo Scope) ---------------- */
+    async adminListCareDoctors() {
+      const db = await loadDb();
+      requireAuth(db, ['admin'], 'care_assignment');
+      const items = (db.users || [])
+        .filter(function (u) { return u.role === 'doctor' && u.isActive; })
+        .sort(function (a, b) { return String(a.fullName || '').localeCompare(String(b.fullName || '')); })
+        .map(function (u) { return { id: u.id, username: u.username, fullName: u.fullName }; });
+      return { items: items };
+    },
+
+    async adminListCarePatients(params) {
+      const db = await loadDb();
+      requireAuth(db, ['admin'], 'care_assignment');
+      const opts = params || {};
+      const q = String(opts.q || '').trim().toLowerCase();
+      let items = (db.patients || []).map(function (pt) {
+        const docs = (db.careAssignments || [])
+          .filter(function (a) { return a.patientId === pt.id && isAssignmentActive(a); })
+          .map(function (a) {
+            return { id: a.doctorUserId, fullName: findUserName(db, a.doctorUserId) || 'Bác sĩ' };
+          })
+          .sort(function (a, b) { return String(a.fullName).localeCompare(String(b.fullName)); });
+        return {
+          id: pt.id,
+          patientCode: pt.patientCode,
+          fullName: pt.fullName,
+          assignedDoctors: docs
+        };
+      });
+      if (q) {
+        items = items.filter(function (p) {
+          return p.patientCode.toLowerCase().indexOf(q) >= 0 || p.fullName.toLowerCase().indexOf(q) >= 0;
+        });
+      }
+      items.sort(function (a, b) { return a.patientCode.localeCompare(b.patientCode); });
+      return paginate(items, opts.page, opts.pageSize || 20);
+    },
+
+    async adminListPatientCareAssignments(patientId) {
+      const db = await loadDb();
+      requireAuth(db, ['admin'], 'care_assignment');
+      const pt = (db.patients || []).find(function (p) { return p.id === patientId; });
+      if (!pt) throw new StaticApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy hồ sơ', 'Không tìm thấy hồ sơ yêu cầu.');
+      const items = (db.careAssignments || [])
+        .filter(function (a) { return a.patientId === patientId; })
+        .sort(function (a, b) { return Date.parse(b.assignedAt || b.validFrom || 0) - Date.parse(a.assignedAt || a.validFrom || 0); })
+        .map(function (a) { return formatAssignment(db, a); });
+      return { items: items };
+    },
+
+    async adminAddPatientCareAssignment(patientId, payload) {
+      const db = await loadDb();
+      const actor = requireAuth(db, ['admin'], 'care_assignment');
+      const pt = (db.patients || []).find(function (p) { return p.id === patientId; });
+      if (!pt) throw new StaticApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy hồ sơ', 'Không tìm thấy hồ sơ yêu cầu.');
+      const doctorId = payload && payload.doctorUserId;
+      const doc = (db.users || []).find(function (u) { return u.id === doctorId && u.role === 'doctor' && u.isActive; });
+      if (!doc) {
+        throw new StaticApiError(422, 'CARE_DOCTOR_INVALID', 'Bác sĩ không hợp lệ', 'Cần chọn bác sĩ đang hoạt động.');
+      }
+      db.careAssignments = db.careAssignments || [];
+      if (db.careAssignments.some(function (a) { return a.patientId === patientId && a.doctorUserId === doctorId && isAssignmentActive(a); })) {
+        throw new StaticApiError(409, 'CARE_ASSIGNMENT_CONFLICT', 'Đã phân công bác sĩ này', 'Bác sĩ đã được phân công cho hồ sơ này.');
+      }
+      const reason = payload && payload.reason ? String(payload.reason).trim() || null : null;
+      const rec = {
+        id: makeUuid(),
+        patientId: patientId,
+        doctorUserId: doc.id,
+        assignedAt: new Date().toISOString(),
+        assignedBy: actor.id,
+        reason: reason,
+        revokedAt: null,
+        revokedBy: null
+      };
+      db.careAssignments.unshift(rec);
+      appendAudit(db, actor, 'care_assignment_add', 'patient', patientId, 'success', { assignmentId: rec.id, doctorUserId: doc.id });
+      saveDb(db);
+      return formatAssignment(db, rec);
+    },
+
+    async adminReplacePatientCareAssignments(patientId, payload) {
+      const db = await loadDb();
+      const actor = requireAuth(db, ['admin'], 'care_assignment');
+      const pt = (db.patients || []).find(function (p) { return p.id === patientId; });
+      if (!pt) throw new StaticApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy hồ sơ', 'Không tìm thấy hồ sơ yêu cầu.');
+      const ids = Array.isArray(payload && payload.doctorUserIds) ? payload.doctorUserIds : [];
+      const seen = {};
+      ids.forEach(function (id) {
+        if (seen[id]) throw new StaticApiError(422, 'FIELD_VALIDATION_FAILED', 'Trùng bác sĩ', 'Danh sách bác sĩ không được chứa ID trùng.');
+        seen[id] = true;
+        const doc = (db.users || []).find(function (u) { return u.id === id && u.role === 'doctor' && u.isActive; });
+        if (!doc) throw new StaticApiError(422, 'CARE_DOCTOR_INVALID', 'Bác sĩ không hợp lệ', 'Cần chọn bác sĩ đang hoạt động.');
+      });
+      const reason = payload && payload.reason ? String(payload.reason).trim() || null : null;
+      const nowIso = new Date().toISOString();
+      db.careAssignments = db.careAssignments || [];
+      const currentActive = {};
+      db.careAssignments.forEach(function (a) {
+        if (a.patientId === patientId && isAssignmentActive(a)) {
+          currentActive[a.doctorUserId] = a;
+          if (!seen[a.doctorUserId]) {
+            a.revokedAt = nowIso;
+            a.revokedBy = actor.id;
+            appendAudit(db, actor, 'care_assignment_revoke', 'patient', patientId, 'success', { assignmentId: a.id, doctorUserId: a.doctorUserId });
+          }
+        }
+      });
+      ids.forEach(function (id) {
+        if (!currentActive[id]) {
+          const rec = {
+            id: makeUuid(),
+            patientId: patientId,
+            doctorUserId: id,
+            assignedAt: nowIso,
+            assignedBy: actor.id,
+            reason: reason,
+            revokedAt: null,
+            revokedBy: null
+          };
+          db.careAssignments.unshift(rec);
+          appendAudit(db, actor, 'care_assignment_add', 'patient', patientId, 'success', { assignmentId: rec.id, doctorUserId: id });
+        }
+      });
+      saveDb(db);
+      const items = db.careAssignments
+        .filter(function (a) { return a.patientId === patientId; })
+        .sort(function (a, b) { return Date.parse(b.assignedAt || b.validFrom || 0) - Date.parse(a.assignedAt || a.validFrom || 0); })
+        .map(function (a) { return formatAssignment(db, a); });
+      return { items: items };
+    },
+
+    async adminRevokePatientCareAssignment(patientId, assignmentId) {
+      const db = await loadDb();
+      const actor = requireAuth(db, ['admin'], 'care_assignment');
+      const pt = (db.patients || []).find(function (p) { return p.id === patientId; });
+      if (!pt) throw new StaticApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy hồ sơ', 'Không tìm thấy hồ sơ yêu cầu.');
+      const rec = (db.careAssignments || []).find(function (a) { return a.id === assignmentId && a.patientId === patientId; });
+      if (!rec) throw new StaticApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy phân công', 'Không tìm thấy hồ sơ yêu cầu.');
+      if (!rec.revokedAt) {
+        rec.revokedAt = new Date().toISOString();
+        rec.revokedBy = actor.id;
+        appendAudit(db, actor, 'care_assignment_revoke', 'patient', patientId, 'success', { assignmentId: rec.id });
+        saveDb(db);
+      }
+      return null;
     },
 
     /* ---------------- M8: Admin Audit Logs ---------------- */

@@ -1,8 +1,8 @@
 # Từ điển Dữ liệu CSDL (`data_dictionary.md`)
 
-**Phiên bản schema:** `1.0.0` (PostgreSQL 16+)  
+**Phiên bản schema:** `1.1.0` (PostgreSQL 16+)
 **Nguồn sự thật:** `CONTRACT.md`, `CR-W1-01.md`, [`schema_metadata.json`](./schema_metadata.json), `trace-table.xlsx`.  
-**Tổng quan:** `19` bảng quan hệ (`16` bảng hợp đồng + `visit_lab_result`, `visit_revision`, `visit_value_option`), `10` kiểu `ENUM`, `13` hàm PL/pgSQL, `19` trigger, `121` định nghĩa trường trong `field_definition` (`95` `mvp` + `26` `can_xac_nhan`, `0` mã từ `65` dòng đầu ra AI).
+**Tổng quan:** `21` bảng quan hệ (`16` bảng hợp đồng + `visit_lab_result`, `visit_revision`, `visit_value_option`), `10` kiểu `ENUM`, `13` hàm PL/pgSQL, `20` trigger, `166` định nghĩa trường trong `field_definition` (`95` `mvp` + `26` `can_xac_nhan`, `0` mã từ `65` dòng đầu ra AI).
 
 ---
 
@@ -576,3 +576,83 @@
 | 2 | `chan_doan_stage_suy_tim` | Giai đoạn suy tim (Stage A–D) | `can_xac_nhan` | `single_choice` | — | `visit_value` | `stage_a` (Stage A), `stage_b` (Stage B), `stage_c` (Stage C), `stage_d` (Stage D) | `ai_treatment` | TL06 R146/STT 150 (stage_suy_tim) |
 | 3 | `chan_doan_kieu_hinh_ef` | Kiểu hình suy tim theo EF | `can_xac_nhan` | `single_choice` | — | `visit_value` | `hfref` (EF giảm), `hfpef` (EF bảo tồn), `hfimef` (EF cải thiện), `unclassified` (Chưa phân loại do thiếu EF) | `ai_treatment` | TL06 R147/STT 151 (ef_treatment) |
 | 4 | `chan_doan_nguyen_nhan_suy_tim` | Nguyên nhân suy tim trước điều trị | `can_xac_nhan` | `text` | — | `visit_value` | — | `ai_treatment` | TL06 R148/STT 152 (nguyen_nhan_treatment) |
+
+## Bổ sung biểu mẫu v1.1 và phân công bác sĩ
+
+Khởi tạo mới dùng v1.1 published (159 trường), lưu v1.0 retired (121 trường). Danh mục chung có 166 định nghĩa, gồm 140 mã mvp và 26 mã can_xac_nhan.
+
+Audit thêm `ai_input_export`, `care_assignment_add`, `care_assignment_revoke`. Storage level thêm `visit`, `diagnosis`.
+
+| Bảng | Cột thêm | Kiểu | Cho phép NULL |
+|---|---|---|---|
+| `patient` | `updated_by` | `uuid` | Có |
+| `form_version` | `definition_overrides` | `jsonb` | Không |
+| `visit` | `medication_list_state` | `text` | Không |
+| `visit` | `allergy_list_state` | `text` | Không |
+| `visit` | `diagnosis_list_state` | `text` | Không |
+| `visit` | `updated_by` | `uuid` | Có |
+| `visit_medication` | `atc_code` | `text` | Có |
+| `visit_allergy` | `atc_code` | `text` | Có |
+| `visit_diagnosis` | `id` | `uuid` | Không |
+| `visit_diagnosis` | `visit_id` | `uuid` | Không |
+| `visit_diagnosis` | `code` | `text` | Không |
+| `visit_diagnosis` | `display` | `text` | Không |
+| `visit_diagnosis` | `role` | `text` | Không |
+| `patient_care_assignment` | `id` | `uuid` | Không |
+| `patient_care_assignment` | `patient_id` | `uuid` | Không |
+| `patient_care_assignment` | `doctor_user_id` | `uuid` | Không |
+| `patient_care_assignment` | `assigned_at` | `timestamptz` | Không |
+| `patient_care_assignment` | `assigned_by` | `uuid` | Không |
+| `patient_care_assignment` | `reason` | `text` | Có |
+| `patient_care_assignment` | `revoked_at` | `timestamptz` | Có |
+| `patient_care_assignment` | `revoked_by` | `uuid` | Có |
+
+`patient_care_assignment` giữ lịch sử cấp/thu hồi quyền; mỗi cặp bệnh nhân và bác sĩ chỉ có một phân công chưa thu hồi. `updated_by` ghi người sửa gần nhất, không thay `created_by`. `visit_diagnosis` dùng mã ICD-10, tối đa một chẩn đoán primary mỗi lượt. ATC dùng mẫu 7 ký tự.
+
+| Mã trường mới | Nhãn | Nhóm | Kiểu | Nơi lưu |
+|---|---|---|---|---|
+| `nhiet_do` | Nhiệt độ | `sinh_ton_kham` | `number` | `visit_value` |
+| `ts_thuoc_la` | Thuốc lá | `benh_su_dong_mac` | `boolean` | `visit_value` |
+| `ts_thuoc_la_ghi_chu` | Ghi chú thuốc lá | `benh_su_dong_mac` | `text` | `visit_value` |
+| `ts_thuoc_lao` | Thuốc lào | `benh_su_dong_mac` | `boolean` | `visit_value` |
+| `ts_thuoc_lao_ghi_chu` | Ghi chú thuốc lào | `benh_su_dong_mac` | `text` | `visit_value` |
+| `ts_ruou_bia` | Rượu bia | `benh_su_dong_mac` | `boolean` | `visit_value` |
+| `ts_ruou_bia_ghi_chu` | Ghi chú rượu bia | `benh_su_dong_mac` | `text` | `visit_value` |
+| `ts_chat_gay_nghien` | Chất gây nghiện | `benh_su_dong_mac` | `boolean` | `visit_value` |
+| `ts_chat_gay_nghien_ghi_chu` | Ghi chú chất gây nghiện | `benh_su_dong_mac` | `text` | `visit_value` |
+| `ts_khac` | Tiền sử khác | `benh_su_dong_mac` | `boolean` | `visit_value` |
+| `ts_khac_ghi_chu` | Ghi chú tiền sử khác | `benh_su_dong_mac` | `text` | `visit_value` |
+| `cls_cong_thuc_mau` | Công thức máu | `can_lam_sang` | `text` | `lab_result` |
+| `cls_glucose` | Glucose | `can_lam_sang` | `number` | `lab_result` |
+| `cls_hba1c` | HbA1c | `can_lam_sang` | `number` | `lab_result` |
+| `cls_ferritin` | Ferritin | `can_lam_sang` | `number` | `lab_result` |
+| `cls_tsat` | TSAT | `can_lam_sang` | `number` | `lab_result` |
+| `cls_tsh` | TSH | `can_lam_sang` | `number` | `lab_result` |
+| `info_source` | Nguồn cung cấp thông tin lâm sàng | `ghi_chu` | `text` | `visit` |
+| `clinical_note` | Ghi chú lâm sàng bổ sung | `ghi_chu` | `text` | `visit` |
+| `cls_result_unit` | Đơn vị của kết quả | `can_lam_sang` | `text` | `lab_result` |
+| `cls_result_measured_at` | Thời điểm của kết quả | `can_lam_sang` | `text` | `lab_result` |
+| `icd_code` | Mã ICD-10 | `benh_su_dong_mac` | `text` | `diagnosis` |
+| `icd_display` | Tên chẩn đoán | `benh_su_dong_mac` | `text` | `diagnosis` |
+| `icd_role` | Chẩn đoán chính/phụ | `benh_su_dong_mac` | `single_choice` | `diagnosis` |
+| `medication_list_state` | Trạng thái danh sách thuốc | `thuoc_di_ung` | `single_choice` | `visit` |
+| `allergy_list_state` | Trạng thái danh sách dị ứng | `thuoc_di_ung` | `single_choice` | `visit` |
+| `diagnosis_list_state` | Trạng thái danh sách ICD | `benh_su_dong_mac` | `single_choice` | `visit` |
+| `ha_nhip_tim` | Nhịp tim khi đo HA | `sinh_ton_kham` | `integer` | `orthostatic_bp` |
+| `ha_phut_sau_doi_tu_the` | Phút sau đổi tư thế | `sinh_ton_kham` | `integer` | `orthostatic_bp` |
+| `thuoc_medicationgroup` | Nhóm thuốc | `thuoc_di_ung` | `text` | `medication` |
+| `thuoc_drugname` | Tên thuốc | `thuoc_di_ung` | `text` | `medication` |
+| `thuoc_activeingredient` | Hoạt chất | `thuoc_di_ung` | `text` | `medication` |
+| `thuoc_strength` | Hàm lượng | `thuoc_di_ung` | `text` | `medication` |
+| `thuoc_dose` | Liều | `thuoc_di_ung` | `number` | `medication` |
+| `thuoc_unit` | Đơn vị liều | `thuoc_di_ung` | `text` | `medication` |
+| `thuoc_frequency` | Tần suất | `thuoc_di_ung` | `text` | `medication` |
+| `thuoc_route` | Đường dùng | `thuoc_di_ung` | `text` | `medication` |
+| `thuoc_status` | Trạng thái thuốc | `thuoc_di_ung` | `text` | `medication` |
+| `thuoc_startedat` | Ngày bắt đầu | `thuoc_di_ung` | `text` | `medication` |
+| `diung_kind` | Loại phản ứng | `thuoc_di_ung` | `text` | `allergy` |
+| `diung_agentcategory` | Nhóm tác nhân | `thuoc_di_ung` | `text` | `allergy` |
+| `diung_allergen` | Tác nhân | `thuoc_di_ung` | `text` | `allergy` |
+| `diung_reaction` | Phản ứng | `thuoc_di_ung` | `text` | `allergy` |
+| `diung_severity` | Mức độ | `thuoc_di_ung` | `text` | `allergy` |
+| `diung_recordedat` | Thời điểm ghi nhận | `thuoc_di_ung` | `text` | `allergy` |

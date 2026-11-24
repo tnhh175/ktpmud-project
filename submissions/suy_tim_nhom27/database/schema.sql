@@ -18,10 +18,10 @@ CREATE TYPE field_data_type AS ENUM ('number', 'integer', 'text', 'boolean', 'da
 CREATE TYPE section_code AS ENUM ('hanh_chinh', 'trieu_chung_dien_bien', 'sinh_ton_kham', 'benh_su_dong_mac', 'thuoc_di_ung', 'can_lam_sang', 'lao_khoa', 'ghi_chu');
 CREATE TYPE readiness_tier AS ENUM ('patient_created', 'draft_saved', 'confirmed', 'ai_ready');
 CREATE TYPE bp_position AS ENUM ('supine', 'sitting', 'standing');
-CREATE TYPE audit_action AS ENUM ('login', 'logout', 'login_failed', 'user_create', 'user_update', 'form_version_create', 'form_version_update', 'form_version_publish', 'patient_create', 'visit_confirm');
+CREATE TYPE audit_action AS ENUM ('login', 'logout', 'login_failed', 'user_create', 'user_update', 'form_version_create', 'form_version_update', 'form_version_publish', 'patient_create', 'visit_confirm', 'ai_input_export', 'care_assignment_add', 'care_assignment_revoke');
 
 -- -----------------------------------------------------------------------------
--- 2. TABLES (19 tables in 3NF: 16 CONTRACT + visit_lab_result, visit_revision, visit_value_option)
+-- 2. TABLES (21 tables including diagnosis and patient care assignments)
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE app_user (
@@ -72,6 +72,7 @@ CREATE TABLE patient (
   declared_age smallint,
   row_version integer NOT NULL DEFAULT 1,
   created_by uuid NOT NULL,
+  updated_by uuid REFERENCES app_user(id),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT pk_patient PRIMARY KEY (id),
@@ -111,7 +112,7 @@ CREATE TABLE field_definition (
   CONSTRAINT chk_field_def_code_fmt CHECK (code ~ '^[a-z][a-z0-9_]*$'),
   CONSTRAINT chk_field_def_label_nonempty CHECK (length(trim(label_vi)) > 0),
   CONSTRAINT chk_field_def_source_nonempty CHECK (length(trim(source_ref)) > 0),
-  CONSTRAINT chk_field_def_storage_level CHECK (storage_level IN ('patient', 'visit_value', 'computed', 'orthostatic_bp', 'medication', 'allergy', 'lab_result')),
+  CONSTRAINT chk_field_def_storage_level CHECK (storage_level IN ('patient', 'visit_value', 'computed', 'orthostatic_bp', 'medication', 'allergy', 'lab_result', 'visit', 'diagnosis')),
   CONSTRAINT chk_field_def_min_max CHECK (min_value IS NULL OR max_value IS NULL OR min_value <= max_value),
   CONSTRAINT chk_field_def_bounds_numeric_only CHECK (data_type IN ('number', 'integer') OR (min_value IS NULL AND max_value IS NULL))
 );
@@ -166,6 +167,7 @@ CREATE TABLE form_version (
   status form_version_status NOT NULL DEFAULT 'draft',
   based_on_version_id uuid,
   change_note text,
+  definition_overrides jsonb NOT NULL DEFAULT '{}',
   created_by uuid NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   published_at timestamptz,
@@ -232,9 +234,13 @@ CREATE TABLE visit (
   chief_complaint text,
   clinical_note text,
   info_source varchar(64),
+  medication_list_state text NOT NULL DEFAULT 'unknown' CHECK (medication_list_state IN ('known', 'none', 'unknown')),
+  allergy_list_state text NOT NULL DEFAULT 'unknown' CHECK (allergy_list_state IN ('known', 'none', 'unknown')),
+  diagnosis_list_state text NOT NULL DEFAULT 'unknown' CHECK (diagnosis_list_state IN ('known', 'none', 'unknown')),
   status visit_status NOT NULL DEFAULT 'draft',
   current_revision_no integer NOT NULL DEFAULT 1,
   created_by uuid NOT NULL,
+  updated_by uuid REFERENCES app_user(id),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   confirmed_at timestamptz,
@@ -308,6 +314,7 @@ CREATE TABLE visit_orthostatic_bp (
 CREATE INDEX ix_visit_bp_visit_time ON visit_orthostatic_bp (visit_id, measured_at);
 
 CREATE TABLE visit_medication (
+  atc_code text CHECK (atc_code ~ '^[A-Z][0-9]{2}[A-Z]{2}[0-9]{2}$'),
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   visit_id uuid NOT NULL,
   medication_group varchar(32) NOT NULL DEFAULT 'prescribed',
@@ -333,6 +340,7 @@ CREATE TABLE visit_medication (
 CREATE INDEX ix_visit_med_visit_status ON visit_medication (visit_id, status);
 
 CREATE TABLE visit_allergy (
+  atc_code text CHECK (atc_code ~ '^[A-Z][0-9]{2}[A-Z]{2}[0-9]{2}$'),
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   visit_id uuid NOT NULL,
   kind varchar(24) NOT NULL,
@@ -418,6 +426,37 @@ CREATE INDEX ix_audit_entity_time ON audit_log (entity_type, entity_id, occurred
 -- -----------------------------------------------------------------------------
 -- 3. TRIGGER FUNCTIONS & TRIGGERS (Immutability, 3-state & type validation, Audit guard)
 -- -----------------------------------------------------------------------------
+
+CREATE TABLE visit_diagnosis (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  visit_id uuid NOT NULL REFERENCES visit(id),
+  code text NOT NULL,
+  display text NOT NULL,
+  role text NOT NULL,
+  CONSTRAINT pk_visit_diagnosis PRIMARY KEY (id),
+  CONSTRAINT uq_visit_diagnosis_code UNIQUE (visit_id, code),
+  CONSTRAINT chk_visit_diagnosis_code CHECK (code ~ '^[A-Z][0-9]{2}(\.[A-Z0-9]{1,4})?$'),
+  CONSTRAINT chk_visit_diagnosis_display CHECK (length(btrim(display)) BETWEEN 1 AND 200),
+  CONSTRAINT chk_visit_diagnosis_role CHECK (role IN ('primary', 'secondary'))
+);
+CREATE UNIQUE INDEX ix_visit_diagnosis_primary ON visit_diagnosis (visit_id) WHERE role = 'primary';
+
+CREATE TABLE patient_care_assignment (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  patient_id uuid NOT NULL REFERENCES patient(id),
+  doctor_user_id uuid NOT NULL REFERENCES app_user(id),
+  assigned_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  assigned_by uuid NOT NULL REFERENCES app_user(id),
+  reason text,
+  revoked_at timestamptz,
+  revoked_by uuid REFERENCES app_user(id),
+  CONSTRAINT pk_patient_care_assignment PRIMARY KEY (id),
+  CONSTRAINT chk_care_reason_length CHECK (reason IS NULL OR length(reason) <= 1000),
+  CONSTRAINT chk_care_revocation_pair CHECK ((revoked_at IS NULL) = (revoked_by IS NULL))
+);
+CREATE UNIQUE INDEX ix_care_active_pair ON patient_care_assignment (patient_id, doctor_user_id) WHERE revoked_at IS NULL;
+CREATE INDEX ix_care_doctor_patient ON patient_care_assignment (doctor_user_id, patient_id) WHERE revoked_at IS NULL;
+CREATE INDEX ix_care_patient ON patient_care_assignment (patient_id, assigned_at DESC);
 
 CREATE OR REPLACE FUNCTION fn_set_updated_at()
 RETURNS trigger
@@ -511,6 +550,7 @@ BEGIN
        AND NEW.version_label = OLD.version_label
        AND NEW.based_on_version_id IS NOT DISTINCT FROM OLD.based_on_version_id
        AND NEW.change_note IS NOT DISTINCT FROM OLD.change_note
+       AND NEW.definition_overrides IS NOT DISTINCT FROM OLD.definition_overrides
        AND NEW.created_by = OLD.created_by
        AND NEW.created_at = OLD.created_at
        AND NEW.published_at = OLD.published_at
@@ -676,6 +716,10 @@ CREATE TRIGGER trg_visit_allergy_confirmed_guard
   BEFORE INSERT OR UPDATE OR DELETE ON visit_allergy
   FOR EACH ROW EXECUTE FUNCTION fn_visit_child_confirmed_guard();
 
+CREATE TRIGGER trg_visit_diagnosis_confirmed_guard
+  BEFORE INSERT OR UPDATE OR DELETE ON visit_diagnosis
+  FOR EACH ROW EXECUTE FUNCTION fn_visit_child_confirmed_guard();
+
 CREATE OR REPLACE FUNCTION fn_visit_value_guard()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -721,6 +765,11 @@ BEGIN
   INTO v_data_type, v_min_val, v_max_val, v_storage_level
   FROM field_definition
   WHERE id = NEW.field_definition_id;
+
+  IF EXISTS(SELECT 1 FROM field_definition WHERE id=NEW.field_definition_id AND code='di_ung_thuoc_can_quang') THEN
+    SELECT COALESCE(definition_overrides->'di_ung_thuoc_can_quang'->>'storageLevel', v_storage_level)
+    INTO v_storage_level FROM form_version WHERE id=v_form_version_id;
+  END IF;
 
   IF v_storage_level IN ('orthostatic_bp', 'medication', 'allergy', 'lab_result', 'patient') THEN
     RAISE EXCEPTION 'Field % uses storage_level=% and cannot be stored in visit_value', NEW.field_definition_id, v_storage_level

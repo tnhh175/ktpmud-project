@@ -26,8 +26,8 @@ BEGIN
   SELECT count(*) INTO v_sec_cnt FROM form_section;
   SELECT count(*) INTO v_user_cnt FROM app_user;
 
-  IF v_mvp_cnt <> 95 THEN
-    RAISE EXCEPTION 'Expected 95 mvp field_definition rows, got %', v_mvp_cnt;
+  IF v_mvp_cnt <> 140 THEN
+    RAISE EXCEPTION 'Expected 140 mvp field_definition rows, got %', v_mvp_cnt;
   END IF;
   IF v_cxn_cnt <> 26 THEN
     RAISE EXCEPTION 'Expected 26 can_xac_nhan field_definition rows, got %', v_cxn_cnt;
@@ -35,8 +35,8 @@ BEGIN
   IF v_ai_leak <> 0 THEN
     RAISE EXCEPTION 'Found % leaked ai_* output codes in field_definition', v_ai_leak;
   END IF;
-  IF v_sec_cnt <> 8 THEN
-    RAISE EXCEPTION 'Expected 8 form_section rows, got %', v_sec_cnt;
+  IF v_sec_cnt <> 16 THEN
+    RAISE EXCEPTION 'Expected 16 form_section rows, got %', v_sec_cnt;
   END IF;
   IF v_user_cnt <> 2 THEN
     RAISE EXCEPTION 'Expected 2 seeded app_user rows, got %', v_user_cnt;
@@ -233,7 +233,7 @@ BEGIN
     NULL;
   END;
 
-  -- (C4) app_user.row_version optimistic concurrency & trigger
+  -- app_user.row_version optimistic concurrency & trigger
   DECLARE
     v_rv integer;
     v_rows integer;
@@ -388,7 +388,7 @@ BEGIN
 
   -- Creating draft form_version and trying to bind a visit to draft must fail
   INSERT INTO form_version (form_template_id, version_no, version_label, status, based_on_version_id, created_by)
-  VALUES (v_tpl_id, 2, 'v2.0-draft', 'draft', v_ver_id, v_admin_id)
+  VALUES (v_tpl_id, 3, 'v2.0-draft', 'draft', v_ver_id, v_admin_id)
   RETURNING id INTO v_draft_ver_id;
 
   BEGIN

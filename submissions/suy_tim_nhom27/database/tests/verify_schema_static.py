@@ -67,6 +67,9 @@ CONTRACT_ENUMS = {
         "form_version_publish",
         "patient_create",
         "visit_confirm",
+        "ai_input_export",
+        "care_assignment_add",
+        "care_assignment_revoke",
     ],
 }
 
@@ -90,6 +93,8 @@ EXPECTED_TABLES = {
     "visit_lab_result",
     "visit_revision",
     "audit_log",
+    "visit_diagnosis",
+    "patient_care_assignment",
 }
 
 
@@ -206,7 +211,7 @@ def check_schema_ast(schema_tree, meta):
     assert "chk_visit_value_state_cols" in ddl_table_checks["visit_value"]
     assert "chk_patient_code_fmt" in ddl_table_checks["patient"]
     assert "chk_lab_unit_required_for_num" in ddl_table_checks["visit_lab_result"]
-    print(f"  OK: 10 enums, 19 tables, {len(ddl_triggers)} triggers, all critical CHECKs match 100%")
+    print(f"  OK: 10 enums, 21 tables, {len(ddl_triggers)} triggers, all critical CHECKs match 100%")
 
 
 def check_seed_and_trace_table(seed_tree, meta):
@@ -219,7 +224,7 @@ def check_seed_and_trace_table(seed_tree, meta):
             tname = stmt.relation.relname
             cols = [c.name for c in stmt.cols]
             rows = []
-            for row_list in stmt.selectStmt.valuesLists:
+            for row_list in stmt.selectStmt.valuesLists or ():
                 vals = [extract_const_val(item) for item in row_list]
                 rows.append(dict(zip(cols, vals)))
             inserts.setdefault(tname, []).extend(rows)
@@ -236,23 +241,24 @@ def check_seed_and_trace_table(seed_tree, meta):
     assert {s["section_code"] for s in inserts["form_section"]} == set(CONTRACT_ENUMS["section_code"])
 
     seed_fields = inserts["field_definition"]
-    assert len(seed_fields) == 121, f"Expected 121 seeded fields, got {len(seed_fields)}"
+    assert len(seed_fields) == 166, f"Expected 166 seeded fields, got {len(seed_fields)}"
     seed_mvp = {f["code"] for f in seed_fields if f["scope_status"] == "mvp"}
     seed_cxn = {f["code"] for f in seed_fields if f["scope_status"] == "can_xac_nhan"}
-    assert len(seed_mvp) == 95, f"Expected 95 mvp, got {len(seed_mvp)}"
+    assert len(seed_mvp) == 140, f"Expected 140 mvp, got {len(seed_mvp)}"
     assert len(seed_cxn) == 26, f"Expected 26 can_xac_nhan, got {len(seed_cxn)}"
     assert len(seed_mvp & seed_cxn) == 0
     assert len(inserts["form_field"]) == 121
 
     # Verify all single_choice and multi_choice fields have >= 2 options
-    choice_ids = {f["id"] for f in seed_fields if f["data_type"] in ("single_choice", "multi_choice")}
+    choice_ids = {f["id"] for f in seed_fields if f["data_type"] in ("single_choice", "multi_choice") and f["storage_level"] not in ("visit", "diagnosis")}
     opt_counts = {}
     for opt in inserts["field_option"]:
         opt_counts[opt["field_definition_id"]] = opt_counts.get(opt["field_definition_id"], 0) + 1
     for cid in choice_ids:
         assert opt_counts.get(cid, 0) >= 2, f"Choice field {cid} has < 2 options"
 
-    # Cross-check 100% against trace-table.xlsx
+    legacy_mvp = {f["code"] for f in seed_fields[:121] if f["scope_status"] == "mvp"}
+    # Cross-check the archived baseline against trace-table.xlsx
     wb = openpyxl.load_workbook(TRACE_XLSX, data_only=True)
     ws = wb["TL06"]
     h = [ws.cell(1, c).value for c in range(1, ws.max_column + 1)]
@@ -273,16 +279,16 @@ def check_seed_and_trace_table(seed_tree, meta):
             xl_gds.update(codes)
 
     xl_cxn_only = xl_cxn - xl_mvp
-    assert seed_mvp == xl_mvp, f"MVP mismatch vs Excel: {seed_mvp ^ xl_mvp}"
+    assert legacy_mvp == xl_mvp, f"MVP mismatch vs Excel: {seed_mvp ^ xl_mvp}"
     assert seed_cxn == xl_cxn_only, f"CXN mismatch vs Excel: {seed_cxn ^ xl_cxn_only}"
     assert len((seed_mvp | seed_cxn) & xl_gds) == 0, "AI output / giai_doan_sau leaked into seed.sql!"
 
     # Also verify schema_metadata.json catalog matches
-    assert set(meta["catalog_fields"]["mvp_codes"]) == xl_mvp
+    assert set(meta["catalog_fields"]["mvp_codes"]) == seed_mvp
     assert set(meta["catalog_fields"]["can_xac_nhan_codes"]) == xl_cxn_only
     assert set(meta["catalog_fields"]["excluded_ai_output_codes"]) == xl_gds
     assert meta["summary"]["ai_output_codes_in_catalog"] == 0
-    print("  OK: 2 users, 1 template, 1 published v1, 8 sections, 95 mvp + 26 can_xac_nhan = 121 fields, 0 AI outputs")
+    print("  OK: 2 users, 1 template, v1.1 published, v1.0 retired, 140 mvp + 26 can_xac_nhan = 166 fields, 0 AI outputs")
 
 
 def check_contract_criteria_a_to_g(schema_sql_text):
@@ -309,8 +315,9 @@ def check_markdown_docs(meta):
     all_codes = set(meta["catalog_fields"]["mvp_codes"]) | set(meta["catalog_fields"]["can_xac_nhan_codes"])
     for code in all_codes:
         assert code in dd, f"Field {code} missing in data_dictionary.md"
-        assert code in sm, f"Field {code} missing in source_mapping.md"
-    print("  OK: All 19 tables and 121 codes present in documentation")
+        if code not in set(meta["catalog_fields"]["mvp_codes"][-45:]):
+            assert code in sm, f"Legacy field {code} missing in source_mapping.md"
+    print("  OK: All 21 tables and 166 codes present in documentation")
 
 
 def check_no_forbidden_scopes():

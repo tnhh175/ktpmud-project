@@ -9,6 +9,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 
 from .audit import record_audit_log
+from .care import (ACTIVE_ASSIGNMENT_SQL, ACCESS_EXISTS_SQL, access_shape,
+                   create_creator_assignment, require_patient_access)
 from .auth import Principal, get_client_ip, get_request_id, require_role
 from .db import compute_pagination, num_to_json, parse_if_match, to_date_iso, to_iso
 from .models import (
@@ -34,6 +36,9 @@ def patient_row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": str(row["id"]),
         "patientCode": row["patient_code"],
+        "access": row.get("access"),
+        "updatedBy": str(row.get("updated_by") or row["created_by"]),
+        "updatedByName": row.get("editor_name") or row.get("creator_name"),
         "externalPatientCode": row.get("external_patient_code"),
         "fullName": row["full_name"],
         "sex": row["sex"],
@@ -54,6 +59,10 @@ def visit_row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": str(row["id"]),
         "visitCode": row["visit_code"],
+        "performedBy": str(row["created_by"]),
+        "performedByName": row.get("creator_name"),
+        "updatedBy": str(row.get("updated_by") or row["created_by"]),
+        "updatedByName": row.get("editor_name") or row.get("creator_name"),
         "externalVisitCode": row.get("external_visit_code"),
         "patientId": str(row["patient_id"]),
         "formVersionId": str(row["form_version_id"]),
@@ -63,6 +72,9 @@ def visit_row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
         "chiefComplaint": row.get("chief_complaint"),
         "clinicalNote": row.get("clinical_note"),
         "infoSource": row.get("info_source"),
+        "medicationListState": row.get("medication_list_state", "unknown"),
+        "allergyListState": row.get("allergy_list_state", "unknown"),
+        "diagnosisListState": row.get("diagnosis_list_state", "unknown"),
         "status": row["status"],
         "currentRevisionNo": rev_no,
         "createdBy": str(row["created_by"]),
@@ -92,6 +104,7 @@ def bp_row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
 
 def med_row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
     return {
+        "atcCode": row.get("atc_code"),
         "id": str(row["id"]),
         "visitId": str(row["visit_id"]),
         "medicationGroup": row["medication_group"],
@@ -111,6 +124,7 @@ def med_row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
 
 def allergy_row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
     return {
+        "atcCode": row.get("atc_code"),
         "id": str(row["id"]),
         "visitId": str(row["visit_id"]),
         "kind": row["kind"],
@@ -205,8 +219,8 @@ def list_patients(
     principal: Principal = Depends(_require_doctor_patient),
 ) -> dict[str, Any]:
     pool = request.app.state.pool
-    where_clauses: list[str] = []
-    params: list[Any] = []
+    where_clauses: list[str] = [ACCESS_EXISTS_SQL]
+    params: list[Any] = [str(principal.user_id)]
 
     if q and q.strip():
         like = f"%{q.strip()}%"
@@ -223,6 +237,8 @@ def list_patients(
 
     base_from = f"""
         FROM patient p
+        JOIN app_user pc ON pc.id=p.created_by
+        JOIN app_user pu ON pu.id=COALESCE(p.updated_by,p.created_by)
         LEFT JOIN LATERAL (
             SELECT v.id, v.visit_code, v.visit_date, v.status
             FROM visit v
@@ -249,7 +265,11 @@ def list_patients(
         rows = conn.execute(
             f"""
             SELECT
-                p.*,
+                p.*, pc.full_name AS creator_name, pu.full_name AS editor_name,
+                (SELECT jsonb_build_object('assignmentId',ca.id,'assignedAt',ca.assigned_at,'assignedBy',ca.assigned_by)
+                 FROM patient_care_assignment ca WHERE ca.patient_id=p.id AND ca.doctor_user_id=%s
+                 AND {ACTIVE_ASSIGNMENT_SQL}
+                 LIMIT 1) AS access,
                 COALESCE(vc.visit_count, 0) AS visit_count,
                 lv.id AS latest_visit_id,
                 lv.visit_code AS latest_visit_code,
@@ -259,7 +279,7 @@ def list_patients(
             ORDER BY p.updated_at DESC, p.patient_code DESC
             LIMIT %s OFFSET %s
             """,
-            [*params, pageSize, offset],
+            [str(principal.user_id), *params, pageSize, offset],
         ).fetchall()
 
     items = [
@@ -337,6 +357,8 @@ def create_patient(
             ),
         ).fetchone()
 
+        row["creator_name"] = principal.full_name
+        row["access"] = access_shape(create_creator_assignment(conn, row["id"], principal))
         record_audit_log(
             conn,
             actor_user_id=principal.user_id,
@@ -367,8 +389,11 @@ def get_patient(
 ) -> dict[str, Any]:
     pool = request.app.state.pool
     with pool.connection() as conn:
+        access = require_patient_access(conn, patientId, principal, write=False)
         pt = conn.execute(
-            "SELECT * FROM patient WHERE id = %s",
+            """SELECT p.*,pc.full_name AS creator_name,pu.full_name AS editor_name
+            FROM patient p JOIN app_user pc ON pc.id=p.created_by
+            JOIN app_user pu ON pu.id=COALESCE(p.updated_by,p.created_by) WHERE p.id=%s""",
             (str(patientId),),
         ).fetchone()
         if not pt:
@@ -457,6 +482,8 @@ def get_patient(
                 "recordedAllergies": [allergy_row_to_dict(a) for a in alg_rows],
             }
 
+        pt["access"] = access
+
     response.headers["ETag"] = f'"{int(pt["row_version"])}"'
     return {
         "patient": patient_row_to_dict(pt),
@@ -479,6 +506,7 @@ def update_patient(
 ) -> dict[str, Any]:
     pool = request.app.state.pool
     with pool.connection() as conn:
+        access = require_patient_access(conn, patientId, principal, write=True)
         pt = conn.execute(
             "SELECT * FROM patient WHERE id = %s FOR UPDATE",
             (str(patientId),),
@@ -566,7 +594,8 @@ def update_patient(
         updated = conn.execute(
             """
             UPDATE patient
-            SET full_name = %s,
+            SET updated_by = %s,
+                full_name = %s,
                 sex = %s,
                 birth_date = %s,
                 birth_year = %s,
@@ -577,6 +606,7 @@ def update_patient(
             RETURNING *
             """,
             (
+                str(principal.user_id),
                 new_full_name,
                 new_sex,
                 new_birth_date,
@@ -590,6 +620,8 @@ def update_patient(
         conn.commit()
 
     response.headers["ETag"] = f'"{int(updated["row_version"])}"'
+    updated["editor_name"] = principal.full_name
+    updated["access"] = access
     return patient_row_to_dict(updated)
 
 
@@ -608,6 +640,7 @@ def list_patient_visits(
 ) -> dict[str, Any]:
     pool = request.app.state.pool
     with pool.connection() as conn:
+        access = require_patient_access(conn, patientId, principal, write=False)
         pt_exists = conn.execute(
             "SELECT 1 FROM patient WHERE id = %s",
             (str(patientId),),
@@ -637,10 +670,12 @@ def list_patient_visits(
         rows = conn.execute(
             f"""
             SELECT
-                v.*,
+                v.*, pc.full_name AS creator_name, pu.full_name AS editor_name,
                 fv.version_label AS form_version_label,
                 (SELECT MAX(vr.revision_no) FROM visit_revision vr WHERE vr.visit_id = v.id) AS max_revision_no
             FROM visit v
+            JOIN app_user pc ON pc.id=v.created_by
+            JOIN app_user pu ON pu.id=COALESCE(v.updated_by,v.created_by)
             JOIN form_version fv ON fv.id = v.form_version_id
             WHERE {where_sql}
             ORDER BY v.visit_date DESC, v.created_at DESC
@@ -678,6 +713,7 @@ def create_visit(
     prefix = f"LK-{date_part}-"
 
     with pool.connection() as conn:
+        access = require_patient_access(conn, patientId, principal, write=True)
         pt = conn.execute(
             "SELECT id FROM patient WHERE id = %s",
             (str(patientId),),
@@ -745,5 +781,6 @@ def create_visit(
 
     row_dict = dict(row)
     row_dict["form_version_label"] = published["version_label"]
+    row_dict["creator_name"] = principal.full_name
     response.headers["ETag"] = f'"{int(row["row_version"])}"'
     return visit_row_to_dict(row_dict)

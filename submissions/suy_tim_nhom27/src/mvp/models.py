@@ -40,6 +40,9 @@ AuditAction = Literal[
     "form_version_publish",
     "patient_create",
     "visit_confirm",
+    "ai_input_export",
+    "care_assignment_add",
+    "care_assignment_revoke",
 ]
 SexType = Literal["male", "female", "unknown"]
 VisitType = Literal["outpatient_new", "follow_up", "acute_inpatient"]
@@ -69,6 +72,7 @@ class ProblemDetailsModel(BaseModel):
     correlationId: str | None = None
     currentRowVersion: int | None = None
     errors: list[FieldValidationErrorItem] = Field(default_factory=list)
+    quality: dict[str, Any] | None = None
 
 
 class ProblemError(Exception):
@@ -111,6 +115,7 @@ def problem_response(
     current_row_version: int | None = None,
     errors: list[dict[str, Any]] | None = None,
     headers: dict[str, str] | None = None,
+    quality: dict[str, Any] | None = None,
 ) -> JSONResponse:
     slug = code.lower().replace("_", "-")
     payload: dict[str, Any] = {
@@ -123,6 +128,8 @@ def problem_response(
         "correlationId": correlation_id,
         "errors": errors or [],
     }
+    if quality is not None:
+        payload["quality"] = quality
     if current_row_version is not None:
         payload["currentRowVersion"] = current_row_version
     return JSONResponse(
@@ -238,7 +245,16 @@ class PermissionPreviewResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Patient Schemas (M2, M3)
 # ---------------------------------------------------------------------------
+class CareAccess(BaseModel):
+    assignmentId: UUID
+    assignedAt: datetime
+    assignedBy: UUID
+
+
 class Patient(BaseModel):
+    updatedBy: UUID
+    updatedByName: str | None = None
+    access: CareAccess | None = None
     id: UUID
     patientCode: str
     externalPatientCode: str | None = None
@@ -329,6 +345,11 @@ class FieldDefinition(BaseModel):
     scopeStatus: FieldScopeStatus
     storageLevel: str
     isCalculated: bool
+    system: bool = False
+    computed: bool = False
+    locked: bool = False
+    repeatGroup: str | None = None
+    memberPath: str | None = None
     minValue: float | None = None
     maxValue: float | None = None
     validationRule: dict[str, Any] | None = None
@@ -459,6 +480,10 @@ class PublishFormVersionRequest(BaseModel):
 # Visit, Clinical Data, Review, Revision & AiInputPayload (M3, M4, M5)
 # ---------------------------------------------------------------------------
 class Visit(BaseModel):
+    performedBy: UUID
+    performedByName: str | None = None
+    updatedBy: UUID
+    updatedByName: str | None = None
     id: UUID
     visitCode: str
     externalVisitCode: str | None = None
@@ -470,6 +495,9 @@ class Visit(BaseModel):
     chiefComplaint: str | None = None
     clinicalNote: str | None = None
     infoSource: str | None = None
+    medicationListState: Literal["known", "none", "unknown"] = "unknown"
+    allergyListState: Literal["known", "none", "unknown"] = "unknown"
+    diagnosisListState: Literal["known", "none", "unknown"] = "unknown"
     status: VisitStatus
     currentRevisionNo: int
     createdBy: UUID
@@ -568,6 +596,7 @@ class OrthostaticBpMeasurement(BaseModel):
 
 
 class VisitMedicationInput(BaseModel):
+    atcCode: str | None = Field(default=None, pattern=r"^[A-Z][0-9]{2}[A-Z]{2}[0-9]{2}$")
     model_config = ConfigDict(extra="ignore")
 
     id: UUID | None = None
@@ -593,6 +622,7 @@ class VisitMedicationInput(BaseModel):
 
 
 class VisitMedication(BaseModel):
+    atcCode: str | None = Field(default=None, pattern=r"^[A-Z][0-9]{2}[A-Z]{2}[0-9]{2}$")
     id: UUID
     visitId: UUID
     medicationGroup: Literal["prescribed", "otc_supplement_tcm"]
@@ -610,6 +640,7 @@ class VisitMedication(BaseModel):
 
 
 class VisitAllergyInput(BaseModel):
+    atcCode: str | None = Field(default=None, pattern=r"^[A-Z][0-9]{2}[A-Z]{2}[0-9]{2}$")
     model_config = ConfigDict(extra="ignore")
 
     id: UUID | None = None
@@ -629,6 +660,7 @@ class VisitAllergyInput(BaseModel):
 
 
 class VisitAllergy(BaseModel):
+    atcCode: str | None = Field(default=None, pattern=r"^[A-Z][0-9]{2}[A-Z]{2}[0-9]{2}$")
     id: UUID
     visitId: UUID
     kind: Literal["allergy", "adr", "intolerance"]
@@ -706,7 +738,14 @@ class PatientDetailResponse(BaseModel):
     latestVisitSummary: LatestVisitClinicalSummary | None = None
 
 
+class DiagnosisInput(BaseModel):
+    code: str = Field(pattern=r"^[A-Z][0-9]{2}(\.[A-Z0-9]{1,4})?$", max_length=8)
+    display: str = Field(min_length=1, max_length=200)
+    role: Literal["primary", "secondary"]
+
+
 class VisitDetailResponse(BaseModel):
+    access: CareAccess | None = None
     visit: Visit
     values: list[VisitValueOut]
     orthostaticBp: list[OrthostaticBpMeasurement]
@@ -714,6 +753,7 @@ class VisitDetailResponse(BaseModel):
     allergies: list[VisitAllergy]
     labResults: list[VisitLabResult]
     revisions: list[VisitRevision]
+    diagnoses: list[DiagnosisInput] = Field(default_factory=list)
 
 
 class VisitFormStructureResponse(BaseModel):
@@ -726,6 +766,10 @@ class VisitFormStructureResponse(BaseModel):
 class SaveVisitDraftRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
+    medicationListState: Literal["known", "none", "unknown"] | None = None
+    allergyListState: Literal["known", "none", "unknown"] | None = None
+    diagnosisListState: Literal["known", "none", "unknown"] | None = None
+    diagnoses: list[DiagnosisInput] = Field(default_factory=list)
     rowVersion: int | None = Field(default=None, ge=1)
     clinicalNote: str | None = None
     infoSource: str | None = None

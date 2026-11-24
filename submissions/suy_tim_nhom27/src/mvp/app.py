@@ -22,6 +22,7 @@ from .admin import router as admin_router
 from .auth import bootstrap_seed_passwords, get_request_id, router as auth_router
 from .db import check_pool, create_pool, resolve_database_url
 from .models import ProblemError, problem_response
+from .care import router as care_router
 from .patients import router as patients_router
 from .visits import router as visits_router
 
@@ -102,6 +103,7 @@ def create_app(
             type_uri=exc.type_uri,
             current_row_version=exc.current_row_version,
             errors=exc.errors,
+            quality=getattr(exc,"quality",None),
         )
 
     @app.exception_handler(RequestValidationError)
@@ -261,6 +263,7 @@ def create_app(
         app.add_api_route("/api/v1/openapi.yaml", get_openapi_yaml, include_in_schema=False)
 
     app.include_router(auth_router)
+    app.include_router(care_router)
     app.include_router(patients_router)
     app.include_router(visits_router)
     app.include_router(admin_router)

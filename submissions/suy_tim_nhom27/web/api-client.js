@@ -22,6 +22,7 @@
       this.title = (problem && problem.title) || ('Lỗi ' + status);
       this.detail = detail;
       this.errors = (problem && problem.errors) || [];
+      this.quality = (problem && problem.quality) || null;
       this.currentRowVersion = problem && problem.currentRowVersion !== undefined ? problem.currentRowVersion : null;
       this.problem = problem || { status: status, title: this.title, detail: detail };
     }
@@ -120,7 +121,9 @@
         controller.abort();
       }, REQUEST_TIMEOUT_MS) : null;
       try {
-        res = await fetch(apiBase + path, { method: method, headers: headers, body: bodyStr, signal: controller ? controller.signal : undefined });
+        const fetchOpts = { method: method, headers: headers, body: bodyStr, signal: controller ? controller.signal : undefined };
+        if (opts.keepalive) fetchOpts.keepalive = true;
+        res = await fetch(apiBase + path, fetchOpts);
       } catch (_netErr) {
         if (timedOut || (_netErr && _netErr.name === 'AbortError')) {
           throw new HttpApiError(0, {
@@ -152,7 +155,12 @@
         }
       }
 
-      if (res.status === 204) return null;
+      if (res.status === 204) {
+        if (typeof res.text === 'function') {
+          try { await res.text(); } catch (_e) {}
+        }
+        return null;
+      }
 
       let data = null;
       const ctype = res.headers.get('content-type') || '';
@@ -193,7 +201,7 @@
         sessionEpoch += 1;
         global.sessionStorage.removeItem(TOKEN_KEY);
         global.sessionStorage.removeItem(REFRESH_KEY);
-        await request('POST', '/auth/logout', { body: rt ? { refreshToken: rt } : {}, authToken: token, skipAuth: true });
+        await request('POST', '/auth/logout', { body: rt ? { refreshToken: rt } : {}, authToken: token, skipAuth: true, keepalive: true });
         return null;
       },
       getCurrentUser() { return request('GET', '/auth/me'); },
@@ -227,6 +235,9 @@
         return request('POST', '/visits/' + encodeURIComponent(visitId) + '/revisions', { body: payload, ifMatch: rowVersion });
       },
       getVisitAiInput(visitId) { return request('GET', '/visits/' + encodeURIComponent(visitId) + '/ai-input'); },
+      getVisitAiInputV1(visitId, params) {
+        return request('GET', '/visits/' + encodeURIComponent(visitId) + '/ai-input/hf/1.0' + buildQuery(params));
+      },
 
       /* Admin Users */
       listUsers(params) { return request('GET', '/admin/users' + buildQuery(params)); },
@@ -251,6 +262,9 @@
         return request('PATCH', '/admin/form-versions/' + encodeURIComponent(versionId), { body: payload, ifMatch: rowVersion });
       },
       previewFormVersion(versionId) { return request('GET', '/admin/form-versions/' + encodeURIComponent(versionId) + '/preview'); },
+      previewFormVersionDraft(versionId, payload) {
+        return request('POST', '/admin/form-versions/' + encodeURIComponent(versionId) + '/preview', { body: payload });
+      },
       diffFormVersion(versionId, baseVersionId) {
         return request('GET', '/admin/form-versions/' + encodeURIComponent(versionId) + '/diff' + buildQuery({ baseVersionId: baseVersionId }));
       },
@@ -259,6 +273,22 @@
       },
       deleteFormVersionDraft(versionId, rowVersion) {
         return request('DELETE', '/admin/form-versions/' + encodeURIComponent(versionId), { ifMatch: rowVersion });
+      },
+
+      /* Admin Care Assignments (Simplified Demo Scope, K8 compliant) */
+      adminListCareDoctors() { return request('GET', '/admin/care/doctors'); },
+      adminListCarePatients(params) { return request('GET', '/admin/care/patients' + buildQuery(params)); },
+      adminListPatientCareAssignments(patientId) {
+        return request('GET', '/admin/patients/' + encodeURIComponent(patientId) + '/care-assignments');
+      },
+      adminAddPatientCareAssignment(patientId, payload) {
+        return request('POST', '/admin/patients/' + encodeURIComponent(patientId) + '/care-assignments', { body: payload });
+      },
+      adminReplacePatientCareAssignments(patientId, payload) {
+        return request('PUT', '/admin/patients/' + encodeURIComponent(patientId) + '/care-assignments', { body: payload });
+      },
+      adminRevokePatientCareAssignment(patientId, assignmentId) {
+        return request('DELETE', '/admin/patients/' + encodeURIComponent(patientId) + '/care-assignments/' + encodeURIComponent(assignmentId));
       },
 
       /* Admin Audit Logs */
@@ -298,6 +328,7 @@
       confirmVisit: function (id, p, rv) { return adapter.confirmVisit(id, p, rv); },
       createVisitRevision: function (id, p, rv) { return adapter.createVisitRevision(id, p, rv); },
       getVisitAiInput: function (id) { return adapter.getVisitAiInput(id); },
+      getVisitAiInputV1: function (id, params) { return adapter.getVisitAiInputV1(id, params); },
       listUsers: function (p) { return adapter.listUsers(p); },
       createUser: function (p) { return adapter.createUser(p); },
       getUser: function (id) { return adapter.getUser(id); },
@@ -310,9 +341,16 @@
       getFormVersion: function (id) { return adapter.getFormVersion(id); },
       updateFormVersion: function (id, p, rv) { return adapter.updateFormVersion(id, p, rv); },
       previewFormVersion: function (id) { return adapter.previewFormVersion(id); },
+      previewFormVersionDraft: function (id, p) { return adapter.previewFormVersionDraft(id, p); },
       diffFormVersion: function (id, baseId) { return adapter.diffFormVersion(id, baseId); },
       publishFormVersion: function (id, p, rv) { return adapter.publishFormVersion(id, p, rv); },
       deleteFormVersionDraft: function (id, rv) { return adapter.deleteFormVersionDraft(id, rv); },
+      adminListCareDoctors: function () { return adapter.adminListCareDoctors(); },
+      adminListCarePatients: function (p) { return adapter.adminListCarePatients(p); },
+      adminListPatientCareAssignments: function (id) { return adapter.adminListPatientCareAssignments(id); },
+      adminAddPatientCareAssignment: function (id, p) { return adapter.adminAddPatientCareAssignment(id, p); },
+      adminReplacePatientCareAssignments: function (id, p) { return adapter.adminReplacePatientCareAssignments(id, p); },
+      adminRevokePatientCareAssignment: function (id, aid) { return adapter.adminRevokePatientCareAssignment(id, aid); },
       listAuditLogs: function (p) { return adapter.listAuditLogs(p); }
     };
   }

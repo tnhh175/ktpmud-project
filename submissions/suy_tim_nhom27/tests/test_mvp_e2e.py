@@ -381,7 +381,7 @@ def test_tc02_three_state_draft_validation_and_concurrency(
     assert form_res.status_code == 200
     form_data = form_res.json()
     assert len(form_data["sections"]) == 8
-    assert len(form_data["fieldDefinitions"]) == 121
+    assert len(form_data["fieldDefinitions"]) == 159
     defs_by_code = {d["code"]: d for d in form_data["fieldDefinitions"]}
 
     # Save partial draft (missing most clinical fields -> allowed in Tier 2)
@@ -884,7 +884,7 @@ def test_tc05_rbac_k8_matrix_admin_users_and_audit_logs(client: TestClient) -> N
     tuan_auth = _login(client, "bs.tuan", otp)
     tuan_tok = tuan_auth["accessToken"]
 
-    # Optimistic concurrency C4 on user PATCH
+    # Optimistic concurrency on user PATCH
     stale_user = client.patch(
         f"/api/v1/admin/users/{new_uid}",
         headers=_auth_headers(adm_tok, if_match=99),
@@ -986,16 +986,16 @@ def test_tc06_form_version_immutability_diff_publish_and_visit_binding(
         json={"visitDate": "2026-11-20T08:00:00Z", "visitType": "outpatient_new"},
     ).json()
 
-    # Check 121 field definitions (95 mvp + 26 can_xac_nhan)
+    # Check the current catalog (140 mvp + 26 can_xac_nhan)
     defs_res = client.get("/api/v1/admin/field-definitions", headers=_auth_headers(adm_tok)).json()
-    assert defs_res["total"] == 121
+    assert defs_res["total"] == 166
 
     forms = client.get("/api/v1/admin/forms", headers=_auth_headers(adm_tok)).json()["items"]
     form_id = forms[0]["id"]
     versions = client.get(
         f"/api/v1/admin/forms/{form_id}/versions", headers=_auth_headers(adm_tok)
     ).json()["items"]
-    v1 = versions[0]
+    v1 = next(version for version in versions if version["status"] == "published")
     assert v1["status"] == "published"
     assert visit_v1["formVersionId"] == v1["id"]
 
@@ -1119,7 +1119,7 @@ def test_tc07_openapi_34_routes_k9_and_restart_persistence(temp_pg_dsn: str) -> 
 
     app1 = create_app(database_url=temp_pg_dsn, auth_secret=AUTH_SECRET, mount_web=True)
     app_ops = set(_iter_app_routes(app1))
-    assert len(spec_ops) == 34
+    assert len(spec_ops) == 42
     assert app_ops == spec_ops
 
     # Verify K9: zero excluded routes (import/excel/his/portal/predict)
