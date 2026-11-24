@@ -221,6 +221,8 @@
     return map[lvl] || lvl || '—';
   }
 
+  const AI_MODULE_ORDER = ['ai_diagnosis', 'ai_lab_test', 'ai_treatment', 'ai_medsafety'];
+
   function formatAiModuleLabel(code) {
     const map = {
       ai_diagnosis: 'Module 1: Hỗ trợ Chẩn đoán Suy tim',
@@ -235,6 +237,237 @@
       hf_medsafety: 'Module 4: Hỗ trợ An toàn Thuốc (MedSafety)'
     };
     return map[code] || code;
+  }
+
+  function formatAiModuleShortLabel(code) {
+    const map = {
+      ai_diagnosis: 'Module 1',
+      ai_lab_test: 'Module 2',
+      ai_treatment: 'Module 3',
+      ai_medsafety: 'Module 4',
+      hf_diagnosis: 'Module 1',
+      hf_lab_test: 'Module 2',
+      hf_lab: 'Module 2',
+      hf_gdmt: 'Module 3',
+      hf_treatment: 'Module 3',
+      hf_medsafety: 'Module 4'
+    };
+    return map[code] || code;
+  }
+
+  const AI_ACTIONABLE_ISSUE_CODES = {
+    MISSING_VALUE: true,
+    LIST_UNKNOWN: true,
+    LAB_MISSING: true,
+    TIME_MISSING: true,
+    UNIT_UNSUPPORTED: true,
+    UNIT_OR_TYPE_UNSUPPORTED: true
+  };
+
+  const AI_FIELD_CODE_ALIASES = {
+    medicationListState: 'medication_list_state',
+    allergyListState: 'allergy_list_state',
+    diagnosisListState: 'diagnosis_list_state',
+    medications: 'thuoc_drugname',
+    allergies: 'diung_allergen',
+    diagnoses: 'icd_code',
+    age: 'luot_tuoi',
+    sex: 'bn_gioi_tinh'
+  };
+
+  const AI_ISSUE_DISPLAY_LABELS = {
+    KHO_THO_NANG: 'Mức độ khó thở (thang 0–3)',
+    PHU_CHI_DUOI: 'Phù chi dưới (thang 0–2)',
+    BIEN_THIEN_CAN_NANG_7NGAY: 'Biến thiên cân nặng 7 ngày',
+    TRIEU_CHUNG_KHONG_DIEN_HINH: 'Triệu chứng không điển hình',
+    DANH_GIA_SUY_YEU_FRAILTY: 'Đánh giá suy yếu (CFS)',
+    E_OVER_A_RATIO: 'Tỉ lệ E/A',
+    EGFR_CKD_EPI: 'eGFR (CKD-EPI)',
+    ECG_12_CHUYEN_DAO: 'Điện tâm đồ 12 chuyển đạo (ECG)',
+    XQUANG_NGUC_THANG: 'X-quang ngực thẳng',
+    KHOA_PHONG: 'Khoa / Phòng khám',
+    THOI_GIAN_KHAM: 'Thời điểm khám',
+    BAC_SI_KHAM: 'Bác sĩ khám',
+    HA_TAM_THU: 'Huyết áp tâm thu',
+    HA_TAM_TRUONG: 'Huyết áp tâm trương',
+    TAN_SO_TIM: 'Tần số tim / Mạch',
+    SPO2: 'Độ bão hòa oxy máu ngoại vi (SpO₂)',
+    CHIEU_CAO: 'Chiều cao',
+    CAN_NANG: 'Cân nặng hiện tại',
+    BMI: 'Chỉ số khối cơ thể (BMI)',
+    TUOI: 'Tuổi tại thời điểm khám',
+    GIOI_TINH: 'Giới tính sinh học',
+    TINH_MACH_CO_NOI: 'Tĩnh mạch cổ nổi',
+    RAN_AM_PHOI: 'Ran ẩm ở phổi',
+    NT_PROBNP: 'Xét nghiệm NT-proBNP',
+    BNP: 'Xét nghiệm BNP',
+    EF_SIEU_AM_TIM: 'Phân suất tống máu thất trái (LVEF)',
+    CREATININE_MAU: 'Creatinin huyết thanh',
+    KALI_MAU: 'Kali máu (K+)',
+    DANH_MUC_THUOC_DANG_DUNG: 'Danh sách thuốc đang dùng',
+    TIEN_SU_DI_UNG: 'Tiền sử dị ứng / ADR',
+    BENH_DONG_MAC_ICD10: 'Chẩn đoán bệnh đồng mắc (ICD-10)',
+    medications: 'Danh sách thuốc đang dùng',
+    allergies: 'Tiền sử dị ứng / ADR',
+    diagnoses: 'Chẩn đoán bệnh đồng mắc (ICD-10)',
+    medicationListState: 'Trạng thái danh sách thuốc đang dùng',
+    medication_list_state: 'Trạng thái danh sách thuốc đang dùng',
+    allergyListState: 'Trạng thái danh sách dị ứng / ADR',
+    allergy_list_state: 'Trạng thái danh sách dị ứng / ADR',
+    diagnosisListState: 'Trạng thái danh sách chẩn đoán ICD-10',
+    diagnosis_list_state: 'Trạng thái danh sách chẩn đoán ICD-10',
+    icd_code: 'Mã chẩn đoán ICD-10',
+    icd_display: 'Tên chẩn đoán ICD-10',
+    thuoc_ghi_nhan: 'Danh sách thuốc đang dùng',
+    di_ung_adr: 'Tiền sử dị ứng / ADR',
+    cls_don_vi: 'Đơn vị xét nghiệm',
+    cls_thoi_diem: 'Thời điểm xét nghiệm',
+    cls_ecg_thoi_diem: 'Thời điểm điện tâm đồ (ECG)',
+    cls_sieu_am_tim_thoi_diem: 'Thời điểm siêu âm tim',
+    cls_xquang_thoi_diem: 'Thời điểm X-quang ngực'
+  };
+
+  const AI_ISSUE_REASON_VI = {
+    MISSING_VALUE: 'Chưa nhập giá trị',
+    LIST_UNKNOWN: 'Chưa xác nhận trạng thái danh sách (Có / Không có)',
+    LAB_MISSING: 'Chưa có kết quả cận lâm sàng hợp lệ',
+    TIME_MISSING: 'Thiếu thời điểm thực hiện / lấy mẫu',
+    UNIT_UNSUPPORTED: 'Đơn vị kết quả chưa đúng chuẩn',
+    UNIT_OR_TYPE_UNSUPPORTED: 'Kiểu dữ liệu hoặc đơn vị chưa tương thích',
+    NOT_COLLECTED: 'Biểu mẫu hiện chưa thu thập biến này',
+    CATALOG_UNVERIFIED: 'Chưa đối chiếu danh mục chuẩn bệnh viện',
+    CODE_UNMAPPED: 'Chưa có mã chuẩn hóa (ATC / ICD-10)',
+    DRUG_STRUCTURE_UNSUPPORTED: 'Chưa đủ cấu trúc thuốc để kiểm tra tương tác (DDI)',
+    FREE_TEXT_WITHHELD: 'Văn bản tự do được giữ trong hồ sơ, chưa xuất AI',
+    STATIC_EXPORT_UNAVAILABLE: 'Chế độ demo tĩnh không hỗ trợ xuất JSON AI'
+  };
+
+  function formatAiIssueReasonVi(issueCode, fallbackMessageVi) {
+    if (issueCode && AI_ISSUE_REASON_VI[issueCode]) return AI_ISSUE_REASON_VI[issueCode];
+    return fallbackMessageVi || issueCode || 'Thiếu hoặc chưa hợp lệ';
+  }
+
+  function resolveEditableFormField(formRes, rawFieldCode) {
+    if (!rawFieldCode || !formRes) return null;
+    const canonicalCode = AI_FIELD_CODE_ALIASES[rawFieldCode] || rawFieldCode;
+    const sections = formRes.sections || [];
+    const defs = formRes.fieldDefinitions || [];
+    const defById = {};
+    const defByCode = {};
+    defs.forEach(function (fd) {
+      defById[fd.id] = fd;
+      defByCode[fd.code] = fd;
+    });
+    for (let i = 0; i < sections.length; i++) {
+      const sec = sections[i];
+      const fields = sec.fields || [];
+      for (let j = 0; j < fields.length; j++) {
+        const ff = fields[j];
+        const fd = defById[ff.fieldDefinitionId] || defByCode[ff.fieldCode];
+        const code = (fd && fd.code) || ff.fieldCode;
+        if (code !== canonicalCode && ff.fieldCode !== canonicalCode) continue;
+        if (!ff.isVisible || !fd) return null;
+        const flags = getFieldMetaFlags(ff, fd);
+        if (flags.readonlyInput) return null;
+        if (fd.storageLevel === 'visit' && !flags.isListStateField && !flags.isVisitNote) return null;
+        return {
+          fieldCode: code,
+          sectionCode: sec.sectionCode || resolveFieldSectionCode(formRes, code),
+          fd: fd,
+          ff: ff
+        };
+      }
+    }
+    return null;
+  }
+
+  function resolveAiIssueDisplayLabel(iss, defByCode, editableTarget) {
+    if (editableTarget && editableTarget.ff && editableTarget.ff.customLabelVi && String(editableTarget.ff.customLabelVi).trim()) {
+      return String(editableTarget.ff.customLabelVi).trim();
+    }
+    const raw = (iss && iss.fieldCode) ? String(iss.fieldCode) : '';
+    const canonical = AI_FIELD_CODE_ALIASES[raw] || raw;
+    if (raw && AI_ISSUE_DISPLAY_LABELS[raw]) return AI_ISSUE_DISPLAY_LABELS[raw];
+    if (raw && defByCode && defByCode[raw] && defByCode[raw].labelVi) return defByCode[raw].labelVi;
+    if (canonical && defByCode && defByCode[canonical] && defByCode[canonical].labelVi) return defByCode[canonical].labelVi;
+    if (canonical && AI_ISSUE_DISPLAY_LABELS[canonical]) return AI_ISSUE_DISPLAY_LABELS[canonical];
+    const p = (iss && iss.path) ? String(iss.path) : '';
+    const pathTail = p ? p.split('.').pop() : '';
+    if (pathTail && AI_ISSUE_DISPLAY_LABELS[pathTail]) return AI_ISSUE_DISPLAY_LABELS[pathTail];
+    return raw || p || 'Trường dữ liệu';
+  }
+
+  function classifyAndGroupAiQualityIssues(issues, formRes) {
+    const list = Array.isArray(issues) ? issues : [];
+    const defByCode = {};
+    ((formRes && formRes.fieldDefinitions) || []).forEach(function (fd) {
+      defByCode[fd.code] = fd;
+    });
+    const actionableMap = {};
+    const systemMap = {};
+    const actionable = [];
+    const system = [];
+
+    list.forEach(function (iss) {
+      if (!iss) return;
+      const issueCode = String(iss.issueCode || '');
+      const rawFieldCode = String(iss.fieldCode || '');
+      const editableTarget = AI_ACTIONABLE_ISSUE_CODES[issueCode]
+        ? resolveEditableFormField(formRes, rawFieldCode)
+        : null;
+      const isActionable = Boolean(editableTarget);
+      const canonicalCode = editableTarget
+        ? editableTarget.fieldCode
+        : (AI_FIELD_CODE_ALIASES[rawFieldCode] || rawFieldCode);
+      const dedupFieldKey = canonicalCode || rawFieldCode || String(iss.path || '');
+      const dedupKey = issueCode + '::' + dedupFieldKey;
+      const map = isActionable ? actionableMap : systemMap;
+      const bucketArr = isActionable ? actionable : system;
+
+      let entry = map[dedupKey];
+      if (!entry) {
+        entry = {
+          key: dedupKey,
+          bucket: isActionable ? 'actionable' : 'system',
+          issueCode: issueCode,
+          rawFieldCode: rawFieldCode,
+          jumpFieldCode: editableTarget ? editableTarget.fieldCode : '',
+          sectionCode: editableTarget ? editableTarget.sectionCode : '',
+          labelVi: resolveAiIssueDisplayLabel(iss, defByCode, editableTarget),
+          techCode: rawFieldCode || String(iss.path || ''),
+          reasonVi: formatAiIssueReasonVi(issueCode, iss.messageVi),
+          severity: iss.severity || 'error',
+          modules: []
+        };
+        map[dedupKey] = entry;
+        bucketArr.push(entry);
+      }
+      if (iss.module && entry.modules.indexOf(iss.module) < 0) {
+        entry.modules.push(iss.module);
+      }
+    });
+
+    function sortModules(arr) {
+      arr.forEach(function (entry) {
+        entry.modules.sort(function (a, b) {
+          const ia = AI_MODULE_ORDER.indexOf(a);
+          const ib = AI_MODULE_ORDER.indexOf(b);
+          if (ia >= 0 && ib >= 0) return ia - ib;
+          if (ia >= 0) return -1;
+          if (ib >= 0) return 1;
+          return String(a).localeCompare(String(b));
+        });
+      });
+    }
+    sortModules(actionable);
+    sortModules(system);
+
+    return {
+      actionable: actionable,
+      system: system,
+      totalRaw: list.length,
+      totalGrouped: actionable.length + system.length
+    };
   }
 
   function getInitials(name) {
@@ -381,6 +614,7 @@
       aiExportError: '',
       aiExportLoading: false,
       aiExportIsDiagnostic: false,
+      aiQualityExpanded: { actionable: false, system: false },
       confirming: false,
       confirmError: '',
       loading: false,
@@ -891,6 +1125,7 @@
     rev.aiExportError = '';
     rev.aiExportLoading = false;
     rev.aiExportIsDiagnostic = false;
+    rev.aiQualityExpanded = { actionable: false, system: false };
     render();
     try {
       const [visitDetail, formRes, reviewRes] = await Promise.all([
@@ -3173,13 +3408,17 @@
       const missingCodes = Array.isArray(m.missingFieldCodes) ? m.missingFieldCodes : [];
       const isReady = Boolean(m.ready);
       const reasonCodes = new Set();
-      const reasons = (m.issues || []).filter(function (issue) {
+      const nonMissingIssues = (m.issues || []).filter(function (issue) {
         if (missingCodes.includes(issue.fieldCode) || reasonCodes.has(issue.issueCode)) return false;
         reasonCodes.add(issue.issueCode);
         return true;
-      }).map(function (issue) { return issue.messageVi; });
+      });
+      const reasons = nonMissingIssues.map(function (issue) { return issue.messageVi; });
+      const hasActionableNonMissing = nonMissingIssues.some(function (issue) {
+        return Boolean(AI_ACTIONABLE_ISSUE_CODES[issue.issueCode]);
+      });
       const missingChipsHtml = missingCodes.map(function (code) {
-        const label = (defByCode[code] && defByCode[code].labelVi) || AI_FALLBACK_FIELD_LABELS[code] || code;
+        const label = (defByCode[code] && defByCode[code].labelVi) || AI_ISSUE_DISPLAY_LABELS[code] || AI_FALLBACK_FIELD_LABELS[code] || code;
         const secCode = resolveFieldSectionCode(rev.formRes, code);
         return (
           '<button type="button" class="jump-chip jump-chip--info ai-missing-chip" data-review-jump="' + esc(secCode + ':' + code) + '" data-ai-missing-field="' + esc(code) + '" title="' + esc('Đi tới trường ' + label + ' trên biểu mẫu lượt khám') + '">' +
@@ -3189,7 +3428,7 @@
       }).join('');
       const firstCode = !isReady ? missingCodes[0] : '';
       const firstSec = firstCode ? resolveFieldSectionCode(rev.formRes, firstCode) : '';
-      const firstLabel = firstCode ? ((defByCode[firstCode] && defByCode[firstCode].labelVi) || AI_FALLBACK_FIELD_LABELS[firstCode] || firstCode) : '';
+      const firstLabel = firstCode ? ((defByCode[firstCode] && defByCode[firstCode].labelVi) || AI_ISSUE_DISPLAY_LABELS[firstCode] || AI_FALLBACK_FIELD_LABELS[firstCode] || firstCode) : '';
       return (
         '<div class="card ai-module-card ' + (isReady ? 'ai-module-card--ready' : 'ai-module-card--missing') + '" data-ai-readiness-module="' + esc(m.aiModuleCode) + '">' +
           '<div class="ai-module-card__body">' +
@@ -3203,8 +3442,8 @@
                   '<div class="ai-missing-block__label">Còn thiếu (bấm vào từng trường để đi tới biểu mẫu):</div>' +
                   '<div class="ai-missing-chips">' + missingChipsHtml + '</div>' +
                 '</div>' : '') +
-                (reasons.length ? '<div class="cell-sub">Chưa sẵn sàng vì: ' + esc(reasons.join(' ')) + '</div>' :
-                  (!missingCodes.length ? '<div class="cell-sub">Chưa sẵn sàng vì: Cần kiểm tra chất lượng dữ liệu xuất AI.</div>' : ''))) +
+                (reasons.length ? '<div class="ai-readiness-note ' + (hasActionableNonMissing ? 'ai-readiness-note--actionable' : 'ai-readiness-note--system') + '">Chưa sẵn sàng vì: ' + esc(reasons.join(' ')) + '</div>' :
+                  (!missingCodes.length ? '<div class="ai-readiness-note ai-readiness-note--system">Chưa sẵn sàng vì: Cần kiểm tra chất lượng dữ liệu xuất AI.</div>' : ''))) +
           '</div>' +
           (!isReady && firstCode
             ? '<div class="ai-module-card__footer">' +
@@ -3269,30 +3508,108 @@
         }).join('') + '</div>'
       ) : '';
 
-      const issueListHtml = issues.length > 0 ? (
-        '<div>' +
-          '<div class="kv-item__label" style="margin-bottom:6px;">Danh sách lỗi / thiếu dữ liệu theo trường (' + issues.length + ') — bấm vào từng dòng để nhảy tới đúng ô</div>' +
-          '<div class="ai-issue-list">' + issues.map(function (iss) {
-            const fc = iss.fieldCode || '';
-            const fd = fc ? defByCode[fc] : null;
-            const fieldTitle = (fd && fd.labelVi) || fc || iss.path || 'Trường dữ liệu';
-            const isWarn = iss.severity === 'warning' || iss.severity === 'warn';
+      const grouped = classifyAndGroupAiQualityIssues(issues, rev.formRes);
+      const expandedState = rev.aiQualityExpanded || { actionable: false, system: false };
+
+      function renderModuleChip(mods) {
+        if (!mods || mods.length === 0) return '';
+        const shortText = mods.map(formatAiModuleShortLabel).join(' · ');
+        const fullTitle = mods.map(formatAiModuleLabel).join(' | ');
+        return '<span class="ai-quality-mod-chip" title="' + esc(fullTitle) + '">' + esc(shortText) + '</span>';
+      }
+
+      function renderGroupedIssueRows(items, isActionable) {
+        return '<div class="ai-issue-list">' + items.map(function (item) {
+          const modChip = renderModuleChip(item.modules);
+          const techParts = [];
+          if (item.techCode) techParts.push(item.techCode);
+          if (item.issueCode) techParts.push(item.issueCode);
+          const techLine = techParts.length > 0
+            ? '<div class="ai-issue-row__tech mono">' + esc(techParts.join(' · ')) + '</div>'
+            : '';
+          if (isActionable) {
             return (
-              '<button type="button" class="ai-issue-item' + (isWarn ? ' ai-issue-item--warn' : '') + '" data-ai-issue-jump="' + esc(fc) + '">' +
-                '<div class="ai-issue-item__main">' +
-                  '<div><strong>' + esc(fieldTitle) + '</strong>: ' + esc(iss.messageVi || iss.issueCode || 'Thiếu hoặc không hợp lệ') + '</div>' +
-                  '<div class="ai-issue-item__meta">' +
-                    (iss.module ? esc(formatAiModuleLabel(iss.module)) + ' · ' : '') +
-                    (iss.path ? '<span class="mono">' + esc(iss.path) + '</span> · ' : '') +
-                    '<span class="mono">' + esc(iss.issueCode || '') + '</span>' +
+              '<div class="ai-issue-row ai-issue-row--actionable" data-ai-issue-bucket="actionable" data-ai-issue-code="' + esc(item.issueCode) + '">' +
+                '<div class="ai-issue-row__main">' +
+                  '<div class="ai-issue-row__top">' +
+                    '<strong class="ai-issue-row__label">' + esc(item.labelVi) + '</strong>' +
+                    '<span class="ai-issue-row__reason">' + esc(item.reasonVi) + '</span>' +
+                    modChip +
                   '</div>' +
+                  techLine +
                 '</div>' +
-                '<span class="badge ' + (isWarn ? 'badge--warn' : 'badge--error') + ' badge--xs">' + (fc ? 'Mở ô →' : (isWarn ? 'Cảnh báo' : 'Lỗi')) + '</span>' +
-              '</button>'
+                '<button type="button" class="ai-issue-jump-btn" data-ai-issue-jump="' + esc(item.jumpFieldCode) + '">Mở ô →</button>' +
+              '</div>'
             );
-          }).join('') + '</div>' +
-        '</div>'
-      ) : '';
+          }
+          return (
+            '<div class="ai-issue-row ai-issue-row--system" data-ai-issue-bucket="system" data-ai-issue-code="' + esc(item.issueCode) + '">' +
+              '<div class="ai-issue-row__main">' +
+                '<div class="ai-issue-row__top">' +
+                  '<strong class="ai-issue-row__label">' + esc(item.labelVi) + '</strong>' +
+                  '<span class="ai-issue-row__reason">' + esc(item.reasonVi) + '</span>' +
+                  modChip +
+                '</div>' +
+                techLine +
+              '</div>' +
+            '</div>'
+          );
+        }).join('') + '</div>';
+      }
+
+      let issueListHtml = '';
+      if (issues.length > 0) {
+        const actionableCount = grouped.actionable.length;
+        const systemCount = grouped.system.length;
+        const actionableExpanded = Boolean(expandedState.actionable);
+        const systemExpanded = Boolean(expandedState.system);
+
+        const actionableHtml = actionableCount === 0
+          ? (
+              '<div class="ai-quality-ok-strip" data-ai-quality-group="actionable" data-ai-quality-count="0">' +
+                '<span class="ai-quality-ok-strip__icon">' + ICONS.checkCircle + '</span>' +
+                '<span>Không có trường nào bác sĩ cần điền thêm</span>' +
+              '</div>'
+            )
+          : (
+              '<div class="ai-quality-group ai-quality-group--actionable" data-ai-quality-group="actionable" data-ai-quality-count="' + actionableCount + '">' +
+                '<button type="button" class="ai-quality-group__toggle" data-action="toggle-ai-quality-group" data-ai-quality-group="actionable" aria-expanded="' + (actionableExpanded ? 'true' : 'false') + '" aria-controls="ai-quality-list-actionable">' +
+                  '<div class="ai-quality-group__head-main">' +
+                    '<div class="ai-quality-group__title-row">' +
+                      '<span class="ai-quality-group__dot ai-quality-group__dot--actionable" aria-hidden="true"></span>' +
+                      '<span class="ai-quality-group__title">Có trường nhưng chưa điền (' + actionableCount + ')</span>' +
+                    '</div>' +
+                  '</div>' +
+                  '<span class="ai-quality-group__chevron" aria-hidden="true">' + ICONS.down + '</span>' +
+                '</button>' +
+                '<div id="ai-quality-list-actionable" class="ai-quality-group__body"' + (actionableExpanded ? '' : ' hidden') + '>' +
+                  renderGroupedIssueRows(grouped.actionable, true) +
+                '</div>' +
+              '</div>'
+            );
+
+        const systemHtml = systemCount === 0
+          ? ''
+          : (
+              '<div class="ai-quality-group ai-quality-group--system" data-ai-quality-group="system" data-ai-quality-count="' + systemCount + '">' +
+                '<button type="button" class="ai-quality-group__toggle" data-action="toggle-ai-quality-group" data-ai-quality-group="system" aria-expanded="' + (systemExpanded ? 'true' : 'false') + '" aria-controls="ai-quality-list-system">' +
+                  '<div class="ai-quality-group__head-main">' +
+                    '<div class="ai-quality-group__title-row">' +
+                      '<span class="ai-quality-group__dot ai-quality-group__dot--system" aria-hidden="true"></span>' +
+                      '<span class="ai-quality-group__title">Chưa có trường trong biểu mẫu / giới hạn hệ thống (' + systemCount + ')</span>' +
+                    '</div>' +
+                    '<span class="ai-quality-group__explain">Không phải do bác sĩ nhập thiếu: biểu mẫu hiện chưa có trường này hoặc chưa có danh mục chuẩn của bệnh viện.</span>' +
+                  '</div>' +
+                  '<span class="ai-quality-group__chevron" aria-hidden="true">' + ICONS.down + '</span>' +
+                '</button>' +
+                '<div id="ai-quality-list-system" class="ai-quality-group__body"' + (systemExpanded ? '' : ' hidden') + '>' +
+                  renderGroupedIssueRows(grouped.system, false) +
+                '</div>' +
+              '</div>'
+            );
+
+        issueListHtml = '<div class="ai-quality-groups">' + actionableHtml + systemHtml + '</div>';
+      }
 
       const payloadHtml = rev.aiExportV1 ? (
         '<div>' +
@@ -4645,6 +4962,7 @@
 
   function resolveFieldSectionCode(formRes, fieldCode) {
     if (!fieldCode) return 'hanh_chinh';
+    const canonicalCode = AI_FIELD_CODE_ALIASES[fieldCode] || fieldCode;
     const sections = (formRes && formRes.sections) || [];
     const defs = (formRes && formRes.fieldDefinitions) || [];
     const defById = {};
@@ -4654,40 +4972,45 @@
       const sec = sections[i];
       const hit = (sec.fields || []).some(function (ff) {
         const fd = defById[ff.fieldDefinitionId];
-        return ff.fieldCode === fieldCode || (fd && fd.code === fieldCode);
+        return ff.fieldCode === fieldCode || ff.fieldCode === canonicalCode || (fd && (fd.code === fieldCode || fd.code === canonicalCode));
       });
       if (hit) return sec.sectionCode;
     }
     if (defByCode[fieldCode] && defByCode[fieldCode].sectionCode) return defByCode[fieldCode].sectionCode;
-    if (/^icd_|^diagnos/i.test(fieldCode)) return 'benh_su_dong_mac';
-    if (/^thuoc_|medication|co_da_thuoc|so_luong_thuoc/i.test(fieldCode)) return 'thuoc_di_ung';
-    if (/^di_ung_|^diung_|allergy/i.test(fieldCode)) return 'thuoc_di_ung';
-    if (/^cls_|lab|bnp|ntprobnp/i.test(fieldCode)) return 'can_lam_sang';
-    if (/huyet_ap|^ha_|bp/i.test(fieldCode)) return 'sinh_ton_kham';
-    if (/info_source|clinical_note/i.test(fieldCode)) return 'ghi_chu';
+    if (defByCode[canonicalCode] && defByCode[canonicalCode].sectionCode) return defByCode[canonicalCode].sectionCode;
+    if (/^icd_|^diagnos/i.test(canonicalCode)) return 'benh_su_dong_mac';
+    if (/^thuoc_|medication|co_da_thuoc|so_luong_thuoc/i.test(canonicalCode)) return 'thuoc_di_ung';
+    if (/^di_ung_|^diung_|allergy/i.test(canonicalCode)) return 'thuoc_di_ung';
+    if (/^cls_|lab|bnp|ntprobnp/i.test(canonicalCode)) return 'can_lam_sang';
+    if (/huyet_ap|^ha_|bp/i.test(canonicalCode)) return 'sinh_ton_kham';
+    if (/info_source|clinical_note/i.test(canonicalCode)) return 'ghi_chu';
     return 'hanh_chinh';
   }
 
   function findTargetElementForField(fieldCode) {
     if (!fieldCode) return null;
+    const canonicalCode = AI_FIELD_CODE_ALIASES[fieldCode] || fieldCode;
     let el = document.querySelector('[data-field-code="' + CSS.escape(fieldCode) + '"]');
+    if (!el && canonicalCode !== fieldCode) {
+      el = document.querySelector('[data-field-code="' + CSS.escape(canonicalCode) + '"]');
+    }
     if (el) return el;
     const repeatBlocks = document.querySelectorAll('[data-repeat-codes]');
     for (let i = 0; i < repeatBlocks.length; i++) {
       const codes = String(repeatBlocks[i].getAttribute('data-repeat-codes') || '').split(',');
-      if (codes.indexOf(fieldCode) >= 0) return repeatBlocks[i];
+      if (codes.indexOf(fieldCode) >= 0 || codes.indexOf(canonicalCode) >= 0) return repeatBlocks[i];
     }
     let repeatGroup = null;
-    if (/^thuoc_|medication|co_da_thuoc|so_luong_thuoc/i.test(fieldCode)) repeatGroup = 'medications';
-    else if (/^di_ung_|^diung_|allergy/i.test(fieldCode)) repeatGroup = 'allergies';
-    else if (/^cls_|lab|bnp|ntprobnp/i.test(fieldCode)) repeatGroup = 'labResults';
-    else if (/^icd_|^diagnos/i.test(fieldCode)) repeatGroup = 'diagnoses';
-    else if (/huyet_ap|^ha_/i.test(fieldCode)) repeatGroup = 'orthostaticBp';
+    if (/^thuoc_|medication|co_da_thuoc|so_luong_thuoc/i.test(canonicalCode)) repeatGroup = 'medications';
+    else if (/^di_ung_|^diung_|allergy/i.test(canonicalCode)) repeatGroup = 'allergies';
+    else if (/^cls_|lab|bnp|ntprobnp/i.test(canonicalCode)) repeatGroup = 'labResults';
+    else if (/^icd_|^diagnos/i.test(canonicalCode)) repeatGroup = 'diagnoses';
+    else if (/huyet_ap|^ha_/i.test(canonicalCode)) repeatGroup = 'orthostaticBp';
     if (repeatGroup) {
       el = document.querySelector('[data-repeat-group="' + repeatGroup + '"]');
       if (el) return el;
     }
-    const secCode = resolveFieldSectionCode(state.encounter.formStructure, fieldCode);
+    const secCode = resolveFieldSectionCode(state.encounter.formStructure, canonicalCode);
     if (secCode) {
       el = document.getElementById('enc-sec-' + secCode);
       if (el) return el;
@@ -5569,6 +5892,17 @@
       render();
       return;
     }
+    if (action === 'toggle-ai-quality-group') {
+      const grp = target.getAttribute('data-ai-quality-group');
+      if (grp === 'actionable' || grp === 'system') {
+        if (!state.review.aiQualityExpanded) {
+          state.review.aiQualityExpanded = { actionable: false, system: false };
+        }
+        state.review.aiQualityExpanded[grp] = !state.review.aiQualityExpanded[grp];
+        render();
+      }
+      return;
+    }
     if (action === 'scroll-to-ai-readiness') {
       const aiSec = document.getElementById('review-ai-readiness');
       if (aiSec && typeof aiSec.scrollIntoView === 'function') {
@@ -5593,6 +5927,7 @@
         const res = await api.getVisitAiInputV1(v.id, isDiag ? { diagnostic: true } : {});
         rev.aiExportV1 = res;
         rev.aiExportQuality = (res && res.quality) || null;
+        rev.aiQualityExpanded = { actionable: false, system: false };
         rev.aiExportIsDiagnostic = isDiag;
         const isReady = Boolean(rev.aiExportQuality && rev.aiExportQuality.status === 'ready');
         const fname = 'hf-ai-input-' + String(v.visitCode || v.id).replace(/[^a-zA-Z0-9_-]/g, '_') + '-r' + (v.currentRevisionNo || 1) + (isDiag ? '-diagnostic' : '') + '.json';
@@ -5603,6 +5938,7 @@
         rev.aiExportV1 = null;
         rev.aiExportIsDiagnostic = false;
         rev.aiExportQuality = q;
+        rev.aiQualityExpanded = { actionable: false, system: false };
         if (err && err.status === 422 && q) {
           rev.aiExportError = err.detail || 'Dữ liệu chưa sẵn sàng xuất cho AI (blocked).';
           toast('Chưa thể xuất gói gửi AI — kiểm tra các mục bị chặn bên dưới.', 'warn');
