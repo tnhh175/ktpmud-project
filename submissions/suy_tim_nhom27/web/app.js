@@ -964,16 +964,61 @@
     return Math.round((w / (m * m)) * 100) / 100;
   }
 
+  const TOAST_DURATION_MS = 4000;
+  const TOAST_MAX_VISIBLE = 3;
+
+  function dismissToastEl(el) {
+    if (!el || el._dismissed) return;
+    el._dismissed = true;
+    if (el._toastTimer) {
+      clearTimeout(el._toastTimer);
+      el._toastTimer = null;
+    }
+    el.classList.add('toast--leaving');
+    setTimeout(function () {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }, 160);
+  }
+
   function toast(msg, kind) {
     const region = document.getElementById('toast-region');
     if (!region) return;
+    const text = String(msg || '').trim();
+    if (!text) return;
+
+    // Deduplicate identical active message (refresh timer instead of stacking)
+    const existing = Array.prototype.slice.call(region.children).find(function (child) {
+      return !child._dismissed && child.getAttribute('data-toast-msg') === text;
+    });
+    if (existing) {
+      if (existing._toastTimer) clearTimeout(existing._toastTimer);
+      existing._toastTimer = setTimeout(function () { dismissToastEl(existing); }, TOAST_DURATION_MS);
+      return;
+    }
+
+    // Cap visible toasts at TOAST_MAX_VISIBLE (evict oldest)
+    while (region.children.length >= TOAST_MAX_VISIBLE) {
+      const oldest = region.firstElementChild;
+      if (oldest._toastTimer) clearTimeout(oldest._toastTimer);
+      region.removeChild(oldest);
+    }
+
     const el = document.createElement('div');
     el.className = 'toast' + (kind ? ' toast--' + kind : '');
-    el.textContent = msg;
+    el.setAttribute('data-toast-msg', text);
+    const span = document.createElement('span');
+    span.className = 'toast__text';
+    span.textContent = text;
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'toast__close';
+    closeBtn.setAttribute('aria-label', 'Đóng thông báo');
+    closeBtn.textContent = '×';
+    closeBtn.addEventListener('click', function () { dismissToastEl(el); });
+    el.appendChild(span);
+    el.appendChild(closeBtn);
     region.appendChild(el);
-    setTimeout(function () {
-      if (el.parentNode) el.parentNode.removeChild(el);
-    }, 3600);
+    el._toastTimer = setTimeout(function () { dismissToastEl(el); }, TOAST_DURATION_MS);
   }
 
   /* ------------------------------------------------------------------------
@@ -4770,8 +4815,96 @@
      Workflow 4-Module AI (hf-workflow/1.0): Loader, Actions & Renderer
      ------------------------------------------------------------------------ */
   function wfFormatModuleTitle(modCode) {
-    const m = WF_MODULE_META[modCode];
-    return m ? ('Module ' + m.num) : String(modCode || '').toUpperCase();
+    if (!modCode) return '';
+    const norm = String(modCode).trim().toLowerCase();
+    const m = WF_MODULE_META[norm];
+    return m ? ('Module ' + m.num) : String(modCode).trim();
+  }
+
+  function wfFormatStateInfo(st, ms) {
+    if (st === 'locked') return { label: 'Đã khóa', badgeCls: 'neutral' };
+    if (st === 'needs_input') return { label: 'Cần nhập', badgeCls: 'warn' };
+    if (st === 'ready') return { label: 'Sẵn sàng chạy', badgeCls: 'info' };
+    if (st === 'running') return { label: 'Đang chạy...', badgeCls: 'info' };
+    if (st === 'ran') return { label: 'Chờ duyệt', badgeCls: 'blue' };
+    if (st === 'accepted') {
+      return {
+        label: (ms && ms.decisionSource === 'manual') ? 'Đã chốt · Tự nhập' : 'Đã chốt',
+        badgeCls: 'success'
+      };
+    }
+    if (st === 'stale') return { label: 'Cần chạy lại', badgeCls: 'error' };
+    return { label: String(st || 'Chưa xác định'), badgeCls: 'neutral' };
+  }
+
+  function wfBuildMedicationLabelMap(wf) {
+    const map = {};
+    function registerList(list) {
+      if (!Array.isArray(list)) return;
+      list.forEach(function (d) {
+        if (!d || typeof d !== 'object') return;
+        const id = d.id != null ? String(d.id).trim() : '';
+        if (!id) return;
+        const name = String(d.display || d.drugName || d.ingredient || d.activeIngredient || d.ingredientCode || '').trim();
+        if (!name) return;
+        const hasDose = d.dose !== null && d.dose !== undefined && String(d.dose).trim() !== '';
+        const unit = String(d.unit || d.doseUnit || '').trim();
+        const label = hasDose ? (name + ' ' + String(d.dose).trim() + (unit ? (' ' + unit) : '')) : name;
+        if (!map[id] || (hasDose && map[id].indexOf(String(d.dose).trim()) < 0)) {
+          map[id] = label;
+        }
+      });
+    }
+    if (!wf) return map;
+    // Priority: visit medications -> M4 run snapshot -> workflow fields -> M3 effective decision -> active selectedPrescription
+    if (wf.visitDetail && Array.isArray(wf.visitDetail.medications)) registerList(wf.visitDetail.medications);
+    const m4ms = wf.data && wf.data.modules && wf.data.modules.m4;
+    const m4Run = m4ms && m4ms.latestRunId && wf.runCache && wf.runCache[m4ms.latestRunId];
+    if (m4Run && m4Run.inputSnapshot) {
+      const snapFields = m4Run.inputSnapshot.fields || {};
+      if (snapFields.medications && Array.isArray(snapFields.medications.value)) registerList(snapFields.medications.value);
+      if (snapFields.selected_medications && Array.isArray(snapFields.selected_medications.value)) registerList(snapFields.selected_medications.value);
+      if (m4Run.inputSnapshot.selectedPrescription && Array.isArray(m4Run.inputSnapshot.selectedPrescription.items)) {
+        registerList(m4Run.inputSnapshot.selectedPrescription.items);
+      }
+    }
+    if (wf.fieldValues) {
+      if (wf.fieldValues.medications && Array.isArray(wf.fieldValues.medications.value)) registerList(wf.fieldValues.medications.value);
+      if (wf.fieldValues.selected_medications && Array.isArray(wf.fieldValues.selected_medications.value)) registerList(wf.fieldValues.selected_medications.value);
+    }
+    const m3ms = wf.data && wf.data.modules && wf.data.modules.m3;
+    const m3Dec = m3ms && m3ms.effectiveDecisionId && wf.decisionCache && wf.decisionCache[m3ms.effectiveDecisionId];
+    if (m3Dec && m3Dec.selectedPrescription && Array.isArray(m3Dec.selectedPrescription.items)) {
+      registerList(m3Dec.selectedPrescription.items);
+    }
+    if (wf.selectedPrescription && Array.isArray(wf.selectedPrescription.items)) {
+      registerList(wf.selectedPrescription.items);
+    }
+    // Support future pharmacist payload if backend includes medications/selectedPrescription
+    if (wf.data) {
+      if (Array.isArray(wf.data.medications)) registerList(wf.data.medications);
+      if (wf.data.selectedPrescription && Array.isArray(wf.data.selectedPrescription.items)) registerList(wf.data.selectedPrescription.items);
+    }
+    return map;
+  }
+
+  function wfFormatFollowupItemHtml(f) {
+    if (typeof f === 'string') {
+      const s = f.trim();
+      return s ? ('<li>' + esc(s) + '</li>') : '';
+    }
+    if (f && typeof f === 'object') {
+      const hm = String(f.hang_muc || '').trim();
+      const td = String(f.thoi_diem || '').trim();
+      const ld = String(f.ly_do || '').trim();
+      if (!hm && !td && !ld) return '';
+      let html = '';
+      if (hm) html += '<strong>' + esc(hm) + '</strong>';
+      if (td) html += (html ? ' ' : '') + '(' + esc(td) + ')';
+      if (ld) html += (html ? ': ' : '') + esc(ld);
+      return '<li>' + html + '</li>';
+    }
+    return '';
   }
 
   function wfHydrateFieldValuesFromVisit(wf) {
@@ -5556,6 +5689,22 @@
     }
     wf.manualReasonError = '';
     const output = clone(wf.manualDraft);
+    if (mod === 'm3' && Array.isArray(output.ke_hoach_theo_doi)) {
+      output.ke_hoach_theo_doi = output.ke_hoach_theo_doi.map(function (f) {
+        if (typeof f === 'string') return f.trim();
+        if (f && typeof f === 'object') {
+          const hm = String(f.hang_muc || '').trim();
+          const td = String(f.thoi_diem || '').trim();
+          const ld = String(f.ly_do || '').trim();
+          if (!hm && !td && !ld) return '';
+          return (hm ? hm : '') + (td ? ((hm ? ' ' : '') + '(' + td + ')') : '') + (ld ? (((hm || td) ? ': ' : '') + ld) : '');
+        }
+        return '';
+      }).filter(Boolean);
+      if (output.ke_hoach_theo_doi.length === 0) {
+        output.ke_hoach_theo_doi = ['Tái khám lâm sàng & điện giải/creatinin theo lịch bác sĩ'];
+      }
+    }
     if (mod === 'm4') {
       const check = wfValidateM4Confirmations(output.canh_bao || [], wf.m4Decisions, { requireAllSerious: true });
       if (!check.valid) {
@@ -5654,27 +5803,66 @@
   }
 
   function wfJumpToField(fieldCode) {
+    if (!fieldCode) return;
     const wf = state.workflow;
     const mod = wf.activeModule;
-    const optList = (WF_STEP_FIELDS[mod] && WF_STEP_FIELDS[mod].optional) || [];
+    const ms = wf.data && wf.data.modules && wf.data.modules[mod];
+    const stepSpec = WF_STEP_FIELDS[mod] || { required: [], optional: [] };
+    const reqList = stepSpec.required || [];
+    const optList = stepSpec.optional || [];
+    let needsRender = false;
+
+    // Ensure the step form is visible (if currently collapsed in ran/accepted/stale) when jumping to a field
+    if (ms && !wf.isPharmacistView && !wf.manualModeModule && ms.state !== 'needs_input' && ms.state !== 'ready' && wf.editingModule !== mod) {
+      if (reqList.indexOf(fieldCode) >= 0 || optList.indexOf(fieldCode) >= 0) {
+        wf.editingModule = mod;
+        needsRender = true;
+      }
+    }
     if (optList.indexOf(fieldCode) >= 0 && !wf.optionalOpen[mod]) {
       wf.optionalOpen[mod] = true;
-      render();
+      needsRender = true;
     }
-    setTimeout(function () {
+    if (needsRender) render();
+
+    const doScrollAndFocus = function () {
       const el = document.querySelector('.wf-stage-card [data-field-code="' + CSS.escape(fieldCode) + '"]') ||
                  document.querySelector('[data-field-code="' + CSS.escape(fieldCode) + '"]');
       if (!el) return;
-      if (typeof el.scrollIntoView === 'function') el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       el.classList.remove('field--highlight');
       try { void el.offsetWidth; } catch (_e) {}
       el.classList.add('field--highlight');
-      const focusable = el.querySelector('input:not(:disabled), select:not(:disabled), textarea:not(:disabled), button:not(:disabled)');
+
+      // Prefer focusing the errored control first (e.g. missing measuredAt or invalid number), else first enabled input
+      const focusable =
+        el.querySelector('input.input--error:not(:disabled), select.input--error:not(:disabled), textarea.input--error:not(:disabled)') ||
+        el.querySelector('input:not(:disabled), select:not(:disabled), textarea:not(:disabled)') ||
+        el.querySelector('button:not(:disabled)');
+      // Focus with preventScroll BEFORE scrolling so Chromium never interrupts smooth scrolling
       if (focusable && typeof focusable.focus === 'function') {
         try { focusable.focus({ preventScroll: true }); } catch (_e) {}
       }
+      if (typeof el.getBoundingClientRect === 'function' && typeof global.scrollTo === 'function') {
+        const rect = el.getBoundingClientRect();
+        const sticky = document.querySelector('.encounter-sticky-head');
+        const stickyH = sticky ? sticky.getBoundingClientRect().height : 84;
+        const desiredTop = Math.max(0, (global.scrollY || document.documentElement.scrollTop || 0) + rect.top - Math.max(stickyH + 28, Math.round((global.innerHeight - rect.height) / 2)));
+        try {
+          global.scrollTo({ top: desiredTop, behavior: 'smooth' });
+        } catch (_e) {
+          if (typeof el.scrollIntoView === 'function') el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      } else if (typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
       setTimeout(function () { el.classList.remove('field--highlight'); }, 2000);
-    }, 30);
+    };
+
+    if (typeof global.requestAnimationFrame === 'function') {
+      global.requestAnimationFrame(function () { setTimeout(doScrollAndFocus, 20); });
+    } else {
+      setTimeout(doScrollAndFocus, 30);
+    }
   }
 
   function renderWorkflowStepper(wf) {
@@ -6087,6 +6275,7 @@
     const isDisagree = dec.quyet_dinh === 'Không đồng ý';
     const reasonRequired = isSerious || isDisagree;
     const controlsEnabled = Boolean(canConfirm || isManualForm);
+    const medLabelMap = wfBuildMedicationLabelMap(wf);
     return (
       '<article class="wf-alert-card wf-alert-card--' + sevCls + '" data-wf-alert-id="' + esc(al.id) + '">' +
         '<div class="wf-alert-card__info">' +
@@ -6098,7 +6287,10 @@
           '<p class="wf-alert-card__desc">' + esc(al.noi_dung) + '</p>' +
           '<p class="wf-alert-card__action"><strong>Đề xuất:</strong> ' + esc(al.hanh_dong_de_xuat || 'Bác sĩ rà soát') + '</p>' +
           (Array.isArray(al.thuoc_lien_quan) && al.thuoc_lien_quan.length > 0
-            ? '<div class="wf-chip-list"><span class="field__help">Thuốc liên quan:</span>' + al.thuoc_lien_quan.map(function (id) { return '<span class="code-chip">' + esc(id) + '</span>'; }).join('') + '</div>'
+            ? '<div class="wf-chip-list"><span class="field__help">Thuốc liên quan:</span>' + al.thuoc_lien_quan.map(function (id) {
+                const resolved = medLabelMap[String(id)] || 'Thuốc không xác định';
+                return '<span class="code-chip">' + esc(resolved) + '</span>';
+              }).join('') + '</div>'
             : '') +
         '</div>' +
         '<div class="wf-alert-card__decision">' +
@@ -6234,13 +6426,17 @@
             output.ca_the_hoa.map(function (c) { return '<span class="badge badge--blue">' + esc(c) + '</span>'; }).join('') +
           '</div></div>'
         ) : '') +
-        (Array.isArray(output.ke_hoach_theo_doi) && output.ke_hoach_theo_doi.length > 0 ? (
-          '<div class="wf-subblock"><h4>Kế hoạch theo dõi</h4><ul class="wf-bullet-list">' +
-            output.ke_hoach_theo_doi.map(function (f) {
-              return '<li><strong>' + esc(f.hang_muc) + '</strong> (' + esc(f.thoi_diem) + '): ' + esc(f.ly_do) + '</li>';
-            }).join('') +
-          '</ul></div>'
-        ) : '') +
+        (function () {
+          const rawFollowups = Array.isArray(output.ke_hoach_theo_doi) ? output.ke_hoach_theo_doi : [];
+          const followupHtmlItems = rawFollowups.map(wfFormatFollowupItemHtml).filter(Boolean);
+          return (
+            '<div class="wf-subblock"><h4>Kế hoạch theo dõi</h4>' +
+              (followupHtmlItems.length > 0
+                ? ('<ul class="wf-bullet-list">' + followupHtmlItems.join('') + '</ul>')
+                : '<p class="field__help">Chưa có kế hoạch theo dõi</p>') +
+            '</div>'
+          );
+        })() +
         gapsHtml
       );
     }
@@ -6419,11 +6615,15 @@
         '</div></div>' +
         '<div class="wf-subblock"><h4>Kế hoạch theo dõi (DD #180) <button type="button" class="btn btn--secondary btn--xs" data-wf-man-add-followup="1">' + ICONS.plus + ' Thêm lịch theo dõi</button></h4>' +
           '<div class="wf-list-editor">' + followups.map(function (f, idx) {
+            const isStr = typeof f === 'string';
+            const hm = isStr ? f : (f && f.hang_muc ? f.hang_muc : '');
+            const td = isStr ? '' : (f && f.thoi_diem ? f.thoi_diem : '');
+            const ld = isStr ? '' : (f && f.ly_do ? f.ly_do : '');
             return (
               '<div class="wf-man-m3-rec-row">' +
-                '<input type="text" class="input input--sm" data-wf-man-followup="' + idx + ':hang_muc" value="' + esc(f.hang_muc || '') + '" placeholder="Hạng mục">' +
-                '<input type="text" class="input input--sm" data-wf-man-followup="' + idx + ':thoi_diem" value="' + esc(f.thoi_diem || '') + '" placeholder="Thời điểm">' +
-                '<input type="text" class="input input--sm" data-wf-man-followup="' + idx + ':ly_do" value="' + esc(f.ly_do || '') + '" placeholder="Lý do">' +
+                '<input type="text" class="input input--sm" data-wf-man-followup="' + idx + ':hang_muc" value="' + esc(hm) + '" placeholder="Nội dung theo dõi">' +
+                '<input type="text" class="input input--sm" data-wf-man-followup="' + idx + ':thoi_diem" value="' + esc(td) + '" placeholder="Thời điểm (tùy chọn)">' +
+                '<input type="text" class="input input--sm" data-wf-man-followup="' + idx + ':ly_do" value="' + esc(ld) + '" placeholder="Lý do (tùy chọn)">' +
                 (followups.length > 1 ? '<button type="button" class="btn btn--ghost btn--xs" data-wf-man-rm-followup="' + idx + '">' + ICONS.trash + '</button>' : '') +
               '</div>'
             );
@@ -6561,16 +6761,31 @@
       '</div>'
     ) : '';
 
-    // Stale banner (uses staleChangedModule and staleChangedAt directly from API!)
-    const staleBanner = (ms.state === 'stale') ? (
-      '<div class="banner banner--error wf-stale-banner" role="alert">' +
-        '<div class="banner__main">' + ICONS.refresh + '<div>' +
-          '<p class="banner__title">Cần chạy lại ' + esc(wfFormatModuleTitle(mod)) + '</p>' +
-          '<p class="banner__desc">Cần chạy lại ' + esc(wfFormatModuleTitle(mod)) + ' — Dữ liệu ở <strong>' + esc(wfFormatModuleTitle(ms.staleChangedModule || mod)) + '</strong> đã thay đổi lúc <strong class="tabular">' + esc(formatDateTime(ms.staleChangedAt)) + '</strong>. Kết quả bên dưới thuộc lần chạy trước và có thể không còn phù hợp. Hệ thống không tự chạy lại.</p>' +
-          (Array.isArray(ms.staleReasons) && ms.staleReasons.length > 0 ? '<p class="field__help" style="margin-top:4px;">Nguyên nhân: ' + esc(ms.staleReasons.join('; ')) + '</p>' : '') +
-        '</div></div>' +
-      '</div>'
-    ) : '';
+    // Stale banner (uses staleChangedModule and staleChangedAt directly from API, with clean Vietnamese fallback if null)
+    let staleBanner = '';
+    if (ms.state === 'stale') {
+      const changedModTitle = ms.staleChangedModule ? wfFormatModuleTitle(ms.staleChangedModule) : '';
+      const changedAtFmt = ms.staleChangedAt ? formatDateTime(ms.staleChangedAt) : '';
+      const hasValidTime = Boolean(changedAtFmt && changedAtFmt !== '—');
+      let staleDetailHtml = '';
+      if (changedModTitle && hasValidTime) {
+        staleDetailHtml = 'Dữ liệu ở <strong>' + esc(changedModTitle) + '</strong> đã thay đổi lúc <strong class="tabular">' + esc(changedAtFmt) + '</strong>.';
+      } else if (changedModTitle) {
+        staleDetailHtml = 'Dữ liệu ở <strong>' + esc(changedModTitle) + '</strong> đã thay đổi.';
+      } else if (hasValidTime) {
+        staleDetailHtml = 'Dữ liệu bước trước đã thay đổi lúc <strong class="tabular">' + esc(changedAtFmt) + '</strong>.';
+      } else {
+        staleDetailHtml = 'Dữ liệu bước trước đã thay đổi.';
+      }
+      staleBanner =
+        '<div class="banner banner--error wf-stale-banner" role="alert">' +
+          '<div class="banner__main">' + ICONS.refresh + '<div>' +
+            '<p class="banner__title">Cần chạy lại ' + esc(wfFormatModuleTitle(mod)) + '</p>' +
+            '<p class="banner__desc">Cần chạy lại ' + esc(wfFormatModuleTitle(mod)) + ' — ' + staleDetailHtml + ' Kết quả bên dưới thuộc lần chạy trước và có thể không còn phù hợp. Hệ thống không tự chạy lại.</p>' +
+            (Array.isArray(ms.staleReasons) && ms.staleReasons.length > 0 ? '<p class="field__help" style="margin-top:4px;">Nguyên nhân: ' + esc(ms.staleReasons.join('; ')) + '</p>' : '') +
+          '</div></div>' +
+        '</div>';
+    }
 
     // Missing fields banner with clickable jump chips
     const missingCodes = Array.isArray(ms.missingFieldCodes) ? ms.missingFieldCodes : [];
@@ -6618,6 +6833,7 @@
     const showOutputPanel = !isManual && ((isPharm && wf.data.output) || (!isPharm && outInfo && outInfo.output && (ms.state === 'ran' || ms.state === 'accepted' || ms.state === 'stale')));
     const histRuns = wf.historyRuns[mod] || [];
     const failedCount = (typeof ms.succeededAttemptCount === 'number' && ms.attemptCount > ms.succeededAttemptCount) ? (ms.attemptCount - ms.succeededAttemptCount) : 0;
+    const stateInfo = wfFormatStateInfo(isRunning ? 'running' : ms.state, ms);
     const outputPanelHtml = showOutputPanel ? (
       '<section class="wf-output-panel' + (ms.state === 'stale' ? ' wf-output-panel--stale' : '') + '" aria-label="Kết quả Module ' + meta.num + '">' +
         '<div class="wf-sim-banner" role="note">' +
@@ -6663,7 +6879,7 @@
           (mod === 'm3' && !isPharm && (hasAction('continue_next') || hasAction('accept_ai')) ? renderM3SelectedPrescriptionBox(wf, false) : '') +
         '</div>' +
       '</section>'
-    ) : (isPharm && !wf.data.output ? '<div class="empty-state"><h3 class="empty-state__title">Module 4 chưa có kết quả</h3><p class="empty-state__desc">Trạng thái hiện tại: <strong>' + esc(ms.state) + '</strong>. Bác sĩ chưa chạy Module 4 cho lượt khám này.</p></div>' : '');
+    ) : (isPharm && !wf.data.output ? '<div class="empty-state"><h3 class="empty-state__title">Module 4 chưa có kết quả</h3><p class="empty-state__desc">Trạng thái hiện tại: <strong>' + esc(stateInfo.label) + '</strong>. Bác sĩ chưa chạy Module 4 cho lượt khám này.</p></div>' : '');
 
     const manualFormHtml = isManual ? renderManualOverrideForm(wf, mod) : '';
 
@@ -6719,7 +6935,7 @@
       if (btns.length > 0) {
         actionBarHtml =
           '<div class="wf-action-bar" role="region" aria-label="Thanh hành động Module ' + meta.num + '">' +
-            '<div class="wf-action-bar__status">' + esc(statusNote || ('Trạng thái: ' + ms.state + (ms.attemptCount ? (' · Lần chạy #' + ms.attemptCount) : ''))) + '</div>' +
+            '<div class="wf-action-bar__status">' + esc(statusNote || ('Trạng thái: ' + stateInfo.label + (ms.attemptCount ? (' · Lần chạy #' + ms.attemptCount) : ''))) + '</div>' +
             '<div class="wf-action-bar__btns">' + btns.join('') + '</div>' +
           '</div>';
       }
@@ -6733,7 +6949,7 @@
             '<p class="card__subtitle">Luồng chạy từng bước theo hợp đồng <code>hf-workflow/1.0</code> — không chạy chuỗi tự động.</p>' +
           '</div>' +
           '<div class="wf-stage-card__badges">' +
-            '<span class="badge badge--info">' + esc(ms.state) + '</span>' +
+            '<span class="badge badge--' + esc(stateInfo.badgeCls) + '">' + esc(stateInfo.label) + '</span>' +
             (ms.attemptCount > 0 ? '<span class="badge badge--neutral tabular">Lần chạy #' + esc(ms.attemptCount) + '</span>' : '') +
           '</div>' +
         '</div>' +
@@ -10133,8 +10349,13 @@
     const wfManFollow = t.getAttribute('data-wf-man-followup');
     if (wfManFollow && state.workflow.manualDraft && Array.isArray(state.workflow.manualDraft.ke_hoach_theo_doi)) {
       const parts = wfManFollow.split(':');
-      const row = state.workflow.manualDraft.ke_hoach_theo_doi[Number(parts[0])];
-      if (row) row[parts[1]] = t.value;
+      const fIdx = Number(parts[0]);
+      let row = state.workflow.manualDraft.ke_hoach_theo_doi[fIdx];
+      if (typeof row === 'string') {
+        row = { hang_muc: row, thoi_diem: '', ly_do: '' };
+        state.workflow.manualDraft.ke_hoach_theo_doi[fIdx] = row;
+      }
+      if (row && typeof row === 'object') row[parts[1]] = t.value;
       return;
     }
     const wfManM4Al = t.getAttribute('data-wf-man-m4-alert');
@@ -10629,6 +10850,17 @@
     if (t.id === 'audit-from') { state.adminAudit.fromDate = t.value; await loadAdminAudit(); return; }
     if (t.id === 'audit-to') { state.adminAudit.toDate = t.value; await loadAdminAudit(); return; }
   });
+
+  // A4-fix #2: Prevent mouse wheel from accidentally changing focused number inputs in workflow
+  document.addEventListener('wheel', function (ev) {
+    const active = document.activeElement;
+    if (!active || active.tagName !== 'INPUT' || active.type !== 'number') return;
+    const inWorkflow = state.screen === 'workflow' || Boolean(active.closest && active.closest('.wf-stage-card, .v12-field'));
+    if (!inWorkflow) return;
+    if (ev.target === active || (active.contains && active.contains(ev.target))) {
+      active.blur();
+    }
+  }, { passive: true, capture: true });
 
   document.addEventListener('pointerdown', function (ev) {
     if (!ev.target.closest('#account-menu, [data-action="toggle-account-menu"]')) closeAccountMenu(false);
