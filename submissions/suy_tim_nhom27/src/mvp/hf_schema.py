@@ -40,7 +40,12 @@ def matches(value,schema):
     return True
 
 def validate_export(payload):
-    if not matches(payload,SCHEMA):raise ValueError('HF export violates hf-ai-input/1.0 schema')
+    if payload.get('contractVersion')=='hf-ai-input/1.1':
+        from .workflow_schema import matches as workflow_matches
+        schema=json.loads((Path(__file__).resolve().parents[2]/'api/schemas/hf-ai-input-1.1.schema.json').read_text(encoding='utf-8'))
+        if not workflow_matches(payload,schema,root=schema):
+            raise ValueError('HF export violates hf-ai-input/1.1 schema')
+    elif not matches(payload,SCHEMA):raise ValueError('HF export violates hf-ai-input/1.0 schema')
     for name,series in payload['observations'].items():
         ids=[r.get('measurementId',r.get('observationId',r.get('recordId'))) for r in series]
         ids=[x for x in ids if x is not None]

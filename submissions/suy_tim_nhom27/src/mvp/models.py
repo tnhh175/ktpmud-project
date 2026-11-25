@@ -9,13 +9,13 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
-UserRole = Literal["doctor", "admin"]
+UserRole = Literal["doctor", "admin", "pharmacist"]
 VisitStatus = Literal["draft", "confirmed"]
 ValueState = Literal["answered", "unknown"]
 FormVersionStatus = Literal["draft", "published", "retired"]
 FieldScopeStatus = Literal["mvp", "can_xac_nhan"]
 FieldDataType = Literal[
-    "number", "integer", "text", "boolean", "date", "single_choice", "multi_choice"
+    "number", "integer", "text", "boolean", "date", "single_choice", "multi_choice", "object"
 ]
 SectionCode = Literal[
     "hanh_chinh",
@@ -43,10 +43,45 @@ AuditAction = Literal[
     "ai_input_export",
     "care_assignment_add",
     "care_assignment_revoke",
+    "workflow_fields_saved", "workflow_run", "workflow_decision",
+    "workflow_confirmation", "workflow_invalidated", "workflow_finished",
 ]
 SexType = Literal["male", "female", "unknown"]
 VisitType = Literal["outpatient_new", "follow_up", "acute_inpatient"]
 AiModuleCode = Literal["ai_diagnosis", "ai_lab_test", "ai_treatment", "ai_medsafety"]
+
+
+WorkflowModule = Literal['m1', 'm2', 'm3', 'm4']
+
+
+class WorkflowFinishRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    rowVersion: int | None = Field(default=None, ge=1)
+
+
+class WorkflowRunRequest(WorkflowFinishRequest):
+    module: WorkflowModule
+
+
+class WorkflowFieldsRequest(WorkflowRunRequest):
+    fields: dict[str, Any]
+    # Additive C3 UI controls. Neither accepts a client snapshot or AI output.
+    editing: bool = False
+    recentTestEvidence: dict[str, Any] | None = None
+
+
+class WorkflowDecisionRequest(WorkflowRunRequest):
+    source: Literal['ai', 'manual']
+    runId: str | None = None
+    output: dict[str, Any] | None = None
+    selectedPrescription: dict[str, Any] | None = None
+    manualReason: str | None = None
+    intent: Literal['accept', 'finish_workflow'] | None = None
+
+
+class WorkflowConfirmationRequest(WorkflowRunRequest):
+    outputRef: str
+    confirmations: list[dict[str, Any]] = Field(max_length=100)
 
 
 def _empty_str_to_none(v: Any) -> Any:

@@ -1762,6 +1762,1012 @@ paths:
 
         C4 access: Doctor assignment required for all clinical reads and writes; unauthorized
         and missing objects both return 404. Only admin manages assignments.'
+  /visits/{visitId}/ai-input/hf/1.1:
+    get:
+      tags:
+      - Visits
+      summary: Get Visit Hf Ai Input V11
+      operationId: getVisitHfAiInputV11
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: visitId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Visitid
+      - name: module
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - enum:
+            - ai_diagnosis
+            - ai_lab_test
+            - ai_treatment
+            - ai_medsafety
+            type: string
+          - type: 'null'
+          title: Module
+      - name: diagnostic
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          title: Diagnostic
+      responses:
+        '200':
+          description: Frozen v1.2 projection; diagnostic mode preserves quality blockers.
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/hf-ai-input-1.1.schema.json
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '401':
+          description: Authentication required
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '403':
+          description: Role forbidden
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '404':
+          description: Resource not found or no patient access (same response)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+      description: '
+
+
+        C4 access: Doctor assignment required for all clinical reads and writes; unauthorized
+        and missing objects both return 404. Only admin manages assignments.'
+  /visits/{visitId}/workflow:
+    get:
+      tags:
+      - Test workflow
+      summary: Get Workflow
+      operationId: getVisitWorkflow
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: visitId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Visitid
+      - name: module
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Module
+      responses:
+        '200':
+          description: Workflow receipt or immutable resource
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: ./schemas/hf-workflow-1.0.schema.json#/$defs/workflowState
+                - $ref: ./schemas/hf-workflow-1.0.schema.json#/$defs/m4ReadView
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '401':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '403':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '404':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+      description: 'Synthetic mock only; doctor assignment required. Pharmacists may
+        only GET workflow?module=m4 with explicit patient scope. Workflow writes require
+        body rowVersion; optional If-Match must agree. POST Idempotency-Key replays
+        the same payload; changed payload returns 409. No automatic downstream runs.
+        With module=m4, assigned doctors and scoped pharmacists receive the effective
+        M4 read projection, including saved confirmations. Omit module for the full
+        doctor workflow state.
+
+
+        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4
+        returns only the M4 read view; no pharmacist writes or M1-M3 access.'
+  /visits/{visitId}/workflow/{module}/fields:
+    get:
+      tags:
+      - Test workflow
+      summary: Get Fields
+      operationId: getWorkflowFields
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: visitId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Visitid
+      - name: module
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Module
+      responses:
+        '200':
+          description: Workflow receipt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  module:
+                    $ref: ./schemas/hf-workflow-1.0.schema.json#/$defs/module
+                  rowVersion:
+                    type: integer
+                  fields:
+                    $ref: ./schemas/hf-workflow-1.0.schema.json#/$defs/fieldReadFields
+                  fieldMetadata:
+                    type: object
+                    additionalProperties:
+                      $ref: ./schemas/hf-workflow-1.0.schema.json#/$defs/fieldMetadata
+                  observations:
+                    type: array
+                    items:
+                      type: object
+                required:
+                - module
+                - rowVersion
+                - fields
+                - fieldMetadata
+                - observations
+                additionalProperties: false
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '401':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '403':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '404':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+      description: 'Synthetic mock only; doctor assignment required. Pharmacists may
+        only GET workflow?module=m4 with explicit patient scope. Workflow writes require
+        body rowVersion; optional If-Match must agree. POST Idempotency-Key replays
+        the same payload; changed payload returns 409. No automatic downstream runs.
+        Each existing answer includes read-only ownerModule; fieldMetadata provides
+        ownerModule for all allowed fields, including absent answers. Remove answer
+        ownerModule before PUT. Only the owner path accepts writes (422 WORKFLOW_FIELD_OWNER_MISMATCH
+        otherwise); selected_medications is written only by M3 decision.
+
+
+        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4
+        returns only the M4 read view; no pharmacist writes or M1-M3 access.'
+    put:
+      tags:
+      - Test workflow
+      summary: Put Fields
+      operationId: saveWorkflowFields
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: visitId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Visitid
+      - name: module
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Module
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: If-Match
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowFieldsRequest'
+      responses:
+        '200':
+          description: Workflow receipt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rowVersion:
+                    type: integer
+                  module:
+                    $ref: ./schemas/hf-workflow-1.0.schema.json#/$defs/module
+                  state:
+                    type: string
+                  invalidatedModules:
+                    type: array
+                    items:
+                      $ref: ./schemas/hf-workflow-1.0.schema.json#/$defs/module
+                  unknownFieldCodes:
+                    type: array
+                    items:
+                      type: string
+                required:
+                - rowVersion
+                - module
+                - state
+                - invalidatedModules
+                - unknownFieldCodes
+                additionalProperties: false
+        '422':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '401':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '403':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '404':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '409':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '503':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+      description: 'Synthetic mock only; doctor assignment required. Pharmacists may
+        only GET workflow?module=m4 with explicit patient scope. Workflow writes require
+        body rowVersion; optional If-Match must agree. POST Idempotency-Key replays
+        the same payload; changed payload returns 409. No automatic downstream runs.
+
+
+        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4
+        returns only the M4 read view; no pharmacist writes or M1-M3 access.'
+  /visits/{visitId}/workflow/{module}/runs:
+    post:
+      tags:
+      - Test workflow
+      summary: Post Run
+      operationId: runWorkflowModule
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: visitId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Visitid
+      - name: module
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Module
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: If-Match
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency-Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowRunRequest'
+      responses:
+        '200':
+          description: Workflow receipt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rowVersion:
+                    type: integer
+                  module:
+                    $ref: ./schemas/hf-workflow-1.0.schema.json#/$defs/module
+                  state:
+                    const: ran
+                  runId:
+                    type: string
+                    format: uuid
+                  attempt:
+                    type: integer
+                  engine:
+                    const: mock-rules
+                  rulesVersion:
+                    type: string
+                required:
+                - rowVersion
+                - module
+                - state
+                - runId
+                - attempt
+                - engine
+                - rulesVersion
+                additionalProperties: false
+        '422':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '401':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '403':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '404':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '409':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '503':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '504':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+      description: 'Synthetic mock only; doctor assignment required. Pharmacists may
+        only GET workflow?module=m4 with explicit patient scope. Workflow writes require
+        body rowVersion; optional If-Match must agree. POST Idempotency-Key replays
+        the same payload; changed payload returns 409. No automatic downstream runs.
+
+
+        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4
+        returns only the M4 read view; no pharmacist writes or M1-M3 access.'
+    get:
+      tags:
+      - Test workflow
+      summary: List Runs
+      operationId: listWorkflowRuns
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: visitId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Visitid
+      - name: module
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Module
+      responses:
+        '200':
+          description: Workflow receipt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: ./schemas/hf-workflow-1.0.schema.json#/$defs/moduleRun
+                required:
+                - items
+                additionalProperties: false
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '401':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '403':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '404':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+      description: 'Synthetic mock only; doctor assignment required. Pharmacists may
+        only GET workflow?module=m4 with explicit patient scope. Workflow writes require
+        body rowVersion; optional If-Match must agree. POST Idempotency-Key replays
+        the same payload; changed payload returns 409. No automatic downstream runs.
+        Run resources preserve the original immutable engine output. Read workflow?module=m4
+        for saved M4 confirmations.
+
+
+        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4
+        returns only the M4 read view; no pharmacist writes or M1-M3 access.'
+  /visits/{visitId}/workflow/{module}/runs/{runId}:
+    get:
+      tags:
+      - Test workflow
+      summary: Get Run
+      operationId: getWorkflowRun
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: visitId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Visitid
+      - name: module
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Module
+      - name: runId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Runid
+      responses:
+        '200':
+          description: Workflow receipt or immutable resource
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/hf-workflow-1.0.schema.json#/$defs/moduleRun
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '401':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '403':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '404':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+      description: 'Synthetic mock only; doctor assignment required. Pharmacists may
+        only GET workflow?module=m4 with explicit patient scope. Workflow writes require
+        body rowVersion; optional If-Match must agree. POST Idempotency-Key replays
+        the same payload; changed payload returns 409. No automatic downstream runs.
+        Run resources preserve the original immutable engine output. Read workflow?module=m4
+        for saved M4 confirmations.
+
+
+        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4
+        returns only the M4 read view; no pharmacist writes or M1-M3 access.'
+  /visits/{visitId}/workflow/{module}/decisions/{decisionId}:
+    get:
+      tags:
+      - Test workflow
+      summary: Get Decision
+      operationId: getWorkflowDecision
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: visitId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Visitid
+      - name: module
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Module
+      - name: decisionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Decisionid
+      responses:
+        '200':
+          description: Workflow receipt or immutable resource
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/hf-workflow-1.0.schema.json#/$defs/effectiveDecision
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '401':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '403':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '404':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+      description: 'Synthetic mock only; doctor assignment required. Pharmacists may
+        only GET workflow?module=m4 with explicit patient scope. Workflow writes require
+        body rowVersion; optional If-Match must agree. POST Idempotency-Key replays
+        the same payload; changed payload returns 409. No automatic downstream runs.
+
+
+        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4
+        returns only the M4 read view; no pharmacist writes or M1-M3 access.'
+  /visits/{visitId}/workflow/m4/confirmations:
+    post:
+      tags:
+      - Test workflow
+      summary: Post Confirmations
+      operationId: confirmWorkflowM4
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: visitId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Visitid
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: If-Match
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency-Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./schemas/hf-workflow-1.0.schema.json#/$defs/confirmationRequest
+      responses:
+        '200':
+          description: Workflow receipt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rowVersion:
+                    type: integer
+                  module:
+                    const: m4
+                  outputRef:
+                    type: string
+                    format: uuid
+                  pendingSeriousAlertIds:
+                    type: array
+                    items:
+                      type: string
+                  canFinish:
+                    type: boolean
+                required:
+                - rowVersion
+                - module
+                - outputRef
+                - pendingSeriousAlertIds
+                - canFinish
+                additionalProperties: false
+        '422':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '401':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '403':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '404':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '409':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '503':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+      description: 'Synthetic mock only; doctor assignment required. Pharmacists may
+        only GET workflow?module=m4 with explicit patient scope. Workflow writes require
+        body rowVersion; optional If-Match must agree. POST Idempotency-Key replays
+        the same payload; changed payload returns 409. No automatic downstream runs.
+
+
+        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4
+        returns only the M4 read view; no pharmacist writes or M1-M3 access.'
+  /visits/{visitId}/workflow/{module}/decision:
+    post:
+      tags:
+      - Test workflow
+      summary: Post Decision
+      operationId: decideWorkflowModule
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: visitId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Visitid
+      - name: module
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Module
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: If-Match
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency-Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./schemas/hf-workflow-1.0.schema.json#/$defs/decisionRequest
+      responses:
+        '200':
+          description: Workflow receipt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rowVersion:
+                    type: integer
+                  module:
+                    $ref: ./schemas/hf-workflow-1.0.schema.json#/$defs/module
+                  state:
+                    const: accepted
+                  decisionId:
+                    type: string
+                    format: uuid
+                  decisionSource:
+                    enum:
+                    - ai
+                    - manual
+                  nextModule:
+                    anyOf:
+                    - $ref: ./schemas/hf-workflow-1.0.schema.json#/$defs/module
+                    - type: 'null'
+                  autoRunModules:
+                    type: array
+                    maxItems: 0
+                required:
+                - rowVersion
+                - module
+                - state
+                - decisionId
+                - decisionSource
+                - nextModule
+                - autoRunModules
+                additionalProperties: false
+        '422':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '401':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '403':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '404':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '409':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '503':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+      description: 'Synthetic mock only; doctor assignment required. Pharmacists may
+        only GET workflow?module=m4 with explicit patient scope. Workflow writes require
+        body rowVersion; optional If-Match must agree. POST Idempotency-Key replays
+        the same payload; changed payload returns 409. No automatic downstream runs.
+
+
+        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4
+        returns only the M4 read view; no pharmacist writes or M1-M3 access.'
+  /visits/{visitId}/workflow/finish:
+    post:
+      tags:
+      - Test workflow
+      summary: Post Finish
+      operationId: finishVisitWorkflow
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: visitId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Visitid
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: If-Match
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency-Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowFinishRequest'
+      responses:
+        '200':
+          description: Workflow receipt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rowVersion:
+                    type: integer
+                  completed:
+                    const: true
+                  completedAt:
+                    type: string
+                    format: date-time
+                required:
+                - rowVersion
+                - completed
+                - completedAt
+                additionalProperties: false
+        '422':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '401':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '403':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '404':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '409':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+        '503':
+          description: ProblemDetails; see C1 contract error codes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailsModel'
+      description: 'Synthetic mock only; doctor assignment required. Pharmacists may
+        only GET workflow?module=m4 with explicit patient scope. Workflow writes require
+        body rowVersion; optional If-Match must agree. POST Idempotency-Key replays
+        the same payload; changed payload returns 409. No automatic downstream runs.
+
+
+        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4
+        returns only the M4 read view; no pharmacist writes or M1-M3 access.'
   /admin/care/doctors:
     get:
       tags:
@@ -2325,6 +3331,7 @@ components:
           enum:
           - doctor
           - admin
+          - pharmacist
           title: Role
         isActive:
           type: boolean
@@ -2510,6 +3517,7 @@ components:
           - date
           - single_choice
           - multi_choice
+          - object
           title: Datatype
         canonicalUnit:
           anyOf:
@@ -3471,6 +4479,7 @@ components:
             enum:
             - doctor
             - admin
+            - pharmacist
           - type: 'null'
           title: Actorrole
         action:
@@ -3489,6 +4498,12 @@ components:
           - ai_input_export
           - care_assignment_add
           - care_assignment_revoke
+          - workflow_fields_saved
+          - workflow_run
+          - workflow_decision
+          - workflow_confirmation
+          - workflow_invalidated
+          - workflow_finished
           title: Action
         entityType:
           type: string
@@ -4420,6 +5435,7 @@ components:
           enum:
           - doctor
           - admin
+          - pharmacist
           title: Role
         isActive:
           type: boolean
@@ -4475,6 +5491,7 @@ components:
             enum:
             - doctor
             - admin
+            - pharmacist
           - type: 'null'
           title: Role
         isActive:
@@ -4515,6 +5532,7 @@ components:
           enum:
           - doctor
           - admin
+          - pharmacist
           title: Role
         targetUserId:
           anyOf:
@@ -4554,6 +5572,7 @@ components:
           enum:
           - doctor
           - admin
+          - pharmacist
           title: Role
         clinicalDataAccessAllowed:
           type: boolean
@@ -5441,6 +6460,167 @@ components:
       - issueCode
       - messageVi
       title: AiReadinessIssue
+    WorkflowConfirmationRequest:
+      properties:
+        rowVersion:
+          anyOf:
+          - type: integer
+            minimum: 1.0
+          - type: 'null'
+          title: Rowversion
+        module:
+          type: string
+          enum:
+          - m1
+          - m2
+          - m3
+          - m4
+          title: Module
+        outputRef:
+          type: string
+          title: Outputref
+        confirmations:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          maxItems: 100
+          title: Confirmations
+      additionalProperties: false
+      type: object
+      required:
+      - module
+      - outputRef
+      - confirmations
+      title: WorkflowConfirmationRequest
+    WorkflowDecisionRequest:
+      properties:
+        rowVersion:
+          anyOf:
+          - type: integer
+            minimum: 1.0
+          - type: 'null'
+          title: Rowversion
+        module:
+          type: string
+          enum:
+          - m1
+          - m2
+          - m3
+          - m4
+          title: Module
+        source:
+          type: string
+          enum:
+          - ai
+          - manual
+          title: Source
+        runId:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Runid
+        output:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Output
+        selectedPrescription:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Selectedprescription
+        manualReason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Manualreason
+        intent:
+          anyOf:
+          - type: string
+            enum:
+            - accept
+            - finish_workflow
+          - type: 'null'
+          title: Intent
+      additionalProperties: false
+      type: object
+      required:
+      - module
+      - source
+      title: WorkflowDecisionRequest
+    WorkflowFieldsRequest:
+      properties:
+        rowVersion:
+          anyOf:
+          - type: integer
+            minimum: 1.0
+          - type: 'null'
+          title: Rowversion
+        module:
+          type: string
+          enum:
+          - m1
+          - m2
+          - m3
+          - m4
+          title: Module
+        fields:
+          $ref: ./schemas/hf-workflow-1.0.schema.json#/$defs/fields
+        editing:
+          type: boolean
+          title: Editing
+          default: false
+        recentTestEvidence:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Recenttestevidence
+      additionalProperties: false
+      type: object
+      required:
+      - module
+      - fields
+      - rowVersion
+      title: WorkflowFieldsRequest
+    WorkflowFinishRequest:
+      properties:
+        rowVersion:
+          anyOf:
+          - type: integer
+            minimum: 1.0
+          - type: 'null'
+          title: Rowversion
+      additionalProperties: false
+      type: object
+      title: WorkflowFinishRequest
+      required:
+      - rowVersion
+    WorkflowRunRequest:
+      properties:
+        rowVersion:
+          anyOf:
+          - type: integer
+            minimum: 1.0
+          - type: 'null'
+          title: Rowversion
+        module:
+          type: string
+          enum:
+          - m1
+          - m2
+          - m3
+          - m4
+          title: Module
+      additionalProperties: false
+      type: object
+      required:
+      - module
+      - rowVersion
+      title: WorkflowRunRequest
     Assignment:
       properties:
         id:

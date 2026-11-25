@@ -21,3 +21,28 @@ def build_registry():
     return dict(mappingVersion='hf-map/1.0',contractVersion='hf-ai-input/1.0',variableTableVersion='3.0',profile='HF',effectiveDate='2026-11-24',approvalSource='G1-decisions.md #11-17',consumerAcceptance='pending',inputs=rows,outputs=[{'aiCode':c,'direction':'output'} for c in outputs])
 
 REGISTRY=build_registry()
+
+
+def build_workflow_registry():
+    from copy import deepcopy
+    registry=deepcopy(REGISTRY)
+    registry.update(mappingVersion='hf-map/1.1-test',contractVersion='hf-ai-input/1.1',
+                    approvalSource='docs/test-workflow/G1-review.md section 6',consumerAcceptance='synthetic-test-only')
+    changes={
+        'KHO_THO_NANG':('kho_tho_nang','integer','manual-dyspnea-ordinal-v1'),
+        'PHU_CHI_DUOI':('phu_chi_duoi_muc_do','integer','manual-edema-ordinal-v1'),
+        'BIEN_THIEN_CAN_NANG_7NGAY':('bien_thien_can_nang_7ngay','number','manual-weight-delta-7d-v1'),
+        'TRIEU_CHUNG_KHONG_DIEN_HINH':('trieu_chung_khong_dien_hinh','integer','manual-atypical-priority-v1'),
+        'DANH_GIA_SUY_YEU_FRAILTY':('danh_gia_suy_yeu_frailty','integer','manual-cfs-ordinal-v1'),
+        'E_OVER_A_RATIO':('e_over_a_ratio','number','manual-ea-measurement-v1'),
+        'EGFR_CKD_EPI':('egfr_ckd_epi','number','manual-egfr-formula-v1'),
+        'ECG_12_CHUYEN_DAO':('ecg_12_chuyen_dao','object','structured-ecg-v1'),
+        'XQUANG_NGUC_THANG':('xquang_nguc_thang','object','structured-chest-xray-v1'),
+    }
+    for entry in registry['inputs']:
+        if entry['aiCode'] in changes:
+            entry['source'],entry['type'],entry['transform']=changes[entry['aiCode']]
+    return registry
+
+
+REGISTRY_V11=build_workflow_registry()

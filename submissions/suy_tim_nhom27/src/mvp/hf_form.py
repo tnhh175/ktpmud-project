@@ -61,4 +61,8 @@ def export_snapshot(conn,visit_id):
     visit=detail['visit']
     fv,sections,definitions=load_form_version_bundle(conn,visit['formVersionId'])
     patient=conn.execute('SELECT * FROM patient WHERE id=%s',(visit['patientId'],)).fetchone()
-    return {'sourceVersion':'hf-source/1.0','patientId':visit['patientId'],'visitId':visit['id'],'age':_compute_age(patient,_parse_iso_datetime(visit['visitDate'])),'agePrecision':'exact' if patient.get('birth_date') else ('year_only' if patient.get('birth_year') else 'declared'),'sex':patient['sex'],'form':{'formVersion':fv,'sections':sections,'fieldDefinitions':definitions},'detail':detail}
+    source={'sourceVersion':'hf-source/1.0','patientId':visit['patientId'],'visitId':visit['id'],'age':_compute_age(patient,_parse_iso_datetime(visit['visitDate'])),'agePrecision':'exact' if patient.get('birth_date') else ('year_only' if patient.get('birth_year') else 'declared'),'sex':patient['sex'],'form':{'formVersion':fv,'sections':sections,'fieldDefinitions':definitions},'detail':detail}
+    if fv['versionLabel']=='v1.2' and conn.execute("SELECT to_regclass('public.ai_workflow') AS relation").fetchone()['relation']:
+        row=conn.execute('SELECT fields FROM ai_workflow WHERE visit_id=%s',(str(visit_id),)).fetchone()
+        source['workflowFields']=row['fields'] if row else {}
+    return source

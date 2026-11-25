@@ -1983,6 +1983,8 @@ def save_visit_draft(
                 conn.execute("INSERT INTO visit_diagnosis(visit_id,code,display,role) VALUES(%s,%s,%s,%s)",(str(visitId),dx.code,dx.display.strip(),dx.role))
         detail = _load_visit_detail_dict(conn, visitId)
         detail["access"] = access
+        from .workflow import on_visit_saved
+        on_visit_saved(conn, visitId, request, principal)
         conn.commit()
 
     response.headers["ETag"] = f'"{detail["visit"]["rowVersion"]}"'
@@ -2143,6 +2145,8 @@ def confirm_visit(
             "SELECT version_label FROM form_version WHERE id = %s",
             (str(updated_row["form_version_id"]),),
         ).fetchone()
+        from .workflow import on_visit_saved
+        on_visit_saved(conn, visitId, request, principal)
         conn.commit()
 
     out_dict = dict(updated_row)
@@ -2298,6 +2302,8 @@ def create_visit_revision(
                 "changeReason": reason,
             },
         )
+        from .workflow import on_visit_saved
+        on_visit_saved(conn, visitId, request, principal)
         conn.commit()
 
     response.headers["ETag"] = '"' + str(int(amended_visit["row_version"])) + '"'
@@ -2345,3 +2351,10 @@ def get_visit_ai_input(
 def get_visit_hf_ai_input(visitId: UUID, request: Request, module: Literal["ai_diagnosis","ai_lab_test","ai_treatment","ai_medsafety"] | None = None, diagnostic: bool = False, principal: Principal = Depends(_require_doctor_visit)):
     from .hf_ai import export_hf_input
     return export_hf_input(visitId,request,principal,module,diagnostic)
+
+
+@router.get('/visits/{visitId}/ai-input/hf/1.1',operation_id='getVisitHfAiInputV11')
+def get_visit_hf_ai_input_v11(visitId:UUID,request:Request,module:Literal['ai_diagnosis','ai_lab_test','ai_treatment','ai_medsafety']|None=None,
+                            diagnostic:bool=False,principal:Principal=Depends(_require_doctor_visit)):
+    from .hf_ai import export_hf_input
+    return export_hf_input(visitId,request,principal,module,diagnostic,version='1.1')

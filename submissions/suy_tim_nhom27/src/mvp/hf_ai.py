@@ -165,7 +165,48 @@ def project(snapshot, *, secret, key_version, module=None):
     return {'contractVersion':'hf-ai-input/1.0','variableTableVersion':'3.0','mappingVersion':'hf-map/1.0','jsonSchemaId':'urn:hfcare:ai-input:1.0','profile':'HF','form':{'versionId':(form.get('formVersion') or {}).get('id',snapshot.get('formVersionId')),'definitionHash':digest(form)},'revision':{'number':snapshot.get('revisionNo',1),'status':'confirmed','snapshotHash':digest(snapshot)},'export':{'id':str(uuid4()),'exportedAt':datetime.now(timezone.utc).isoformat()},'privacy':{'profile':'ai-pseudonym-v1','keyVersion':key_version},'values':values,'arrays':arrays,'observations':observations,'quality':quality}
 
 
-def export_hf_input(visit_id,request,principal,module,diagnostic):
+def project_v11(snapshot, *, secret, key_version, module=None):
+    from .hf_registry import REGISTRY_V11
+    from .workflow_schema import SCHEMA, matches
+    source=snapshot.get('hfSource') or {}
+    if (source.get('form',{}).get('formVersion') or {}).get('versionLabel')!='v1.2':
+        raise ValueError('1.1 requires a frozen v1.2 source')
+    result=project(snapshot,secret=secret,key_version=key_version,module=module)
+    fields=source.get('workflowFields') or {}
+    replaced=[];extra=[]
+    for entry in REGISTRY_V11['inputs']:
+        if not entry['transform'].startswith(('manual-','structured-')):
+            continue
+        code,key=entry['aiCode'],entry['source'];replaced.append(code)
+        answer=fields.get(key)
+        item=wrap('unfilled',unit=entry['canonicalUnit'])
+        reason='MISSING_VALUE'
+        if answer:
+            if not matches(answer,SCHEMA['$defs']['fields']['properties'][key]):
+                raise ValueError('Frozen workflow field violates schema')
+            if answer['value_state']=='unknown':
+                item=wrap('unknown',unit=entry['canonicalUnit'])
+            elif key=='e_over_a_ratio' and answer['value']=='not_measurable_af':
+                item=wrap('unknown',unit=entry['canonicalUnit']);reason='NOT_MEASURABLE_AF'
+            elif key=='egfr_ckd_epi' and fields.get('egfr_formula',{}).get('value')!='CKD-EPI 2021':
+                item=wrap('unknown',unit=entry['canonicalUnit']);reason='FORMULA_NOT_CKD_EPI'
+            else:
+                item=wrap('answered',answer['value'],entry['canonicalUnit'])
+        result['values'][code]=item
+        if item['valueState']!='answered':
+            for mod in entry['requiredForModules']:
+                extra.append(dict(issueCode=reason,path='values.'+code,fieldCode=key,severity='error',module=mod,messageVi='Chưa có giá trị phù hợp: '+reason))
+    quality=result['quality']
+    quality['issues']=[i for i in quality['issues'] if i['path'] not in ['values.'+c for c in replaced]]+extra
+    for m in quality['modules']:
+        m['issueCount']=sum(i['module']==m['module'] for i in quality['issues'])
+        m['status']='blocked' if m['issueCount'] else 'ready'
+    quality['status']='blocked' if any(m['status']=='blocked' for m in quality['modules'] if module is None or m['module']==module) else 'ready'
+    result.update(contractVersion='hf-ai-input/1.1',mappingVersion='hf-map/1.1-test',jsonSchemaId='urn:hfcare:ai-input:1.1')
+    return result
+
+
+def export_hf_input(visit_id,request,principal,module,diagnostic,version='1.0'):
     from .audit import record_audit_log
     from .care import require_visit_access
     from .auth import get_request_id,get_client_ip
@@ -182,7 +223,8 @@ def export_hf_input(visit_id,request,principal,module,diagnostic):
             if not rev:pending=ProblemError(409,'VISIT_NOT_CONFIRMED','Thiếu snapshot','Không tìm thấy snapshot của bản xác nhận hiện tại.')
             else:
                 try:
-                    payload=project(rev['snapshot_data'],secret=secret,key_version=key_version,module=module)
+                    projector=project_v11 if version=='1.1' else project
+                    payload=projector(rev['snapshot_data'],secret=secret,key_version=key_version,module=module)
                     from .hf_schema import validate_export
                     validate_export(payload)
                 except (ValueError,TypeError,KeyError):
@@ -190,7 +232,7 @@ def export_hf_input(visit_id,request,principal,module,diagnostic):
                     pending=ProblemError(422,'AI_SNAPSHOT_INCOMPATIBLE','Snapshot chưa tương thích','Snapshot không đáp ứng hợp đồng có phiên bản; không dùng dữ liệu hiện tại để bù.')
                 if payload is not None and payload['quality']['status']=='blocked' and not diagnostic:
                     pending=ProblemError(422,'AI_INPUT_NOT_READY','Dữ liệu chưa sẵn sàng cho AI','Xem quality theo module và field.');pending.quality=payload['quality']
-        audit_detail={'contractVersion':'hf-ai-input/1.0','mappingVersion':'hf-map/1.0','privacyVersion':'ai-pseudonym-v1','keyVersion':key_version,'revisionNo':row['current_revision_no'],'module':module,'diagnostic':diagnostic,'code':pending.code if pending else 'OK'}
+        audit_detail={'contractVersion':'hf-ai-input/'+version,'mappingVersion':'hf-map/1.1-test' if version=='1.1' else 'hf-map/1.0','privacyVersion':'ai-pseudonym-v1','keyVersion':key_version,'revisionNo':row['current_revision_no'],'module':module,'diagnostic':diagnostic,'code':pending.code if pending else 'OK'}
         if payload:
             stable={k:v for k,v in payload.items() if k!='export'}
             audit_detail.update(contentHash=digest(stable),issueCount=len(payload['quality']['issues']),exportId=payload['export']['id'])

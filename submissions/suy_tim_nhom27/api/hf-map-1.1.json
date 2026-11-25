@@ -1,0 +1,670 @@
+{
+  "mappingVersion": "hf-map/1.1-test",
+  "contractVersion": "hf-ai-input/1.1",
+  "variableTableVersion": "3.0",
+  "profile": "HF",
+  "effectiveDate": "2026-11-24",
+  "approvalSource": "docs/test-workflow/G1-review.md section 6",
+  "consumerAcceptance": "synthetic-test-only",
+  "inputs": [
+    {
+      "aiCode": "MA_BN",
+      "direction": "input",
+      "source": "patientId",
+      "type": "string",
+      "canonicalUnit": null,
+      "transform": "hmac-patient-v1",
+      "requiredForModules": [],
+      "sourceRow": "Chung!7",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "MA_LK",
+      "direction": "input",
+      "source": "visitId",
+      "type": "string",
+      "canonicalUnit": null,
+      "transform": "hmac-visit-v1",
+      "requiredForModules": [],
+      "sourceRow": "Chung!8",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "HO_TEN",
+      "direction": "input",
+      "source": null,
+      "type": "string",
+      "canonicalUnit": null,
+      "transform": "omit-privacy-v1",
+      "requiredForModules": [],
+      "sourceRow": "Chung!9",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "NGAY_SINH",
+      "direction": "input",
+      "source": null,
+      "type": "string",
+      "canonicalUnit": null,
+      "transform": "omit-privacy-v1",
+      "requiredForModules": [],
+      "sourceRow": "Chung!10",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "TUOI",
+      "direction": "input",
+      "source": "age",
+      "type": "integer",
+      "canonicalUnit": "years",
+      "transform": "age-at-confirm-v1",
+      "requiredForModules": [
+        "ai_diagnosis",
+        "ai_lab_test",
+        "ai_treatment",
+        "ai_medsafety"
+      ],
+      "sourceRow": "Chung!11",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "GIOI_TINH",
+      "direction": "input",
+      "source": "sex",
+      "type": "integer",
+      "canonicalUnit": null,
+      "transform": "sex-code-v1",
+      "requiredForModules": [
+        "ai_diagnosis",
+        "ai_lab_test",
+        "ai_treatment",
+        "ai_medsafety"
+      ],
+      "sourceRow": "Chung!12",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "SO_BHYT",
+      "direction": "input",
+      "source": null,
+      "type": "string",
+      "canonicalUnit": null,
+      "transform": "omit-privacy-v1",
+      "requiredForModules": [],
+      "sourceRow": "Chung!13",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "KHOA_PHONG",
+      "direction": "input",
+      "source": null,
+      "type": "string",
+      "canonicalUnit": null,
+      "transform": "unsupported-v1",
+      "requiredForModules": [],
+      "sourceRow": "Chung!14",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "THOI_GIAN_KHAM",
+      "direction": "input",
+      "source": null,
+      "type": "string",
+      "canonicalUnit": null,
+      "transform": "unsupported-v1",
+      "requiredForModules": [],
+      "sourceRow": "Chung!15",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "BAC_SI_KHAM",
+      "direction": "input",
+      "source": null,
+      "type": "string",
+      "canonicalUnit": null,
+      "transform": "unsupported-v1",
+      "requiredForModules": [],
+      "sourceRow": "Chung!16",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "CHIEU_CAO",
+      "direction": "input",
+      "source": "chieu_cao_cm",
+      "type": "number",
+      "canonicalUnit": "cm",
+      "transform": "identity-v1",
+      "requiredForModules": [],
+      "sourceRow": "Chung!19",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "CAN_NANG",
+      "direction": "input",
+      "source": "can_nang_kg",
+      "type": "number",
+      "canonicalUnit": "kg",
+      "transform": "identity-v1",
+      "requiredForModules": [],
+      "sourceRow": "Chung!20",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "BMI",
+      "direction": "input",
+      "source": "bmi",
+      "type": "number",
+      "canonicalUnit": "kg/m2",
+      "transform": "bmi-v1",
+      "requiredForModules": [],
+      "sourceRow": "Chung!21",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "HA_TAM_THU",
+      "direction": "input",
+      "source": "systolic",
+      "type": "integer",
+      "canonicalUnit": "mmHg",
+      "transform": "series-only-v1",
+      "requiredForModules": [],
+      "sourceRow": "Chung!22",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "HA_TAM_TRUONG",
+      "direction": "input",
+      "source": "diastolic",
+      "type": "integer",
+      "canonicalUnit": "mmHg",
+      "transform": "series-only-v1",
+      "requiredForModules": [],
+      "sourceRow": "Chung!23",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "TAN_SO_TIM",
+      "direction": "input",
+      "source": "mach",
+      "type": "integer",
+      "canonicalUnit": "/min",
+      "transform": "identity-v1",
+      "requiredForModules": [],
+      "sourceRow": "Chung!24",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "SPO2",
+      "direction": "input",
+      "source": "spo2",
+      "type": "number",
+      "canonicalUnit": "%",
+      "transform": "identity-v1",
+      "requiredForModules": [],
+      "sourceRow": "Chung!25",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "TIEN_SU_DI_UNG",
+      "direction": "input",
+      "source": "allergies",
+      "type": "array",
+      "canonicalUnit": null,
+      "transform": "list-v1",
+      "requiredForModules": [
+        "ai_medsafety"
+      ],
+      "sourceRow": "Chung!26",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "DANH_MUC_THUOC_DANG_DUNG",
+      "direction": "input",
+      "source": "medications",
+      "type": "array",
+      "canonicalUnit": null,
+      "transform": "list-v1",
+      "requiredForModules": [
+        "ai_medsafety"
+      ],
+      "sourceRow": "Chung!27",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "BENH_DONG_MAC_ICD10",
+      "direction": "input",
+      "source": "diagnoses",
+      "type": "array",
+      "canonicalUnit": null,
+      "transform": "list-v1",
+      "requiredForModules": [
+        "ai_diagnosis",
+        "ai_treatment"
+      ],
+      "sourceRow": "Chung!28",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "KHO_THO_NANG",
+      "direction": "input",
+      "source": "kho_tho_nang",
+      "type": "integer",
+      "canonicalUnit": null,
+      "transform": "manual-dyspnea-ordinal-v1",
+      "requiredForModules": [
+        "ai_diagnosis",
+        "ai_lab_test"
+      ],
+      "sourceRow": "HF!6",
+      "enum": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "PHU_CHI_DUOI",
+      "direction": "input",
+      "source": "phu_chi_duoi_muc_do",
+      "type": "integer",
+      "canonicalUnit": null,
+      "transform": "manual-edema-ordinal-v1",
+      "requiredForModules": [
+        "ai_diagnosis",
+        "ai_lab_test"
+      ],
+      "sourceRow": "HF!7",
+      "enum": [
+        0,
+        1,
+        2
+      ],
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "TINH_MACH_CO_NOI",
+      "direction": "input",
+      "source": "tinh_mach_co_noi",
+      "type": "integer",
+      "canonicalUnit": null,
+      "transform": "boolean-01-v1",
+      "requiredForModules": [
+        "ai_diagnosis",
+        "ai_lab_test"
+      ],
+      "sourceRow": "HF!8",
+      "enum": [
+        0,
+        1
+      ],
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "RAN_AM_PHOI",
+      "direction": "input",
+      "source": "ran_am_phoi",
+      "type": "integer",
+      "canonicalUnit": null,
+      "transform": "boolean-01-v1",
+      "requiredForModules": [
+        "ai_diagnosis",
+        "ai_lab_test"
+      ],
+      "sourceRow": "HF!9",
+      "enum": [
+        0,
+        1
+      ],
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "BIEN_THIEN_CAN_NANG_7NGAY",
+      "direction": "input",
+      "source": "bien_thien_can_nang_7ngay",
+      "type": "number",
+      "canonicalUnit": "kg",
+      "transform": "manual-weight-delta-7d-v1",
+      "requiredForModules": [
+        "ai_diagnosis",
+        "ai_lab_test"
+      ],
+      "sourceRow": "HF!10",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "TRIEU_CHUNG_KHONG_DIEN_HINH",
+      "direction": "input",
+      "source": "trieu_chung_khong_dien_hinh",
+      "type": "integer",
+      "canonicalUnit": null,
+      "transform": "manual-atypical-priority-v1",
+      "requiredForModules": [
+        "ai_diagnosis",
+        "ai_lab_test"
+      ],
+      "sourceRow": "HF!11",
+      "enum": [
+        0,
+        1,
+        2
+      ],
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "DANH_GIA_SUY_YEU_FRAILTY",
+      "direction": "input",
+      "source": "danh_gia_suy_yeu_frailty",
+      "type": "integer",
+      "canonicalUnit": null,
+      "transform": "manual-cfs-ordinal-v1",
+      "requiredForModules": [
+        "ai_diagnosis",
+        "ai_lab_test"
+      ],
+      "sourceRow": "HF!12",
+      "enum": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "NT_PROBNP",
+      "direction": "input",
+      "source": "cls_nt_probnp",
+      "type": "number",
+      "canonicalUnit": "pg/mL",
+      "transform": "lab-series-v1",
+      "requiredForModules": [
+        "ai_treatment"
+      ],
+      "sourceRow": "HF!18",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "BNP",
+      "direction": "input",
+      "source": "cls_bnp",
+      "type": "number",
+      "canonicalUnit": "pg/mL",
+      "transform": "lab-series-v1",
+      "requiredForModules": [
+        "ai_treatment"
+      ],
+      "sourceRow": "HF!19",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "EF_SIEU_AM_TIM",
+      "direction": "input",
+      "source": "cls_lvef",
+      "type": "number",
+      "canonicalUnit": "%",
+      "transform": "lab-series-v1",
+      "requiredForModules": [
+        "ai_treatment"
+      ],
+      "sourceRow": "HF!20",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "E_OVER_A_RATIO",
+      "direction": "input",
+      "source": "e_over_a_ratio",
+      "type": "number",
+      "canonicalUnit": "ratio",
+      "transform": "manual-ea-measurement-v1",
+      "requiredForModules": [
+        "ai_treatment"
+      ],
+      "sourceRow": "HF!21",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "CREATININE_MAU",
+      "direction": "input",
+      "source": "cls_creatinin",
+      "type": "number",
+      "canonicalUnit": "umol/L",
+      "transform": "lab-series-v1",
+      "requiredForModules": [
+        "ai_treatment"
+      ],
+      "sourceRow": "HF!22",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "EGFR_CKD_EPI",
+      "direction": "input",
+      "source": "egfr_ckd_epi",
+      "type": "number",
+      "canonicalUnit": "mL/min/1.73m2",
+      "transform": "manual-egfr-formula-v1",
+      "requiredForModules": [
+        "ai_treatment"
+      ],
+      "sourceRow": "HF!23",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "KALI_MAU",
+      "direction": "input",
+      "source": "cls_kali",
+      "type": "number",
+      "canonicalUnit": "mmol/L",
+      "transform": "lab-series-v1",
+      "requiredForModules": [
+        "ai_treatment"
+      ],
+      "sourceRow": "HF!24",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "ECG_12_CHUYEN_DAO",
+      "direction": "input",
+      "source": "ecg_12_chuyen_dao",
+      "type": "object",
+      "canonicalUnit": null,
+      "transform": "structured-ecg-v1",
+      "requiredForModules": [
+        "ai_treatment"
+      ],
+      "sourceRow": "HF!25",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    },
+    {
+      "aiCode": "XQUANG_NGUC_THANG",
+      "direction": "input",
+      "source": "xquang_nguc_thang",
+      "type": "object",
+      "canonicalUnit": null,
+      "transform": "structured-chest-xray-v1",
+      "requiredForModules": [
+        "ai_treatment"
+      ],
+      "sourceRow": "HF!26",
+      "enum": null,
+      "missingPolicy": "not_collected-if-unconfigured",
+      "timePolicy": "all-observations-no-current-selector",
+      "retryPolicy": "none-local-transform"
+    }
+  ],
+  "outputs": [
+    {
+      "aiCode": "DxAI_XAC_SUAT_SUY_TIM",
+      "direction": "output"
+    },
+    {
+      "aiCode": "DxAI_PHAN_LOAI_STAGE",
+      "direction": "output"
+    },
+    {
+      "aiCode": "DxAI_CANH_BAO_GIA_SUY_TIM",
+      "direction": "output"
+    },
+    {
+      "aiCode": "LabAI_GOI_Y_CHI_DINH",
+      "direction": "output"
+    },
+    {
+      "aiCode": "LabAI_KHOA_TRUNG_LAP",
+      "direction": "output"
+    },
+    {
+      "aiCode": "TxAI_KIỂU_HÌNH_SUY_TIM",
+      "direction": "output"
+    },
+    {
+      "aiCode": "TxAI_KE_HOACH_DO_LIEU",
+      "direction": "output"
+    },
+    {
+      "aiCode": "ARNI_SACUBITRIL_VALSARTAN",
+      "direction": "output"
+    },
+    {
+      "aiCode": "CHET_BETA_GIAO_CAM",
+      "direction": "output"
+    },
+    {
+      "aiCode": "KHANG_MRA_SPIRONOLACTONE",
+      "direction": "output"
+    },
+    {
+      "aiCode": "SGLT2_INHIBITOR",
+      "direction": "output"
+    },
+    {
+      "aiCode": "LOI_TIEU_QUAI_FUROSEMIDE",
+      "direction": "output"
+    },
+    {
+      "aiCode": "DDI_CANH_BAO_NSAID",
+      "direction": "output"
+    },
+    {
+      "aiCode": "DDI_CANH_BAO_TANG_KALI",
+      "direction": "output"
+    },
+    {
+      "aiCode": "DDI_CANH_BAO_CHAM_NHIP",
+      "direction": "output"
+    },
+    {
+      "aiCode": "DDI_NGO_DOC_DIGOXIN",
+      "direction": "output"
+    },
+    {
+      "aiCode": "DDI_HA_HA_TU_THE_TE_NGA",
+      "direction": "output"
+    }
+  ]
+}

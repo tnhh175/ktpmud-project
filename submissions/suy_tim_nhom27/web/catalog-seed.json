@@ -4994,6 +4994,1338 @@
       "locked": false,
       "repeatGroup": "labResults",
       "memberPath": "measuredAt"
+    },
+    {
+      "id": "5d865ecf-cc93-5e87-9450-a7e090df4467",
+      "code": "kho_tho_nang",
+      "labelVi": "Mức độ khó thở",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "single_choice",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "workflow_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "validationRule": {
+        "workflowSchema": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "value_state": {
+                  "const": "answered"
+                },
+                "value": {
+                  "enum": [
+                    0,
+                    1,
+                    2,
+                    3
+                  ]
+                },
+                "unit": {
+                  "const": null
+                },
+                "measuredAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "value_state",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "value_state": {
+                  "const": "unknown"
+                },
+                "value": {
+                  "type": "null"
+                },
+                "unit": {
+                  "const": null
+                },
+                "measuredAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "value_state",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "workflowContract": "hf-workflow/1.0",
+        "step": 1,
+        "unknownClearsValue": true
+      },
+      "helpText": "thang thử nghiệm, chờ bác sĩ duyệt",
+      "sourceRef": "C1-contract.md §3; G1-review.md §6",
+      "options": [
+        {
+          "id": "ff257373-4e2a-53a9-81bb-df709b88852e",
+          "fieldDefinitionId": "5d865ecf-cc93-5e87-9450-a7e090df4467",
+          "optionCode": "0",
+          "labelVi": "Không khó thở",
+          "displayOrder": 1,
+          "isActive": true
+        },
+        {
+          "id": "b2694164-5957-552a-bdb7-3c648c6ed2dd",
+          "fieldDefinitionId": "5d865ecf-cc93-5e87-9450-a7e090df4467",
+          "optionCode": "1",
+          "labelVi": "Khi gắng sức nặng (leo từ hai tầng)",
+          "displayOrder": 2,
+          "isActive": true
+        },
+        {
+          "id": "219ef9e9-ccdc-5101-a32b-77c11f348599",
+          "fieldDefinitionId": "5d865ecf-cc93-5e87-9450-a7e090df4467",
+          "optionCode": "2",
+          "labelVi": "Khi gắng sức nhẹ/sinh hoạt thường",
+          "displayOrder": 3,
+          "isActive": true
+        },
+        {
+          "id": "3d15f509-7ccf-51bf-a850-f659373a73f4",
+          "fieldDefinitionId": "5d865ecf-cc93-5e87-9450-a7e090df4467",
+          "optionCode": "3",
+          "labelVi": "Khi nghỉ hoặc phải ngồi dậy để thở",
+          "displayOrder": 4,
+          "isActive": true
+        }
+      ],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "5d865ecf-cc93-5e87-9450-a7e090df4467",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": true,
+          "sourceSttRefs": "C1 test workflow"
+        },
+        {
+          "fieldDefinitionId": "5d865ecf-cc93-5e87-9450-a7e090df4467",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": true,
+          "sourceSttRefs": "C1 test workflow"
+        }
+      ]
+    },
+    {
+      "id": "08af38c4-fd68-5b32-a98f-93c277563186",
+      "code": "phu_chi_duoi_muc_do",
+      "labelVi": "Mức độ phù chi dưới",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "single_choice",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "workflow_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "validationRule": {
+        "workflowSchema": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "value_state": {
+                  "const": "answered"
+                },
+                "value": {
+                  "enum": [
+                    0,
+                    1,
+                    2
+                  ]
+                },
+                "unit": {
+                  "const": null
+                },
+                "measuredAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "value_state",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "value_state": {
+                  "const": "unknown"
+                },
+                "value": {
+                  "type": "null"
+                },
+                "unit": {
+                  "const": null
+                },
+                "measuredAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "value_state",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "workflowContract": "hf-workflow/1.0",
+        "step": 1,
+        "unknownClearsValue": true
+      },
+      "helpText": "thang thử nghiệm, chờ bác sĩ duyệt",
+      "sourceRef": "C1-contract.md §3; G1-review.md §6",
+      "options": [
+        {
+          "id": "65dd058b-b929-522d-8f5c-4dd41e331249",
+          "fieldDefinitionId": "08af38c4-fd68-5b32-a98f-93c277563186",
+          "optionCode": "0",
+          "labelVi": "Không phù",
+          "displayOrder": 1,
+          "isActive": true
+        },
+        {
+          "id": "22aa9793-ec00-54c5-afb1-de9b780363f0",
+          "fieldDefinitionId": "08af38c4-fd68-5b32-a98f-93c277563186",
+          "optionCode": "1",
+          "labelVi": "Phù mắt cá/1 phần 3 dưới cẳng chân, ấn lõm nông",
+          "displayOrder": 2,
+          "isActive": true
+        },
+        {
+          "id": "01ed3f59-4e4e-5ec7-a195-6c5e7d90101f",
+          "fieldDefinitionId": "08af38c4-fd68-5b32-a98f-93c277563186",
+          "optionCode": "2",
+          "labelVi": "Phù vượt 1 phần 3 cẳng chân, gồm quá gối/ấn lõm sâu/phù toàn thân",
+          "displayOrder": 3,
+          "isActive": true
+        }
+      ],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "08af38c4-fd68-5b32-a98f-93c277563186",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": true,
+          "sourceSttRefs": "C1 test workflow"
+        },
+        {
+          "fieldDefinitionId": "08af38c4-fd68-5b32-a98f-93c277563186",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": true,
+          "sourceSttRefs": "C1 test workflow"
+        }
+      ]
+    },
+    {
+      "id": "20f1a824-3ae8-55bc-9015-078796548274",
+      "code": "bien_thien_can_nang_7ngay",
+      "labelVi": "Biến thiên cân nặng 7 ngày",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "number",
+      "canonicalUnit": "kg",
+      "scopeStatus": "mvp",
+      "storageLevel": "workflow_value",
+      "isCalculated": false,
+      "minValue": -20,
+      "maxValue": 20,
+      "validationRule": {
+        "workflowSchema": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "value_state": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "number",
+                  "minimum": -20,
+                  "maximum": 20,
+                  "multipleOf": 0.1
+                },
+                "unit": {
+                  "const": "kg"
+                },
+                "measuredAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "value_state",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "value_state": {
+                  "const": "unknown"
+                },
+                "value": {
+                  "type": "null"
+                },
+                "unit": {
+                  "const": "kg"
+                },
+                "measuredAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "value_state",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "workflowContract": "hf-workflow/1.0",
+        "step": 0.1,
+        "unknownClearsValue": true
+      },
+      "helpText": "thang thử nghiệm, chờ bác sĩ duyệt",
+      "sourceRef": "C1-contract.md §3; G1-review.md §6",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "20f1a824-3ae8-55bc-9015-078796548274",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": true,
+          "sourceSttRefs": "C1 test workflow"
+        },
+        {
+          "fieldDefinitionId": "20f1a824-3ae8-55bc-9015-078796548274",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": true,
+          "sourceSttRefs": "C1 test workflow"
+        }
+      ]
+    },
+    {
+      "id": "ba173950-cf5e-5a57-8922-2d088668383e",
+      "code": "trieu_chung_khong_dien_hinh",
+      "labelVi": "Triệu chứng không điển hình nổi bật",
+      "sectionCode": "trieu_chung_dien_bien",
+      "dataType": "single_choice",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "workflow_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "validationRule": {
+        "workflowSchema": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "value_state": {
+                  "const": "answered"
+                },
+                "value": {
+                  "enum": [
+                    0,
+                    1,
+                    2
+                  ]
+                },
+                "unit": {
+                  "const": null
+                },
+                "measuredAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "value_state",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "value_state": {
+                  "const": "unknown"
+                },
+                "value": {
+                  "type": "null"
+                },
+                "unit": {
+                  "const": null
+                },
+                "measuredAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "value_state",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "workflowContract": "hf-workflow/1.0",
+        "step": 1,
+        "unknownClearsValue": true
+      },
+      "helpText": "thang thử nghiệm, chờ bác sĩ duyệt",
+      "sourceRef": "C1-contract.md §3; G1-review.md §6",
+      "options": [
+        {
+          "id": "cb53764c-3fb6-5128-9e1d-a724ac9a904a",
+          "fieldDefinitionId": "ba173950-cf5e-5a57-8922-2d088668383e",
+          "optionCode": "0",
+          "labelVi": "Không",
+          "displayOrder": 1,
+          "isActive": true
+        },
+        {
+          "id": "3cef4222-e1bb-5d70-8aa0-561d2d940b6b",
+          "fieldDefinitionId": "ba173950-cf5e-5a57-8922-2d088668383e",
+          "optionCode": "1",
+          "labelVi": "Lơ mơ/lú lẫn/sảng",
+          "displayOrder": 2,
+          "isActive": true
+        },
+        {
+          "id": "48d5a2ad-9142-565a-ae79-609c9169d058",
+          "fieldDefinitionId": "ba173950-cf5e-5a57-8922-2d088668383e",
+          "optionCode": "2",
+          "labelVi": "Chán ăn/sụt ăn",
+          "displayOrder": 3,
+          "isActive": true
+        }
+      ],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "ba173950-cf5e-5a57-8922-2d088668383e",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": true,
+          "sourceSttRefs": "C1 test workflow"
+        },
+        {
+          "fieldDefinitionId": "ba173950-cf5e-5a57-8922-2d088668383e",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": true,
+          "sourceSttRefs": "C1 test workflow"
+        }
+      ]
+    },
+    {
+      "id": "caa6bb2e-4852-584d-86a6-9e958c601da9",
+      "code": "danh_gia_suy_yeu_frailty",
+      "labelVi": "Điểm suy yếu CFS",
+      "sectionCode": "lao_khoa",
+      "dataType": "single_choice",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "workflow_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "validationRule": {
+        "workflowSchema": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "value_state": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9
+                },
+                "unit": {
+                  "const": null
+                },
+                "measuredAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "value_state",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "value_state": {
+                  "const": "unknown"
+                },
+                "value": {
+                  "type": "null"
+                },
+                "unit": {
+                  "const": null
+                },
+                "measuredAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "value_state",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "workflowContract": "hf-workflow/1.0",
+        "step": 1,
+        "unknownClearsValue": true
+      },
+      "helpText": "thang thử nghiệm, chờ bác sĩ duyệt",
+      "sourceRef": "C1-contract.md §3; G1-review.md §6",
+      "options": [
+        {
+          "id": "0c473729-52c6-5a3a-b310-fcdd97ce2718",
+          "fieldDefinitionId": "caa6bb2e-4852-584d-86a6-9e958c601da9",
+          "optionCode": "1",
+          "labelVi": "Rất khỏe, vận động tốt",
+          "displayOrder": 1,
+          "isActive": true
+        },
+        {
+          "id": "ac2c3a70-062e-59b3-80a5-bc981a942172",
+          "fieldDefinitionId": "caa6bb2e-4852-584d-86a6-9e958c601da9",
+          "optionCode": "2",
+          "labelVi": "Khỏe, chưa hoạt động đều như mức 1",
+          "displayOrder": 2,
+          "isActive": true
+        },
+        {
+          "id": "2671f11a-d2e1-505f-9649-069bcc366feb",
+          "fieldDefinitionId": "caa6bb2e-4852-584d-86a6-9e958c601da9",
+          "optionCode": "3",
+          "labelVi": "Quản lý bệnh tốt, sinh hoạt độc lập",
+          "displayOrder": 3,
+          "isActive": true
+        },
+        {
+          "id": "771d2975-d2d0-5972-b016-6e7f801a27e2",
+          "fieldDefinitionId": "caa6bb2e-4852-584d-86a6-9e958c601da9",
+          "optionCode": "4",
+          "labelVi": "Dễ tổn thương, triệu chứng hạn chế hoạt động",
+          "displayOrder": 4,
+          "isActive": true
+        },
+        {
+          "id": "94fae77e-e9f9-5aa4-b9fa-5aaaf7914bc2",
+          "fieldDefinitionId": "caa6bb2e-4852-584d-86a6-9e958c601da9",
+          "optionCode": "5",
+          "labelVi": "Suy yếu nhẹ, cần giúp việc phức tạp",
+          "displayOrder": 5,
+          "isActive": true
+        },
+        {
+          "id": "a103212a-b756-547e-a5b8-d2a30e36d838",
+          "fieldDefinitionId": "caa6bb2e-4852-584d-86a6-9e958c601da9",
+          "optionCode": "6",
+          "labelVi": "Suy yếu vừa, cần giúp hoạt động thường ngày",
+          "displayOrder": 6,
+          "isActive": true
+        },
+        {
+          "id": "8d9df2e7-dff7-5b3b-87e5-844c0a87a857",
+          "fieldDefinitionId": "caa6bb2e-4852-584d-86a6-9e958c601da9",
+          "optionCode": "7",
+          "labelVi": "Suy yếu nặng, phụ thuộc chăm sóc cá nhân",
+          "displayOrder": 7,
+          "isActive": true
+        },
+        {
+          "id": "a6e48a47-05c9-5d6b-946e-af380c6ea380",
+          "fieldDefinitionId": "caa6bb2e-4852-584d-86a6-9e958c601da9",
+          "optionCode": "8",
+          "labelVi": "Suy yếu rất nặng, phụ thuộc hoàn toàn",
+          "displayOrder": 8,
+          "isActive": true
+        },
+        {
+          "id": "6976a0cc-aedd-5e70-8559-574da8563b99",
+          "fieldDefinitionId": "caa6bb2e-4852-584d-86a6-9e958c601da9",
+          "optionCode": "9",
+          "labelVi": "Bệnh giai đoạn cuối",
+          "displayOrder": 9,
+          "isActive": true
+        }
+      ],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "caa6bb2e-4852-584d-86a6-9e958c601da9",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": true,
+          "sourceSttRefs": "C1 test workflow"
+        },
+        {
+          "fieldDefinitionId": "caa6bb2e-4852-584d-86a6-9e958c601da9",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": true,
+          "sourceSttRefs": "C1 test workflow"
+        }
+      ]
+    },
+    {
+      "id": "5449c18b-291d-5b40-b9b4-4582c03614b2",
+      "code": "e_over_a_ratio",
+      "labelVi": "Tỉ lệ E/A Doppler",
+      "sectionCode": "can_lam_sang",
+      "dataType": "number",
+      "canonicalUnit": "ratio",
+      "scopeStatus": "mvp",
+      "storageLevel": "workflow_value",
+      "isCalculated": false,
+      "minValue": 0.2,
+      "maxValue": 5,
+      "validationRule": {
+        "workflowSchema": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "value_state": {
+                  "const": "answered"
+                },
+                "value": {
+                  "anyOf": [
+                    {
+                      "type": "number",
+                      "minimum": 0.2,
+                      "maximum": 5.0,
+                      "multipleOf": 0.01
+                    },
+                    {
+                      "const": "not_measurable_af"
+                    }
+                  ]
+                },
+                "unit": {
+                  "const": "ratio"
+                },
+                "measuredAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "value_state",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "value_state": {
+                  "const": "unknown"
+                },
+                "value": {
+                  "type": "null"
+                },
+                "unit": {
+                  "const": "ratio"
+                },
+                "measuredAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "value_state",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "workflowContract": "hf-workflow/1.0",
+        "step": 0.01,
+        "unknownClearsValue": true
+      },
+      "helpText": "thang thử nghiệm, chờ bác sĩ duyệt",
+      "sourceRef": "C1-contract.md §3; G1-review.md §6",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "5449c18b-291d-5b40-b9b4-4582c03614b2",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": true,
+          "sourceSttRefs": "C1 test workflow"
+        }
+      ]
+    },
+    {
+      "id": "9c631764-42d2-5647-8789-63568a12f73c",
+      "code": "egfr_ckd_epi",
+      "labelVi": "eGFR kèm công thức",
+      "sectionCode": "can_lam_sang",
+      "dataType": "number",
+      "canonicalUnit": "mL/min/1.73m2",
+      "scopeStatus": "mvp",
+      "storageLevel": "workflow_value",
+      "isCalculated": false,
+      "minValue": 1,
+      "maxValue": 200,
+      "validationRule": {
+        "workflowSchema": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "value_state": {
+                  "const": "answered"
+                },
+                "value": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 200,
+                  "multipleOf": 1
+                },
+                "unit": {
+                  "const": "mL/min/1.73m2"
+                },
+                "measuredAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "value_state",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "value_state": {
+                  "const": "unknown"
+                },
+                "value": {
+                  "type": "null"
+                },
+                "unit": {
+                  "const": "mL/min/1.73m2"
+                },
+                "measuredAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "value_state",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "workflowContract": "hf-workflow/1.0",
+        "step": 1,
+        "unknownClearsValue": true
+      },
+      "helpText": "thang thử nghiệm, chờ bác sĩ duyệt",
+      "sourceRef": "C1-contract.md §3; G1-review.md §6",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "9c631764-42d2-5647-8789-63568a12f73c",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": true,
+          "sourceSttRefs": "C1 test workflow"
+        }
+      ]
+    },
+    {
+      "id": "6a166d96-1e33-51a6-825e-ccfdf8786750",
+      "code": "egfr_formula",
+      "labelVi": "Công thức eGFR",
+      "sectionCode": "can_lam_sang",
+      "dataType": "single_choice",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "workflow_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "validationRule": {
+        "workflowSchema": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "value_state": {
+                  "const": "answered"
+                },
+                "value": {
+                  "enum": [
+                    "CKD-EPI 2021",
+                    "MDRD",
+                    "Cockcroft-Gault",
+                    "Không rõ"
+                  ]
+                },
+                "unit": {
+                  "const": null
+                },
+                "measuredAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "value_state",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "value_state": {
+                  "const": "unknown"
+                },
+                "value": {
+                  "type": "null"
+                },
+                "unit": {
+                  "const": null
+                },
+                "measuredAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "value_state",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "workflowContract": "hf-workflow/1.0",
+        "step": null,
+        "unknownClearsValue": true
+      },
+      "helpText": "thang thử nghiệm, chờ bác sĩ duyệt",
+      "sourceRef": "C1-contract.md §3; G1-review.md §6",
+      "options": [
+        {
+          "id": "536acb6f-f6a4-501e-8a19-8c8ccae82cd1",
+          "fieldDefinitionId": "6a166d96-1e33-51a6-825e-ccfdf8786750",
+          "optionCode": "ckd_epi_2021",
+          "labelVi": "CKD-EPI 2021",
+          "displayOrder": 1,
+          "isActive": true
+        },
+        {
+          "id": "e9646ae9-e906-5a56-b746-163586138fed",
+          "fieldDefinitionId": "6a166d96-1e33-51a6-825e-ccfdf8786750",
+          "optionCode": "mdrd",
+          "labelVi": "MDRD",
+          "displayOrder": 2,
+          "isActive": true
+        },
+        {
+          "id": "5ad2fb25-824d-561f-8c81-b4a8020192d4",
+          "fieldDefinitionId": "6a166d96-1e33-51a6-825e-ccfdf8786750",
+          "optionCode": "cockcroft_gault",
+          "labelVi": "Cockcroft-Gault",
+          "displayOrder": 3,
+          "isActive": true
+        },
+        {
+          "id": "f9ad0110-8349-5c62-a303-f1e910de54e9",
+          "fieldDefinitionId": "6a166d96-1e33-51a6-825e-ccfdf8786750",
+          "optionCode": "unknown",
+          "labelVi": "Không rõ",
+          "displayOrder": 4,
+          "isActive": true
+        }
+      ],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "6a166d96-1e33-51a6-825e-ccfdf8786750",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": true,
+          "sourceSttRefs": "C1 test workflow"
+        }
+      ]
+    },
+    {
+      "id": "ad596e35-1ca0-56f9-8a14-c06e5eb7bee7",
+      "code": "ecg_12_chuyen_dao",
+      "labelVi": "ECG có cấu trúc",
+      "sectionCode": "can_lam_sang",
+      "dataType": "object",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "workflow_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "validationRule": {
+        "workflowSchema": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "value_state": {
+                  "const": "answered"
+                },
+                "value": {
+                  "$ref": "#/$defs/ecgValue"
+                },
+                "unit": {
+                  "const": null
+                },
+                "measuredAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "value_state",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "value_state": {
+                  "const": "unknown"
+                },
+                "value": {
+                  "type": "null"
+                },
+                "unit": {
+                  "const": null
+                },
+                "measuredAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "value_state",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "workflowContract": "hf-workflow/1.0",
+        "step": null,
+        "unknownClearsValue": true
+      },
+      "helpText": "thang thử nghiệm, chờ bác sĩ duyệt",
+      "sourceRef": "C1-contract.md §3; G1-review.md §6",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "ad596e35-1ca0-56f9-8a14-c06e5eb7bee7",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": true,
+          "sourceSttRefs": "C1 test workflow"
+        }
+      ]
+    },
+    {
+      "id": "35b02ec3-7f0c-56b1-9d2d-c380274193c6",
+      "code": "xquang_nguc_thang",
+      "labelVi": "X-quang có cấu trúc",
+      "sectionCode": "can_lam_sang",
+      "dataType": "object",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "workflow_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "validationRule": {
+        "workflowSchema": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "value_state": {
+                  "const": "answered"
+                },
+                "value": {
+                  "$ref": "#/$defs/xrayValue"
+                },
+                "unit": {
+                  "const": null
+                },
+                "measuredAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "value_state",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "value_state": {
+                  "const": "unknown"
+                },
+                "value": {
+                  "type": "null"
+                },
+                "unit": {
+                  "const": null
+                },
+                "measuredAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "value_state",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "workflowContract": "hf-workflow/1.0",
+        "step": null,
+        "unknownClearsValue": true
+      },
+      "helpText": "thang thử nghiệm, chờ bác sĩ duyệt",
+      "sourceRef": "C1-contract.md §3; G1-review.md §6",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "35b02ec3-7f0c-56b1-9d2d-c380274193c6",
+          "aiModuleCode": "ai_treatment",
+          "isRequired": true,
+          "sourceSttRefs": "C1 test workflow"
+        }
+      ]
+    },
+    {
+      "id": "2ca11529-be49-5d2d-8738-8bd323322aab",
+      "code": "bat_thuong_cau_truc_tim",
+      "labelVi": "Bất thường cấu trúc/chức năng tim đã được xác nhận",
+      "sectionCode": "can_lam_sang",
+      "dataType": "boolean",
+      "canonicalUnit": null,
+      "scopeStatus": "mvp",
+      "storageLevel": "workflow_value",
+      "isCalculated": false,
+      "minValue": null,
+      "maxValue": null,
+      "validationRule": {
+        "workflowSchema": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "value_state": {
+                  "const": "answered"
+                },
+                "value": {},
+                "unit": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "measuredAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "value_state",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "value_state": {
+                  "const": "unknown"
+                },
+                "value": {
+                  "type": "null"
+                },
+                "unit": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "measuredAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "value_state",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "workflowContract": "hf-workflow/1.0",
+        "step": null,
+        "unknownClearsValue": true
+      },
+      "helpText": "thang thử nghiệm, chờ bác sĩ duyệt",
+      "sourceRef": "C1-contract.md §3; G1-review.md §6",
+      "options": [],
+      "aiModules": [
+        {
+          "fieldDefinitionId": "2ca11529-be49-5d2d-8738-8bd323322aab",
+          "aiModuleCode": "ai_diagnosis",
+          "isRequired": true,
+          "sourceSttRefs": "C1 test workflow"
+        },
+        {
+          "fieldDefinitionId": "2ca11529-be49-5d2d-8738-8bd323322aab",
+          "aiModuleCode": "ai_lab_test",
+          "isRequired": true,
+          "sourceSttRefs": "C1 test workflow"
+        }
+      ]
     }
   ],
   "draftVersionLabel": "v1.1",
@@ -5027,5 +6359,19 @@
       "repeatGroup": null,
       "memberPath": null
     }
-  }
+  },
+  "workflowDraftVersionLabel": "v1.2",
+  "workflowFieldCodes": [
+    "kho_tho_nang",
+    "phu_chi_duoi_muc_do",
+    "bien_thien_can_nang_7ngay",
+    "trieu_chung_khong_dien_hinh",
+    "danh_gia_suy_yeu_frailty",
+    "e_over_a_ratio",
+    "egfr_ckd_epi",
+    "egfr_formula",
+    "ecg_12_chuyen_dao",
+    "xquang_nguc_thang",
+    "bat_thuong_cau_truc_tim"
+  ]
 }

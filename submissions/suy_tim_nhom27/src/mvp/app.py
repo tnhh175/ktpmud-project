@@ -25,6 +25,7 @@ from .models import ProblemError, problem_response
 from .care import router as care_router
 from .patients import router as patients_router
 from .visits import router as visits_router
+from .workflow import router as workflow_router
 
 
 _SUBMISSION_ROOT = Path(__file__).resolve().parents[2]
@@ -173,6 +174,8 @@ def create_app(
 
     @app.exception_handler(psycopg.Error)
     async def psycopg_error_handler(request: Request, exc: psycopg.Error) -> JSONResponse:
+        if '/workflow' in request.url.path:
+            return problem_response(status=503,code='WORKFLOW_PERSISTENCE_UNAVAILABLE',title='Không lưu được workflow',detail='Giao dịch chưa hoàn tất; tải lại trạng thái trước khi thử lại.',instance=request.url.path,correlation_id=get_request_id(request))
         sqlstate = getattr(exc, "sqlstate", None)
         msg = str(exc).lower()
         if sqlstate == "23505":
@@ -213,6 +216,8 @@ def create_app(
 
     @app.exception_handler(PoolTimeout)
     async def pool_timeout_handler(request: Request, exc: PoolTimeout) -> JSONResponse:
+        if '/workflow' in request.url.path:
+            return problem_response(status=503,code='WORKFLOW_PERSISTENCE_UNAVAILABLE',title='Không kết nối được cơ sở dữ liệu',detail='Tải lại trạng thái trước khi thử lại.',instance=request.url.path,correlation_id=get_request_id(request))
         return problem_response(
             status=503,
             code="DATABASE_UNAVAILABLE",
@@ -266,6 +271,7 @@ def create_app(
     app.include_router(care_router)
     app.include_router(patients_router)
     app.include_router(visits_router)
+    app.include_router(workflow_router)
     app.include_router(admin_router)
 
     cached_spec = _load_openapi_dict()

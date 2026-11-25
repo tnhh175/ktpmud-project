@@ -1,0 +1,2152 @@
+{
+  "rulesVersion": "mock-1.1",
+  "engine": "mock-rules",
+  "form_version": "1.2",
+  "syntheticOnly": true,
+  "displayLabel": "Kết quả AI mô phỏng — chỉ để kiểm thử, không dùng cho lâm sàng",
+  "clinicalValidation": "none; pending doctor review",
+  "contractStatus": "aligned_C1_after_G1",
+  "sources": {
+    "BYT": {
+      "file": "C:\\Users\\tnhh\\Downloads\\suy_tim\\1.Suy tim_Huong_dan_ chẩn đoán và điều trị.pdf",
+      "url": "https://kcb.vn/upload/2005611/20220722/1857_Huong_dan_suy_tim_signed_8e519ed3f9.pdf",
+      "status": "published_guidance_not_validation_of_mock"
+    },
+    "DOCX": {
+      "file": "C:\\Users\\tnhh\\Downloads\\SUY TIM (3).docx",
+      "status": "project_requirements_not_clinical_validation"
+    },
+    "DD": {
+      "file": "C:\\Users\\tnhh\\Downloads\\DATA_DICTIONARY_SUY_TIM_AI_CDSS- sửa (2).xlsx",
+      "sheet": "Trường dữ liệu",
+      "status": "project_dictionary_not_clinical_validation"
+    },
+    "TASK": {
+      "file": "docs/test-workflow/tasks/C2-codex.md",
+      "status": "unvalidated_test_convention"
+    },
+    "PLAN": {
+      "file": "docs/test-workflow/PLAN.md",
+      "status": "experimental_pending_doctor_review"
+    },
+    "DIG": {
+      "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=9ca08b66-55eb-4155-a8bd-6fa2282adab4",
+      "section": "7.1-7.2; 8.6; 12.3",
+      "status": "drug_label_not_validation_of_mock_threshold_or_severity"
+    }
+  },
+  "semantics": {
+    "input": "Accumulated fields with value_state/value; effective_m1 is accepted ai/manual output, never raw superseded AI. selectedMedications comes from doctor decision at M3.",
+    "conditionOperators": [
+      "eq",
+      "in",
+      "lt",
+      "lte",
+      "gt",
+      "gte",
+      "contains",
+      "nonempty",
+      "missing_or_null"
+    ],
+    "nullPolicy": "Numeric comparisons and eq-to-nonnull fail on missing/null; unknown never becomes 0/false.",
+    "evaluation": "Groups execute in insertion order per module; within each group ascending priority, first match only. Distinct groups accumulate. Conditions may read output produced by earlier groups.",
+    "effects": "set replaces path; append_unique appends if full JSON value absent. Missing groups produce no effect. Output metadata added once.",
+    "recentTests": "Test key included only when answered result timestamp <=30 days at fixed visit time AND doctor confirmed reuse; no inference for unknown/time missing/acute override.",
+    "medicationClasses": "Sorted union of explicitly structured classes in current medications and doctor-selected new prescription; no string matching on free text.",
+    "diagnosticScope": "Demo support for doctors only; no diagnosis, prescription, autonomous medication changes or validated probability.",
+    "outputProjection": "After all rule groups: append unresolved/missing gapFields to dataGaps; note null M1 risks; attach M2 recent evidence IDs; copy M3 stage/phenotype from effective_m1; resolve M4 related drug IDs from structured current/selected rows. No new clinical inference."
+  },
+  "fieldContracts": {
+    "kho_tho_nang": {
+      "aiCode": "KHO_THO_NANG",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3,
+      "step": 1,
+      "status": "aligned_C1_after_G1",
+      "unknownClearsValue": true
+    },
+    "phu_chi_duoi_muc_do": {
+      "aiCode": "PHU_CHI_DUOI",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2,
+      "step": 1,
+      "status": "aligned_C1_after_G1",
+      "unknownClearsValue": true
+    },
+    "bien_thien_can_nang_7ngay": {
+      "aiCode": "BIEN_THIEN_CAN_NANG_7NGAY",
+      "type": "number",
+      "minimum": -20,
+      "maximum": 20,
+      "step": 0.1,
+      "status": "aligned_C1_after_G1",
+      "unknownClearsValue": true
+    },
+    "trieu_chung_khong_dien_hinh": {
+      "aiCode": "TRIEU_CHUNG_KHONG_DIEN_HINH",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2,
+      "step": 1,
+      "status": "aligned_C1_after_G1",
+      "unknownClearsValue": true
+    },
+    "danh_gia_suy_yeu_frailty": {
+      "aiCode": "DANH_GIA_SUY_YEU_FRAILTY",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9,
+      "step": 1,
+      "status": "aligned_C1_after_G1",
+      "unknownClearsValue": true
+    },
+    "e_over_a_ratio": {
+      "aiCode": "E_OVER_A_RATIO",
+      "type": "number_or_not_measurable_af",
+      "minimum": 0.2,
+      "maximum": 5,
+      "step": 0.01,
+      "status": "aligned_C1_after_G1",
+      "unknownClearsValue": true
+    },
+    "egfr_ckd_epi": {
+      "aiCode": "EGFR_CKD_EPI",
+      "type": "number",
+      "minimum": 1,
+      "maximum": 200,
+      "step": 1,
+      "status": "aligned_C1_after_G1",
+      "unknownClearsValue": true
+    },
+    "ecg_12_chuyen_dao": {
+      "aiCode": "ECG_12_CHUYEN_DAO",
+      "type": "object",
+      "minimum": null,
+      "maximum": null,
+      "step": null,
+      "status": "aligned_C1_after_G1",
+      "unknownClearsValue": true
+    },
+    "xquang_nguc_thang": {
+      "aiCode": "XQUANG_NGUC_THANG",
+      "type": "object",
+      "minimum": null,
+      "maximum": null,
+      "step": null,
+      "status": "aligned_C1_after_G1",
+      "unknownClearsValue": true
+    }
+  },
+  "structuredRanges": {
+    "ecg_12_chuyen_dao.rate": [
+      20,
+      250
+    ],
+    "ecg_12_chuyen_dao.qrs_ms": [
+      40,
+      300
+    ],
+    "ecg_12_chuyen_dao.qtc_ms": [
+      200,
+      700
+    ],
+    "xquang_nguc_thang.ctr": [
+      0.3,
+      0.8
+    ]
+  },
+  "workflowPolicy": {
+    "requiredResolved": {
+      "M1": [
+        "age",
+        "sex",
+        "diagnoses",
+        "kho_tho_nang",
+        "phu_chi_duoi_muc_do",
+        "tinh_mach_co_noi",
+        "ran_am_phoi",
+        "bien_thien_can_nang_7ngay",
+        "trieu_chung_khong_dien_hinh",
+        "danh_gia_suy_yeu_frailty"
+      ],
+      "M2": [
+        "age",
+        "sex",
+        "diagnoses",
+        "kho_tho_nang",
+        "phu_chi_duoi_muc_do",
+        "tinh_mach_co_noi",
+        "ran_am_phoi",
+        "bien_thien_can_nang_7ngay",
+        "trieu_chung_khong_dien_hinh",
+        "danh_gia_suy_yeu_frailty"
+      ],
+      "M3": [
+        "age",
+        "sex",
+        "diagnoses",
+        "cls_nt_probnp",
+        "cls_bnp",
+        "cls_lvef",
+        "e_over_a_ratio",
+        "cls_creatinin",
+        "egfr_ckd_epi",
+        "cls_kali",
+        "ecg_12_chuyen_dao",
+        "xquang_nguc_thang"
+      ],
+      "M4": [
+        "age",
+        "sex",
+        "allergies",
+        "medications",
+        "selected_medications"
+      ]
+    },
+    "requiredAnswered": [
+      "age",
+      "sex",
+      "allergies",
+      "medications",
+      "selected_medications"
+    ],
+    "unknownAllowed": "All requiredResolved except requiredAnswered; list answered [] means none, unknown list is blocked.",
+    "states": [
+      "locked",
+      "needs_input",
+      "ready",
+      "ran",
+      "accepted",
+      "stale"
+    ],
+    "afterFirstRun": [
+      "edit",
+      "continue_next"
+    ],
+    "afterRerun": [
+      "edit",
+      "accept_ai",
+      "manual_override"
+    ],
+    "rerunLabel": "Chạy lại Module N",
+    "invalidation": "Any changed field of N marks N and all existing downstream runs stale, revokes effective decisions, preserves history; no automatic runs.",
+    "manual": "Only after attempt>=2; manual_output requires trimmed nonempty manualReason and complete doctor output; forwards decisionSource=manual.",
+    "m4": "Serious alerts require agree/disagree and trimmed nonempty reason for both. Important/monitoring require reason only for disagree. Unresolved serious alerts block complete. Available actions exclude disabled commands; UI may display disabledActions.",
+    "errors": {
+      "missing": "WORKFLOW_REQUIRED_VALUE_MISSING",
+      "upstream": "WORKFLOW_UPSTREAM_NOT_ACCEPTED",
+      "range": "FIELD_OUT_OF_RANGE",
+      "enum": "FIELD_ENUM_INVALID",
+      "reason": "M4_DISAGREE_REASON_REQUIRED",
+      "unresolved": "M4_SERIOUS_ALERT_UNRESOLVED",
+      "forbidden": "WORKFLOW_FORBIDDEN",
+      "notFound": "VISIT_NOT_FOUND",
+      "seriousReason": "M4_SERIOUS_REASON_REQUIRED",
+      "manualReason": "WORKFLOW_MANUAL_REASON_REQUIRED"
+    },
+    "availableActionNames": [
+      "run",
+      "rerun",
+      "edit",
+      "continue_next",
+      "accept_ai",
+      "manual_override",
+      "confirm_m4",
+      "complete"
+    ]
+  },
+  "rules": [
+    {
+      "id": "M1-D0",
+      "module": "M1",
+      "group": "diagnosis",
+      "priority": 0,
+      "when": {
+        "all": [
+          {
+            "path": "fields.kho_tho_nang.value",
+            "op": "gt",
+            "value": 0
+          },
+          {
+            "any": [
+              {
+                "path": "fields.bat_thuong_cau_truc_tim.value",
+                "op": "eq",
+                "value": true
+              },
+              {
+                "path": "fields.cls_lvef.value",
+                "op": "lt",
+                "value": 50
+              }
+            ]
+          }
+        ]
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "stage",
+          "value": "C"
+        },
+        {
+          "op": "set",
+          "path": "xac_suat_suy_tim",
+          "value": {
+            "muc": "Suy tim có triệu chứng – Stage C",
+            "xac_suat": 0.9,
+            "calibration": "synthetic_not_calibrated"
+          }
+        }
+      ],
+      "sources": [
+        "BYT:I.3, II.1; PDF 7-8 (in 6-7)",
+        "DOCX:Model 1/Đầu ra; DD #93"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Stage C cần triệu chứng và bất thường cấu trúc/chức năng; không dùng NT-proBNP đơn độc."
+    },
+    {
+      "id": "M1-D1",
+      "module": "M1",
+      "group": "diagnosis",
+      "priority": 10,
+      "when": {
+        "all": [
+          {
+            "path": "fields.kho_tho_nang.value",
+            "op": "eq",
+            "value": 0
+          },
+          {
+            "any": [
+              {
+                "path": "fields.bat_thuong_cau_truc_tim.value",
+                "op": "eq",
+                "value": true
+              },
+              {
+                "path": "fields.cls_lvef.value",
+                "op": "lt",
+                "value": 50
+              }
+            ]
+          }
+        ]
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "stage",
+          "value": "B"
+        },
+        {
+          "op": "set",
+          "path": "xac_suat_suy_tim",
+          "value": {
+            "muc": "Pre-HF – Stage B",
+            "xac_suat": 0.3,
+            "calibration": "synthetic_not_calibrated"
+          }
+        }
+      ],
+      "sources": [
+        "BYT:I.3; PDF 7 (in 6)",
+        "DOCX:Model 1/Đầu ra; DD #93"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Xác suất chỉ là hằng số test."
+    },
+    {
+      "id": "M1-D2",
+      "module": "M1",
+      "group": "diagnosis",
+      "priority": 20,
+      "when": {
+        "all": [
+          {
+            "path": "fields.kho_tho_nang.value",
+            "op": "eq",
+            "value": 0
+          },
+          {
+            "path": "fields.bat_thuong_cau_truc_tim.value",
+            "op": "eq",
+            "value": false
+          },
+          {
+            "path": "fields.cls_lvef.value",
+            "op": "gte",
+            "value": 50
+          },
+          {
+            "all": [
+              {
+                "path": "fields.cls_nt_probnp.value",
+                "op": "lt",
+                "value": 125
+              },
+              {
+                "path": "fields.cls_bnp.value",
+                "op": "lt",
+                "value": 35
+              }
+            ]
+          },
+          {
+            "any": [
+              {
+                "path": "fields.tang_huyet_ap.value",
+                "op": "eq",
+                "value": true
+              },
+              {
+                "path": "fields.dai_thao_duong.value",
+                "op": "eq",
+                "value": true
+              }
+            ]
+          }
+        ]
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "stage",
+          "value": "A"
+        },
+        {
+          "op": "set",
+          "path": "xac_suat_suy_tim",
+          "value": {
+            "muc": "Có nguy cơ – Stage A",
+            "xac_suat": 0.1,
+            "calibration": "synthetic_not_calibrated"
+          }
+        }
+      ],
+      "sources": [
+        "BYT:I.3; PDF 7 (in 6)",
+        "DOCX:Model 1/Đầu ra; DD #93"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Không gọi HFpEF khi chỉ có EF bình thường và không triệu chứng."
+    },
+    {
+      "id": "M1-D3",
+      "module": "M1",
+      "group": "diagnosis",
+      "priority": 30,
+      "when": {
+        "all": [
+          {
+            "path": "fields.kho_tho_nang.value",
+            "op": "gt",
+            "value": 0
+          },
+          {
+            "path": "fields.bat_thuong_cau_truc_tim.value",
+            "op": "eq",
+            "value": false
+          },
+          {
+            "all": [
+              {
+                "path": "fields.cls_nt_probnp.value",
+                "op": "lt",
+                "value": 125
+              },
+              {
+                "path": "fields.cls_bnp.value",
+                "op": "lt",
+                "value": 35
+              }
+            ]
+          },
+          {
+            "path": "fields.copd.value",
+            "op": "eq",
+            "value": true
+          },
+          {
+            "path": "fields.thieu_mau.value",
+            "op": "eq",
+            "value": true
+          }
+        ]
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "stage",
+          "value": null
+        },
+        {
+          "op": "set",
+          "path": "xac_suat_suy_tim",
+          "value": {
+            "muc": "Không phù hợp",
+            "xac_suat": 0.05,
+            "calibration": "synthetic_not_calibrated"
+          }
+        },
+        {
+          "op": "set",
+          "path": "canh_bao_gia_suy_tim",
+          "value": [
+            "COPD/bệnh phổi khác",
+            "Thiếu máu"
+          ]
+        }
+      ],
+      "sources": [
+        "BYT:II.1/Bảng 4; PDF 10 (in 9)",
+        "DOCX:Model 1/Bệnh giả suy tim; DD #97"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Chỉ cho fixture có đồng thời COPD và thiếu máu; không phải quy tắc loại trừ bệnh thật."
+    },
+    {
+      "id": "M1-D4",
+      "module": "M1",
+      "group": "diagnosis",
+      "priority": 40,
+      "when": {
+        "all": [
+          {
+            "path": "fields.kho_tho_nang.value",
+            "op": "gt",
+            "value": 0
+          },
+          {
+            "any": [
+              {
+                "path": "fields.cls_nt_probnp.value",
+                "op": "gte",
+                "value": 125
+              },
+              {
+                "path": "fields.cls_bnp.value",
+                "op": "gte",
+                "value": 35
+              }
+            ]
+          }
+        ]
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "stage",
+          "value": null
+        },
+        {
+          "op": "set",
+          "path": "xac_suat_suy_tim",
+          "value": {
+            "muc": "Nghi ngờ suy tim",
+            "xac_suat": 0.6,
+            "calibration": "synthetic_not_calibrated"
+          }
+        }
+      ],
+      "sources": [
+        "BYT:II.1/Bảng 4; PDF 10 (in 9)",
+        "TASK:AI chỉ cần kỳ vọng"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Ngưỡng ngoại trú không xác nhận Stage C; không áp dụng như ngưỡng chẩn đoán cấp cứu."
+    },
+    {
+      "id": "M1-D9",
+      "module": "M1",
+      "group": "diagnosis",
+      "priority": 99,
+      "when": {
+        "always": true
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "stage",
+          "value": null
+        },
+        {
+          "op": "set",
+          "path": "xac_suat_suy_tim",
+          "value": {
+            "muc": "Chưa đủ dữ liệu để kết luận",
+            "xac_suat": null,
+            "calibration": "synthetic_not_calibrated"
+          }
+        }
+      ],
+      "sources": [
+        "DOCX:Model 1/Đầu ra; DD #93"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Không gán xác suất số khi thiếu bằng chứng."
+    },
+    {
+      "id": "M1-E0",
+      "module": "M1",
+      "group": "phenotype",
+      "priority": 0,
+      "when": {
+        "all": [
+          {
+            "path": "output.stage",
+            "op": "in",
+            "value": [
+              "B",
+              "C",
+              "D"
+            ]
+          },
+          {
+            "path": "fields.cls_lvef.value",
+            "op": "lte",
+            "value": 40
+          }
+        ]
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "kieu_hinh_ef",
+          "value": "HFrEF"
+        }
+      ],
+      "sources": [
+        "BYT:I.2/Bảng 1; PDF 7 (in 6)"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Stage B: nhãn miền EF cho test, không khẳng định suy tim có triệu chứng."
+    },
+    {
+      "id": "M1-E1",
+      "module": "M1",
+      "group": "phenotype",
+      "priority": 10,
+      "when": {
+        "all": [
+          {
+            "path": "output.stage",
+            "op": "in",
+            "value": [
+              "B",
+              "C",
+              "D"
+            ]
+          },
+          {
+            "path": "fields.cls_lvef.value",
+            "op": "gte",
+            "value": 41
+          },
+          {
+            "path": "fields.cls_lvef.value",
+            "op": "lte",
+            "value": 49
+          }
+        ]
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "kieu_hinh_ef",
+          "value": "HFmrEF"
+        }
+      ],
+      "sources": [
+        "BYT:I.2/Bảng 1; PDF 7 (in 6)",
+        "TASK:TC03"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "HFmrEF là mở rộng so với DD #94; chờ C1 duyệt enum."
+    },
+    {
+      "id": "M1-E2",
+      "module": "M1",
+      "group": "phenotype",
+      "priority": 20,
+      "when": {
+        "all": [
+          {
+            "path": "output.stage",
+            "op": "eq",
+            "value": "C"
+          },
+          {
+            "path": "fields.cls_lvef.value",
+            "op": "gte",
+            "value": 50
+          },
+          {
+            "path": "fields.bat_thuong_cau_truc_tim.value",
+            "op": "eq",
+            "value": true
+          },
+          {
+            "any": [
+              {
+                "path": "fields.cls_nt_probnp.value",
+                "op": "gte",
+                "value": 125
+              },
+              {
+                "path": "fields.cls_bnp.value",
+                "op": "gte",
+                "value": 35
+              }
+            ]
+          }
+        ]
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "kieu_hinh_ef",
+          "value": "HFpEF"
+        }
+      ],
+      "sources": [
+        "BYT:I.2/Bảng 1; PDF 7 (in 6)"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Fixture biểu diễn bằng chứng cấu trúc/chức năng và peptide; không đủ để xác thực thuật toán."
+    },
+    {
+      "id": "M1-E3",
+      "module": "M1",
+      "group": "phenotype",
+      "priority": 30,
+      "when": {
+        "path": "fields.cls_lvef.value",
+        "op": "missing_or_null",
+        "value": null
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "kieu_hinh_ef",
+          "value": "Chưa phân loại do thiếu EF"
+        }
+      ],
+      "sources": [
+        "DOCX:Model 1/Phân loại kiểu hình; DD #94"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Unknown không thành EF=0."
+    },
+    {
+      "id": "M1-E9",
+      "module": "M1",
+      "group": "phenotype",
+      "priority": 99,
+      "when": {
+        "always": true
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "kieu_hinh_ef",
+          "value": "Không áp dụng"
+        }
+      ],
+      "sources": [
+        "TASK:TC02, TC06; quy ước bổ sung"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Không áp dụng là enum test tạm, chờ C1."
+    },
+    {
+      "id": "M1-C0",
+      "module": "M1",
+      "group": "context",
+      "priority": 0,
+      "when": {
+        "all": [
+          {
+            "path": "output.stage",
+            "op": "eq",
+            "value": "C"
+          },
+          {
+            "all": [
+              {
+                "path": "fields.spo2.value",
+                "op": "lt",
+                "value": 90
+              },
+              {
+                "path": "fields.ran_am_phoi.value",
+                "op": "eq",
+                "value": true
+              },
+              {
+                "path": "fields.kho_tho_nang.value",
+                "op": "eq",
+                "value": 3
+              }
+            ]
+          }
+        ]
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "benh_canh",
+          "value": "Decompensated HF"
+        },
+        {
+          "op": "set",
+          "path": "canh_bao_cap_cuu",
+          "value": [
+            "Phù phổi cấp",
+            "Giảm SpO₂"
+          ]
+        }
+      ],
+      "sources": [
+        "BYT:III.3-4.3; PDF 21-22 (in 20-21)",
+        "DOCX:Model 1/Cảnh báo cấp cứu; DD #105",
+        "TASK:TC01"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Tổ hợp và nhãn phù phổi là giả định demo, không chẩn đoán xác định."
+    },
+    {
+      "id": "M1-C9",
+      "module": "M1",
+      "group": "context",
+      "priority": 99,
+      "when": {
+        "path": "output.stage",
+        "op": "eq",
+        "value": "C"
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "benh_canh",
+          "value": "Suy tim cấp hoặc mạn tính"
+        }
+      ],
+      "sources": [
+        "DOCX:Model 1/Bệnh cảnh; DD #95"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Nhãn chung theo DD; không suy diễn cấp tính từ thiếu dữ liệu."
+    },
+    {
+      "id": "M1-F0",
+      "module": "M1",
+      "group": "frailty",
+      "priority": 0,
+      "when": {
+        "path": "fields.danh_gia_suy_yeu_frailty.value",
+        "op": "gte",
+        "value": 7
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "frailty_dung_nap",
+          "value": "Suy yếu nhiều; cần bác sĩ đánh giá dung nạp"
+        },
+        {
+          "op": "set",
+          "path": "du_bao_nguy_co",
+          "value": {
+            "nhap_vien": "Cao",
+            "tu_vong": "Cao",
+            "te_nga": "Cao",
+            "sang": "Cao",
+            "suy_giam_chuc_nang": "Cao",
+            "mat_tu_cham_soc": "Cao"
+          }
+        }
+      ],
+      "sources": [
+        "DOCX:Model 1/Frailty và dự báo; DD #98-104",
+        "TASK:TC04"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "CFS≥7 và sáu mức cao đều là hằng số mock chưa thẩm định, không công bố tiên lượng."
+    },
+    {
+      "id": "M1-F9",
+      "module": "M1",
+      "group": "frailty",
+      "priority": 99,
+      "when": {
+        "always": true
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "frailty_dung_nap",
+          "value": "Chưa đánh giá trong mock"
+        },
+        {
+          "op": "set",
+          "path": "du_bao_nguy_co",
+          "value": {
+            "nhap_vien": null,
+            "tu_vong": null,
+            "te_nga": null,
+            "sang": null,
+            "suy_giam_chuc_nang": null,
+            "mat_tu_cham_soc": null
+          }
+        }
+      ],
+      "sources": [
+        "DOCX:Model 1/Dự báo; DD #98-104"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Null nghĩa là chưa ước tính, không phải nguy cơ thấp."
+    },
+    {
+      "id": "M2-L0",
+      "module": "M2",
+      "group": "classification",
+      "priority": 0,
+      "when": {
+        "path": "effective_m1.canh_bao_cap_cuu",
+        "op": "nonempty",
+        "value": null
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "phan_loai_ket_qua",
+          "value": "Phù hợp với suy tim"
+        },
+        {
+          "op": "set",
+          "path": "muc_uu_tien",
+          "value": "Cấp cứu"
+        }
+      ],
+      "sources": [
+        "BYT:III.4.3; PDF 22 (in 21)",
+        "DOCX:Model 2/Đầu ra; DD #146-147"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Phân loại mock dựa upstream hiệu lực."
+    },
+    {
+      "id": "M2-L1",
+      "module": "M2",
+      "group": "classification",
+      "priority": 10,
+      "when": {
+        "path": "effective_m1.canh_bao_gia_suy_tim",
+        "op": "nonempty",
+        "value": null
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "phan_loai_ket_qua",
+          "value": "Nghi ngờ bệnh giả suy tim"
+        },
+        {
+          "op": "set",
+          "path": "muc_uu_tien",
+          "value": "Trong đợt khám hiện tại"
+        }
+      ],
+      "sources": [
+        "DOCX:Model 2/Đầu ra; DD #146-147"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Không dùng tuổi để đề xuất thăm dò xâm lấn."
+    },
+    {
+      "id": "M2-L2",
+      "module": "M2",
+      "group": "classification",
+      "priority": 20,
+      "when": {
+        "path": "effective_m1.kieu_hinh_ef",
+        "op": "eq",
+        "value": "Chưa phân loại do thiếu EF"
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "phan_loai_ket_qua",
+          "value": "Cần xét nghiệm bổ sung"
+        },
+        {
+          "op": "set",
+          "path": "muc_uu_tien",
+          "value": "Trong 24 giờ"
+        }
+      ],
+      "sources": [
+        "DOCX:Model 2/Siêu âm tim và mức ưu tiên; DD #123,147",
+        "TASK:TC05"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Mốc 24 giờ do nhiệm vụ test quy định, không phải thời hạn bắt buộc cho mọi ca thiếu EF."
+    },
+    {
+      "id": "M2-L9",
+      "module": "M2",
+      "group": "classification",
+      "priority": 99,
+      "when": {
+        "always": true
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "phan_loai_ket_qua",
+          "value": "Chưa đủ bằng chứng"
+        },
+        {
+          "op": "set",
+          "path": "muc_uu_tien",
+          "value": "Trong đợt khám hiện tại"
+        }
+      ],
+      "sources": [
+        "DOCX:Model 2/Đầu ra; DD #146-147"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Fallback test."
+    },
+    {
+      "id": "M2-T121",
+      "module": "M2",
+      "group": "test_bnp_ntprobnp",
+      "priority": 0,
+      "when": {
+        "always": true
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "goi_y_chi_dinh.bnp_ntprobnp",
+          "value": {
+            "trang_thai": "Đề xuất",
+            "ly_do": "Bổ sung bằng chứng trong mock"
+          }
+        }
+      ],
+      "sources": [
+        "BYT:II.1/Bảng 4; PDF 10 (in 9)",
+        "DOCX:Model 2/Xét nghiệm cơ bản; DD #121"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Đề xuất hỗ trợ bác sĩ; không tạo chỉ định tự động."
+    },
+    {
+      "id": "M2-R121",
+      "module": "M2",
+      "group": "recent_bnp_ntprobnp",
+      "priority": 0,
+      "when": {
+        "path": "recentTests",
+        "op": "contains",
+        "value": "bnp_ntprobnp"
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "goi_y_chi_dinh.bnp_ntprobnp",
+          "value": {
+            "trang_thai": "Đã có kết quả gần đây",
+            "ly_do": "Có kết quả được bác sĩ xác nhận trong snapshot"
+          }
+        },
+        {
+          "op": "append_unique",
+          "path": "khoa_trung_lap",
+          "value": "bnp_ntprobnp"
+        }
+      ],
+      "sources": [
+        "DOCX:Model 2/Kết quả đã có và thời điểm",
+        "PLAN:U4"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Gần đây = ≤30 ngày trong fixture; bác sĩ đã xác nhận dùng lại; không coi 30 ngày là chuẩn lâm sàng."
+    },
+    {
+      "id": "M2-T122",
+      "module": "M2",
+      "group": "test_ecg",
+      "priority": 0,
+      "when": {
+        "always": true
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "goi_y_chi_dinh.ecg",
+          "value": {
+            "trang_thai": "Đề xuất",
+            "ly_do": "Bổ sung bằng chứng trong mock"
+          }
+        }
+      ],
+      "sources": [
+        "BYT:II.1/Bảng 4; PDF 10 (in 9)",
+        "DOCX:Model 2/Xét nghiệm cơ bản; DD #122"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Đề xuất hỗ trợ bác sĩ; không tạo chỉ định tự động."
+    },
+    {
+      "id": "M2-R122",
+      "module": "M2",
+      "group": "recent_ecg",
+      "priority": 0,
+      "when": {
+        "path": "recentTests",
+        "op": "contains",
+        "value": "ecg"
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "goi_y_chi_dinh.ecg",
+          "value": {
+            "trang_thai": "Đã có kết quả gần đây",
+            "ly_do": "Có kết quả được bác sĩ xác nhận trong snapshot"
+          }
+        },
+        {
+          "op": "append_unique",
+          "path": "khoa_trung_lap",
+          "value": "ecg"
+        }
+      ],
+      "sources": [
+        "DOCX:Model 2/Kết quả đã có và thời điểm",
+        "PLAN:U4"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Gần đây = ≤30 ngày trong fixture; bác sĩ đã xác nhận dùng lại; không coi 30 ngày là chuẩn lâm sàng."
+    },
+    {
+      "id": "M2-T123",
+      "module": "M2",
+      "group": "test_sieu_am_tim",
+      "priority": 0,
+      "when": {
+        "always": true
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "goi_y_chi_dinh.sieu_am_tim",
+          "value": {
+            "trang_thai": "Đề xuất",
+            "ly_do": "Bổ sung bằng chứng trong mock"
+          }
+        }
+      ],
+      "sources": [
+        "BYT:II.1/Bảng 4; PDF 10 (in 9)",
+        "DOCX:Model 2/Xét nghiệm cơ bản; DD #123"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Đề xuất hỗ trợ bác sĩ; không tạo chỉ định tự động."
+    },
+    {
+      "id": "M2-R123",
+      "module": "M2",
+      "group": "recent_sieu_am_tim",
+      "priority": 0,
+      "when": {
+        "path": "recentTests",
+        "op": "contains",
+        "value": "sieu_am_tim"
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "goi_y_chi_dinh.sieu_am_tim",
+          "value": {
+            "trang_thai": "Đã có kết quả gần đây",
+            "ly_do": "Có kết quả được bác sĩ xác nhận trong snapshot"
+          }
+        },
+        {
+          "op": "append_unique",
+          "path": "khoa_trung_lap",
+          "value": "sieu_am_tim"
+        }
+      ],
+      "sources": [
+        "DOCX:Model 2/Kết quả đã có và thời điểm",
+        "PLAN:U4"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Gần đây = ≤30 ngày trong fixture; bác sĩ đã xác nhận dùng lại; không coi 30 ngày là chuẩn lâm sàng."
+    },
+    {
+      "id": "M2-T124",
+      "module": "M2",
+      "group": "test_xquang",
+      "priority": 0,
+      "when": {
+        "always": true
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "goi_y_chi_dinh.xquang",
+          "value": {
+            "trang_thai": "Đề xuất",
+            "ly_do": "Bổ sung bằng chứng trong mock"
+          }
+        }
+      ],
+      "sources": [
+        "BYT:II.1/Bảng 4; PDF 10 (in 9)",
+        "DOCX:Model 2/Xét nghiệm cơ bản; DD #124"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Đề xuất hỗ trợ bác sĩ; không tạo chỉ định tự động."
+    },
+    {
+      "id": "M2-R124",
+      "module": "M2",
+      "group": "recent_xquang",
+      "priority": 0,
+      "when": {
+        "path": "recentTests",
+        "op": "contains",
+        "value": "xquang"
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "goi_y_chi_dinh.xquang",
+          "value": {
+            "trang_thai": "Đã có kết quả gần đây",
+            "ly_do": "Có kết quả được bác sĩ xác nhận trong snapshot"
+          }
+        },
+        {
+          "op": "append_unique",
+          "path": "khoa_trung_lap",
+          "value": "xquang"
+        }
+      ],
+      "sources": [
+        "DOCX:Model 2/Kết quả đã có và thời điểm",
+        "PLAN:U4"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Gần đây = ≤30 ngày trong fixture; bác sĩ đã xác nhận dùng lại; không coi 30 ngày là chuẩn lâm sàng."
+    },
+    {
+      "id": "M2-M0",
+      "module": "M2",
+      "group": "mimic_tests",
+      "priority": 0,
+      "when": {
+        "path": "effective_m1.canh_bao_gia_suy_tim",
+        "op": "nonempty",
+        "value": null
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "goi_y_chi_dinh.danh_gia_benh_phoi",
+          "value": {
+            "trang_thai": "Đề xuất",
+            "ly_do": "Đối chiếu COPD"
+          }
+        },
+        {
+          "op": "set",
+          "path": "goi_y_chi_dinh.danh_gia_thieu_mau",
+          "value": {
+            "trang_thai": "Đề xuất",
+            "ly_do": "Đối chiếu thiếu máu"
+          }
+        }
+      ],
+      "sources": [
+        "DOCX:Model 2/Bệnh giả suy tim; DD #141-142"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Không tự loại trừ suy tim."
+    },
+    {
+      "id": "M3-A0",
+      "module": "M3",
+      "group": "plan",
+      "priority": 0,
+      "when": {
+        "path": "effective_m1.stage",
+        "op": "eq",
+        "value": "A"
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "dinh_huong",
+          "value": "Kiểm soát THA/ĐTĐ và yếu tố nguy cơ; bác sĩ đánh giá chỉ định theo bệnh đồng mắc"
+        },
+        {
+          "op": "set",
+          "path": "khuyen_nghi.dieu_tri_stage_a",
+          "value": {
+            "ap_dung": "co",
+            "noi_dung": "Kiểm soát THA/ĐTĐ và yếu tố nguy cơ; bác sĩ đánh giá chỉ định theo bệnh đồng mắc",
+            "ly_do": "Dùng lại nội dung luật M3-A0; chỉ là hỗ trợ bác sĩ trong ca synthetic."
+          }
+        }
+      ],
+      "sources": [
+        "BYT:II.5; PDF 20 (in 19)",
+        "DOCX:Model 3/Stage A; DD #173"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Không sinh đơn thuốc."
+    },
+    {
+      "id": "M3-B0",
+      "module": "M3",
+      "group": "plan",
+      "priority": 10,
+      "when": {
+        "path": "effective_m1.stage",
+        "op": "eq",
+        "value": "B"
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "dinh_huong",
+          "value": "Đánh giá bệnh tim cấu trúc, nguyên nhân và theo dõi EF"
+        },
+        {
+          "op": "set",
+          "path": "khuyen_nghi.dieu_tri_stage_b",
+          "value": {
+            "ap_dung": "co",
+            "noi_dung": "Đánh giá bệnh tim cấu trúc, nguyên nhân và theo dõi EF",
+            "ly_do": "Dùng lại nội dung luật M3-B0; chỉ là hỗ trợ bác sĩ trong ca synthetic."
+          }
+        }
+      ],
+      "sources": [
+        "BYT:I.3; PDF 7 (in 6)",
+        "DOCX:Model 3/Stage B; DD #174"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Không gọi EF45 không triệu chứng là Stage C."
+    },
+    {
+      "id": "M3-C0",
+      "module": "M3",
+      "group": "plan",
+      "priority": 20,
+      "when": {
+        "all": [
+          {
+            "path": "effective_m1.stage",
+            "op": "eq",
+            "value": "C"
+          },
+          {
+            "path": "effective_m1.kieu_hinh_ef",
+            "op": "eq",
+            "value": "HFrEF"
+          }
+        ]
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "dinh_huong",
+          "value": "Đánh giá bốn trụ cột sau khi xem xét huyết động và chống chỉ định"
+        },
+        {
+          "op": "set",
+          "path": "nhom_thuoc",
+          "value": {
+            "ARNI_ACEI_ARB": {
+              "muc": "Cân nhắc",
+              "ly_do": "Bác sĩ đánh giá chỉ định và khả năng dung nạp"
+            },
+            "beta_blocker": {
+              "muc": "Cân nhắc",
+              "ly_do": "Bác sĩ đánh giá chỉ định và khả năng dung nạp"
+            },
+            "MRA": {
+              "muc": "Cân nhắc",
+              "ly_do": "Bác sĩ đánh giá chỉ định và khả năng dung nạp"
+            },
+            "SGLT2i": {
+              "muc": "Cân nhắc",
+              "ly_do": "Bác sĩ đánh giá chỉ định và khả năng dung nạp"
+            },
+            "loop_diuretic": {
+              "muc": "Cân nhắc",
+              "ly_do": "Đánh giá sung huyết"
+            }
+          }
+        },
+        {
+          "op": "set",
+          "path": "khuyen_nghi.dieu_tri_stage_c",
+          "value": {
+            "ap_dung": "co",
+            "noi_dung": "Đánh giá bốn trụ cột sau khi xem xét huyết động và chống chỉ định",
+            "ly_do": "Dùng lại nội dung luật M3-C0; chỉ là hỗ trợ bác sĩ trong ca synthetic."
+          }
+        }
+      ],
+      "sources": [
+        "BYT:II.2.1; PDF 12-15 (in 11-14)",
+        "DOCX:Model 3/Stage C; DD #175"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Bốn nhóm là mục đánh giá hỗ trợ; không kê cả bốn trong mất bù."
+    },
+    {
+      "id": "M3-P0",
+      "module": "M3",
+      "group": "plan",
+      "priority": 30,
+      "when": {
+        "all": [
+          {
+            "path": "effective_m1.stage",
+            "op": "eq",
+            "value": "C"
+          },
+          {
+            "path": "effective_m1.kieu_hinh_ef",
+            "op": "eq",
+            "value": "HFpEF"
+          }
+        ]
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "dinh_huong",
+          "value": "Đánh giá bệnh đồng mắc, rung nhĩ, sung huyết và mục tiêu điều trị"
+        },
+        {
+          "op": "set",
+          "path": "nhom_thuoc.SGLT2i",
+          "value": {
+            "muc": "Cân nhắc",
+            "ly_do": "Bác sĩ đánh giá HFpEF và chức năng thận"
+          }
+        },
+        {
+          "op": "set",
+          "path": "nhom_thuoc.loop_diuretic",
+          "value": {
+            "muc": "Cân nhắc",
+            "ly_do": "Chỉ khi có sung huyết"
+          }
+        },
+        {
+          "op": "set",
+          "path": "khuyen_nghi.dieu_tri_stage_c",
+          "value": {
+            "ap_dung": "co",
+            "noi_dung": "Đánh giá bệnh đồng mắc, rung nhĩ, sung huyết và mục tiêu điều trị",
+            "ly_do": "Dùng lại nội dung luật M3-P0; chỉ là hỗ trợ bác sĩ trong ca synthetic."
+          }
+        }
+      ],
+      "sources": [
+        "BYT:II.4; PDF 20 (in 19)",
+        "DOCX:Model 3/Cá thể hóa; DD #175-176"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Không tự chọn liều."
+    },
+    {
+      "id": "M3-Z9",
+      "module": "M3",
+      "group": "plan",
+      "priority": 99,
+      "when": {
+        "always": true
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "dinh_huong",
+          "value": "Chưa đủ dữ liệu; bác sĩ đánh giá bổ sung"
+        }
+      ],
+      "sources": [
+        "DOCX:Model 3/Đầu vào",
+        "TASK:quy ước fallback"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Không tự suy ra điều trị."
+    },
+    {
+      "id": "M3-S0",
+      "module": "M3",
+      "group": "safety_decomp",
+      "priority": 0,
+      "when": {
+        "path": "effective_m1.benh_canh",
+        "op": "eq",
+        "value": "Decompensated HF"
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "nhom_thuoc.beta_blocker",
+          "value": {
+            "muc": "Không khuyến nghị",
+            "ly_do": "Không khởi trị trong giai đoạn mất bù; bác sĩ đánh giá thuốc đang dùng"
+          }
+        },
+        {
+          "op": "set",
+          "path": "nhom_thuoc.loop_diuretic",
+          "value": {
+            "muc": "Khuyến nghị",
+            "ly_do": "Bác sĩ đánh giá xử trí sung huyết tại cơ sở phù hợp"
+          }
+        },
+        {
+          "op": "set",
+          "path": "canh_bao",
+          "value": "Cần bác sĩ đánh giá cấp cứu; không áp dụng đơn ngoại trú tự động"
+        },
+        {
+          "op": "set",
+          "path": "khuyen_nghi.xu_tri_decompensated_hf",
+          "value": {
+            "ap_dung": "co",
+            "noi_dung": "Cần bác sĩ đánh giá cấp cứu; không áp dụng đơn ngoại trú tự động",
+            "ly_do": "Dùng lại nội dung luật M3-S0; chỉ là hỗ trợ bác sĩ trong ca synthetic."
+          }
+        }
+      ],
+      "sources": [
+        "BYT:II.2.1; PDF 14-15 (in 13-14)",
+        "DOCX:Model 3/Decompensated; DD #178"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Không tự ngừng chẹn beta đang dùng."
+    },
+    {
+      "id": "M3-S1",
+      "module": "M3",
+      "group": "safety_mra",
+      "priority": 0,
+      "when": {
+        "any": [
+          {
+            "path": "fields.egfr_ckd_epi.value",
+            "op": "lt",
+            "value": 30
+          },
+          {
+            "path": "fields.cls_kali.value",
+            "op": "gt",
+            "value": 5
+          }
+        ]
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "nhom_thuoc.MRA",
+          "value": {
+            "muc": "Chống chỉ định",
+            "ly_do": "Cờ mock: eGFR<30 hoặc K>5,0; bác sĩ đánh giá trước khi kê"
+          }
+        }
+      ],
+      "sources": [
+        "BYT:II.2.1/MRA; PDF 14 (in 13)",
+        "TASK:ngưỡng mock MRA"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "BYT nêu thận trọng suy thận nặng/tăng kali; ngưỡng và mức này là quy ước C2."
+    },
+    {
+      "id": "M3-F0",
+      "module": "M3",
+      "group": "frailty",
+      "priority": 0,
+      "when": {
+        "path": "fields.danh_gia_suy_yeu_frailty.value",
+        "op": "gte",
+        "value": 7
+      },
+      "effects": [
+        {
+          "op": "set",
+          "path": "ca_the_hoa",
+          "value": [
+            "Đơn giản hóa phác đồ",
+            "Ưu tiên liều khởi đầu thấp do bác sĩ chọn",
+            "Phối hợp người chăm sóc"
+          ]
+        },
+        {
+          "op": "set",
+          "path": "khuyen_nghi.ca_the_hoa_nguoi_cao_tuoi",
+          "value": {
+            "ap_dung": "co",
+            "noi_dung": "Đơn giản hóa phác đồ; Ưu tiên liều khởi đầu thấp do bác sĩ chọn; Phối hợp người chăm sóc",
+            "ly_do": "Dùng lại nội dung luật M3-F0; chỉ là hỗ trợ bác sĩ trong ca synthetic."
+          }
+        }
+      ],
+      "sources": [
+        "DOCX:Model 3/Cá thể hóa; DD #176",
+        "TASK:CFS≥7"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "CFS≥7 là ngưỡng thử nghiệm; không giảm điều trị chỉ theo tuổi."
+    },
+    {
+      "id": "M4-K0",
+      "module": "M4",
+      "group": "alerts_k",
+      "priority": 0,
+      "when": {
+        "all": [
+          {
+            "path": "medicationClasses",
+            "op": "contains",
+            "value": "MRA"
+          },
+          {
+            "any": [
+              {
+                "path": "fields.egfr_ckd_epi.value",
+                "op": "lt",
+                "value": 30
+              },
+              {
+                "path": "fields.cls_kali.value",
+                "op": "gt",
+                "value": 5
+              }
+            ]
+          }
+        ]
+      },
+      "effects": [
+        {
+          "op": "append_unique",
+          "path": "canh_bao",
+          "value": {
+            "id": "hyperkalemia",
+            "loai": "Tăng kali máu",
+            "muc_do": "Nghiêm trọng",
+            "nhom_thuoc_lien_quan": [
+              "MRA"
+            ],
+            "noi_dung": "Nguy cơ tăng kali; cần bác sĩ rà soát K và chức năng thận",
+            "can_bac_si_quyet_dinh": true,
+            "auto_change_medication": false,
+            "ddCode": 204,
+            "hanh_dong_de_xuat": "Bác sĩ rà soát K, chức năng thận và thuốc; không tự đổi đơn.",
+            "thuoc_lien_quan": []
+          }
+        }
+      ],
+      "sources": [
+        "BYT:II.2.1/MRA; PDF 14 (in 13)",
+        "DOCX:Model 4; DD #204,206,210",
+        "TASK:TC01,TC12"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Cảnh báo nguy cơ, không xác nhận mức tăng kali nặng từ K=5,3."
+    },
+    {
+      "id": "M4-N0",
+      "module": "M4",
+      "group": "alerts_nsaid",
+      "priority": 0,
+      "when": {
+        "path": "medicationClasses",
+        "op": "contains",
+        "value": "NSAID"
+      },
+      "effects": [
+        {
+          "op": "append_unique",
+          "path": "canh_bao",
+          "value": {
+            "id": "nsaid",
+            "loai": "Thuốc làm nặng suy tim",
+            "muc_do": "Quan trọng",
+            "nhom_thuoc_lien_quan": [
+              "NSAID"
+            ],
+            "noi_dung": "NSAID có thể làm nặng suy tim; bác sĩ rà soát",
+            "can_bac_si_quyet_dinh": false,
+            "auto_change_medication": false,
+            "ddCode": 205,
+            "hanh_dong_de_xuat": "Bác sĩ rà soát NSAID và nguy cơ làm nặng suy tim; không tự ngừng thuốc.",
+            "thuoc_lien_quan": []
+          }
+        }
+      ],
+      "sources": [
+        "BYT:III.2.2; PDF 21 (in 20)",
+        "DOCX:Model 4; DD #205"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Mức cảnh báo là quy ước test."
+    },
+    {
+      "id": "M4-T0",
+      "module": "M4",
+      "group": "alerts_triple",
+      "priority": 0,
+      "when": {
+        "all": [
+          {
+            "path": "medicationClasses",
+            "op": "contains",
+            "value": "NSAID"
+          },
+          {
+            "path": "medicationClasses",
+            "op": "contains",
+            "value": "MRA"
+          },
+          {
+            "path": "medicationClasses",
+            "op": "contains",
+            "value": "ACEI"
+          },
+          {
+            "path": "fields.egfr_ckd_epi.value",
+            "op": "lt",
+            "value": 30
+          }
+        ]
+      },
+      "effects": [
+        {
+          "op": "append_unique",
+          "path": "canh_bao",
+          "value": {
+            "id": "renal_combination",
+            "loai": "Suy thận cấp",
+            "muc_do": "Nghiêm trọng",
+            "nhom_thuoc_lien_quan": [
+              "NSAID",
+              "MRA",
+              "ACEI"
+            ],
+            "noi_dung": "Tổ hợp nguy cơ thận và kali; bác sĩ đánh giá ngay",
+            "can_bac_si_quyet_dinh": true,
+            "auto_change_medication": false,
+            "ddCode": 204,
+            "hanh_dong_de_xuat": "Bác sĩ đánh giá tổ hợp thuốc, chức năng thận và kali; không tự đổi đơn.",
+            "thuoc_lien_quan": []
+          }
+        }
+      ],
+      "sources": [
+        "DOCX:Model 4/Tương tác thuốc-bệnh và nguy cơ; DD #199,204",
+        "TASK:TC12"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Tổ hợp, ngưỡng và mức nghiêm trọng là mock chưa thẩm định."
+    },
+    {
+      "id": "M4-D0",
+      "module": "M4",
+      "group": "alerts_digoxin",
+      "priority": 0,
+      "when": {
+        "all": [
+          {
+            "path": "medicationClasses",
+            "op": "contains",
+            "value": "digoxin"
+          },
+          {
+            "any": [
+              {
+                "path": "fields.egfr_ckd_epi.value",
+                "op": "lt",
+                "value": 30
+              },
+              {
+                "path": "medicationClasses",
+                "op": "contains",
+                "value": "amiodarone"
+              }
+            ]
+          }
+        ]
+      },
+      "effects": [
+        {
+          "op": "append_unique",
+          "path": "canh_bao",
+          "value": {
+            "id": "digoxin_risk",
+            "loai": "Nguy cơ ngộ độc digoxin",
+            "muc_do": "Nghiêm trọng",
+            "nhom_thuoc_lien_quan": [
+              "digoxin"
+            ],
+            "noi_dung": "Suy thận hoặc amiodarone làm tăng nguy cơ tích lũy; bác sĩ đánh giá nồng độ và liều",
+            "can_bac_si_quyet_dinh": true,
+            "auto_change_medication": false,
+            "ddCode": 206,
+            "hanh_dong_de_xuat": "Bác sĩ đánh giá nồng độ và liều digoxin theo cảnh báo; không tự chỉnh liều.",
+            "thuoc_lien_quan": []
+          }
+        }
+      ],
+      "sources": [
+        "DIG:7.1-7.2,8.6,12.3",
+        "DOCX:Model 4/Digoxin; DD #206",
+        "TASK:TC04"
+      ],
+      "evidence": "unvalidated_mock_combination",
+      "note": "Không chẩn đoán ngộ độc khi chưa có bằng chứng; eGFR<30 và mức cảnh báo là test."
+    }
+  ],
+  "outputDefaults": {
+    "M1": {
+      "engine": "mock-rules",
+      "rulesVersion": "mock-1.1",
+      "displayLabel": "Kết quả AI mô phỏng — chỉ để kiểm thử, không dùng cho lâm sàng",
+      "clinicalUse": false,
+      "benh_canh": null,
+      "canh_bao_cap_cuu": [],
+      "canh_bao_gia_suy_tim": [],
+      "xep_hang_nguyen_nhan": [],
+      "dataGaps": [
+        "Mock chưa xếp hạng nguyên nhân; không suy ra nguyên nhân từ dữ liệu còn thiếu."
+      ]
+    },
+    "M2": {
+      "engine": "mock-rules",
+      "rulesVersion": "mock-1.1",
+      "displayLabel": "Kết quả AI mô phỏng — chỉ để kiểm thử, không dùng cho lâm sàng",
+      "clinicalUse": false,
+      "goi_y_chi_dinh": {
+        "bnp_ntprobnp": {
+          "trang_thai": "Không đề xuất",
+          "ly_do": "Mock chưa có luật đánh giá mục này; bác sĩ cần đánh giá, không hiểu là không có chỉ định."
+        },
+        "ecg": {
+          "trang_thai": "Không đề xuất",
+          "ly_do": "Mock chưa có luật đánh giá mục này; bác sĩ cần đánh giá, không hiểu là không có chỉ định."
+        },
+        "sieu_am_tim": {
+          "trang_thai": "Không đề xuất",
+          "ly_do": "Mock chưa có luật đánh giá mục này; bác sĩ cần đánh giá, không hiểu là không có chỉ định."
+        },
+        "xquang": {
+          "trang_thai": "Không đề xuất",
+          "ly_do": "Mock chưa có luật đánh giá mục này; bác sĩ cần đánh giá, không hiểu là không có chỉ định."
+        },
+        "cong_thuc_mau": {
+          "trang_thai": "Không đề xuất",
+          "ly_do": "Mock chưa có luật đánh giá mục này; bác sĩ cần đánh giá, không hiểu là không có chỉ định."
+        },
+        "ure_creatinin_egfr": {
+          "trang_thai": "Không đề xuất",
+          "ly_do": "Mock chưa có luật đánh giá mục này; bác sĩ cần đánh giá, không hiểu là không có chỉ định."
+        },
+        "kali_natri": {
+          "trang_thai": "Không đề xuất",
+          "ly_do": "Mock chưa có luật đánh giá mục này; bác sĩ cần đánh giá, không hiểu là không có chỉ định."
+        },
+        "chuc_nang_gan": {
+          "trang_thai": "Không đề xuất",
+          "ly_do": "Mock chưa có luật đánh giá mục này; bác sĩ cần đánh giá, không hiểu là không có chỉ định."
+        },
+        "duong_huyet_hba1c": {
+          "trang_thai": "Không đề xuất",
+          "ly_do": "Mock chưa có luật đánh giá mục này; bác sĩ cần đánh giá, không hiểu là không có chỉ định."
+        },
+        "tsh": {
+          "trang_thai": "Không đề xuất",
+          "ly_do": "Mock chưa có luật đánh giá mục này; bác sĩ cần đánh giá, không hiểu là không có chỉ định."
+        },
+        "ferritin_tsat": {
+          "trang_thai": "Không đề xuất",
+          "ly_do": "Mock chưa có luật đánh giá mục này; bác sĩ cần đánh giá, không hiểu là không có chỉ định."
+        },
+        "uacr": {
+          "trang_thai": "Không đề xuất",
+          "ly_do": "Mock chưa có luật đánh giá mục này; bác sĩ cần đánh giá, không hiểu là không có chỉ định."
+        },
+        "danh_gia_mach_vanh": {
+          "trang_thai": "Không đề xuất",
+          "ly_do": "Mock chưa có luật đánh giá mục này; bác sĩ cần đánh giá, không hiểu là không có chỉ định."
+        },
+        "doppler_van_tim": {
+          "trang_thai": "Không đề xuất",
+          "ly_do": "Mock chưa có luật đánh giá mục này; bác sĩ cần đánh giá, không hiểu là không có chỉ định."
+        },
+        "holter_ecg": {
+          "trang_thai": "Không đề xuất",
+          "ly_do": "Mock chưa có luật đánh giá mục này; bác sĩ cần đánh giá, không hiểu là không có chỉ định."
+        },
+        "mri_tim": {
+          "trang_thai": "Không đề xuất",
+          "ly_do": "Mock chưa có luật đánh giá mục này; bác sĩ cần đánh giá, không hiểu là không có chỉ định."
+        },
+        "xet_nghiem_amyloidosis": {
+          "trang_thai": "Không đề xuất",
+          "ly_do": "Mock chưa có luật đánh giá mục này; bác sĩ cần đánh giá, không hiểu là không có chỉ định."
+        },
+        "danh_gia_benh_co_tim": {
+          "trang_thai": "Không đề xuất",
+          "ly_do": "Mock chưa có luật đánh giá mục này; bác sĩ cần đánh giá, không hiểu là không có chỉ định."
+        },
+        "suy_tim_cung_luong_cao": {
+          "trang_thai": "Không đề xuất",
+          "ly_do": "Mock chưa có luật đánh giá mục này; bác sĩ cần đánh giá, không hiểu là không có chỉ định."
+        },
+        "danh_gia_benh_than": {
+          "trang_thai": "Không đề xuất",
+          "ly_do": "Mock chưa có luật đánh giá mục này; bác sĩ cần đánh giá, không hiểu là không có chỉ định."
+        },
+        "danh_gia_benh_phoi": {
+          "trang_thai": "Không đề xuất",
+          "ly_do": "Mock chưa có luật đánh giá mục này; bác sĩ cần đánh giá, không hiểu là không có chỉ định."
+        },
+        "danh_gia_thieu_mau": {
+          "trang_thai": "Không đề xuất",
+          "ly_do": "Mock chưa có luật đánh giá mục này; bác sĩ cần đánh giá, không hiểu là không có chỉ định."
+        },
+        "dinh_duong": {
+          "trang_thai": "Không đề xuất",
+          "ly_do": "Mock chưa có luật đánh giá mục này; bác sĩ cần đánh giá, không hiểu là không có chỉ định."
+        },
+        "tuyen_giap": {
+          "trang_thai": "Không đề xuất",
+          "ly_do": "Mock chưa có luật đánh giá mục này; bác sĩ cần đánh giá, không hiểu là không có chỉ định."
+        },
+        "gang_suc_tham_do_huyet_dong": {
+          "trang_thai": "Không đề xuất",
+          "ly_do": "Mock chưa có luật đánh giá mục này; bác sĩ cần đánh giá, không hiểu là không có chỉ định."
+        }
+      },
+      "khoa_trung_lap": [],
+      "canh_bao_xam_lan": "Không quyết định xét nghiệm xâm lấn chỉ dựa trên tuổi",
+      "dataGaps": [
+        "Mock chỉ có luật cho bốn xét nghiệm cơ bản và hai mục phân biệt; các mục còn lại chưa đánh giá."
+      ],
+      "loi_ich_nguy_co": "Mock chưa lượng hóa lợi ích và nguy cơ; bác sĩ đánh giá frailty, mục tiêu, khả năng thực hiện trước khi chọn xét nghiệm."
+    },
+    "M3": {
+      "engine": "mock-rules",
+      "rulesVersion": "mock-1.1",
+      "displayLabel": "Kết quả AI mô phỏng — chỉ để kiểm thử, không dùng cho lâm sàng",
+      "clinicalUse": false,
+      "nhom_thuoc": {
+        "ARNI_ACEI_ARB": {
+          "muc": "Không khuyến nghị",
+          "ly_do": "Chưa có chỉ định trong mock"
+        },
+        "beta_blocker": {
+          "muc": "Không khuyến nghị",
+          "ly_do": "Chưa có chỉ định trong mock"
+        },
+        "MRA": {
+          "muc": "Không khuyến nghị",
+          "ly_do": "Chưa có chỉ định trong mock"
+        },
+        "SGLT2i": {
+          "muc": "Không khuyến nghị",
+          "ly_do": "Chưa có chỉ định trong mock"
+        },
+        "loop_diuretic": {
+          "muc": "Không khuyến nghị",
+          "ly_do": "Chưa có chỉ định trong mock"
+        }
+      },
+      "ca_the_hoa": [],
+      "ke_hoach_theo_doi": [
+        "Huyết áp tư thế",
+        "Cân nặng và sung huyết",
+        "Chức năng thận và điện giải",
+        "Dung nạp và tuân thủ"
+      ],
+      "stage": null,
+      "kieu_hinh_ef": "Chưa phân loại do thiếu EF",
+      "khuyen_nghi": {
+        "dieu_tri_stage_a": {
+          "ap_dung": "chua_ro",
+          "noi_dung": "Không đề xuất thêm trong mock.",
+          "ly_do": "Chưa có luật hoặc dữ liệu để đánh giá riêng mục này."
+        },
+        "dieu_tri_stage_b": {
+          "ap_dung": "chua_ro",
+          "noi_dung": "Không đề xuất thêm trong mock.",
+          "ly_do": "Chưa có luật hoặc dữ liệu để đánh giá riêng mục này."
+        },
+        "dieu_tri_stage_c": {
+          "ap_dung": "chua_ro",
+          "noi_dung": "Không đề xuất thêm trong mock.",
+          "ly_do": "Chưa có luật hoặc dữ liệu để đánh giá riêng mục này."
+        },
+        "ca_the_hoa_nguoi_cao_tuoi": {
+          "ap_dung": "chua_ro",
+          "noi_dung": "Không đề xuất thêm trong mock.",
+          "ly_do": "Chưa có luật hoặc dữ liệu để đánh giá riêng mục này."
+        },
+        "xu_tri_worsening_hf": {
+          "ap_dung": "chua_ro",
+          "noi_dung": "Không đề xuất thêm trong mock.",
+          "ly_do": "Chưa có luật hoặc dữ liệu để đánh giá riêng mục này."
+        },
+        "xu_tri_decompensated_hf": {
+          "ap_dung": "chua_ro",
+          "noi_dung": "Không đề xuất thêm trong mock.",
+          "ly_do": "Chưa có luật hoặc dữ liệu để đánh giá riêng mục này."
+        },
+        "dieu_tri_stage_d": {
+          "ap_dung": "chua_ro",
+          "noi_dung": "Không đề xuất thêm trong mock.",
+          "ly_do": "Chưa có luật hoặc dữ liệu để đánh giá riêng mục này."
+        }
+      },
+      "ke_hoach_do_lieu": "Không đề xuất liều cụ thể; mock chưa có luật dò liều, bác sĩ chọn sau đánh giá dung nạp.",
+      "don_thuoc_de_xuat": {
+        "value_state": "answered",
+        "listState": "none",
+        "items": []
+      },
+      "dataGaps": [
+        "Mock chưa có luật chọn hoạt chất/liều; đơn đề xuất rỗng không thay đơn bác sĩ chọn.",
+        "Mock chưa có lịch theo dõi và đánh giá đủ bảy mục DD #173-179; bác sĩ cần bổ sung."
+      ]
+    },
+    "M4": {
+      "engine": "mock-rules",
+      "rulesVersion": "mock-1.1",
+      "displayLabel": "Kết quả AI mô phỏng — chỉ để kiểm thử, không dùng cho lâm sàng",
+      "clinicalUse": false,
+      "canh_bao": [],
+      "auto_change_medication": false,
+      "de_xuat_chinh_lieu": [],
+      "don_gian_hoa_phac_do": [],
+      "giam_ngung_thuoc": [],
+      "ke_hoach_theo_doi": [],
+      "xac_nhan_bac_si": [],
+      "coverage": "incomplete",
+      "dataGaps": [
+        "Mock chỉ kiểm bốn loại cảnh báo; chưa bao phủ đầy đủ an toàn thuốc DD #197-206.",
+        "Không đề xuất chỉnh liều, đơn giản hóa hay giảm/ngừng thuốc: mock chưa có luật cho các quyết định này.",
+        "Chưa có lịch theo dõi cụ thể; bác sĩ chọn sau khi rà soát cảnh báo."
+      ]
+    }
+  },
+  "outputProjection": {
+    "gapFields": {
+      "M1": [
+        "age",
+        "bat_thuong_cau_truc_tim",
+        "bien_thien_can_nang_7ngay",
+        "cls_bnp",
+        "cls_lvef",
+        "cls_nt_probnp",
+        "copd",
+        "dai_thao_duong",
+        "danh_gia_suy_yeu_frailty",
+        "diagnoses",
+        "kho_tho_nang",
+        "phu_chi_duoi_muc_do",
+        "ran_am_phoi",
+        "sex",
+        "spo2",
+        "tang_huyet_ap",
+        "thieu_mau",
+        "tinh_mach_co_noi",
+        "trieu_chung_khong_dien_hinh"
+      ],
+      "M2": [
+        "age",
+        "bien_thien_can_nang_7ngay",
+        "danh_gia_suy_yeu_frailty",
+        "diagnoses",
+        "kho_tho_nang",
+        "phu_chi_duoi_muc_do",
+        "ran_am_phoi",
+        "sex",
+        "tinh_mach_co_noi",
+        "trieu_chung_khong_dien_hinh"
+      ],
+      "M3": [
+        "age",
+        "cls_bnp",
+        "cls_creatinin",
+        "cls_kali",
+        "cls_lvef",
+        "cls_nt_probnp",
+        "danh_gia_suy_yeu_frailty",
+        "diagnoses",
+        "e_over_a_ratio",
+        "ecg_12_chuyen_dao",
+        "egfr_ckd_epi",
+        "sex",
+        "xquang_nguc_thang"
+      ],
+      "M4": [
+        "age",
+        "allergies",
+        "cls_kali",
+        "egfr_ckd_epi",
+        "medications",
+        "selected_medications",
+        "sex"
+      ]
+    },
+    "unestimatedRiskGap": "Các nguy cơ null chưa được mock ước tính; không thay bằng nguy cơ Thấp.",
+    "m3CopyFrom": {
+      "stage": "effective_m1.stage",
+      "kieu_hinh_ef": "effective_m1.kieu_hinh_ef"
+    },
+    "medicationFields": [
+      "medications",
+      "selected_medications"
+    ],
+    "relatedClassesByAlert": {
+      "hyperkalemia": [
+        "MRA"
+      ],
+      "nsaid": [
+        "NSAID"
+      ],
+      "renal_combination": [
+        "NSAID",
+        "MRA",
+        "ACEI"
+      ],
+      "digoxin_risk": [
+        "digoxin",
+        "amiodarone"
+      ]
+    },
+    "recentEvidence": "For each khoa_trung_lap key, copy recentTestEvidence[key].id to evidenceObservationIds; verify answered source, measuredAt <=30 days and doctorConfirmedReuse."
+  }
+}
