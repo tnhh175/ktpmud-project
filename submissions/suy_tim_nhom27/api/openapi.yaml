@@ -5113,6 +5113,14 @@ components:
       title: CreateVisitRequest
     VisitDetailResponse:
       properties:
+        workflow:
+          anyOf:
+          - $ref: ./schemas/hf-workflow-1.0.schema.json#/$defs/visitWorkflowSummary
+          - type: 'null'
+        fieldMetadata:
+          type: object
+          additionalProperties:
+            $ref: ./schemas/hf-workflow-1.0.schema.json#/$defs/fieldMetadata
         access:
           anyOf:
           - $ref: '#/components/schemas/CareAccess'
@@ -6204,6 +6212,15 @@ components:
         valueState:
           type: string
           title: Valuestate
+          default: answered
+        answer:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Answer
+          description: 'v1.2 canonical answer: value_state, value, unit and measuredAt;
+            see hf-workflow fields schemas. Use instead of legacy scalar columns.'
         valueNum:
           anyOf:
           - type: number
@@ -6242,8 +6259,6 @@ components:
           - type: 'null'
           title: Unit
       type: object
-      required:
-      - valueState
       title: VisitValueInput
     VisitValueOut:
       properties:
@@ -6264,6 +6279,12 @@ components:
           - answered
           - unknown
           title: Valuestate
+        answer:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Answer
         valueNum:
           anyOf:
           - type: number
@@ -6568,7 +6589,9 @@ components:
           - m4
           title: Module
         fields:
-          $ref: ./schemas/hf-workflow-1.0.schema.json#/$defs/fields
+          type: object
+          maxProperties: 0
+          description: Inputs moved to visit draft values[].answer (G2).
         editing:
           type: boolean
           title: Editing

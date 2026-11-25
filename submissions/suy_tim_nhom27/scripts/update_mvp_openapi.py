@@ -68,10 +68,13 @@ def main():
             if name in ('decideWorkflowModule','confirmWorkflowM4'):
                 op['requestBody']['content']['application/json']['schema']={'$ref':ext+('decisionRequest' if name=='decideWorkflowModule' else 'confirmationRequest')}
     fields_schema=spec['components']['schemas']['WorkflowFieldsRequest']
-    fields_schema['properties']['fields']={'$ref':ext+'fields'}
+    fields_schema['properties']['fields']={'type':'object','maxProperties':0,'description':'Inputs moved to visit draft values[].answer (G2).'}
     for name in ('WorkflowFieldsRequest','WorkflowRunRequest','WorkflowFinishRequest'):
         required=spec['components']['schemas'][name].setdefault('required',[])
         if 'rowVersion' not in required:required.append('rowVersion')
+    spec['components']['schemas']['VisitValueInput']['properties']['answer']['description']='v1.2 canonical answer: value_state, value, unit and measuredAt; see hf-workflow fields schemas. Use instead of legacy scalar columns.'
+    spec['components']['schemas']['VisitDetailResponse']['properties']['workflow']={'anyOf':[{'$ref':ext+'visitWorkflowSummary'},{'type':'null'}]}
+    spec['components']['schemas']['VisitDetailResponse']['properties']['fieldMetadata']={'type':'object','additionalProperties':{'$ref':ext+'fieldMetadata'}}
     # Keep access semantics and problem responses alongside the typed models.
     for route,methods in spec['paths'].items():
         clinical_object = route.startswith(('/patients/{patientId}', '/visits/{visitId}'))

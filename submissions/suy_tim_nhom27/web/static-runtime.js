@@ -975,6 +975,16 @@
     const cat = await ensureCatalog();
     const expectedDefCount = Array.isArray(cat.fields) ? cat.fields.length : 159;
     if (stored) {
+      // Refresh presentation help from the catalog without changing saved answers.
+      const helpByCode = Object.fromEntries((cat.fields || []).map(function (f) { return [f.code, f.helpText]; }));
+      let helpChanged = false;
+      (stored.fieldDefinitions || []).forEach(function (f) {
+        if (/(?:G1 |Biểu mẫu suy tim )24\/11\/2026/.test(f.helpText || '') && helpByCode[f.code]) {
+          f.helpText = helpByCode[f.code];
+          helpChanged = true;
+        }
+      });
+      if (helpChanged) saveDb(stored);
       const needsMigration = stored.cacheVersion !== CACHE_VERSION ||
         !Array.isArray(stored.fieldDefinitions) ||
         stored.fieldDefinitions.length < expectedDefCount ||

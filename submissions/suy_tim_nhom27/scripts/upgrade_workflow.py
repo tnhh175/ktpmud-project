@@ -16,6 +16,7 @@ def upgrade(dsn, *, publish=False):
                 conn.execute(statement)
         conn.execute('BEGIN;' + body)
         conn.execute((ROOT/'database/migrations/007_workflow_form_v12.sql').read_text(encoding='utf-8'))
+        conn.execute((ROOT/'database/migrations/008_workflow_visit_inputs.sql').read_text(encoding='utf-8'))
         if publish:
             with conn.transaction():
                 row = conn.execute("SELECT id,status,form_template_id FROM form_version WHERE version_label='v1.2' FOR UPDATE").fetchone()

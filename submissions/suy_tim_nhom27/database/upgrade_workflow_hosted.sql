@@ -94,3 +94,5 @@ BEGIN
 END $$;
 COMMIT;
 \endif
+
+\ir migrations/008_workflow_visit_inputs.sql

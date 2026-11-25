@@ -63,6 +63,7 @@ def export_snapshot(conn,visit_id):
     patient=conn.execute('SELECT * FROM patient WHERE id=%s',(visit['patientId'],)).fetchone()
     source={'sourceVersion':'hf-source/1.0','patientId':visit['patientId'],'visitId':visit['id'],'age':_compute_age(patient,_parse_iso_datetime(visit['visitDate'])),'agePrecision':'exact' if patient.get('birth_date') else ('year_only' if patient.get('birth_year') else 'declared'),'sex':patient['sex'],'form':{'formVersion':fv,'sections':sections,'fieldDefinitions':definitions},'detail':detail}
     if fv['versionLabel']=='v1.2' and conn.execute("SELECT to_regclass('public.ai_workflow') AS relation").fetchone()['relation']:
-        row=conn.execute('SELECT fields FROM ai_workflow WHERE visit_id=%s',(str(visit_id),)).fetchone()
-        source['workflowFields']=row['fields'] if row else {}
+        from .workflow import source_fields
+        visit_row=conn.execute('SELECT * FROM visit WHERE id=%s',(str(visit_id),)).fetchone()
+        source['workflowFields']=source_fields(conn,visit_row)
     return source

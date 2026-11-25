@@ -37,6 +37,16 @@ ALIASES = {'tang_huyet_ap':'ts_tang_huyet_ap','dai_thao_duong':'ts_dai_thao_duon
            'copd':'ts_copd','thieu_mau':'ts_thieu_mau'}
 NEW_FIELDS = set(SCHEMA['$defs']['fields']['properties']) - {'age','sex','cls_bnp','cls_nt_probnp','cls_lvef','cls_creatinin','cls_kali'} | {'bat_thuong_cau_truc_tim'}
 LISTS = ('diagnoses','medications','allergies')
+FORM_CODES = {**ALIASES, 'age':'luot_tuoi', 'sex':'bn_gioi_tinh'}
+
+
+def form_code(code):
+    return FORM_CODES.get(code, code)
+
+
+def canonical_code(code):
+    return next((key for key, value in FORM_CODES.items() if value == code), code)
+
 # Stable owners: general/shared inputs are edited at M1, treatment measurements
 # at M3, and the two medication-safety lists at M4. Read access is shared.
 M3_FIELDS = {'e_over_a_ratio','cls_creatinin','egfr_ckd_epi','egfr_formula',
@@ -131,7 +141,13 @@ def source_fields(conn, visit):
         fields['age']={'value_state':'answered','value':age,'unit':'years'}
     if patient['sex'] in ('male','female'):
         fields['sex']={'value_state':'answered','value':patient['sex']}
+    definitions={r['code']:r for r in conn.execute('SELECT code,data_type FROM field_definition').fetchall()}
+    canonical={}
     for value in detail['values']:
+        code=value['fieldCode']
+        if definitions[code]['data_type']=='text':continue
+        if value.get('answer') is not None:
+            canonical[canonical_code(code)]=deepcopy(value['answer']);continue
         if value['fieldCode'].startswith('cls_') and value.get('valueText'):
             continue
         if value.get('valueText') or value.get('valueDate') or value.get('fieldOptionId'):
@@ -170,11 +186,14 @@ def source_fields(conn, visit):
         else:
             items=[{'id':r['id'],'ingredient':r.get('atcCode') or 'unmapped'} for r in detail[key]]
         fields[key]={'value_state':'answered' if state in ('known','none') else 'unknown','value':items if state in ('known','none') else None}
+    for code in ('age','sex'):
+        if fields.get(code,{}).get('value_state')=='answered':canonical.pop(code,None)
+    fields.update(canonical)
     return fields
 
 
 def blank(visit, fields):
-    return dict(visit_id=visit['id'],row_version=1,fields=fields,observations=[],recent_test_evidence={},module_meta={},
+    return dict(visit_id=visit['id'],row_version=1,fields=fields,observations=[{'id':str(uuid4()),'fieldCode':k,'answer':deepcopy(v)} for k,v in fields.items() if v.get('measuredAt')],recent_test_evidence={},module_meta={},
                 completed_at=None,source_hash=digest(fields),source_fields=deepcopy(fields),source_revision_no=visit['current_revision_no'])
 
 
@@ -185,8 +204,8 @@ def load(conn, visit, *, write=False, request=None, principal=None):
         return row
     result=blank(visit,source_fields(conn,visit))
     if write:
-        conn.execute('''INSERT INTO ai_workflow(visit_id,fields,source_hash,source_fields,source_revision_no) VALUES(%s,%s,%s,%s,%s)''',
-                     (visit['id'],Jsonb(result['fields']),result['source_hash'],Jsonb(result['source_fields']),result['source_revision_no']))
+        conn.execute('''INSERT INTO ai_workflow(visit_id,fields,source_hash,source_fields,source_revision_no,observations) VALUES(%s,%s,%s,%s,%s,%s)''',
+                     (visit['id'],Jsonb(result['fields']),result['source_hash'],Jsonb(result['source_fields']),result['source_revision_no'],Jsonb(result['observations'])))
     return result
 
 
@@ -296,7 +315,7 @@ def state(conn, visit, workflow, rules=None):
             actions=[]
         modules[module]=dict(module=module,state=current,attemptCount=attempt,latestRunId=str(run['id']) if run else None,
             effectiveDecisionId=str(decision['id']) if decision else None,decisionSource=decision['source'] if decision else None,
-            missingFieldCodes=missing,unknownFieldCodes=unknown,staleReasons=meta.get('reasons',[]) if stale else [],
+            missingFieldCodes=[form_code(k) for k in missing],unknownFieldCodes=unknown,staleReasons=meta.get('reasons',[]) if stale else [],
             isEditing=editing,isRunning=running,availableActions=actions,
             staleChangedAt=meta.get('staleAt') if stale else None,staleChangedModule=meta.get('staleModule') if stale else None)
     return dict(visitId=str(visit['id']),rowVersion=workflow['row_version'],contractVersion=CONTRACT,engine='mock-rules',
@@ -516,7 +535,7 @@ def get_fields(visitId:UUID,module:str,request:Request,response:Response,princip
     with request.app.state.pool.connection() as conn:
         visit=access(conn,visitId,principal);workflow=load(conn,visit,request=request,principal=principal)
         response.headers['ETag']='"'+str(workflow['row_version'])+'"'
-        metadata={k:{'ownerModule':owner_for(k)} for k in sorted(allowed_fields(conn,visit)|{'selected_medications'})}
+        metadata=field_metadata(conn,visit)
         fields={k:{**v,'ownerModule':owner_for(k)} for k,v in workflow['fields'].items()}
         return {'module':module,'rowVersion':workflow['row_version'],'fields':fields,
                 'fieldMetadata':metadata,'observations':workflow['observations']}
@@ -530,19 +549,9 @@ def put_fields(visitId:UUID,module:str,body:WorkflowFieldsRequest,request:Reques
     with request.app.state.pool.connection() as conn:
         visit=access(conn,visitId,principal,write=True);workflow=load(conn,visit,write=True,request=request,principal=principal)
         compare_version(workflow,body,if_match)
-        allowed=allowed_fields(conn,visit)
-        if 'selected_medications' in body.fields:
-            raise problem('PRESCRIPTION_REQUIRES_M3_DECISION',422)
-        validate_fields(body.fields,allowed)
-        # Validate every submitted key, including unchanged values. Ownership
-        # also precedes demographic-source validation on a wrong module path.
-        for key in body.fields:
-            if owner_for(key)!=module:
-                raise problem('WORKFLOW_FIELD_OWNER_MISMATCH',422,fields=[key])
-        for code in ('age','sex'):
-            answer=body.fields.get(code)
-            if answer and answer.get('value_state')=='answered' and answer['value']!=workflow['source_fields'].get(code,{}).get('value'):
-                raise problem('WORKFLOW_DEMOGRAPHIC_SOURCE_MISMATCH',422,fields=[code])
+        if body.fields:
+            raise problem('WORKFLOW_INPUTS_MOVED_TO_DRAFT',422,fields=[form_code(k) for k in body.fields],
+                detail='Lưu đầu vào tại PUT /visits/{id}/draft, values[].answer, dùng rowVersion của lượt khám.')
         if body.recentTestEvidence is not None:
             if set(body.recentTestEvidence)-{'bnp_ntprobnp','ecg','sieu_am_tim','xquang'}:
                 raise problem('FIELD_ENUM_INVALID',422,fields=['recentTestEvidence'])
@@ -551,33 +560,15 @@ def put_fields(visitId:UUID,module:str,body:WorkflowFieldsRequest,request:Reques
                     or type(evidence.get('doctorConfirmedReuse')) is not bool
                     or not any(o['id']==evidence.get('id') and o['fieldCode']==evidence.get('fieldCode') for o in workflow['observations'])):
                     raise problem('FIELD_ENUM_INVALID',422,fields=['recentTestEvidence'])
-        changed={k for k,v in body.fields.items() if semantic(v)!=semantic(workflow['fields'].get(k))}
         evidence_changed=body.recentTestEvidence is not None and body.recentTestEvidence!=workflow['recent_test_evidence']
         invalid=[]
-        if changed or evidence_changed:
-            affected=module
-            latest,_=rows(conn,visitId)
-            for prior in MODULES[:MODULES.index(module)]:
-                if latest[prior] and changed&consumed_fields(latest[prior]):
-                    affected=prior;break
-            # Evidence is a separate M2 input even when fields change in the
-            # same request (including requests sent through another owner).
-            if evidence_changed and (not changed or MODULES.index(affected)>1):
-                affected='m2'
-            reasons=changed|({'recent_test_evidence'} if evidence_changed else set())
-            invalid=invalidate(conn,workflow,affected,reasons,request,principal)
-            workflow['fields'].update(deepcopy(body.fields))
-            for key in changed:
-                answer=workflow['fields'][key]
-                workflow['observations']=[o for o in workflow['observations'] if o['fieldCode']!=key]
-                if answer.get('measuredAt'):
-                    workflow['observations'].append({'id':str(uuid4()),'fieldCode':key,'answer':deepcopy(answer)})
-            if body.recentTestEvidence is not None:
-                workflow['recent_test_evidence']=body.recentTestEvidence
+        if evidence_changed:
+            invalid=invalidate(conn,workflow,'m2',{'recent_test_evidence'},request,principal)
+            workflow['recent_test_evidence']=deepcopy(body.recentTestEvidence)
             save(conn,workflow)
-            audit(conn,request,principal,'workflow_fields_saved',visitId,module=module,fieldCodes=sorted(changed))
+            audit(conn,request,principal,'workflow_fields_saved',visitId,module=module,fieldCodes=['recent_test_evidence'])
         # Explicit edit mode does not invalidate unchanged data.
-        if 'editing' in body.model_fields_set and not changed:
+        if 'editing' in body.model_fields_set:
             meta=workflow['module_meta'].setdefault(module,{})
             if bool(meta.get('editing'))!=body.editing:
                 meta['editing']=body.editing;save(conn,workflow)
@@ -833,6 +824,9 @@ def on_visit_saved(conn, visit_id, request=None, principal=None):
         return
     workflow=conn.execute('SELECT * FROM ai_workflow WHERE visit_id=%s FOR UPDATE',(visit_id,)).fetchone()
     if not workflow:
+        visit=conn.execute('SELECT * FROM visit WHERE id=%s',(visit_id,)).fetchone()
+        label=conn.execute('SELECT version_label FROM form_version WHERE id=%s',(visit['form_version_id'],)).fetchone()
+        if label['version_label']=='v1.2' and visit['status']=='draft':load(conn,visit,write=True,request=request,principal=principal)
         return
     visit=conn.execute('SELECT * FROM visit WHERE id=%s',(visit_id,)).fetchone()
     synchronize_source(conn,visit,workflow,request,principal)
@@ -840,16 +834,61 @@ def on_visit_saved(conn, visit_id, request=None, principal=None):
 
 def synchronize_source(conn,visit,workflow,request=None,principal=None):
     """Refresh original inputs after legacy writes, patient edits or a revision."""
+    if visit['status']=='confirmed':return
     current=source_fields(conn,visit)
     previous=workflow['source_fields']
-    changed={k for k in set(current)|set(previous) if semantic(current.get(k))!=semantic(previous.get(k))}
+    changed={k for k in set(current)|set(previous) if semantic(current.get(k))!=semantic(workflow['fields'].get(k))}
     revision_changed=workflow['source_revision_no']!=visit['current_revision_no']
     if changed or revision_changed:
-        invalidate(conn,workflow,'m1',changed|({'visit_revision'} if revision_changed else set()),request,principal)
+        latest,_=rows(conn,visit['id'])
+        affected='m1' if revision_changed else min((owner_for(k) for k in changed), key=MODULES.index)
+        for prior in MODULES[:MODULES.index(affected)]:
+            if latest[prior] and changed & consumed_fields(latest[prior]):
+                affected=prior;break
+        invalidate(conn,workflow,affected,changed|({'visit_revision'} if revision_changed else set()),request,principal)
         for key in changed:
             if key in current:
                 workflow['fields'][key]=current[key]
             else:
                 workflow['fields'].pop(key,None)
+        for key in changed:
+            workflow['observations']=[o for o in workflow['observations'] if o['fieldCode']!=key]
+            answer=current.get(key,{})
+            if answer.get('measuredAt'):
+                workflow['observations'].append({'id':str(uuid4()),'fieldCode':key,'answer':deepcopy(answer)})
         workflow['source_fields']=current;workflow['source_hash']=digest(current)
         workflow['source_revision_no']=visit['current_revision_no'];save(conn,workflow)
+
+
+
+def field_metadata(conn, visit):
+    from .visits import load_form_version_bundle
+    _,_,definitions=load_form_version_bundle(conn,visit['form_version_id'])
+    definitions=[{'code':d['code'],'data_type':d['dataType']} for d in definitions]
+    rules=mock.load_rules()
+    result={}
+    allowed=allowed_fields(conn,visit)
+    for row in definitions:
+        key=canonical_code(row['code'])
+        needed=[] if row['data_type']=='text' else [m for m in MODULES if key in
+            set(rules['workflowPolicy']['requiredResolved'][m.upper()])|set(rules['outputProjection']['gapFields'][m.upper()])]
+        if key=='egfr_formula':needed=['m3']
+        result[key]={'fieldCode':row['code'],'ownerModule':owner_for(key),'owner':'visit',
+            'dataType':row['data_type'],'modules':needed,'input':row['data_type']!='text' and key in allowed}
+        if key!=row['code']:result[row['code']]=deepcopy(result[key])
+    result['selected_medications']={'fieldCode':None,'ownerModule':'m3','owner':'decision','dataType':'object','modules':['m4'],'input':False}
+    return result
+
+
+def attach_visit_workflow(conn, visit_id, detail, request=None, principal=None):
+    if detail['visit']['formVersionLabel']!='v1.2' or not conn.execute("SELECT to_regclass('ai_workflow') AS relation").fetchone()['relation']:
+        return
+    visit=conn.execute('SELECT * FROM visit WHERE id=%s',(visit_id,)).fetchone()
+    workflow=load(conn,visit,request=request,principal=principal)
+    summary=state(conn,visit,workflow)
+    # selected_medications belongs to the M3 decision, not an input to jump to.
+    for module in summary['modules'].values():
+        module['missingDecisionCodes']=[k for k in module['missingFieldCodes'] if k=='selected_medications']
+        module['missingFieldCodes']=[k for k in module['missingFieldCodes'] if k!='selected_medications']
+    detail['workflow']=summary
+    detail['fieldMetadata']=field_metadata(conn,visit)

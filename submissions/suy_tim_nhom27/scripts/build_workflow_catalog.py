@@ -46,10 +46,10 @@ def build():
         modules=['ai_diagnosis','ai_lab_test'] if code in ('kho_tho_nang','phu_chi_duoi_muc_do','bien_thien_can_nang_7ngay','trieu_chung_khong_dien_hinh','danh_gia_suy_yeu_frailty','bat_thuong_cau_truc_tim') else ['ai_treatment']
         ai_modules=[dict(fieldDefinitionId=fid,aiModuleCode=m,isRequired=True,sourceSttRefs='C1 test workflow') for m in modules]
         definition = dict(id=fid,code=code,labelVi=label,sectionCode=section,dataType=kind,canonicalUnit=unit,
-                          scopeStatus='mvp',storageLevel='workflow_value',isCalculated=False,minValue=minimum,maxValue=maximum,
+                          scopeStatus='mvp',storageLevel='visit_value',isCalculated=False,minValue=minimum,maxValue=maximum,
                           validationRule=validation,helpText=LABEL,sourceRef='C1-contract.md §3; G1-review.md §6',options=opts,aiModules=ai_modules)
         defs.append(definition)
-        vals = [fid,code,label,section,kind,unit,'mvp','workflow_value',minimum,maximum,json.dumps(validation,ensure_ascii=False),LABEL,definition['sourceRef']]
+        vals = [fid,code,label,section,kind,unit,'mvp','visit_value',minimum,maximum,json.dumps(validation,ensure_ascii=False),LABEL,definition['sourceRef']]
         sql.append('INSERT INTO field_definition(id,code,label_vi,section_code,data_type,canonical_unit,scope_status,storage_level,min_value,max_value,validation_rule,help_text,source_ref) VALUES (' + ','.join(quote(v) for v in vals) + ') ON CONFLICT(code) DO NOTHING;')
         for m in modules:
             sql.append('INSERT INTO field_ai_module(field_definition_id,ai_module_code,is_required,source_stt_refs) VALUES('+','.join([quote(fid),quote(m),'true',quote('C1 test workflow')])+') ON CONFLICT DO NOTHING;')

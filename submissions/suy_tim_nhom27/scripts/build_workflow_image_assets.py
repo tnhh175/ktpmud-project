@@ -10,7 +10,7 @@ import zipfile
 ROOT=Path(__file__).resolve().parents[1]
 FILES=('api/hf-map-1.0.json','api/hf-map-1.1.json','api/schemas/hf-ai-input-1.1.schema.json',
        'api/schemas/hf-workflow-1.0.schema.json','api/openapi.yaml','tests/fixtures/workflow/mock_ai_rules.json',
-       'database/migrations/006_workflow.sql','database/migrations/007_workflow_form_v12.sql','scripts/upgrade_workflow.py')
+       'database/migrations/006_workflow.sql','database/migrations/007_workflow_form_v12.sql','scripts/upgrade_workflow.py','database/migrations/008_workflow_visit_inputs.sql')
 
 
 def build():

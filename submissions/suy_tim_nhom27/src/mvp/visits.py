@@ -294,6 +294,15 @@ def load_form_version_bundle(
         for s in sec_rows
     ]
 
+    if fv_row['version_label']=='v1.2':
+        for fd in conn.execute("SELECT id,code,section_code FROM field_definition WHERE code IN ('diagnoses','medications','allergies') ORDER BY code").fetchall():
+            fid=str(fd['id'])
+            if fid in seen_def_ids:continue
+            section=next(x for x in sections if x['sectionCode']==fd['section_code'])
+            section['fields'].append({'id':fid,'formVersionId':str(version_id),'formSectionId':section['id'],
+                'fieldDefinitionId':fid,'fieldCode':fd['code'],'displayOrder':len(section['fields'])+1,
+                'requiredForConfirm':False,'isVisible':True,'isReadonly':False})
+            referenced_def_ids.append(fid)
     field_defs = load_field_definitions_with_children(conn, field_ids=referenced_def_ids)
     overrides = fv_row.get("definition_overrides") or {}
     from .hf_form import apply_definition_overrides
@@ -393,6 +402,7 @@ def _load_visit_detail_dict(conn: psycopg.Connection[Any], visit_id: UUID | str)
                 "fieldDefinitionId": fid,
                 "fieldCode": vr["field_code"],
                 "valueState": vr["value_state"],
+                "answer": vr.get("answer"),
                 "valueNum": num_to_json(vr.get("value_num"), vr["data_type"]),
                 "valueText": vr.get("value_text"),
                 "valueBool": vr.get("value_bool"),
@@ -521,6 +531,7 @@ def _validate_and_normalize_draft(
         (str(form_version_id),),
     ).fetchall()
     registered_def_ids = {str(r["field_definition_id"]) for r in ff_rows}
+    registered_def_ids.update(d['id'] for d in all_defs if d['code'] in ('diagnoses','medications','allergies'))
 
     normalized_values: list[dict[str, Any]] = []
     seen_field_ids: set[str] = set()
@@ -574,6 +585,46 @@ def _validate_and_normalize_draft(
                     "rejectedValue": fd["code"],
                 }
             )
+            continue
+
+        if v.answer is not None:
+            from .workflow import validate_fields, allowed_fields, canonical_code, SCHEMA
+            visit = conn.execute('SELECT * FROM visit WHERE id=%s', (str(visit_id),)).fetchone()
+            label = conn.execute('SELECT version_label FROM form_version WHERE id=%s', (str(form_version_id),)).fetchone()
+            if label['version_label'] != 'v1.2' or fd['dataType'] == 'text':
+                errors.append({'fieldCode': fd['code'], 'message': 'answer chỉ dùng cho đầu vào có cấu trúc của v1.2.', 'rejectedValue': None})
+                continue
+            if fd['id'] in seen_field_ids:
+                errors.append({'fieldCode': fd['code'], 'message': 'Trường bị gửi lặp.', 'rejectedValue': None})
+                continue
+            seen_field_ids.add(fd['id'])
+            if any(x is not None for x in (v.valueNum, v.valueText, v.valueBool, v.valueDate, v.fieldOptionId, v.unit)) or v.selectedOptions:
+                errors.append({'fieldCode': fd['code'], 'message': 'Chỉ gửi answer hoặc các cột giá trị cũ.', 'rejectedValue': None})
+                continue
+            validate_fields({canonical_code(fd['code']): v.answer}, allowed_fields(conn, visit))
+            if 'valueState' in v.model_fields_set and v.valueState != v.answer['value_state']:
+                errors.append({'fieldCode': fd['code'], 'message': 'valueState không khớp answer.value_state.', 'rejectedValue': None})
+                continue
+            if fd['code'] in ('luot_tuoi', 'bn_gioi_tinh'):
+                from .workflow import source_fields, semantic, problem
+                key = canonical_code(fd['code'])
+                if v.answer['value_state']=='answered' and v.answer['value'] != source_fields(conn, visit).get(key,{}).get('value'):
+                    raise problem('WORKFLOW_DEMOGRAPHIC_SOURCE_MISMATCH', 422, fields=[fd['code']])
+                if v.answer['value_state']=='answered':continue
+            if v.answer['value_state']=='answered' and fd['dataType']=='boolean' and type(v.answer['value']) is not bool:
+                raise ProblemError(422,'FIELD_ENUM_INVALID','Dữ liệu không hợp lệ','Trường Có/Không cần giá trị boolean.',errors=[{'fieldCode':fd['code'],'message':'Cần giá trị boolean.','rejectedValue':None}])
+            if v.answer['value_state']=='answered' and fd['code']=='nhiet_do' and v.answer.get('unit') not in (None,'°C'):
+                raise ProblemError(422,'UNIT_UNSUPPORTED','Dữ liệu không hợp lệ','Nhiệt độ dùng đơn vị °C.',errors=[{'fieldCode':fd['code'],'message':'Nhiệt độ dùng đơn vị °C.','rejectedValue':None}])
+            if v.answer['value_state']=='answered' and fd['dataType']=='single_choice' and canonical_code(fd['code']) not in SCHEMA['$defs']['fields']['properties']:
+                raise ProblemError(422,'FIELD_ENUM_INVALID','Dữ liệu không hợp lệ','Lựa chọn cũ dùng fieldOptionId.',errors=[{'fieldCode':fd['code'],'message':'Lựa chọn cũ dùng fieldOptionId.','rejectedValue':None}])
+            if v.answer['value_state']=='answered' and fd['dataType'] in ('number','integer') and canonical_code(fd['code']) not in SCHEMA['$defs']['fields']['properties']:
+                value=v.answer['value']
+                if type(value) not in (int,float) or (type(value) is float and not math.isfinite(value)) or (fd.get('minValue') is not None and value<fd['minValue']) or (fd.get('maxValue') is not None and value>fd['maxValue']) or (fd['dataType']=='integer' and value!=int(value)):
+                    raise ProblemError(422,'FIELD_OUT_OF_RANGE','Dữ liệu không hợp lệ','Giá trị ngoài miền của trường.',errors=[{'fieldCode':fd['code'],'message':'Giá trị ngoài miền của trường.','rejectedValue':None}])
+            normalized_values.append({'fieldDefinitionId': fd['id'], 'fieldCode': fd['code'],
+                'valueState': v.answer['value_state'], 'answer': v.answer,
+                'valueNum': None, 'valueText': None, 'valueBool': None, 'valueDate': None,
+                'fieldOptionId': None, 'optionIds': [], 'unit': None})
             continue
 
         if fd["code"] == "nhiet_do" and v.valueState == "answered" and v.unit not in (None,"°C"):
@@ -1692,6 +1743,8 @@ def get_visit(
         access = require_visit_access(conn, visitId, principal, write=False)
         detail = _load_visit_detail_dict(conn, visitId)
         detail["access"] = access
+        from .workflow import attach_visit_workflow
+        attach_visit_workflow(conn, visitId, detail, request, principal)
     response.headers["ETag"] = f'"{detail["visit"]["rowVersion"]}"'
     return detail
 
@@ -1793,6 +1846,9 @@ def save_visit_draft(
             form_version_id=v_row["form_version_id"],
             body=body,
         )
+        for code, legacy in [('diagnoses','diagnoses'), ('medications','medications'), ('allergies','allergies')]:
+            if legacy in body.model_fields_set and any(v['fieldCode'] == code and v.get('answer') is not None for v in norm_vals):
+                errors.append({'fieldCode': code, 'message': 'Chỉ dùng một định dạng danh sách trong cùng request.', 'rejectedValue': None})
         from .hf_form import validate_lists
         list_states = validate_lists(body, v_row, errors)
         if body.diagnoses:
@@ -1838,6 +1894,10 @@ def save_visit_draft(
         conn.execute("DELETE FROM visit_value WHERE visit_id = %s", (str(visitId),))
 
         for val in norm_vals:
+            if val.get('answer') is not None:
+                conn.execute('INSERT INTO visit_value(visit_id,field_definition_id,value_state,answer) VALUES(%s,%s,%s,%s)',
+                    (str(visitId), val['fieldDefinitionId'], val['valueState'], Jsonb(val['answer'])))
+                continue
             conn.execute(
                 """
                 INSERT INTO visit_value (
@@ -1985,6 +2045,8 @@ def save_visit_draft(
         detail["access"] = access
         from .workflow import on_visit_saved
         on_visit_saved(conn, visitId, request, principal)
+        from .workflow import attach_visit_workflow
+        attach_visit_workflow(conn, visitId, detail, request, principal)
         conn.commit()
 
     response.headers["ETag"] = f'"{detail["visit"]["rowVersion"]}"'

@@ -573,7 +573,8 @@ class VisitValueInput(BaseModel):
     visitId: UUID | None = None
     fieldDefinitionId: UUID | None = None
     fieldCode: str | None = None
-    valueState: str
+    valueState: str = "answered"
+    answer: dict[str, Any] | None = None
     valueNum: float | int | None = None
     valueText: str | None = None
     valueBool: bool | None = None
@@ -588,6 +589,7 @@ class VisitValueOut(BaseModel):
     fieldDefinitionId: UUID
     fieldCode: str
     valueState: ValueState
+    answer: dict[str, Any] | None = None
     valueNum: float | int | None = None
     valueText: str | None = None
     valueBool: bool | None = None
@@ -780,6 +782,8 @@ class DiagnosisInput(BaseModel):
 
 
 class VisitDetailResponse(BaseModel):
+    workflow: dict[str, Any] | None = None
+    fieldMetadata: dict[str, Any] = Field(default_factory=dict)
     access: CareAccess | None = None
     visit: Visit
     values: list[VisitValueOut]

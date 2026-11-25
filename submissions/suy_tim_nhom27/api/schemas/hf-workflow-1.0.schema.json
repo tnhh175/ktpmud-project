@@ -3946,7 +3946,8 @@
           "minimum": 1
         },
         "fields": {
-          "$ref": "#/$defs/fields"
+          "type": "object",
+          "maxProperties": 0
         }
       },
       "required": [
@@ -3954,7 +3955,8 @@
         "rowVersion",
         "fields"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "description": "G2: fields must be empty. Only editing and recentTestEvidence decisions remain writable; all input values use visit draft values[].answer."
     },
     "confirmationRequest": {
       "type": "object",
@@ -4065,10 +4067,39 @@
       "properties": {
         "ownerModule": {
           "$ref": "#/$defs/module"
+        },
+        "fieldCode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "owner": {
+          "enum": [
+            "visit",
+            "decision"
+          ]
+        },
+        "dataType": {
+          "type": "string"
+        },
+        "modules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/module"
+          }
+        },
+        "input": {
+          "type": "boolean"
         }
       },
       "required": [
-        "ownerModule"
+        "ownerModule",
+        "fieldCode",
+        "owner",
+        "dataType",
+        "modules",
+        "input"
       ],
       "additionalProperties": false
     },
@@ -5837,6 +5868,394 @@
         "ingredient"
       ],
       "additionalProperties": false
+    },
+    "visitModuleState": {
+      "type": "object",
+      "properties": {
+        "module": {
+          "$ref": "#/$defs/module"
+        },
+        "state": {
+          "enum": [
+            "locked",
+            "needs_input",
+            "ready",
+            "ran",
+            "accepted",
+            "stale"
+          ]
+        },
+        "attemptCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "latestRunId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "effectiveDecisionId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "decisionSource": {
+          "anyOf": [
+            {
+              "enum": [
+                "ai",
+                "manual"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "missingFieldCodes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "unknownFieldCodes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "staleReasons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "isEditing": {
+          "type": "boolean"
+        },
+        "isRunning": {
+          "type": "boolean"
+        },
+        "availableActions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "run",
+              "rerun",
+              "edit",
+              "continue_next",
+              "accept_ai",
+              "manual_override",
+              "confirm_m4",
+              "complete"
+            ]
+          },
+          "description": "Các thao tác hiện được phép, API tính theo mục 6 C1; không chứa thao tác bị tắt. complete chỉ thuộc M4 khi đủ điều kiện finish."
+        },
+        "staleChangedAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Thời điểm server ghi thay đổi ngữ nghĩa gần nhất làm kết quả hiện hành stale; null khi không stale."
+        },
+        "staleChangedModule": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/module"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Module nguồn có thay đổi làm stale (có thể là chính module này); null khi không stale."
+        },
+        "missingDecisionCodes": {
+          "type": "array",
+          "items": {
+            "const": "selected_medications"
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "module",
+        "state",
+        "attemptCount",
+        "latestRunId",
+        "effectiveDecisionId",
+        "decisionSource",
+        "missingFieldCodes",
+        "unknownFieldCodes",
+        "staleReasons",
+        "isEditing",
+        "isRunning",
+        "availableActions",
+        "staleChangedAt",
+        "staleChangedModule",
+        "missingDecisionCodes"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "accepted"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "effectiveDecisionId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "decisionSource": {
+                "enum": [
+                  "ai",
+                  "manual"
+                ]
+              },
+              "isEditing": {
+                "const": false
+              },
+              "isRunning": {
+                "const": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "ran"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "latestRunId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "attemptCount": {
+                "minimum": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "visitWorkflowSummary": {
+      "type": "object",
+      "properties": {
+        "visitId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "rowVersion": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "contractVersion": {
+          "const": "hf-workflow/1.0"
+        },
+        "engine": {
+          "const": "mock-rules"
+        },
+        "simulationLabel": {
+          "const": "Kết quả AI mô phỏng — chỉ để kiểm thử, không dùng cho lâm sàng"
+        },
+        "completed": {
+          "type": "boolean"
+        },
+        "completedAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "modules": {
+          "type": "object",
+          "properties": {
+            "m1": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/visitModuleState"
+                },
+                {
+                  "properties": {
+                    "module": {
+                      "const": "m1"
+                    }
+                  }
+                }
+              ]
+            },
+            "m2": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/visitModuleState"
+                },
+                {
+                  "properties": {
+                    "module": {
+                      "const": "m2"
+                    }
+                  }
+                }
+              ]
+            },
+            "m3": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/visitModuleState"
+                },
+                {
+                  "properties": {
+                    "module": {
+                      "const": "m3"
+                    }
+                  }
+                }
+              ]
+            },
+            "m4": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/visitModuleState"
+                },
+                {
+                  "properties": {
+                    "module": {
+                      "const": "m4"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "required": [
+            "m1",
+            "m2",
+            "m3",
+            "m4"
+          ],
+          "additionalProperties": false
+        },
+        "pendingSeriousAlertIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "visitId",
+        "rowVersion",
+        "contractVersion",
+        "engine",
+        "simulationLabel",
+        "completed",
+        "completedAt",
+        "modules",
+        "pendingSeriousAlertIds"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "completed": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "completedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "pendingSeriousAlertIds": {
+                "maxItems": 0
+              },
+              "modules": {
+                "properties": {
+                  "m1": {
+                    "properties": {
+                      "state": {
+                        "const": "accepted"
+                      }
+                    }
+                  },
+                  "m2": {
+                    "properties": {
+                      "state": {
+                        "const": "accepted"
+                      }
+                    }
+                  },
+                  "m3": {
+                    "properties": {
+                      "state": {
+                        "const": "accepted"
+                      }
+                    }
+                  },
+                  "m4": {
+                    "properties": {
+                      "state": {
+                        "const": "accepted"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "completedAt": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }

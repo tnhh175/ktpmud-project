@@ -4470,3 +4470,392 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+/* ==========================================================================
+   A5 / G2: Single-Form Pinned 4-Module Progress Bar, Module Filter & D5/D7
+   ========================================================================== */
+.enc-wf-bar {
+  position: sticky;
+  top: 72px;
+  z-index: 35;
+  background: var(--bg-surface);
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+.enc-wf-bar__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.enc-wf-bar__title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.enc-wf-bar__hint {
+  font-size: 12px;
+  color: var(--ink-secondary);
+}
+
+.enc-wf-grid,
+.enc-wf-bar__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.enc-wf-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border-subtle);
+  background: var(--bg-canvas);
+  min-width: 0;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.enc-wf-card--locked {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+  color: #64748B;
+}
+
+.enc-wf-card--needs_input {
+  background: #FFFBEB;
+  border-color: #F59E0B;
+}
+
+.enc-wf-card--ready {
+  background: #EFF6FF;
+  border-color: #2563EB;
+}
+
+.enc-wf-card--running {
+  background: #EFF6FF;
+  border-color: #1D4ED8;
+}
+
+.enc-wf-card--ran {
+  background: #F0F9FF;
+  border-color: #0284C7;
+}
+
+.enc-wf-card--accepted {
+  background: #F0FDF4;
+  border-color: #16A34A;
+}
+
+.enc-wf-card--stale {
+  background: #FFFBEB;
+  border-color: #D97706;
+}
+
+.enc-wf-card__top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.enc-wf-card__icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  color: var(--ink-secondary);
+}
+
+.enc-wf-card--ready .enc-wf-card__icon,
+.enc-wf-card--running .enc-wf-card__icon {
+  color: #1D4ED8;
+}
+
+.enc-wf-card--accepted .enc-wf-card__icon {
+  color: #15803D;
+}
+
+.enc-wf-card--needs_input .enc-wf-card__icon,
+.enc-wf-card--stale .enc-wf-card__icon {
+  color: #B45309;
+}
+
+.enc-wf-card__name,
+.enc-wf-card__title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.enc-wf-card__status {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-secondary);
+  white-space: nowrap;
+}
+
+.enc-wf-card--ready .enc-wf-card__status { color: #1D4ED8; }
+.enc-wf-card--accepted .enc-wf-card__status { color: #15803D; }
+.enc-wf-card--needs_input .enc-wf-card__status,
+.enc-wf-card--stale .enc-wf-card__status { color: #B45309; }
+
+.enc-wf-card--locked .enc-wf-card__name,
+.enc-wf-card--locked .enc-wf-card__title {
+  color: #475569;
+}
+
+.enc-wf-card__mid {
+  font-size: 12px;
+  color: var(--ink-secondary);
+  min-height: 22px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.enc-wf-card__note {
+  font-size: 12px;
+  color: var(--ink-secondary);
+}
+
+.enc-wf-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.enc-wf-missing-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid #D97706;
+  background: #FEF3C7;
+  color: #92400E;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.enc-wf-missing-btn:hover,
+.enc-wf-missing-btn.is-open {
+  background: #FDE68A;
+  border-color: #B45309;
+  color: #78350F;
+}
+
+.enc-wf-missing-drawer {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: #FFFBEB;
+  border: 1px solid #FCD34D;
+}
+
+.enc-wf-missing-drawer__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 12.5px;
+  color: #78350F;
+}
+
+/* Module filter bar (D4) */
+.enc-mod-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.enc-mod-filter-bar__label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-secondary);
+}
+
+/* Small M1..M4 tags on fields */
+.mod-tag-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  vertical-align: middle;
+}
+
+.mod-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.35;
+  border: 1px solid transparent;
+}
+
+.mod-tag--m1 { background: #DBEAFE; color: #1E40AF; border-color: #93C5FD; }
+.mod-tag--m2 { background: #E0F2FE; color: #075985; border-color: #7DD3FC; }
+.mod-tag--m3 { background: #EDE9FE; color: #5B21B6; border-color: #C4B5FD; }
+.mod-tag--m4 { background: #FEF3C7; color: #92400E; border-color: #FCD34D; }
+
+/* Highlight required / missing fields when filtered by module */
+.field--mod-highlight {
+  border-left: 3px solid #2563EB;
+  padding-left: 10px;
+  background: rgba(239, 246, 255, 0.35);
+  border-radius: var(--radius-sm);
+}
+
+.field--mod-missing {
+  border-left: 3px solid #D97706;
+  padding-left: 10px;
+  background: rgba(254, 243, 199, 0.42);
+  border-radius: var(--radius-sm);
+}
+
+/* Ensure jumped fields aren't obscured by sticky header + pinned 4-Module bar */
+.clinical-section [data-field-code] {
+  scroll-margin-top: 210px;
+  scroll-margin-bottom: 84px;
+}
+
+/* D7: Prominent ECG/X-ray "Chưa rõ toàn bộ" active toggle & banner */
+.unknown-toggle--group-active {
+  background: #1E3A8A !important;
+  border-color: #1E3A8A !important;
+  color: #FFFFFF !important;
+  font-weight: 700;
+  box-shadow: 0 0 0 2px rgba(30, 58, 138, 0.22);
+}
+
+.wf-struct-unknown-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin: 4px 0 8px;
+  border-radius: var(--radius-md);
+  background: #EFF6FF;
+  border: 1.5px solid #2563EB;
+  color: #1E3A8A;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.wf-struct-group.is-group-unknown .wf-struct-grid,
+.wf-struct-group.is-group-unknown .wf-measured-row {
+  opacity: 0.55;
+}
+
+/* D7: Unlock-unknown notice & weight calculator warning */
+.v12-unlock-hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #1D4ED8;
+  font-weight: 500;
+}
+
+.v12-calc-box__warn {
+  margin: 6px 0 0;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: #FEF3C7;
+  border: 1px solid #F59E0B;
+  color: #92400E;
+  font-size: 12.5px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* D5: Workflow results-only screen polish */
+.wf-decision-hint {
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid #BFDBFE;
+  background: #EFF6FF;
+  color: #1E3A8A;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.wf-decision-hint p {
+  margin: 0 0 8px;
+}
+
+.wf-missing-banner__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.wf-reuse-box__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.wf-reuse-box__head h4 {
+  margin: 0;
+}
+
+/* Responsive rules for A5 pinned progress bar */
+@media (max-width: 1120px) {
+  .enc-wf-grid,
+  .enc-wf-bar__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .enc-wf-bar {
+    position: static;
+  }
+  .clinical-section [data-field-code] {
+    scroll-margin-top: 96px;
+  }
+}
+
+@media (max-width: 520px) {
+  .enc-wf-grid,
+  .enc-wf-bar__grid {
+    grid-template-columns: 1fr;
+  }
+}

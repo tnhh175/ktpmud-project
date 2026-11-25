@@ -552,6 +552,7 @@
   ];
 
   const WF_TIMED_LAB_CODES = ['cls_bnp', 'cls_nt_probnp', 'cls_lvef', 'cls_creatinin', 'cls_kali'];
+  const WF_LIST_CODES = ['diagnoses', 'medications', 'allergies'];
   const WF_CONTRACT_UNITS = {
     cls_nt_probnp: 'pg/mL',
     cls_bnp: 'pg/mL',
@@ -565,20 +566,6 @@
     bien_thien_can_nang_7ngay: 'kg',
     e_over_a_ratio: 'ratio',
     egfr_ckd_epi: 'mL/min/1.73m2'
-  };
-  const WF_DEFAULT_FIELD_OWNERS = {
-    // Stable C5 D1/D2 owners: M3 owns 7 measurement fields (+ selected_medications),
-    // M4 owns medications & allergies, and M1 owns all general/shared fields (including LVEF/BNP/NT-proBNP).
-    e_over_a_ratio: 'm3',
-    cls_creatinin: 'm3',
-    egfr_ckd_epi: 'm3',
-    egfr_formula: 'm3',
-    cls_kali: 'm3',
-    ecg_12_chuyen_dao: 'm3',
-    xquang_nguc_thang: 'm3',
-    selected_medications: 'm3',
-    medications: 'm4',
-    allergies: 'm4'
   };
   const WF_MED_CLASSES = ['MRA', 'ACEI', 'ARB', 'ARNI', 'NSAID', 'digoxin', 'amiodarone', 'loop_diuretic', 'beta_blocker', 'SGLT2i', 'other'];
   const WF_MED_UNITS = ['mg', 'g', 'mcg', 'mL', 'IU', 'tablet'];
@@ -596,74 +583,107 @@
     { testKey: 'ecg', label: 'ECG 12 chuyển đạo', fieldCodes: ['ecg_12_chuyen_dao'] },
     { testKey: 'xquang', label: 'X-quang ngực thẳng', fieldCodes: ['xquang_nguc_thang'] }
   ];
-
-  const WF_STEP_FIELDS = {
-    m1: {
-      required: ['age', 'sex', 'diagnoses', 'kho_tho_nang', 'phu_chi_duoi_muc_do', 'tinh_mach_co_noi', 'ran_am_phoi', 'bien_thien_can_nang_7ngay', 'trieu_chung_khong_dien_hinh', 'danh_gia_suy_yeu_frailty', 'cls_lvef', 'cls_bnp', 'cls_nt_probnp'],
-      optional: [
-        'bat_thuong_cau_truc_tim', 'spo2', 'mach', 'cls_natri',
-        'tang_huyet_ap', 'dai_thao_duong', 'copd', 'thieu_mau', 'can_nang_kg',
-        'nyha_hien_tai', 'tinh_trang_worsening_decompensated', 'tinh_trang_sung_huyet', 'giam_tuoi_mau_ngoai_vi',
-        'di_ung_thuoc_can_quang', 'ts_thiet_bi_cay_ghep_chong_chi_dinh_mri',
-        'kha_nang_hop_tac_xet_nghiem', 'kha_nang_gang_suc_tham_do_xam_lan', 'muc_tieu_dieu_tri',
-        'xh_kha_nang_chi_tra', 'kha_nang_thuc_hien_xet_nghiem', 'cls_chuc_nang_gan'
-      ]
-    },
-    m2: {
-      required: [],
-      optional: ['kha_nang_hop_tac_xet_nghiem', 'di_ung_thuoc_can_quang', 'ts_thiet_bi_cay_ghep_chong_chi_dinh_mri', 'kha_nang_gang_suc_tham_do_xam_lan', 'muc_tieu_dieu_tri', 'xh_kha_nang_chi_tra', 'kha_nang_thuc_hien_xet_nghiem', 'cls_chuc_nang_gan']
-    },
-    m3: {
-      required: ['cls_nt_probnp', 'cls_bnp', 'cls_lvef', 'e_over_a_ratio', 'cls_creatinin', 'egfr_ckd_epi', 'cls_kali', 'ecg_12_chuyen_dao', 'xquang_nguc_thang'],
-      optional: ['nyha_hien_tai', 'tinh_trang_worsening_decompensated', 'tinh_trang_sung_huyet', 'giam_tuoi_mau_ngoai_vi', 'mach', 'spo2', 'cls_natri']
-    },
-    m4: {
-      required: ['allergies', 'medications', 'selected_medications'],
-      optional: ['cls_creatinin', 'egfr_ckd_epi', 'cls_kali']
-    }
+  const WF_CANONICAL_TO_FORM = {
+    age: 'luot_tuoi',
+    sex: 'bn_gioi_tinh',
+    tang_huyet_ap: 'ts_tang_huyet_ap',
+    dai_thao_duong: 'ts_dai_thao_duong',
+    copd: 'ts_copd',
+    thieu_mau: 'ts_thieu_mau'
   };
+  const V12_STRUCTURED_ANSWER_CODES = V12_NINE_FIELD_CODES
+    .concat(['egfr_formula', 'bat_thuong_cau_truc_tim'])
+    .concat(WF_TIMED_LAB_CODES)
+    .concat(WF_LIST_CODES);
 
-  function wfExtractFieldOwners(fieldsRes) {
-    const out = {};
-    if (!fieldsRes || typeof fieldsRes !== 'object') return out;
-    if (fieldsRes.fieldMetadata && typeof fieldsRes.fieldMetadata === 'object') {
-      Object.keys(fieldsRes.fieldMetadata).forEach(function (k) {
-        const meta = fieldsRes.fieldMetadata[k];
-        if (meta && meta.ownerModule) out[k] = meta.ownerModule;
-      });
-    }
-    if (fieldsRes.fieldOwners && typeof fieldsRes.fieldOwners === 'object') {
-      Object.keys(fieldsRes.fieldOwners).forEach(function (k) {
-        if (fieldsRes.fieldOwners[k]) out[k] = fieldsRes.fieldOwners[k];
-      });
-    }
-    if (fieldsRes.ownerModule && typeof fieldsRes.ownerModule === 'object') {
-      Object.keys(fieldsRes.ownerModule).forEach(function (k) {
-        if (fieldsRes.ownerModule[k]) out[k] = fieldsRes.ownerModule[k];
-      });
-    }
-    if (fieldsRes.fields && typeof fieldsRes.fields === 'object') {
-      Object.keys(fieldsRes.fields).forEach(function (k) {
-        const ans = fieldsRes.fields[k];
-        if (ans && typeof ans === 'object' && ans.ownerModule) out[k] = ans.ownerModule;
-      });
-    }
-    return out;
+  function isV12StructuredAnswerCode(code) {
+    return V12_STRUCTURED_ANSWER_CODES.indexOf(code) >= 0;
   }
 
-  function wfGetFieldOwner(wfOrOwners, code, _fallbackMod) {
-    const ownersMap = (wfOrOwners && wfOrOwners.fieldOwners) ? wfOrOwners.fieldOwners : (wfOrOwners || {});
-    if (ownersMap && ownersMap[code]) return ownersMap[code];
-    if (WF_DEFAULT_FIELD_OWNERS[code]) return WF_DEFAULT_FIELD_OWNERS[code];
-    return 'm1';
+  function isTimedLabCode(code) {
+    return WF_TIMED_LAB_CODES.indexOf(code) >= 0;
   }
 
-  function isWorkflowStorageField(fdOrCode) {
-    if (!fdOrCode) return false;
-    const code = typeof fdOrCode === 'string' ? fdOrCode : fdOrCode.code;
-    const storageLevel = typeof fdOrCode === 'object' ? fdOrCode.storageLevel : null;
-    if (storageLevel === 'workflow_value') return true;
-    return isV12NineField(code) || code === 'egfr_formula' || code === 'bat_thuong_cau_truc_tim';
+  function isStructuredListCode(code) {
+    return WF_LIST_CODES.indexOf(code) >= 0;
+  }
+
+  function getFieldMetaFromApi(fieldMetadata, code) {
+    if (!fieldMetadata || !code) return null;
+    if (fieldMetadata[code]) return fieldMetadata[code];
+    const keys = Object.keys(fieldMetadata);
+    for (let i = 0; i < keys.length; i++) {
+      const m = fieldMetadata[keys[i]];
+      if (m && m.fieldCode === code) return m;
+    }
+    return null;
+  }
+
+  function resolveFormFieldCode(fieldMetadata, rawCode) {
+    if (!rawCode) return '';
+    if (fieldMetadata && fieldMetadata[rawCode] && fieldMetadata[rawCode].fieldCode) {
+      return fieldMetadata[rawCode].fieldCode;
+    }
+    if (WF_CANONICAL_TO_FORM[rawCode]) return WF_CANONICAL_TO_FORM[rawCode];
+    return AI_FIELD_CODE_ALIASES[rawCode] || rawCode;
+  }
+
+  function makeUnknownAnswer() {
+    return { value_state: 'unknown', value: null };
+  }
+
+  function cleanAnswerForDraft(code, rawAns) {
+    if (!rawAns || typeof rawAns !== 'object') return null;
+    if (rawAns.value_state === 'unknown') {
+      return { value_state: 'unknown', value: null };
+    }
+    const ans = clone(rawAns);
+    delete ans.ownerModule;
+    if (ans.measuredAt === null || ans.measuredAt === undefined || String(ans.measuredAt).trim() === '') {
+      delete ans.measuredAt;
+    }
+    if (ans.unit === null || ans.unit === undefined || String(ans.unit).trim() === '') {
+      delete ans.unit;
+    }
+    if (isTimedLabCode(code)) {
+      ans.unit = WF_CONTRACT_UNITS[code] || ans.unit;
+    } else if (code === 'bien_thien_can_nang_7ngay') {
+      ans.unit = 'kg';
+    } else if (code === 'e_over_a_ratio') {
+      ans.unit = 'ratio';
+    } else if (code === 'egfr_ckd_epi') {
+      ans.unit = 'mL/min/1.73m2';
+    } else if (code === 'diagnoses' && Array.isArray(ans.value)) {
+      ans.value = ans.value.map(function (x) {
+        const s = typeof x === 'string' ? x : (x && x.code ? x.code : '');
+        return String(s || '').trim().toUpperCase();
+      }).filter(Boolean);
+    } else if (code === 'medications' && Array.isArray(ans.value)) {
+      ans.value = ans.value.map(function (m, idx) {
+        if (!m || typeof m !== 'object') return null;
+        if (m.ingredientCode) return clone(m);
+        const row = {
+          id: String(m.id || ('med-' + (idx + 1))),
+          ingredient: String(m.ingredient || '').trim()
+        };
+        if (m.class) row.class = m.class;
+        if (m.dose !== null && m.dose !== undefined && m.dose !== '') row.dose = Number(m.dose);
+        if (m.unit) row.unit = m.unit;
+        if (m.route) row.route = m.route;
+        if (m.frequency) row.frequency = m.frequency;
+        if (m.detail_state) row.detail_state = m.detail_state;
+        return row;
+      }).filter(Boolean);
+    } else if (code === 'allergies' && Array.isArray(ans.value)) {
+      ans.value = ans.value.map(function (a, idx) {
+        if (!a || typeof a !== 'object') return null;
+        return {
+          id: String(a.id || ('alg-' + (idx + 1))),
+          ingredient: String(a.ingredient || '').trim()
+        };
+      }).filter(Boolean);
+    }
+    return ans;
   }
 
   function isFormV12(formVersion, fieldDefs) {
@@ -775,11 +795,18 @@
       if (v.qtc_ms !== null && v.qtc_ms !== undefined && (!Number.isInteger(v.qtc_ms) || v.qtc_ms < 200 || v.qtc_ms > 700)) {
         return 'Khoảng QTc phải là số nguyên 200–700 ms.';
       }
+      const allEmptyEcg = Object.keys(v).every(function (k) { return v[k] === null || v[k] === undefined || v[k] === 'unknown'; });
+      if (allEmptyEcg) return 'Cần nhập ít nhất một chỉ số ECG, hoặc bấm "Chưa rõ toàn bộ ECG".';
     } else if (code === 'xquang_nguc_thang') {
       if (!v || typeof v !== 'object') return 'Dữ liệu X-quang phải là nhóm cấu trúc hợp lệ.';
       if (v.ctr !== null && v.ctr !== undefined && (typeof v.ctr !== 'number' || !isFinite(v.ctr) || v.ctr < 0.3 || v.ctr > 0.8 || !hasExactDecimalStep(v.ctr, 0.01))) {
         return 'Chỉ số tim/ngực (CTR) phải nằm trong 0.30 đến 0.80 (bước 0.01).';
       }
+      const allEmptyXr = Object.keys(v).every(function (k) { return v[k] === null || v[k] === undefined || v[k] === 'unknown'; });
+      if (allEmptyXr) return 'Cần nhập ít nhất một chỉ số X-quang, hoặc bấm "Chưa rõ toàn bộ X-quang".';
+    } else if (isTimedLabCode(code)) {
+      if (typeof v !== 'number' || !isFinite(v)) return 'Giá trị xét nghiệm phải là số hợp lệ.';
+      if (!entry.measuredAt) return 'Vui lòng nhập thời điểm đo (ngày giờ) cho xét nghiệm này.';
     }
     return '';
   }
@@ -1068,14 +1095,21 @@
       patient: null,
       visit: null,
       formStructure: null,
+      isV12: false,
       defById: {},
       defByCode: {},
-      valuesByDefId: {}, // { fieldDefinitionId: VisitValue }
-      workflowRowVersion: null,
-      workflowFields: {},       // { fieldCode: compactAnswer } hydrated from workflow API (F1)
-      workflowDirtyFields: {},  // { fieldCode: compactAnswer } pending PUT /workflow/{mod}/fields
-      workflowSavedCodes: {},   // { fieldCode: true }
-      workflowFieldOwners: {},  // { fieldCode: 'm1'|'m3'|... }
+      valuesByDefId: {}, // { fieldDefinitionId: VisitValue (scalar or structured .answer) }
+      workflowSummary: null,    // detail.workflow from GET /visits/{id} & PUT /draft
+      fieldMetadata: {},        // detail.fieldMetadata from GET /visits/{id} & PUT /draft
+      savedUnknownCodes: {},    // { fieldCode: true } fields currently saved on server as unknown
+      unlockedUnknownCodes: {}, // { fieldCode: true } fields unlocked on UI after toggling off saved Chưa rõ
+      moduleFilter: 'all',      // all | m1 | m2 | m3 | m4
+      pendingModuleFilter: null,
+      expandedMissingMod: null, // m1..m4 | null
+      runningModule: null,      // m1..m4 | null when running directly from form bar
+      weightCalcOpen: false,
+      weightPrev7d: '',
+      atypicalNote: '',
       orthostaticBp: [],
       medications: [],
       allergies: [],
@@ -1135,7 +1169,7 @@
       error: ''
     },
 
-    // Workflow 4-Module (hf-workflow/1.0)
+    // Workflow 4-Module (hf-workflow/1.0 — Results & Decisions Only)
     workflow: {
       visitId: null,
       loading: false,
@@ -1153,7 +1187,7 @@
       data: null,           // workflowState or pharmacist m4ReadView
       isPharmacistView: false,
       activeModule: 'm1',
-      editingModule: null,
+      preferredModuleOnLoad: null,
       manualModeModule: null,
       manualDraft: null,
       manualReason: '',
@@ -1167,22 +1201,16 @@
       runCache: {},         // { runId: moduleRun }
       decisionCache: {},    // { decisionId: effectiveDecision }
       expandedUpstream: {}, // { m1: bool }
-      optionalOpen: {},     // { m1: bool }
       runningModule: null,
       submittingAction: false,
-      savingFields: false,
-      dirtyFields: {},      // { fieldCode: compactEntry }
-      fieldValues: {},      // { fieldCode: compactEntry }
-      savedFieldCodes: {},  // { fieldCode: true } tracks fields persisted on server (F5)
-      fieldOwners: {},      // { fieldCode: 'm1'..'m4' } from API ownerModule (D2)
-      observations: [],     // workflow observations with measuredAt for M2 recentTestEvidence (BUG-08)
+      savingFields: false,  // used only for saving M2 recentTestEvidence decision
+      fieldValues: {},      // read-only mirror for medication labels / summaries
+      fieldMetadata: {},
+      observations: [],     // workflow observations with measuredAt for M2 recentTestEvidence
       recentTestEvidence: {}, // { testKey: { id, fieldCode, measuredAt, doctorConfirmedReuse } }
       recentTestEvidenceDirty: false,
-      m4ProjectionOutput: null, // hydrated from GET /workflow?module=m4 (F3/BUG-10)
-      fieldErrors: {},      // { fieldCode: message }
-      weightCalcOpen: {},   // { enc|wf: bool }
-      weightPrev7d: {},     // { enc|wf: string }
-      atypicalNote: {},     // { enc|wf: string }
+      m4ProjectionOutput: null, // hydrated from GET /workflow?module=m4
+      fieldErrors: {},
       m4Decisions: {},      // { alertId: { quyet_dinh, ly_do, error } }
       m4Saving: false,
       lastRunErrors: {}     // { m1: runError }
@@ -1206,6 +1234,9 @@
       previewData: null,
       previewError: '',
       previewValues: {},
+      previewWeightCalcOpen: false,
+      previewWeightPrev7d: '',
+      previewAtypicalNote: '',
       previewBp: [],
       previewAutoPulseSourceIndex: null,
       previewMeds: [],
@@ -1613,6 +1644,141 @@
     }
   }
 
+  function hydrateEncounterValuesFromDetail(enc, detail) {
+    enc.valuesByDefId = {};
+    enc.savedUnknownCodes = {};
+    enc.unlockedUnknownCodes = {};
+    const visitId = detail && detail.visit ? detail.visit.id : enc.visitId;
+    (detail && detail.values ? detail.values : []).forEach(function (v) {
+      if (!v) return;
+      const fd = enc.defById[v.fieldDefinitionId] || enc.defByCode[v.fieldCode];
+      if (!fd) {
+        enc.valuesByDefId[v.fieldDefinitionId] = clone(v);
+        return;
+      }
+      if (enc.isV12 && isV12StructuredAnswerCode(fd.code)) {
+        const ans = (v.answer && typeof v.answer === 'object')
+          ? clone(v.answer)
+          : visitValueToCompact(fd.code, v, fd);
+        if (ans) {
+          enc.valuesByDefId[fd.id] = {
+            visitId: visitId,
+            fieldDefinitionId: fd.id,
+            fieldCode: fd.code,
+            valueState: ans.value_state,
+            answer: ans
+          };
+          if (ans.value_state === 'unknown') enc.savedUnknownCodes[fd.code] = true;
+        }
+        return;
+      }
+      const copy = clone(v);
+      if (copy.answer && typeof copy.answer === 'object') {
+        const ans = copy.answer;
+        copy.valueState = ans.value_state || copy.valueState || 'unknown';
+        if (copy.valueState === 'answered') {
+          if (fd.dataType === 'boolean' && copy.valueBool == null) {
+            copy.valueBool = Boolean(ans.value);
+          } else if ((fd.dataType === 'number' || fd.dataType === 'integer') && copy.valueNum == null && ans.value !== null && ans.value !== undefined) {
+            copy.valueNum = Number(ans.value);
+            copy.unit = ans.unit || copy.unit || fd.canonicalUnit || null;
+          } else if (fd.dataType === 'text' && copy.valueText == null && ans.value !== null && ans.value !== undefined) {
+            copy.valueText = String(ans.value);
+          }
+        }
+        delete copy.answer;
+      }
+      enc.valuesByDefId[fd.id] = copy;
+      if (copy.valueState === 'unknown') enc.savedUnknownCodes[fd.code] = true;
+    });
+
+    if (enc.isV12 && detail) {
+      // Fallback hydration for the 5 timed labs from unambiguous single legacy labResults row
+      WF_TIMED_LAB_CODES.forEach(function (labCode) {
+        const fd = enc.defByCode[labCode];
+        if (!fd || enc.valuesByDefId[fd.id]) return;
+        const rows = (detail.labResults || []).filter(function (r) {
+          return r && r.labCode === labCode && r.valueNum !== null && r.valueNum !== undefined;
+        });
+        if (rows.length === 1) {
+          const r = rows[0];
+          const ans = {
+            value_state: 'answered',
+            value: Number(r.valueNum),
+            unit: r.unit || WF_CONTRACT_UNITS[labCode] || fd.canonicalUnit || null
+          };
+          if (r.measuredAt) ans.measuredAt = r.measuredAt;
+          enc.valuesByDefId[fd.id] = {
+            visitId: visitId,
+            fieldDefinitionId: fd.id,
+            fieldCode: labCode,
+            valueState: 'answered',
+            answer: ans
+          };
+        }
+      });
+
+      // Fallback hydration for structured lists from legacy tables when visit_value.answer is absent
+      const dxDef = enc.defByCode.diagnoses;
+      if (dxDef && !enc.valuesByDefId[dxDef.id]) {
+        const legacyDx = detail.diagnoses || [];
+        if (legacyDx.length > 0 || (detail.visit && detail.visit.diagnosisListState === 'none')) {
+          enc.valuesByDefId[dxDef.id] = {
+            visitId: visitId,
+            fieldDefinitionId: dxDef.id,
+            fieldCode: 'diagnoses',
+            valueState: 'answered',
+            answer: { value_state: 'answered', value: legacyDx.map(function (d) { return d.code; }).filter(Boolean) }
+          };
+        }
+      }
+      const medDef = enc.defByCode.medications;
+      if (medDef && !enc.valuesByDefId[medDef.id]) {
+        const legacyMeds = (detail.medications || []).filter(function (m) { return m && m.status === 'active'; });
+        if (legacyMeds.length > 0 || (detail.visit && detail.visit.medicationListState === 'none')) {
+          enc.valuesByDefId[medDef.id] = {
+            visitId: visitId,
+            fieldDefinitionId: medDef.id,
+            fieldCode: 'medications',
+            valueState: 'answered',
+            answer: {
+              value_state: 'answered',
+              value: legacyMeds.map(function (m, idx) {
+                return {
+                  id: m.id || ('med-' + (idx + 1)),
+                  ingredient: m.activeIngredient || m.drugName || '',
+                  class: null,
+                  dose: m.dose != null ? Number(m.dose) : null,
+                  unit: m.unit || null,
+                  route: m.route === 'subcutaneous' ? 'sc' : (m.route || null),
+                  frequency: m.frequency || null
+                };
+              })
+            }
+          };
+        }
+      }
+      const algDef = enc.defByCode.allergies;
+      if (algDef && !enc.valuesByDefId[algDef.id]) {
+        const legacyAlgs = detail.allergies || [];
+        if (legacyAlgs.length > 0 || (detail.visit && detail.visit.allergyListState === 'none')) {
+          enc.valuesByDefId[algDef.id] = {
+            visitId: visitId,
+            fieldDefinitionId: algDef.id,
+            fieldCode: 'allergies',
+            valueState: 'answered',
+            answer: {
+              value_state: 'answered',
+              value: legacyAlgs.map(function (a, idx) {
+                return { id: a.id || ('alg-' + (idx + 1)), ingredient: a.atcCode || a.allergen || '' };
+              })
+            }
+          };
+        }
+      }
+    }
+  }
+
   async function loadEncounter(visitId) {
     const enc = state.encounter;
     const generation = ++enc.loadGeneration;
@@ -1621,6 +1787,8 @@
     enc.savePromise = null;
     enc.saveQueued = false;
     enc.saving = false;
+    enc.runningModule = null;
+    enc.expandedMissingMod = null;
     enc.loading = true;
     enc.error = '';
     enc.conflictError = null;
@@ -1638,37 +1806,27 @@
       enc.access = detail.access || (ptRes.patient && ptRes.patient.access) || null;
       enc.visit = detail.visit;
       enc.formStructure = formRes;
+      enc.isV12 = isFormV12(formRes.formVersion, formRes.fieldDefinitions);
       enc.defById = {};
       enc.defByCode = {};
       (formRes.fieldDefinitions || []).forEach(function (fd) {
         enc.defById[fd.id] = fd;
         enc.defByCode[fd.code] = fd;
       });
-      enc.valuesByDefId = {};
-      (detail.values || []).forEach(function (v) {
-        enc.valuesByDefId[v.fieldDefinitionId] = clone(v);
-      });
-      enc.workflowRowVersion = null;
-      enc.workflowFields = {};
-      enc.workflowDirtyFields = {};
-      enc.workflowSavedCodes = {};
-      enc.workflowFieldOwners = {};
-      if (isFormV12(formRes.formVersion, formRes.fieldDefinitions)) {
-        try {
-          const wfFieldsRes = await api.getWorkflowFields(visitId, 'm1');
-          if (wfFieldsRes && wfFieldsRes.fields && typeof wfFieldsRes.fields === 'object') {
-            enc.workflowRowVersion = wfFieldsRes.rowVersion || null;
-            enc.workflowFields = clone(wfFieldsRes.fields);
-            Object.keys(wfFieldsRes.fields).forEach(function (k) { enc.workflowSavedCodes[k] = true; });
-            enc.workflowFieldOwners = wfExtractFieldOwners(wfFieldsRes);
-          }
-        } catch (_wfErr) {}
+      enc.workflowSummary = detail.workflow || null;
+      enc.fieldMetadata = detail.fieldMetadata || {};
+      if (enc.pendingModuleFilter) {
+        enc.moduleFilter = enc.pendingModuleFilter;
+        enc.pendingModuleFilter = null;
+      } else {
+        enc.moduleFilter = 'all';
       }
       enc.orthostaticBp = clone(detail.orthostaticBp || []);
       enc.medications = clone(detail.medications || []);
       enc.allergies = clone(detail.allergies || []);
       enc.labResults = clone(detail.labResults || []);
       enc.diagnoses = clone(detail.diagnoses || []);
+      hydrateEncounterValuesFromDetail(enc, detail);
       const hasV11Features = Boolean(
         (formRes.formVersion && Number(formRes.formVersion.versionNo) >= 2) ||
         (formRes.fieldDefinitions || []).some(function (fd) {
@@ -1706,9 +1864,17 @@
       enc.loading = false;
       render();
       if (enc.highlightFieldCode) {
-        const code = enc.highlightFieldCode;
+        const code = resolveFormFieldCode(enc.fieldMetadata, enc.highlightFieldCode);
         enc.highlightFieldCode = null;
-        setTimeout(function () { scrollToAndPulseField(code); }, 80);
+        setTimeout(function () {
+          if (!findTargetElementForField(code) && enc.moduleFilter !== 'all') {
+            enc.moduleFilter = 'all';
+            render();
+            setTimeout(function () { scrollToAndPulseField(code); }, 40);
+          } else {
+            scrollToAndPulseField(code);
+          }
+        }, 80);
       } else if (enc.scrollToSectionCode) {
         const secCode = enc.scrollToSectionCode;
         enc.scrollToSectionCode = null;
@@ -2435,7 +2601,7 @@
     if (!text) return '';
     const s = String(text).trim();
     if (!s) return '';
-    if (/\b(TL0[1-9]|Q-AI-\d+|Q-PM-\d+|CR-W\d+-\d+|STT\s*\d+|visit_[a-z_]+|field_definition|value_state|bảng\s+patient|NULL|G1\s+\d{1,2}\/\d{1,2}\/\d{4})\b/i.test(s)) {
+    if (/\b(TL0[1-9]|Q-AI-\d+|Q-PM-\d+|CR-W\d+-\d+|STT\s*\d+|visit_[a-z_]+|field_definition|value_state|bảng\s+patient|NULL|G1\s+\d{1,2}\/\d{1,2}\/\d{4}|Biểu mẫu suy tim\s+\d{1,2}\/\d{1,2}\/\d{4})\b/i.test(s)) {
       return '';
     }
     return s;
@@ -2621,6 +2787,9 @@
 
   function visitValueToCompact(code, vv, fd) {
     if (!vv) return null;
+    if (vv.answer && typeof vv.answer === 'object' && vv.answer.value_state) {
+      return clone(vv.answer);
+    }
     const vs = vv.value_state || vv.valueState;
     if (vs === 'unknown') {
       const unit = code === 'bien_thien_can_nang_7ngay' ? 'kg' : (code === 'e_over_a_ratio' ? 'ratio' : (code === 'egfr_ckd_epi' ? 'mL/min/1.73m2' : null));
@@ -2698,6 +2867,17 @@
 
   function compactToVisitValue(visitId, fd, compact) {
     if (!fd || !compact) return null;
+    if (isV12StructuredAnswerCode(fd.code)) {
+      const ans = clone(compact);
+      if (ans && typeof ans === 'object') delete ans.ownerModule;
+      return {
+        visitId: visitId,
+        fieldDefinitionId: fd.id,
+        fieldCode: fd.code,
+        valueState: ans ? ans.value_state : 'unknown',
+        answer: ans
+      };
+    }
     if (compact.value_state === 'unknown') {
       return makeEmptyVisitValue(visitId, fd, 'unknown');
     }
@@ -2710,16 +2890,6 @@
       if (match) item.fieldOptionId = match.id;
       if (typeof v === 'number' && isFinite(v)) item.valueNum = v;
       else if (v !== null && v !== undefined) item.valueText = String(v);
-      return item;
-    }
-    if (fd.code === 'e_over_a_ratio' && v === 'not_measurable_af') {
-      item.valueText = 'not_measurable_af';
-      item.valueNum = null;
-      item.unit = 'ratio';
-      return item;
-    }
-    if (fd.code === 'ecg_12_chuyen_dao' || fd.code === 'xquang_nguc_thang') {
-      item.valueText = JSON.stringify(v);
       return item;
     }
     if (typeof v === 'boolean') {
@@ -2735,16 +2905,19 @@
 
   function getEncounterCreatinineForEgfr(ctx) {
     if (ctx.creatinineInfo) return ctx.creatinineInfo;
+    const def = ctx.defByCode && ctx.defByCode.cls_creatinin;
+    const vv = def && ctx.valuesByDefId && ctx.valuesByDefId[def.id];
+    if (vv && vv.answer && vv.answer.value_state === 'answered' && vv.answer.value !== null && vv.answer.value !== undefined) {
+      return { value: Number(vv.answer.value), unit: vv.answer.unit || 'umol/L' };
+    }
     const labs = ctx.labResults || [];
     for (let i = labs.length - 1; i >= 0; i--) {
       if (labs[i] && labs[i].labCode === 'cls_creatinin' && labs[i].valueNum !== null && labs[i].valueNum !== undefined && labs[i].valueNum !== '') {
-        return { value: Number(labs[i].valueNum), unit: labs[i].unit || 'mg/dL' };
+        return { value: Number(labs[i].valueNum), unit: labs[i].unit || 'umol/L' };
       }
     }
-    const def = ctx.defByCode && ctx.defByCode.cls_creatinin;
-    const vv = def && ctx.valuesByDefId && ctx.valuesByDefId[def.id];
     if (vv && vv.valueState === 'answered' && vv.valueNum !== null && vv.valueNum !== undefined) {
-      return { value: Number(vv.valueNum), unit: vv.unit || def.canonicalUnit || 'mg/dL' };
+      return { value: Number(vv.valueNum), unit: vv.unit || def.canonicalUnit || 'umol/L' };
     }
     return null;
   }
@@ -2756,27 +2929,38 @@
     if (vv && vv.valueState === 'answered' && vv.valueNum !== null && vv.valueNum !== undefined) {
       return Number(vv.valueNum);
     }
+    if (vv && vv.answer && vv.answer.value_state === 'answered' && vv.answer.value !== null && vv.answer.value !== undefined) {
+      return Number(vv.answer.value);
+    }
     return null;
   }
 
   function renderV12FieldControl(code, opts) {
     const scope = opts.scope || 'enc';
+    const isPrev = scope === 'prev';
     const ro = Boolean(opts.readonly);
     const label = opts.label || AI_ISSUE_DISPLAY_LABELS[code] || code;
     const reqTag = opts.reqTag || '';
+    const modBadgesHtml = opts.modBadgesHtml || '';
+    const extraClass = opts.extraClass || '';
     const errMsg = opts.errMsg || '';
-    const helpText = opts.helpText || '';
+    const rawHelp = opts.helpText || '';
+    const helpText = rawHelp.toLowerCase() === 'thang thử nghiệm, chờ bác sĩ duyệt' ? '' : rawHelp;
     const compact = opts.compactValue || null;
-    const isUnknown = Boolean(compact && compact.value_state === 'unknown');
+    const isUnlockedUnknown = Boolean(opts.unlockedUnknown);
+    const isUnknown = Boolean(compact && compact.value_state === 'unknown' && !isUnlockedUnknown);
     const isAnswered = Boolean(compact && compact.value_state === 'answered');
     const expBadge = '<span class="badge badge--warn badge--xs wf-exp-tag" title="' + esc(WF_EXP_TAG_FULL) + '">Thang thử nghiệm · chờ bác sĩ duyệt</span>';
     const scopeAttr = ' data-v12-scope="' + esc(scope) + '" data-v12-code="' + esc(code) + '"';
+    const unlockNoticeHtml = isUnlockedUnknown
+      ? '<p class="field__help v12-unlock-hint">Đã mở khóa từ "Chưa rõ" — nhập giá trị mới để thay thế, hoặc giữ trống nếu muốn giữ nguyên "Chưa rõ".</p>'
+      : '';
 
     // 1, 2, 4: Ordinal radio-card scales (kho_tho_nang, phu_chi_duoi_muc_do, trieu_chung_khong_dien_hinh)
     if (V12_SCALE_SPECS[code]) {
       const spec = V12_SCALE_SPECS[code];
       const curVal = isAnswered ? Number(compact.value) : null;
-      const statusText = isUnknown ? 'Chưa rõ' : (curVal !== null ? ('Đã chọn mức ' + curVal) : 'Chưa điền');
+      const statusText = isUnknown ? 'Chưa rõ' : (curVal !== null ? ('Đã chọn mức ' + curVal) : (isUnlockedUnknown ? 'Đang mở khóa' : 'Chưa điền'));
       const cardsHtml = spec.options.map(function (o) {
         const selected = curVal === o.value;
         return (
@@ -2788,7 +2972,7 @@
           '</button>'
         );
       }).join('');
-      const noteVal = (state.workflow.atypicalNote && state.workflow.atypicalNote[scope]) || '';
+      const noteVal = isPrev ? (state.adminForms.previewAtypicalNote || '') : (state.encounter.atypicalNote || '');
       const extraNoteHtml = (spec.hasNoteOnNonZero && curVal !== null && curVal > 0 && !isUnknown)
         ? (
           '<div class="wf-inline-subnote">' +
@@ -2798,9 +2982,9 @@
         )
         : '';
       return (
-        '<div class="field field--span-2 v12-field' + (!compact ? ' v12-field--unfilled' : '') + (errMsg ? ' v12-field--error' : '') + '" data-field-code="' + esc(code) + '">' +
+        '<div class="field field--span-2 v12-field' + extraClass + (!compact ? ' v12-field--unfilled' : '') + (errMsg ? ' v12-field--error' : '') + '" data-field-code="' + esc(code) + '">' +
           '<div class="field__label-row">' +
-            '<span class="field__label">' + esc(label) + ' ' + reqTag + ' ' + expBadge + '</span>' +
+            '<span class="field__label">' + esc(label) + ' ' + reqTag + ' ' + modBadgesHtml + ' ' + expBadge + '</span>' +
             '<div class="v12-field__head-actions">' +
               '<span class="tristate__status">' + esc(statusText) + ((curVal !== null && !ro) ? ' · <button type="button" class="tristate__clear" data-v12-clear="1"' + scopeAttr + '>Xóa chọn</button>' : '') + '</span>' +
               '<button type="button" class="unknown-toggle unknown-toggle--sm' + (isUnknown ? ' is-active' : '') + '" data-v12-unknown="1"' + scopeAttr + ' aria-pressed="' + (isUnknown ? 'true' : 'false') + '"' + (ro ? ' disabled' : '') + '>Chưa rõ</button>' +
@@ -2808,6 +2992,7 @@
           '</div>' +
           '<div class="scale-card-grid scale-card-grid--' + spec.options.length + '" role="radiogroup" aria-label="' + esc(label) + '">' + cardsHtml + '</div>' +
           extraNoteHtml +
+          unlockNoticeHtml +
           (spec.help ? '<p class="field__help">' + esc(spec.help) + '</p>' : '') +
           (helpText && helpText !== spec.help ? '<p class="field__help">' + esc(helpText) + '</p>' : '') +
           (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
@@ -2818,7 +3003,7 @@
     // 5: Clinical Frailty Scale CFS 1-9
     if (code === 'danh_gia_suy_yeu_frailty') {
       const curVal = isAnswered ? Number(compact.value) : null;
-      const statusText = isUnknown ? 'Chưa rõ' : (curVal !== null ? ('CFS mức ' + curVal) : 'Chưa điền');
+      const statusText = isUnknown ? 'Chưa rõ' : (curVal !== null ? ('CFS mức ' + curVal) : (isUnlockedUnknown ? 'Đang mở khóa' : 'Chưa điền'));
       const cfsCards = V12_CFS_LEVELS.map(function (lv) {
         const selected = curVal === lv.value;
         return (
@@ -2831,16 +3016,17 @@
         );
       }).join('');
       return (
-        '<div class="field field--span-2 v12-field' + (!compact ? ' v12-field--unfilled' : '') + (errMsg ? ' v12-field--error' : '') + '" data-field-code="' + esc(code) + '">' +
+        '<div class="field field--span-2 v12-field' + extraClass + (!compact ? ' v12-field--unfilled' : '') + (errMsg ? ' v12-field--error' : '') + '" data-field-code="' + esc(code) + '">' +
           '<div class="field__label-row">' +
-            '<span class="field__label">' + esc(label) + ' ' + reqTag + ' ' + expBadge + '</span>' +
+            '<span class="field__label">' + esc(label) + ' ' + reqTag + ' ' + modBadgesHtml + ' ' + expBadge + '</span>' +
             '<div class="v12-field__head-actions">' +
               '<span class="tristate__status">' + esc(statusText) + ((curVal !== null && !ro) ? ' · <button type="button" class="tristate__clear" data-v12-clear="1"' + scopeAttr + '>Xóa chọn</button>' : '') + '</span>' +
               '<button type="button" class="unknown-toggle unknown-toggle--sm' + (isUnknown ? ' is-active' : '') + '" data-v12-unknown="1"' + scopeAttr + ' aria-pressed="' + (isUnknown ? 'true' : 'false') + '"' + (ro ? ' disabled' : '') + '>Chưa rõ</button>' +
             '</div>' +
           '</div>' +
           '<div class="cfs-grid" role="radiogroup" aria-label="' + esc(label) + '">' + cfsCards + '</div>' +
-          '<p class="field__help">Thang Clinical Frailty Scale (1–9); không tự suy ra từ tuổi bệnh nhân.</p>' +
+          unlockNoticeHtml +
+          '<p class="field__help">' + esc(helpText || 'Thang Clinical Frailty Scale (1–9); không tự suy ra từ tuổi bệnh nhân.') + '</p>' +
           (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
         '</div>'
       );
@@ -2852,16 +3038,16 @@
       const numVal = hasNum ? Number(compact.value) : null;
       const numStr = hasNum ? String(numVal) : '';
       const isZero = hasNum && numVal === 0;
-      const calcOpen = Boolean(state.workflow.weightCalcOpen && state.workflow.weightCalcOpen[scope]);
-      const prevStr = (state.workflow.weightPrev7d && state.workflow.weightPrev7d[scope]) || '';
+      const calcOpen = isPrev ? Boolean(state.adminForms.previewWeightCalcOpen) : Boolean(state.encounter.weightCalcOpen);
+      const prevStr = isPrev ? (state.adminForms.previewWeightPrev7d || '') : (state.encounter.weightPrev7d || '');
       const curW = opts.currentWeightKg !== undefined && opts.currentWeightKg !== null ? Number(opts.currentWeightKg) : null;
       const prevW = prevStr !== '' && isFinite(Number(prevStr)) ? Number(prevStr) : null;
       const calcDelta = (curW !== null && prevW !== null) ? Math.round((curW - prevW) * 10) / 10 : null;
       const signedDelta = calcDelta !== null ? ((calcDelta > 0 ? '+' : '') + calcDelta.toFixed(1)) : '';
       const cls = 'input' + (!compact ? ' input--unfilled' : '') + (isUnknown ? ' input--unknown' : '') + (errMsg ? ' input--error' : '');
       return (
-        '<div class="field v12-field' + (errMsg ? ' v12-field--error' : '') + '" data-field-code="' + esc(code) + '">' +
-          '<div class="field__label-row"><label class="field__label">' + esc(label) + ' ' + reqTag + ' ' + expBadge + '</label></div>' +
+        '<div class="field v12-field' + extraClass + (errMsg ? ' v12-field--error' : '') + '" data-field-code="' + esc(code) + '">' +
+          '<div class="field__label-row"><label class="field__label">' + esc(label) + ' ' + reqTag + ' ' + modBadgesHtml + ' ' + expBadge + '</label></div>' +
           '<div class="input-row-unknown">' +
             '<div class="input-unit-wrap">' +
               '<input type="number" class="' + cls + '" min="-20" max="20" step="0.1" data-v12-num="bien_thien_can_nang_7ngay"' + scopeAttr + ' placeholder="' + (isUnknown ? 'Chưa rõ' : '−20.0 đến +20.0') + '" value="' + esc(numStr) + '"' + (ro || isUnknown ? ' disabled' : '') + '>' +
@@ -2870,18 +3056,19 @@
             '<button type="button" class="unknown-toggle' + (isUnknown ? ' is-active' : '') + '" data-v12-unknown="1"' + scopeAttr + ' aria-pressed="' + (isUnknown ? 'true' : 'false') + '"' + (ro ? ' disabled' : '') + '>Chưa rõ</button>' +
           '</div>' +
           (isZero ? '<span class="zero-chip">Đã nhập: 0 (khác với để trống)</span>' : '') +
+          unlockNoticeHtml +
           '<div class="v12-helper-row">' +
             '<button type="button" class="btn btn--ghost btn--xs" data-v12-toggle-wcalc="' + esc(scope) + '"' + (ro || isUnknown ? ' disabled' : '') + '>' + (calcOpen ? 'Ẩn bộ tính từ cân nặng 7 ngày trước' : 'Tính từ cân nặng 7 ngày trước') + '</button>' +
-            '<span class="field__help">Khoảng: −20.0 đến +20.0 kg (bước 0.1; âm là giảm, dương là tăng).</span>' +
+            '<span class="field__help">' + esc(helpText || 'Khoảng: −20.0 đến +20.0 kg (bước 0.1; âm là giảm, dương là tăng).') + '</span>' +
           '</div>' +
           (calcOpen && !isUnknown ? (
-            '<div class="v12-calc-box">' +
+            '<div class="v12-calc-box" data-v12-wcalc-box="' + esc(scope) + '">' +
               '<div class="v12-calc-box__row">' +
                 '<label class="field__help" for="v12-prev7d-' + esc(scope) + '">Cân nặng 7 ngày trước (kg):</label>' +
                 '<input id="v12-prev7d-' + esc(scope) + '" type="number" step="0.1" min="20" max="250" class="input input--sm" data-v12-wprev="' + esc(scope) + '" value="' + esc(prevStr) + '" placeholder="VD: 62.0"' + (ro ? ' disabled' : '') + '>' +
               '</div>' +
               (curW === null
-                ? '<p class="field__help">Chưa có cân nặng hiện tại (<code>can_nang_kg</code>) để tự tính hiệu.</p>'
+                ? '<p class="field__help v12-calc-box__warn">Cần nhập cân nặng hiện tại để tự tính</p>'
                 : (calcDelta !== null
                     ? '<div class="v12-calc-box__preview"><span>Hiện tại ' + esc(curW) + ' − 7 ngày trước ' + esc(prevW) + ' = <strong>' + esc(signedDelta) + ' kg</strong></span>' +
                       '<button type="button" class="btn btn--secondary btn--xs" data-v12-apply-wdelta="' + esc(calcDelta) + '"' + scopeAttr + (ro ? ' disabled' : '') + '>Áp dụng (' + esc(signedDelta) + ' kg)</button></div>'
@@ -2900,8 +3087,8 @@
       const numStr = hasNum ? String(compact.value) : '';
       const cls = 'input' + (!compact ? ' input--unfilled' : '') + (isUnknown ? ' input--unknown' : '') + (isAf ? ' input--af-sentinel' : '') + (errMsg ? ' input--error' : '');
       return (
-        '<div class="field v12-field' + (errMsg ? ' v12-field--error' : '') + '" data-field-code="' + esc(code) + '">' +
-          '<div class="field__label-row"><label class="field__label">' + esc(label) + ' ' + reqTag + ' ' + expBadge + '</label></div>' +
+        '<div class="field v12-field' + extraClass + (errMsg ? ' v12-field--error' : '') + '" data-field-code="' + esc(code) + '">' +
+          '<div class="field__label-row"><label class="field__label">' + esc(label) + ' ' + reqTag + ' ' + modBadgesHtml + ' ' + expBadge + '</label></div>' +
           '<div class="input-row-unknown input-row-unknown--wrap">' +
             '<div class="input-unit-wrap">' +
               '<input type="number" class="' + cls + '" min="0.20" max="5.00" step="0.01" data-v12-num="e_over_a_ratio"' + scopeAttr + ' placeholder="' + (isUnknown ? 'Chưa rõ' : (isAf ? 'Không đo được (rung nhĩ)' : '0.20 – 5.00')) + '" value="' + esc(numStr) + '"' + (ro || isUnknown || isAf ? ' disabled' : '') + '>' +
@@ -2910,7 +3097,8 @@
             '<button type="button" class="v12-sentinel-pill' + (isAf ? ' is-active' : '') + '" data-v12-ea-af="1"' + scopeAttr + ' aria-pressed="' + (isAf ? 'true' : 'false') + '"' + (ro ? ' disabled' : '') + '>Không đo được (rung nhĩ)</button>' +
             '<button type="button" class="unknown-toggle' + (isUnknown ? ' is-active' : '') + '" data-v12-unknown="1"' + scopeAttr + ' aria-pressed="' + (isUnknown ? 'true' : 'false') + '"' + (ro ? ' disabled' : '') + '>Chưa rõ</button>' +
           '</div>' +
-          (isAf ? '<p class="field__help v12-sentinel-note">Đã ghi nhận có lý do (<code>not_measurable_af</code>) — phân biệt hoàn toàn với trạng thái Chưa rõ.</p>' : '<p class="field__help">Khoảng hợp lệ: 0.20 đến 5.00 (bước 0.01). Không đồng nhất với E/e′.</p>') +
+          unlockNoticeHtml +
+          (isAf ? '<p class="field__help v12-sentinel-note">Đã ghi nhận có lý do (<code>not_measurable_af</code>) — phân biệt hoàn toàn với trạng thái Chưa rõ.</p>' : '<p class="field__help">' + esc(helpText || 'Khoảng hợp lệ: 0.20 đến 5.00 (bước 0.01). Không đồng nhất với E/e′.') + '</p>') +
           (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
         '</div>'
       );
@@ -2926,8 +3114,8 @@
       const suggested = creat ? computeCkdEpi2021(creat.value, creat.unit, opts.patientAge, opts.patientSex) : null;
       const cls = 'input' + (!compact ? ' input--unfilled' : '') + (isUnknown ? ' input--unknown' : '') + (errMsg ? ' input--error' : '');
       return (
-        '<div class="field field--span-2 v12-field' + (errMsg ? ' v12-field--error' : '') + '" data-field-code="' + esc(code) + '">' +
-          '<div class="field__label-row"><label class="field__label">' + esc(label) + ' ' + reqTag + ' ' + expBadge + '</label></div>' +
+        '<div class="field field--span-2 v12-field' + extraClass + (errMsg ? ' v12-field--error' : '') + '" data-field-code="' + esc(code) + '">' +
+          '<div class="field__label-row"><label class="field__label">' + esc(label) + ' ' + reqTag + ' ' + modBadgesHtml + ' ' + expBadge + '</label></div>' +
           '<div class="v12-egfr-row">' +
             '<div class="input-unit-wrap">' +
               '<input type="number" class="' + cls + '" min="1" max="200" step="1" data-v12-num="egfr_ckd_epi"' + scopeAttr + ' placeholder="' + (isUnknown ? 'Chưa rõ' : '1 – 200') + '" value="' + esc(numStr) + '"' + (ro || isUnknown ? ' disabled' : '') + '>' +
@@ -2941,21 +3129,23 @@
             '</select>' +
             '<button type="button" class="unknown-toggle' + (isUnknown ? ' is-active' : '') + '" data-v12-unknown="1"' + scopeAttr + ' aria-pressed="' + (isUnknown ? 'true' : 'false') + '"' + (ro ? ' disabled' : '') + '>Chưa rõ</button>' +
           '</div>' +
+          unlockNoticeHtml +
           (suggested !== null && !isUnknown ? (
             '<div class="v12-suggestion-strip">' +
-              '<span>Gợi ý CKD-EPI 2021 từ Creatinin (' + esc(creat.value) + ' ' + esc(creat.unit || 'mg/dL') + '), ' + esc(opts.patientAge) + ' tuổi, ' + esc(formatSex(opts.patientSex)) + ': <strong>' + esc(suggested) + ' mL/phút/1.73m²</strong></span>' +
+              '<span>Gợi ý CKD-EPI 2021 từ Creatinin (' + esc(creat.value) + ' ' + esc(creat.unit || 'umol/L') + '), ' + esc(opts.patientAge) + ' tuổi, ' + esc(formatSex(opts.patientSex)) + ': <strong>' + esc(suggested) + ' mL/phút/1.73m²</strong></span>' +
               '<button type="button" class="btn btn--secondary btn--sm" data-v12-apply-egfr="' + esc(suggested) + '"' + scopeAttr + (ro ? ' disabled' : '') + '>Dùng giá trị gợi ý (CKD-EPI 2021)</button>' +
             '</div>'
           ) : '') +
-          '<p class="field__help">Số nguyên 1–200 mL/phút/1.73m². Chỉ giá trị theo CKD-EPI 2021 được xuất trực tiếp vào biến AI <code>EGFR_CKD_EPI</code>.</p>' +
+          '<p class="field__help">' + esc(helpText || 'Số nguyên 1–200 mL/phút/1.73m². Chỉ giá trị theo CKD-EPI 2021 được dùng trực tiếp cho tính toán lọc cầu thận chuẩn.') + '</p>' +
           (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
         '</div>'
       );
     }
 
-    // 8: Structured ECG (1 object with 6 sub-keys + whole-group Unknown)
+    // 8: Structured ECG (1 object with 6 sub-keys + optional measuredAt + whole-group Unknown)
     if (code === 'ecg_12_chuyen_dao') {
       const ecg = isAnswered ? parseStructuredJsonVal(compact.value, makeDefaultEcgValue) : makeDefaultEcgValue();
+      const ecgMeasuredLocal = (isAnswered && compact.measuredAt) ? toDatetimeLocal(compact.measuredAt) : '';
       const renderEcgNum = function (subKey, subLabel, min, max, unit) {
         const subVal = isAnswered ? ecg[subKey] : null;
         const subUnk = isAnswered && subVal === null;
@@ -2988,11 +3178,13 @@
         );
       };
       return (
-        '<div class="field field--span-2 v12-field wf-struct-group' + (isUnknown ? ' is-group-unknown' : '') + (errMsg ? ' v12-field--error' : '') + '" data-field-code="' + esc(code) + '">' +
+        '<div class="field field--span-2 v12-field wf-struct-group' + extraClass + (isUnknown ? ' is-group-unknown' : '') + (errMsg ? ' v12-field--error' : '') + '" data-field-code="' + esc(code) + '">' +
           '<div class="field__label-row">' +
-            '<span class="field__label">' + esc(label) + ' ' + reqTag + ' ' + expBadge + '</span>' +
-            '<button type="button" class="unknown-toggle unknown-toggle--sm' + (isUnknown ? ' is-active' : '') + '" data-v12-unknown="1"' + scopeAttr + ' aria-pressed="' + (isUnknown ? 'true' : 'false') + '"' + (ro ? ' disabled' : '') + '>Chưa rõ toàn bộ ECG</button>' +
+            '<span class="field__label">' + esc(label) + ' ' + reqTag + ' ' + modBadgesHtml + ' ' + expBadge + '</span>' +
+            '<button type="button" class="unknown-toggle unknown-toggle--sm' + (isUnknown ? ' is-active unknown-toggle--group-active' : '') + '" data-v12-unknown="1"' + scopeAttr + ' aria-pressed="' + (isUnknown ? 'true' : 'false') + '"' + (ro ? ' disabled' : '') + '>' + (isUnknown ? '✓ Chưa rõ toàn bộ ECG' : 'Chưa rõ toàn bộ ECG') + '</button>' +
           '</div>' +
+          (isUnknown ? '<div class="wf-struct-unknown-banner" role="status">' + ICONS.lock + ' <span>Đang chọn Chưa rõ toàn bộ — bấm lại để nhập</span></div>' : '') +
+          unlockNoticeHtml +
           '<div class="wf-struct-grid">' +
             '<div class="wf-struct-item">' +
               '<label class="wf-struct-item__label">Nhịp tim (rhythm)</label>' +
@@ -3009,14 +3201,20 @@
             renderEcgTri('lbbb', 'Block nhánh trái (LBBB)') +
             renderEcgTri('pathological_q', 'Sóng Q bệnh lý') +
           '</div>' +
+          '<div class="wf-measured-row">' +
+            '<label class="field__help" for="v12-mat-ecg-' + esc(scope) + '">Thời điểm đo ECG (tùy chọn):</label>' +
+            '<input id="v12-mat-ecg-' + esc(scope) + '" type="datetime-local" class="input input--sm" data-v12-struct-measured-at="1"' + scopeAttr + ' value="' + esc(ecgMeasuredLocal) + '"' + (ro || isUnknown ? ' disabled' : '') + '>' +
+          '</div>' +
+          (helpText ? '<p class="field__help">' + esc(helpText) + '</p>' : '') +
           (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
         '</div>'
       );
     }
 
-    // 9: Structured Chest X-ray (1 object with 3 sub-keys + whole-group Unknown)
+    // 9: Structured Chest X-ray (1 object with 3 sub-keys + optional measuredAt + whole-group Unknown)
     if (code === 'xquang_nguc_thang') {
       const xr = isAnswered ? parseStructuredJsonVal(compact.value, makeDefaultXrayValue) : makeDefaultXrayValue();
+      const xrMeasuredLocal = (isAnswered && compact.measuredAt) ? toDatetimeLocal(compact.measuredAt) : '';
       const ctrVal = isAnswered ? xr.ctr : null;
       const ctrUnk = isAnswered && ctrVal === null;
       const ctrStr = (ctrVal !== null && ctrVal !== undefined) ? String(ctrVal) : '';
@@ -3036,11 +3234,13 @@
         );
       };
       return (
-        '<div class="field field--span-2 v12-field wf-struct-group' + (isUnknown ? ' is-group-unknown' : '') + (errMsg ? ' v12-field--error' : '') + '" data-field-code="' + esc(code) + '">' +
+        '<div class="field field--span-2 v12-field wf-struct-group' + extraClass + (isUnknown ? ' is-group-unknown' : '') + (errMsg ? ' v12-field--error' : '') + '" data-field-code="' + esc(code) + '">' +
           '<div class="field__label-row">' +
-            '<span class="field__label">' + esc(label) + ' ' + reqTag + ' ' + expBadge + '</span>' +
-            '<button type="button" class="unknown-toggle unknown-toggle--sm' + (isUnknown ? ' is-active' : '') + '" data-v12-unknown="1"' + scopeAttr + ' aria-pressed="' + (isUnknown ? 'true' : 'false') + '"' + (ro ? ' disabled' : '') + '>Chưa rõ toàn bộ X-quang</button>' +
+            '<span class="field__label">' + esc(label) + ' ' + reqTag + ' ' + modBadgesHtml + ' ' + expBadge + '</span>' +
+            '<button type="button" class="unknown-toggle unknown-toggle--sm' + (isUnknown ? ' is-active unknown-toggle--group-active' : '') + '" data-v12-unknown="1"' + scopeAttr + ' aria-pressed="' + (isUnknown ? 'true' : 'false') + '"' + (ro ? ' disabled' : '') + '>' + (isUnknown ? '✓ Chưa rõ toàn bộ X-quang' : 'Chưa rõ toàn bộ X-quang') + '</button>' +
           '</div>' +
+          (isUnknown ? '<div class="wf-struct-unknown-banner" role="status">' + ICONS.lock + ' <span>Đang chọn Chưa rõ toàn bộ — bấm lại để nhập</span></div>' : '') +
+          unlockNoticeHtml +
           '<div class="wf-struct-grid wf-struct-grid--xray">' +
             '<div class="wf-struct-item">' +
               '<label class="wf-struct-item__label">Chỉ số tim/ngực — CTR <span class="field__help">(0.30–0.80, bước 0.01)</span></label>' +
@@ -3053,6 +3253,11 @@
             renderXrTri('pulmonary_congestion', 'Sung huyết phổi / đường Kerley B') +
             renderXrTri('pleural_effusion', 'Tràn dịch màng phổi') +
           '</div>' +
+          '<div class="wf-measured-row">' +
+            '<label class="field__help" for="v12-mat-xr-' + esc(scope) + '">Thời điểm chụp X-quang (tùy chọn):</label>' +
+            '<input id="v12-mat-xr-' + esc(scope) + '" type="datetime-local" class="input input--sm" data-v12-struct-measured-at="1"' + scopeAttr + ' value="' + esc(xrMeasuredLocal) + '"' + (ro || isUnknown ? ' disabled' : '') + '>' +
+          '</div>' +
+          (helpText ? '<p class="field__help">' + esc(helpText) + '</p>' : '') +
           (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
         '</div>'
       );
@@ -3075,8 +3280,203 @@
     const ro = Boolean(ctx.readonly);
     const prefix = ctx.mode === 'preview' ? 'prev-' : 'enc-';
     const isPreview = ctx.mode === 'preview';
+    const isV12Mode = Boolean(!isPreview && ctx.isV12);
+    const modFilter = isV12Mode ? (ctx.moduleFilter || 'all') : 'all';
+    const fieldMetaMap = isV12Mode ? (ctx.fieldMetadata || {}) : {};
+    const unlockedUnknowns = isV12Mode ? (ctx.unlockedUnknownCodes || {}) : {};
     const showListStates = Boolean(ctx.supportsListStates || isV11Bundle(ctx.formVersion, allSections, ctx.defById));
     const bundleHasVisitNotes = hasVisitNotesPlacements(allSections, ctx.defById);
+
+    const missingSetForMod = {};
+    if (isV12Mode && modFilter !== 'all' && ctx.workflowSummary && ctx.workflowSummary.modules && ctx.workflowSummary.modules[modFilter]) {
+      (ctx.workflowSummary.modules[modFilter].missingFieldCodes || []).forEach(function (fc) {
+        const resolved = resolveFormFieldCode(fieldMetaMap, fc);
+        missingSetForMod[resolved] = true;
+        missingSetForMod[fc] = true;
+      });
+    }
+
+    function fieldMatchesModuleFilter(code) {
+      if (!isV12Mode || modFilter === 'all') return true;
+      if (missingSetForMod[code]) return true;
+      const meta = getFieldMetaFromApi(fieldMetaMap, code);
+      if (meta && meta.input && Array.isArray(meta.modules) && meta.modules.indexOf(modFilter) >= 0) return true;
+      if (code === 'egfr_ckd_epi') {
+        const fMeta = getFieldMetaFromApi(fieldMetaMap, 'egfr_formula');
+        if (fMeta && fMeta.input && Array.isArray(fMeta.modules) && fMeta.modules.indexOf(modFilter) >= 0) return true;
+      }
+      return false;
+    }
+
+    function renderFieldModuleBadges(code) {
+      if (!isV12Mode) return '';
+      const meta = getFieldMetaFromApi(fieldMetaMap, code);
+      if (!meta || !meta.input || !Array.isArray(meta.modules) || meta.modules.length === 0) return '';
+      const tags = meta.modules.map(function (m) {
+        const isFiltered = modFilter === m;
+        return '<span class="mod-tag mod-tag--' + esc(m) + (isFiltered ? ' is-filtered' : '') + '">' + esc(m.toUpperCase()) + '</span>';
+      }).join('');
+      const missingBadge = (modFilter !== 'all' && missingSetForMod[code])
+        ? '<span class="badge badge--warn badge--xs">Thiếu cho ' + esc(modFilter.toUpperCase()) + '</span>'
+        : '';
+      return '<span class="mod-tag-group">' + tags + missingBadge + '</span>';
+    }
+
+    function getModHighlightClass(code) {
+      if (!isV12Mode || modFilter === 'all') return '';
+      if (missingSetForMod[code]) return ' field--mod-highlight field--mod-missing';
+      const meta = getFieldMetaFromApi(fieldMetaMap, code);
+      if (meta && meta.input && Array.isArray(meta.modules) && meta.modules.indexOf(modFilter) >= 0) {
+        return ' field--mod-highlight';
+      }
+      return '';
+    }
+
+    function renderV12TimedLabField(ff, fd) {
+      const code = fd.code;
+      const label = getFieldLabel(ff, fd);
+      const helpText = getFieldHelpText(ff, fd);
+      const val = ctx.valuesByDefId[fd.id] || null;
+      const compact = (val && val.answer && typeof val.answer === 'object') ? val.answer : visitValueToCompact(code, val, fd);
+      const isUnlocked = Boolean(unlockedUnknowns[code]);
+      const isUnknown = Boolean(compact && compact.value_state === 'unknown' && !isUnlocked);
+      const isAnswered = Boolean(compact && compact.value_state === 'answered');
+      const unit = WF_CONTRACT_UNITS[code] || fd.canonicalUnit || '';
+      const numStr = (isAnswered && compact.value !== null && compact.value !== undefined) ? String(compact.value) : '';
+      const measuredLocal = (isAnswered && compact.measuredAt) ? toDatetimeLocal(compact.measuredAt) : '';
+      const errMsg = (ctx.fieldErrors && ctx.fieldErrors[code]) || '';
+      const flags = getFieldMetaFlags(ff, fd);
+      const isReadonly = ro || flags.readonlyInput;
+      const reqTag = ff.requiredForConfirm ? '<span class="badge badge--warn badge--xs">Bắt buộc</span>' : '';
+      const modBadgesHtml = renderFieldModuleBadges(code);
+      const modCls = getModHighlightClass(code);
+      const cls = 'input' + (!compact ? ' input--unfilled' : '') + (isUnknown ? ' input--unknown' : '') + (errMsg ? ' input--error' : '');
+      const needsTime = isAnswered && !measuredLocal;
+      return (
+        '<div class="field v12-timed-lab' + modCls + (errMsg ? ' v12-field--error' : '') + '" data-field-code="' + esc(code) + '">' +
+          '<div class="field__label-row"><label class="field__label">' + esc(label) + ' ' + reqTag + ' ' + modBadgesHtml + '</label></div>' +
+          '<div class="input-row-unknown">' +
+            '<div class="input-unit-wrap">' +
+              '<input type="number" step="any" class="' + cls + '" data-enc-v12lab-num="' + esc(code) + '" data-enc-v12lab-unit="' + esc(unit) + '" placeholder="' + (isUnknown ? 'Chưa rõ' : 'Nhập số...') + '" value="' + esc(numStr) + '"' + (isReadonly || isUnknown ? ' disabled' : '') + '>' +
+              (unit ? '<span class="input-unit-wrap__unit">' + esc(unit) + '</span>' : '') +
+            '</div>' +
+            '<button type="button" class="unknown-toggle' + (isUnknown ? ' is-active' : '') + '" data-enc-v12lab-unknown="' + esc(code) + '" aria-pressed="' + (isUnknown ? 'true' : 'false') + '"' + (isReadonly ? ' disabled' : '') + '>Chưa rõ</button>' +
+          '</div>' +
+          (isUnlocked ? '<p class="field__help v12-unlock-hint">Đã mở khóa từ "Chưa rõ" — nhập giá trị mới để thay thế, hoặc giữ trống nếu muốn giữ nguyên "Chưa rõ".</p>' : '') +
+          '<div class="wf-measured-row">' +
+            '<label class="field__help" for="enc-mat-' + esc(code) + '">Thời điểm đo (bắt buộc khi nhập số):</label>' +
+            '<input id="enc-mat-' + esc(code) + '" type="datetime-local" class="input input--sm' + (needsTime ? ' input--error' : '') + '" data-enc-v12lab-time="' + esc(code) + '" value="' + esc(measuredLocal) + '"' + (isReadonly || isUnknown ? ' disabled' : '') + '>' +
+          '</div>' +
+          (helpText ? '<p class="field__help">' + esc(helpText) + '</p>' : '') +
+          (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
+        '</div>'
+      );
+    }
+
+    function renderV12StructuredListField(ff, fd) {
+      const code = fd.code;
+      const label = getFieldLabel(ff, fd);
+      const helpText = getFieldHelpText(ff, fd);
+      const val = ctx.valuesByDefId[fd.id] || null;
+      const compact = (val && val.answer && typeof val.answer === 'object') ? val.answer : null;
+      const isUnlocked = Boolean(unlockedUnknowns[code]);
+      const isUnknown = Boolean(compact && compact.value_state === 'unknown' && !isUnlocked);
+      const isAnswered = Boolean(compact && compact.value_state === 'answered');
+      const items = (isAnswered && Array.isArray(compact.value)) ? compact.value : [];
+      const curListState = isUnknown ? 'unknown' : (isAnswered ? (items.length > 0 ? 'known' : 'none') : 'unfilled');
+      const errMsg = (ctx.fieldErrors && ctx.fieldErrors[code]) || '';
+      const flags = getFieldMetaFlags(ff, fd);
+      const canEditList = !(ro || flags.readonlyInput);
+      const modBadgesHtml = renderFieldModuleBadges(code);
+      const modCls = getModHighlightClass(code);
+      const stateBadge = curListState === 'unknown'
+        ? '<span class="badge badge--info badge--xs">Chưa rõ</span>'
+        : (curListState === 'none'
+            ? '<span class="badge badge--success badge--xs">Đã xác nhận: Không có (0)</span>'
+            : (curListState === 'known'
+                ? '<span class="badge badge--success badge--xs">Có (' + items.length + ')</span>'
+                : '<span class="badge badge--warn badge--xs">Chưa xử lý</span>'));
+      let rowsHtml = '';
+      if (curListState === 'known' && items.length > 0) {
+        if (code === 'diagnoses') {
+          rowsHtml = '<div class="wf-list-editor">' + items.map(function (dx, idx) {
+            const dxCode = typeof dx === 'string' ? dx : (dx && dx.code ? dx.code : '');
+            return (
+              '<div class="wf-list-row wf-list-row--dx">' +
+                '<input type="text" class="input input--sm mono" data-enc-v12list-item="diagnoses:' + idx + ':code" value="' + esc(dxCode) + '" placeholder="Mã ICD-10 (VD: I10, E11, I50.9)"' + (!canEditList ? ' disabled' : '') + '>' +
+                (canEditList ? '<button type="button" class="btn btn--ghost btn--xs" data-enc-v12list-remove="diagnoses:' + idx + '" aria-label="Xóa chẩn đoán">' + ICONS.trash + '</button>' : '') +
+              '</div>'
+            );
+          }).join('') + '</div>';
+        } else if (code === 'medications') {
+          rowsHtml = '<div class="wf-list-editor">' + items.map(function (med, idx) {
+            const m = (med && typeof med === 'object') ? med : { id: 'med-' + (idx + 1), ingredient: String(med || '') };
+            const ingVal = m.ingredient || m.ingredientCode || m.activeIngredient || '';
+            const clsVal = m.class || '';
+            const doseVal = m.dose != null ? m.dose : '';
+            const unitVal = m.unit || m.doseUnit || '';
+            const routeVal = m.route || '';
+            const freqVal = m.frequency || '';
+            return (
+              '<div class="wf-list-row wf-list-row--med">' +
+                '<input type="text" class="input input--sm" data-enc-v12list-item="medications:' + idx + ':ingredient" value="' + esc(ingVal) + '" placeholder="Hoạt chất (VD: spironolactone)"' + (!canEditList ? ' disabled' : '') + '>' +
+                '<select class="select input--sm" data-enc-v12list-item="medications:' + idx + ':class"' + (!canEditList ? ' disabled' : '') + '>' +
+                  '<option value="">-- Nhóm thuốc --</option>' +
+                  WF_MED_CLASSES.map(function (c) { return '<option value="' + esc(c) + '"' + (clsVal === c ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('') +
+                '</select>' +
+                '<input type="number" step="any" min="0" class="input input--sm" data-enc-v12list-item="medications:' + idx + ':dose" value="' + esc(doseVal) + '" placeholder="Liều"' + (!canEditList ? ' disabled' : '') + '>' +
+                '<select class="select input--sm" data-enc-v12list-item="medications:' + idx + ':unit"' + (!canEditList ? ' disabled' : '') + '>' +
+                  '<option value="">Đơn vị</option>' +
+                  WF_MED_UNITS.map(function (u) { return '<option value="' + esc(u) + '"' + (unitVal === u ? ' selected' : '') + '>' + esc(u) + '</option>'; }).join('') +
+                '</select>' +
+                '<select class="select input--sm" data-enc-v12list-item="medications:' + idx + ':route"' + (!canEditList ? ' disabled' : '') + '>' +
+                  '<option value="">Đường dùng</option>' +
+                  WF_MED_ROUTES.map(function (r) { return '<option value="' + esc(r) + '"' + (routeVal === r ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join('') +
+                '</select>' +
+                '<select class="select input--sm" data-enc-v12list-item="medications:' + idx + ':frequency"' + (!canEditList ? ' disabled' : '') + '>' +
+                  '<option value="">Tần suất</option>' +
+                  WF_MED_FREQS.map(function (f) { return '<option value="' + esc(f.value) + '"' + (freqVal === f.value ? ' selected' : '') + '>' + esc(f.label) + '</option>'; }).join('') +
+                '</select>' +
+                (canEditList ? '<button type="button" class="btn btn--ghost btn--xs" data-enc-v12list-remove="medications:' + idx + '" aria-label="Xóa thuốc">' + ICONS.trash + '</button>' : '') +
+              '</div>'
+            );
+          }).join('') + '</div>';
+        } else if (code === 'allergies') {
+          rowsHtml = '<div class="wf-list-editor">' + items.map(function (alg, idx) {
+            const a = (alg && typeof alg === 'object') ? alg : { id: 'alg-' + (idx + 1), ingredient: String(alg || '') };
+            return (
+              '<div class="wf-list-row wf-list-row--dx">' +
+                '<input type="text" class="input input--sm" data-enc-v12list-item="allergies:' + idx + ':ingredient" value="' + esc(a.ingredient || a.allergen || '') + '" placeholder="Tác nhân dị ứng (VD: aspirin, contrast_media)"' + (!canEditList ? ' disabled' : '') + '>' +
+                (canEditList ? '<button type="button" class="btn btn--ghost btn--xs" data-enc-v12list-remove="allergies:' + idx + '" aria-label="Xóa dị ứng">' + ICONS.trash + '</button>' : '') +
+              '</div>'
+            );
+          }).join('') + '</div>';
+        }
+      } else if (curListState === 'none') {
+        rowsHtml = '<p class="field__help">Đã xác nhận không có mục nào (<code>[]</code>).</p>';
+      } else if (curListState === 'unknown') {
+        rowsHtml = '<p class="field__help">Đang ở trạng thái <strong>Chưa rõ</strong> (khác với xác nhận không có).</p>';
+      } else {
+        rowsHtml = '<p class="field__help">Thêm dòng có cấu trúc hoặc bấm "Xác nhận không có" / "Chưa rõ".</p>';
+      }
+      return (
+        '<div class="field field--span-2 wf-list-summary-field' + modCls + (errMsg ? ' v12-field--error' : '') + '" data-field-code="' + esc(code) + '">' +
+          '<div class="field__label-row">' +
+            '<span class="field__label">' + esc(label) + ' ' + stateBadge + ' ' + modBadgesHtml + '</span>' +
+            (canEditList ? (
+              '<div class="list-state-bar__group" role="group" aria-label="' + esc(label) + '">' +
+                '<button type="button" class="btn btn--secondary btn--xs" data-enc-v12list-add="' + esc(code) + '">' + ICONS.plus + ' Thêm dòng</button>' +
+                '<button type="button" class="list-state-btn' + (curListState === 'none' ? ' is-none' : '') + '" data-enc-v12list-state="' + esc(code) + ':none">Xác nhận không có</button>' +
+                '<button type="button" class="list-state-btn' + (curListState === 'unknown' ? ' is-unknown' : '') + '" data-enc-v12list-state="' + esc(code) + ':unknown">Chưa rõ</button>' +
+              '</div>'
+            ) : '') +
+          '</div>' +
+          rowsHtml +
+          (helpText ? '<p class="field__help">' + esc(helpText) + '</p>' : '') +
+          (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
+        '</div>'
+      );
+    }
 
     function renderListStateBar(kind, currentVal, titleLabel, barReadonly) {
       if (!showListStates) return '';
@@ -3111,22 +3511,33 @@
       const flags = getFieldMetaFlags(ff, fd);
       const isReadonly = ro || flags.readonlyInput;
       const reqTag = ff.requiredForConfirm ? '<span class="badge badge--warn badge--xs">Bắt buộc</span>' : '';
+      const modBadgesHtml = renderFieldModuleBadges(fd.code);
+      const modCls = getModHighlightClass(fd.code);
+      const isUnlocked = Boolean(unlockedUnknowns[fd.code]);
 
-      // Form v1.2: 9 experimental manual-entry widgets (F1: hydrated from workflowFields on encounter screen)
+      // Form v1.2: Structured list widgets (diagnoses, medications, allergies)
+      if (isV12Mode && isStructuredListCode(fd.code)) {
+        return renderV12StructuredListField(ff, fd);
+      }
+
+      // Form v1.2: 9 experimental manual-entry widgets
       if (isV12NineField(fd.code)) {
         const formulaDef = ctx.defByCode && ctx.defByCode.egfr_formula;
         const formulaVal = formulaDef ? ctx.valuesByDefId[formulaDef.id] : null;
-        const compactVal = (!isPreview && ctx.workflowFields && ctx.workflowFields[fd.code])
-          ? ctx.workflowFields[fd.code]
+        const compactVal = (val && val.answer && typeof val.answer === 'object')
+          ? val.answer
           : visitValueToCompact(fd.code, val, fd);
-        const formulaCompact = (!isPreview && ctx.workflowFields && ctx.workflowFields.egfr_formula)
-          ? ctx.workflowFields.egfr_formula
+        const formulaCompact = (formulaVal && formulaVal.answer && typeof formulaVal.answer === 'object')
+          ? formulaVal.answer
           : (formulaDef ? visitValueToCompact('egfr_formula', formulaVal, formulaDef) : null);
         return renderV12FieldControl(fd.code, {
           scope: isPreview ? 'prev' : 'enc',
           label: label,
           helpText: helpText,
           reqTag: reqTag,
+          modBadgesHtml: modBadgesHtml,
+          extraClass: modCls,
+          unlockedUnknown: isUnlocked,
           readonly: isReadonly,
           errMsg: errMsg,
           compactValue: compactVal,
@@ -3140,17 +3551,10 @@
       if (fd.code === 'egfr_formula' && ctx.defByCode && ctx.defByCode.egfr_ckd_epi) {
         return ''; // Rendered inline inside egfr_ckd_epi composite widget
       }
-      // Also support bat_thuong_cau_truc_tim stored in workflowFields (F1)
-      if (!isPreview && fd.storageLevel === 'workflow_value' && fd.dataType === 'boolean' && ctx.workflowFields && ctx.workflowFields[fd.code]) {
-        const wfc = ctx.workflowFields[fd.code];
-        const synthVal = wfc.value_state === 'unknown'
-          ? { valueState: 'unknown', valueBool: null }
-          : (wfc.value_state === 'answered' ? { valueState: 'answered', valueBool: Boolean(wfc.value) } : null);
-        if (synthVal) ctx.valuesByDefId[fd.id] = Object.assign(makeEmptyVisitValue(ctx.visit && ctx.visit.id, fd, synthVal.valueState), synthVal);
-      }
 
       // List-state system fields (medication_list_state, allergy_list_state, diagnosis_list_state)
       if (flags.isListStateField) {
+        if (isV12Mode) return ''; // Replaced by structured list widgets in v1.2
         const kind = (fd.code === 'medication_list_state' || fd.memberPath === 'medicationListState')
           ? 'medications'
           : ((fd.code === 'allergy_list_state' || fd.memberPath === 'allergyListState') ? 'allergies' : 'diagnoses');
@@ -3227,10 +3631,12 @@
           );
         }
         return (
-          '<div class="bmi-card" data-field-code="luot_tuoi">' +
-            '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--blue badge--xs">Tự tính</span></div>' +
+          '<div class="bmi-card' + modCls + '" data-field-code="luot_tuoi">' +
+            '<div class="bmi-card__label"><span>' + esc(label) + ' ' + modBadgesHtml + '</span><span class="badge badge--blue badge--xs">Tự tính</span></div>' +
             '<div class="bmi-card__value">' + (age !== null ? esc(age) + ' tuổi' : 'Chưa ghi nhận') + '</div>' +
-            '<div class="bmi-card__note">' + esc(customHelp || (ctx.patient ? formatBirthPrecision(ctx.patient) : 'Lấy từ hồ sơ hành chính')) + '</div>' +
+            '<div class="bmi-card__note">' + esc(customHelp || (ctx.patient ? formatBirthPrecision(ctx.patient) : 'Lấy từ hồ sơ hành chính')) +
+              (ctx.visit && ctx.visit.patientId ? ' · <button type="button" class="breadcrumbs__link" data-nav="#/patients/' + esc(ctx.visit.patientId) + '">Mở hồ sơ bệnh nhân ↗</button>' : '') +
+            '</div>' +
           '</div>'
         );
       }
@@ -3246,21 +3652,34 @@
           );
         }
         return (
-          '<div class="bmi-card" data-field-code="bn_gioi_tinh">' +
-            '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--info badge--xs">Trường hệ thống</span></div>' +
+          '<div class="bmi-card' + modCls + '" data-field-code="bn_gioi_tinh">' +
+            '<div class="bmi-card__label"><span>' + esc(label) + ' ' + modBadgesHtml + '</span><span class="badge badge--info badge--xs">Trường hệ thống</span></div>' +
             '<div class="bmi-card__value bmi-card__value--sm">' + esc(ctx.patient ? formatSex(ctx.patient.sex) : 'Chưa ghi nhận') + '</div>' +
-            '<div class="bmi-card__note">' + esc(customHelp || 'Đồng bộ từ hồ sơ hành chính bệnh nhân.') + '</div>' +
+            '<div class="bmi-card__note">' + esc(customHelp || 'Đồng bộ từ hồ sơ hành chính bệnh nhân.') +
+              (ctx.visit && ctx.visit.patientId ? ' · <button type="button" class="breadcrumbs__link" data-nav="#/patients/' + esc(ctx.visit.patientId) + '">Mở hồ sơ bệnh nhân ↗</button>' : '') +
+            '</div>' +
           '</div>'
         );
       }
 
       if (fd.code === 'so_luong_thuoc_dong_thoi') {
-        const allMeds = ctx.medications || [];
-        const validActiveCount = allMeds.filter(function (m) { return isValidMedRow(m) && m.status === 'active'; }).length;
-        const validTotalCount = allMeds.filter(isValidMedRow).length;
-        const valLabel = validTotalCount === 0
-          ? (ctx.medicationListState === 'none' ? '0 thuốc (đã xác nhận không dùng)' : 'Chưa ghi nhận thuốc')
-          : (validActiveCount + ' thuốc đang dùng');
+        let valLabel = '';
+        if (isV12Mode && ctx.defByCode && ctx.defByCode.medications && ctx.valuesByDefId[ctx.defByCode.medications.id]) {
+          const mv = ctx.valuesByDefId[ctx.defByCode.medications.id];
+          const mans = mv && mv.answer;
+          if (mans && mans.value_state === 'unknown') valLabel = 'Chưa rõ';
+          else if (mans && mans.value_state === 'answered' && Array.isArray(mans.value)) {
+            valLabel = mans.value.length === 0 ? '0 thuốc (đã xác nhận không dùng)' : (mans.value.length + ' thuốc đang dùng');
+          }
+        }
+        if (!valLabel) {
+          const allMeds = ctx.medications || [];
+          const validActiveCount = allMeds.filter(function (m) { return isValidMedRow(m) && m.status === 'active'; }).length;
+          const validTotalCount = allMeds.filter(isValidMedRow).length;
+          valLabel = validTotalCount === 0
+            ? (ctx.medicationListState === 'none' ? '0 thuốc (đã xác nhận không dùng)' : 'Chưa ghi nhận thuốc')
+            : (validActiveCount + ' thuốc đang dùng');
+        }
         return (
           '<div class="bmi-card" data-field-code="so_luong_thuoc_dong_thoi">' +
             '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--blue badge--xs">Tự tính</span></div>' +
@@ -3280,20 +3699,26 @@
         );
       }
 
-      // Tri-state boolean (Chưa điền vs Chưa rõ vs Có vs Không)
+      // Tri-state boolean (Chưa điền vs Chưa rõ vs Có vs Không) — strictly by fd.dataType === 'boolean'
       if (fd.dataType === 'boolean') {
         let effectiveVal = val;
+        if (effectiveVal && effectiveVal.answer && typeof effectiveVal.answer === 'object') {
+          effectiveVal = effectiveVal.answer.value_state === 'unknown'
+            ? { valueState: 'unknown', valueBool: null }
+            : (effectiveVal.answer.value_state === 'answered' ? { valueState: 'answered', valueBool: Boolean(effectiveVal.answer.value) } : null);
+        }
         if (!effectiveVal && fd.code === 'di_ung_thuoc_can_quang' && fd.storageLevel === 'allergy') {
           if ((ctx.allergies || []).some(function (a) { return a && a.agentCategory === 'contrast_media'; })) {
             effectiveVal = { valueState: 'answered', valueBool: true };
           }
         }
-        const curState = !effectiveVal ? 'unfilled' : (effectiveVal.valueState === 'unknown' ? 'unknown' : (effectiveVal.valueBool ? 'yes' : 'no'));
-        const statusText = curState === 'unfilled' ? 'Chưa điền' : (curState === 'unknown' ? 'Chưa rõ' : (curState === 'yes' ? 'Có' : 'Không'));
+        const curState = !effectiveVal ? 'unfilled' : (effectiveVal.valueState === 'unknown' ? (isUnlocked ? 'unfilled' : 'unknown') : (effectiveVal.valueBool ? 'yes' : 'no'));
+        const statusText = curState === 'unfilled' ? (isUnlocked ? 'Đang mở khóa' : 'Chưa điền') : (curState === 'unknown' ? 'Chưa rõ' : (curState === 'yes' ? 'Có' : 'Không'));
+        const boolHelp = helpText && helpText.toLowerCase() === 'thang thử nghiệm, chờ bác sĩ duyệt' ? '' : helpText;
         return (
-          '<div class="tristate' + (curState === 'unfilled' ? ' tristate--unfilled' : '') + (errMsg ? ' tristate--error' : '') + '" data-field-code="' + esc(fd.code) + '">' +
+          '<div class="tristate' + modCls + (curState === 'unfilled' ? ' tristate--unfilled' : '') + (errMsg ? ' tristate--error' : '') + '" data-field-code="' + esc(fd.code) + '">' +
             '<div class="tristate__head">' +
-              '<span class="field__label">' + esc(label) + ' ' + reqTag + '</span>' +
+              '<span class="field__label">' + esc(label) + ' ' + reqTag + ' ' + modBadgesHtml + '</span>' +
               '<span class="tristate__status">' + esc(statusText) + (curState !== 'unfilled' && !isReadonly ? ' · <button type="button" class="tristate__clear" data-' + prefix + 'tristate="' + esc(fd.id) + '" data-val="clear">Xóa chọn</button>' : '') + '</span>' +
             '</div>' +
             '<div class="tristate__group" role="group" aria-label="' + esc(label) + '">' +
@@ -3301,7 +3726,7 @@
               '<button type="button" class="tristate__btn' + (curState === 'yes' ? ' is-yes' : '') + '" data-' + prefix + 'tristate="' + esc(fd.id) + '" data-val="yes"' + (isReadonly ? ' disabled' : '') + '>Có</button>' +
               '<button type="button" class="tristate__btn' + (curState === 'no' ? ' is-no' : '') + '" data-' + prefix + 'tristate="' + esc(fd.id) + '" data-val="no"' + (isReadonly ? ' disabled' : '') + '>Không</button>' +
             '</div>' +
-            (helpText ? '<p class="field__help">' + esc(helpText) + '</p>' : '') +
+            (boolHelp ? '<p class="field__help">' + esc(boolHelp) + '</p>' : '') +
             (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
           '</div>'
         );
@@ -3309,7 +3734,7 @@
 
       // Numeric / Integer
       if (fd.dataType === 'number' || fd.dataType === 'integer') {
-        const isUnknown = val && val.valueState === 'unknown';
+        const isUnknown = Boolean(val && val.valueState === 'unknown' && !isUnlocked);
         const hasNum = val && val.valueState === 'answered' && val.valueNum !== null && val.valueNum !== undefined;
         const numStr = hasNum ? String(val.valueNum) : '';
         const isZero = hasNum && Number(val.valueNum) === 0;
@@ -3320,12 +3745,13 @@
             'placeholder="' + (isUnknown ? 'Chưa rõ' : 'Nhập số...') + '" ' +
             'value="' + esc(numStr) + '"' + (isReadonly || isUnknown ? ' disabled' : '') + '>';
         return (
-          '<div class="field" data-field-code="' + esc(fd.code) + '">' +
-            '<div class="field__label-row"><label class="field__label">' + esc(label) + ' ' + reqTag + '</label></div>' +
+          '<div class="field' + modCls + '" data-field-code="' + esc(fd.code) + '">' +
+            '<div class="field__label-row"><label class="field__label">' + esc(label) + ' ' + reqTag + ' ' + modBadgesHtml + '</label></div>' +
             '<div class="input-row-unknown">' +
               (fd.canonicalUnit ? ('<div class="input-unit-wrap">' + inputEl + '<span class="input-unit-wrap__unit">' + esc(fd.canonicalUnit) + '</span></div>') : inputEl) +
               '<button type="button" class="unknown-toggle' + (isUnknown ? ' is-active' : '') + '" data-' + prefix + 'toggle-unknown="' + esc(fd.id) + '"' + (isReadonly ? ' disabled' : '') + '>Chưa rõ</button>' +
             '</div>' +
+            (isUnlocked ? '<p class="field__help v12-unlock-hint">Đã mở khóa từ "Chưa rõ" — nhập giá trị mới để thay thế, hoặc giữ trống để giữ "Chưa rõ".</p>' : '') +
             (isZero ? '<span class="zero-chip">Đã nhập: 0 (khác với để trống)</span>' : '') +
             (helpText ? '<p class="field__help">' + esc(helpText) + '</p>' : '') +
             (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
@@ -3335,7 +3761,7 @@
 
       // Single Choice
       if (fd.dataType === 'single_choice') {
-        const isUnknown = val && val.valueState === 'unknown';
+        const isUnknown = Boolean(val && val.valueState === 'unknown' && !isUnlocked);
         const selId = val && val.valueState === 'answered' ? (val.fieldOptionId || '') : '';
         const cls = 'select' + (!val ? ' input--unfilled' : '') + (isUnknown ? ' input--unknown' : '') + (errMsg ? ' input--error' : '');
         const activeOpts = (fd.options || []).filter(function (o) { return o.isActive !== false; });
@@ -3343,12 +3769,13 @@
           return '<option value="' + esc(o.id) + '"' + (selId === o.id ? ' selected' : '') + '>' + esc(o.labelVi) + '</option>';
         }).join('');
         return (
-          '<div class="field" data-field-code="' + esc(fd.code) + '">' +
-            '<div class="field__label-row"><label class="field__label">' + esc(label) + ' ' + reqTag + '</label></div>' +
+          '<div class="field' + modCls + '" data-field-code="' + esc(fd.code) + '">' +
+            '<div class="field__label-row"><label class="field__label">' + esc(label) + ' ' + reqTag + ' ' + modBadgesHtml + '</label></div>' +
             '<div class="input-row-unknown">' +
               '<select class="' + cls + '" data-' + prefix + 'select="' + esc(fd.id) + '"' + (isReadonly || isUnknown ? ' disabled' : '') + '>' + opts + '</select>' +
               '<button type="button" class="unknown-toggle' + (isUnknown ? ' is-active' : '') + '" data-' + prefix + 'toggle-unknown="' + esc(fd.id) + '"' + (isReadonly ? ' disabled' : '') + '>Chưa rõ</button>' +
             '</div>' +
+            (isUnlocked ? '<p class="field__help v12-unlock-hint">Đã mở khóa từ "Chưa rõ" — chọn giá trị mới để thay thế.</p>' : '') +
             (helpText ? '<p class="field__help">' + esc(helpText) + '</p>' : '') +
             (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
           '</div>'
@@ -3357,7 +3784,7 @@
 
       // Multi Choice
       if (fd.dataType === 'multi_choice') {
-        const isUnknown = val && val.valueState === 'unknown';
+        const isUnknown = Boolean(val && val.valueState === 'unknown' && !isUnlocked);
         const chosenSet = {};
         if (val && val.valueState === 'answered' && Array.isArray(val.selectedOptions)) {
           val.selectedOptions.forEach(function (so) { chosenSet[so.fieldOptionId] = true; });
@@ -3372,8 +3799,8 @@
           );
         }).join('');
         return (
-          '<div class="field" data-field-code="' + esc(fd.code) + '">' +
-            '<div class="field__label-row"><span class="field__label">' + esc(label) + ' ' + reqTag + '</span><button type="button" class="unknown-toggle unknown-toggle--sm' + (isUnknown ? ' is-active' : '') + '" data-' + prefix + 'toggle-unknown="' + esc(fd.id) + '"' + (isReadonly ? ' disabled' : '') + '>Chưa rõ</button></div>' +
+          '<div class="field' + modCls + '" data-field-code="' + esc(fd.code) + '">' +
+            '<div class="field__label-row"><span class="field__label">' + esc(label) + ' ' + reqTag + ' ' + modBadgesHtml + '</span><button type="button" class="unknown-toggle unknown-toggle--sm' + (isUnknown ? ' is-active' : '') + '" data-' + prefix + 'toggle-unknown="' + esc(fd.id) + '"' + (isReadonly ? ' disabled' : '') + '>Chưa rõ</button></div>' +
             '<div class="multi-choice-box' + (!val ? ' multi-choice-box--unfilled' : '') + '">' + checks + '</div>' +
             (helpText ? '<p class="field__help">' + esc(helpText) + '</p>' : '') +
             (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
@@ -3381,13 +3808,13 @@
         );
       }
 
-      // Text / Date
-      const isUnknown = val && val.valueState === 'unknown';
+      // Text / Date (strictly text input for dataType === 'text', never boolean!)
+      const isUnknown = Boolean(val && val.valueState === 'unknown' && !isUnlocked);
       const txtVal = val && val.valueState === 'answered' ? (fd.dataType === 'date' ? (val.valueDate || '') : (val.valueText || '')) : '';
       const cls = 'input' + (!val ? ' input--unfilled' : '') + (isUnknown ? ' input--unknown' : '') + (errMsg ? ' input--error' : '');
       const isNoteField = /_ghi_chu$/.test(fd.code);
       return (
-        '<div class="field" data-field-code="' + esc(fd.code) + '">' +
+        '<div class="field' + modCls + '" data-field-code="' + esc(fd.code) + '">' +
           '<div class="field__label-row"><label class="field__label">' + esc(label) + ' ' + reqTag + '</label></div>' +
           '<div class="input-row-unknown">' +
             '<input type="' + (fd.dataType === 'date' ? 'date' : 'text') + '" class="' + cls + '" data-' + prefix + 'text="' + esc(fd.id) + '" placeholder="' + (isUnknown ? 'Chưa rõ' : (isNoteField ? 'Ghi chú chi tiết (tùy chọn)...' : 'Nhập thông tin...')) + '" value="' + esc(txtVal) + '"' + (isReadonly || isUnknown ? ' disabled' : '') + '>' +
@@ -4014,6 +4441,49 @@
           if (emittedGroups[g]) return;
           emittedGroups[g] = true;
           flushScalars();
+
+          // In v1.2, diagnoses/medications/allergies are edited via their single structured widgets
+          if (isV12Mode && isStructuredListCode(g) && ctx.defByCode && ctx.defByCode[g]) {
+            return;
+          }
+
+          if (g === 'labResults' && isV12Mode) {
+            const visLabs = visibleByGroup[g] || [];
+            const timedEntries = visLabs.filter(function (e) { return isTimedLabCode(e.fd.code); });
+            const otherEntries = visLabs.filter(function (e) { return !isTimedLabCode(e.fd.code); });
+            const timedCards = timedEntries.filter(function (e) {
+              if (!fieldMatchesModuleFilter(e.fd.code)) return false;
+              const lbl = getFieldLabel(e.ff, e.fd).toLowerCase();
+              if (q && lbl.indexOf(q) === -1 && e.fd.code.toLowerCase().indexOf(q) === -1) return false;
+              const val = ctx.valuesByDefId[e.fd.id];
+              const errMsg = ctx.fieldErrors && ctx.fieldErrors[e.fd.code];
+              if (filter === 'unfilled' && val) return false;
+              if (filter === 'error' && !errMsg) return false;
+              return true;
+            }).map(function (e) {
+              return renderV12TimedLabField(e.ff, e.fd);
+            }).join('');
+            if (timedCards) {
+              chunks.push(
+                '<div class="section-chunk" data-v12-timed-labs="1">' +
+                  '<div class="sub-heading">Xét nghiệm / Thăm dò định lượng chính (có thời điểm đo &amp; Chưa rõ)</div>' +
+                  '<div class="form-grid-2">' + timedCards + '</div>' +
+                '</div>'
+              );
+            }
+            const showOtherLabs = modFilter === 'all' || otherEntries.some(function (e) { return fieldMatchesModuleFilter(e.fd.code); });
+            if (showOtherLabs && otherEntries.length > 0) {
+              const otherHtml = renderLabsBlock(otherEntries);
+              if (otherHtml) chunks.push(otherHtml);
+            }
+            return;
+          }
+
+          if (modFilter !== 'all') {
+            const grpMatch = (visibleByGroup[g] || []).some(function (e) { return fieldMatchesModuleFilter(e.fd.code); });
+            if (!grpMatch) return;
+          }
+
           let blockHtml = '';
           if (g === 'orthostaticBp') blockHtml = renderOrthostaticBpBlock(visibleByGroup[g] || [], allByGroup[g] || []);
           else if (g === 'medications') blockHtml = renderMedicationsBlock(visibleByGroup[g] || []);
@@ -4023,6 +4493,9 @@
           if (blockHtml) chunks.push(blockHtml);
           return;
         }
+
+        // Module filter (D4) using API fieldMetadata
+        if (!fieldMatchesModuleFilter(entry.fd.code)) return;
 
         // Scalar / computed / patient / visit field filtering
         const lbl = getFieldLabel(entry.ff, entry.fd).toLowerCase();
@@ -4044,7 +4517,7 @@
 
       // Legacy v1.0 fallback: if Nhóm 8 does not yet carry info_source / clinical_note placements,
       // render them identically in BOTH Preview and Encounter so all 3 screens stay synchronized!
-      if (section.sectionCode === 'ghi_chu' && !bundleHasVisitNotes) {
+      if (section.sectionCode === 'ghi_chu' && !bundleHasVisitNotes && modFilter === 'all') {
         const showNotes = filter === 'all' || (filter === 'unfilled' && (!ctx.infoSource || !ctx.clinicalNote));
         const matchQ = !q || 'nguồn cung cấp thông tin lâm sàng ghi chú bác sĩ info_source clinical_note'.indexOf(q) >= 0;
         if (showNotes && matchQ) {
@@ -4056,7 +4529,7 @@
 
       flushScalars();
 
-      if ((q || filter !== 'all') && chunks.length === 0) {
+      if ((q || filter !== 'all' || modFilter !== 'all') && chunks.length === 0) {
         return '';
       }
 
@@ -4097,6 +4570,14 @@
       if (enc.fieldErrors && enc.fieldErrors[fd.code]) hasErr = true;
       const rep = getFieldRepeatInfo(fd);
       if (rep) {
+        if (enc.isV12 && isTimedLabCode(fd.code)) {
+          total += 1;
+          if (valuesByDefId[fd.id]) filled += 1;
+          return;
+        }
+        if (enc.isV12 && (rep.group === 'medications' || rep.group === 'allergies' || rep.group === 'diagnoses')) {
+          return;
+        }
         if (rep.group === 'labResults' && isLabMetadataColumnCode(fd)) return;
         seenGroups[rep.group] = true;
         return;
@@ -4144,6 +4625,178 @@
       if ((enc.labResults || []).some(function (l) { return isValidLabRow(l, defByCode || enc.defByCode); })) filled += 1;
     }
     return { filled: filled, total: total, hasErr: hasErr };
+  }
+
+  function renderEncounterWorkflowBar(enc) {
+    if (!enc.isV12 || !enc.workflowSummary || !enc.workflowSummary.modules) return '';
+    const wfSum = enc.workflowSummary;
+    const isConf = Boolean(enc.visit && enc.visit.status === 'confirmed');
+    const modules = wfSum.modules || {};
+    const fieldMeta = enc.fieldMetadata || {};
+
+    const cardsHtml = WF_MODULE_ORDER.map(function (mod) {
+      const meta = WF_MODULE_META[mod];
+      const ms = modules[mod] || { state: 'locked', attemptCount: 0, missingFieldCodes: [], missingDecisionCodes: [], availableActions: [] };
+      const isRunning = Boolean(ms.isRunning || enc.runningModule === mod);
+      const st = isRunning ? 'running' : (ms.state || 'locked');
+      const actions = Array.isArray(ms.availableActions) ? ms.availableActions : [];
+      const missingFields = Array.isArray(ms.missingFieldCodes) ? ms.missingFieldCodes : [];
+      const missingDecisions = Array.isArray(ms.missingDecisionCodes) ? ms.missingDecisionCodes : [];
+
+      let icon = ICONS.lock;
+      let statusLabel = 'Đã khóa';
+      if (st === 'locked') {
+        icon = ICONS.lock;
+        statusLabel = 'Đã khóa';
+      } else if (st === 'needs_input') {
+        icon = ICONS.alert;
+        statusLabel = 'Cần nhập';
+      } else if (st === 'ready') {
+        icon = ICONS.play;
+        statusLabel = 'Sẵn sàng chạy';
+      } else if (st === 'running') {
+        icon = '<span class="wf-spinner" aria-hidden="true"></span>';
+        statusLabel = 'Đang chạy...';
+      } else if (st === 'ran') {
+        icon = ICONS.clock;
+        statusLabel = 'Chờ duyệt (Lần #' + (ms.attemptCount || 1) + ')';
+      } else if (st === 'accepted') {
+        icon = ICONS.checkCircle;
+        statusLabel = ms.decisionSource === 'manual' ? 'Đã chốt · Tự nhập' : 'Đã chốt · AI';
+      } else if (st === 'stale') {
+        icon = ICONS.refresh;
+        statusLabel = 'Cần chạy lại';
+      }
+
+      const canRun = !isConf && !isRunning && !enc.runningModule && (actions.indexOf('run') >= 0 || actions.indexOf('rerun') >= 0);
+      const isRerun = actions.indexOf('rerun') >= 0 || (ms.attemptCount > 0 && actions.indexOf('run') >= 0);
+      const hasResult = ms.attemptCount > 0 || st === 'ran' || st === 'accepted' || st === 'stale';
+      const isExpMissing = enc.expandedMissingMod === mod && missingFields.length > 0;
+
+      const missingBtnHtml = missingFields.length > 0
+        ? '<button type="button" class="enc-wf-missing-btn' + (isExpMissing ? ' is-open' : '') + '" data-enc-wf-missing-mod="' + esc(mod) + '" title="Bấm để xem và nhảy tới ô còn thiếu">' +
+            'Còn thiếu ' + missingFields.length + ' trường ↗' +
+          '</button>'
+        : (missingDecisions.length > 0
+            ? '<span class="enc-wf-card__note">Chờ chọn đơn thuốc M3</span>'
+            : '');
+
+      const runBtnHtml = isRunning
+        ? '<button type="button" class="btn btn--primary btn--xs is-loading" disabled>Đang chạy Module ' + meta.num + '...</button>'
+        : (canRun
+            ? '<button type="button" class="btn btn--primary btn--xs" data-enc-wf-run="' + esc(mod) + '"' + (enc.saving ? ' disabled' : '') + '>' +
+                (isRerun ? ICONS.refresh : ICONS.play) + ' ' + (isRerun ? ('Chạy lại Module ' + meta.num) : ('Chạy Module ' + meta.num)) +
+              '</button>'
+            : '');
+
+      const viewBtnHtml = hasResult
+        ? '<button type="button" class="btn btn--secondary btn--xs" data-enc-wf-view="' + esc(mod) + '">Xem kết quả Module ' + meta.num + '</button>'
+        : '';
+
+      return (
+        '<div class="enc-wf-card enc-wf-card--' + esc(st) + '" data-enc-wf-module="' + esc(mod) + '" data-enc-wf-state="' + esc(st) + '">' +
+          '<div class="enc-wf-card__top">' +
+            '<span class="enc-wf-card__icon">' + icon + '</span>' +
+            '<span class="enc-wf-card__title">' + esc(meta.short) + '</span>' +
+            '<span class="enc-wf-card__status">' + esc(statusLabel) + '</span>' +
+          '</div>' +
+          '<div class="enc-wf-card__actions">' +
+            missingBtnHtml +
+            runBtnHtml +
+            viewBtnHtml +
+          '</div>' +
+        '</div>'
+      );
+    }).join('');
+
+    let missingDrawerHtml = '';
+    if (enc.expandedMissingMod && modules[enc.expandedMissingMod]) {
+      const mMod = enc.expandedMissingMod;
+      const mMeta = WF_MODULE_META[mMod] || { num: 1 };
+      const mList = modules[mMod].missingFieldCodes || [];
+      if (mList.length > 0) {
+        missingDrawerHtml =
+          '<div class="enc-wf-missing-drawer" data-enc-wf-missing-drawer="' + esc(mMod) + '">' +
+            '<div class="enc-wf-missing-drawer__head">' +
+              '<span><strong>Module ' + mMeta.num + '</strong> còn thiếu ' + mList.length + ' trường (bấm để nhảy tới ô nhập):</span>' +
+              '<button type="button" class="btn btn--ghost btn--xs" data-enc-wf-close-missing="1">Đóng</button>' +
+            '</div>' +
+            '<div class="ai-missing-chips">' +
+              mList.map(function (fc) {
+                const resolved = resolveFormFieldCode(fieldMeta, fc);
+                const fd = enc.defByCode[resolved] || enc.defByCode[fc];
+                const lbl = (fd && fd.labelVi) || AI_ISSUE_DISPLAY_LABELS[resolved] || AI_ISSUE_DISPLAY_LABELS[fc] || resolved;
+                return '<button type="button" class="jump-chip jump-chip--info ai-missing-chip" data-enc-wf-jump-missing="' + esc(mMod + ':' + resolved) + '">' + esc(lbl) + ' ↗</button>';
+              }).join('') +
+            '</div>' +
+          '</div>';
+      }
+    }
+
+    return (
+      '<section class="enc-wf-bar" role="region" aria-label="Tiến trình 4 Module">' +
+        '<div class="enc-wf-bar__head">' +
+          '<div class="enc-wf-bar__title">' +
+            '<strong>Tiến trình 4 Module</strong>' +
+            (wfSum.completed ? '<span class="badge badge--success badge--xs">Đã hoàn tất workflow</span>' : '') +
+            (enc.dirty ? '<span class="badge badge--warn badge--xs">Chưa lưu thay đổi mới nhất</span>' : '') +
+          '</div>' +
+          '<button type="button" class="btn btn--ghost btn--xs" data-nav="#/visits/' + esc(enc.visit.id) + '/workflow">Mở màn kết quả &amp; quyết định ' + ICONS.arrowRight + '</button>' +
+        '</div>' +
+        '<div class="enc-wf-bar__grid">' + cardsHtml + '</div>' +
+        missingDrawerHtml +
+      '</section>'
+    );
+  }
+
+  async function encRunModuleFromForm(mod) {
+    const enc = state.encounter;
+    if (!enc.visit || !enc.isV12 || enc.runningModule || enc.saving) return;
+    if (enc.visit.status === 'confirmed') return;
+    if (enc.dirty) {
+      const savedOk = await saveEncounterDraft();
+      if (!savedOk || enc.dirty) return;
+    }
+    const wfSum = enc.workflowSummary;
+    const ms = wfSum && wfSum.modules && wfSum.modules[mod];
+    const actions = (ms && Array.isArray(ms.availableActions)) ? ms.availableActions : [];
+    if (!wfSum || (actions.indexOf('run') < 0 && actions.indexOf('rerun') < 0)) {
+      toast('Module ' + wfFormatModuleTitle(mod) + ' chưa sẵn sàng chạy — kiểm tra các trường còn thiếu.', 'warn');
+      render();
+      return;
+    }
+    enc.runningModule = mod;
+    render();
+    try {
+      const payload = { module: mod, rowVersion: wfSum.rowVersion };
+      const receipt = await api.runWorkflowModule(enc.visit.id, mod, payload, wfSum.rowVersion, makeIdempotencyKey('wf-run-' + mod));
+      toast('Đã chạy ' + wfFormatModuleTitle(mod) + (receipt && receipt.attempt ? (' (Lần #' + receipt.attempt + ')') : '') + '.', 'success');
+      state.workflow.preferredModuleOnLoad = mod;
+      enc.runningModule = null;
+      navigate('#/visits/' + enc.visit.id + '/workflow', true);
+    } catch (err) {
+      enc.runningModule = null;
+      if (err && err.status === 401) return handleAuthOrError(err);
+      if (err && err.status === 409) {
+        toast((err && err.detail) || 'Trạng thái workflow đã thay đổi (409). Đang tải lại...', 'warn');
+        await loadEncounter(enc.visit.id);
+        return;
+      }
+      if (err && err.status === 422) {
+        const errs = Array.isArray(err.errors) ? err.errors : [];
+        if (errs.length > 0) {
+          enc.errorList = errs.map(function (e) {
+            return Object.assign({}, e, { fieldCode: resolveFormFieldCode(enc.fieldMetadata, e.fieldCode) });
+          });
+          enc.fieldErrors = {};
+          enc.errorList.forEach(function (e) { enc.fieldErrors[e.fieldCode] = e.message; });
+        }
+        toast((err && err.detail) || 'Chưa đủ dữ liệu hợp lệ để chạy ' + wfFormatModuleTitle(mod) + '.', 'error');
+      } else {
+        toast((err && err.detail) || 'Không thể chạy ' + wfFormatModuleTitle(mod) + '. Vui lòng thử lại.', 'error');
+      }
+      render();
+    }
   }
 
   function renderEncounter() {
@@ -4209,11 +4862,15 @@
     const sectionCard = renderClinicalSectionForm({
       mode: 'encounter',
       readonly: isConf,
+      isV12: enc.isV12,
+      workflowSummary: enc.workflowSummary,
+      fieldMetadata: enc.fieldMetadata,
+      moduleFilter: enc.moduleFilter,
+      unlockedUnknownCodes: enc.unlockedUnknownCodes,
       sections: enc.formStructure.sections,
       defById: enc.defById,
       defByCode: enc.defByCode,
       valuesByDefId: enc.valuesByDefId,
-      workflowFields: enc.workflowFields,
       orthostaticBp: enc.orthostaticBp,
       medications: enc.medications,
       allergies: enc.allergies,
@@ -4251,6 +4908,16 @@
 
     const perfDoctorName = v.performedByName || v.performingDoctorName || v.createdByName || '';
     const lastEditorName = v.updatedByName || v.lastEditedByName || '';
+    const hasModMeta = enc.isV12 && enc.fieldMetadata && Object.keys(enc.fieldMetadata).length > 0;
+    const modFilterBarHtml = hasModMeta ? (
+      '<div class="enc-mod-filter-bar" role="group" aria-label="Hiện trường cần cho">' +
+        '<span class="enc-mod-filter-bar__label">Hiện trường cần cho:</span>' +
+        ['m1', 'm2', 'm3', 'm4', 'all'].map(function (mf) {
+          const lbl = mf === 'all' ? 'Tất cả' : mf.toUpperCase();
+          return '<button type="button" class="filter-pill' + (enc.moduleFilter === mf ? ' is-active' : '') + '" data-enc-mod-filter="' + esc(mf) + '" aria-pressed="' + (enc.moduleFilter === mf ? 'true' : 'false') + '">' + esc(lbl) + '</button>';
+        }).join('') +
+      '</div>'
+    ) : '';
 
     const body =
       '<div class="encounter-sticky-head">' +
@@ -4268,12 +4935,13 @@
           '</div>' +
         '</div>' +
         '<div class="encounter-sticky-head__right">' +
-          (isFormV12(enc.formStructure && enc.formStructure.formVersion, enc.formStructure && enc.formStructure.fieldDefinitions)
+          (enc.isV12
             ? '<button type="button" class="btn btn--navy btn--sm" data-nav="#/visits/' + esc(v.id) + '/workflow">Luồng 4 Module AI ' + ICONS.arrowRight + '</button>'
             : '<span class="badge badge--neutral" title="Biểu mẫu cũ — chỉ hỗ trợ luồng AI ở v1.2">Biểu mẫu cũ — chỉ hỗ trợ luồng AI ở v1.2</span>') +
           '<button type="button" class="btn btn--secondary btn--sm" data-nav="#/patients/' + esc(v.patientId) + '">' + ICONS.arrowLeft + ' Về hồ sơ</button>' +
         '</div>' +
       '</div>' +
+      renderEncounterWorkflowBar(enc) +
       confirmedBanner + conflictBanner + errBanner +
       '<div class="encounter-layout">' +
         '<aside class="group-rail" aria-label="Mục lục 8 nhóm biểu mẫu">' +
@@ -4289,6 +4957,7 @@
               '<button type="button" class="filter-pill' + (enc.fieldFilter === 'error' ? ' is-active' : '') + '" data-enc-filter="error">Cần kiểm tra (' + enc.errorList.length + ')</button>' +
             '</div>' +
           '</div>' +
+          modFilterBarHtml +
           sectionCard +
           footerBar +
         '</div>' +
@@ -4977,10 +5646,6 @@
       }
     });
 
-    // Preserve unsaved local dirty edits
-    Object.keys(wf.dirtyFields || {}).forEach(function (k) {
-      if (wf.dirtyFields[k]) map[k] = clone(wf.dirtyFields[k]);
-    });
     wf.fieldValues = map;
   }
 
@@ -5092,7 +5757,6 @@
       wf.formRes = null;
       wf.visitDetail = null;
       wf.activeModule = 'm1';
-      wf.editingModule = null;
       wf.manualModeModule = null;
       wf.manualDraft = null;
       wf.manualReason = '';
@@ -5103,11 +5767,8 @@
       wf.runCache = {};
       wf.decisionCache = {};
       wf.expandedUpstream = {};
-      wf.optionalOpen = {};
-      wf.dirtyFields = {};
       wf.fieldValues = {};
-      wf.savedFieldCodes = {};
-      wf.fieldOwners = {};
+      wf.fieldMetadata = {};
       wf.observations = [];
       wf.recentTestEvidence = {};
       wf.recentTestEvidenceDirty = false;
@@ -5125,12 +5786,11 @@
         const res = await api.getVisitWorkflow(visitId, { module: 'm4' });
         wf.data = res;
         wf.activeModule = 'm4';
-        // BUG-10: Hydrate doctor confirmations for Pharmacist read-only M4 view
         if (res && res.output) wfSyncM4DraftFromOutput(wf, res.output, false);
       } else {
         const [wfRes, fieldsRes, visitDetail, formRes] = await Promise.all([
           api.getVisitWorkflow(visitId),
-          api.getWorkflowFields(visitId, 'm1').catch(function () { return null; }),
+          api.getWorkflowFields(visitId, 'm2').catch(function () { return null; }),
           api.getVisit(visitId).catch(function () { return null; }),
           api.getVisitForm(visitId).catch(function () { return null; })
         ]);
@@ -5138,8 +5798,6 @@
         if (fieldsRes) {
           if (fieldsRes.fields && typeof fieldsRes.fields === 'object') {
             wf.data = Object.assign({}, wfRes, { fields: fieldsRes.fields });
-            wf.savedFieldCodes = {};
-            Object.keys(fieldsRes.fields).forEach(function (k) { wf.savedFieldCodes[k] = true; });
           }
           if (Array.isArray(fieldsRes.observations)) {
             wf.observations = clone(fieldsRes.observations);
@@ -5147,11 +5805,16 @@
           if (fieldsRes.recentTestEvidence && typeof fieldsRes.recentTestEvidence === 'object' && !wf.recentTestEvidenceDirty) {
             wf.recentTestEvidence = clone(fieldsRes.recentTestEvidence);
           }
-          wf.fieldOwners = wfExtractFieldOwners(fieldsRes);
+          if (fieldsRes.fieldMetadata && typeof fieldsRes.fieldMetadata === 'object') {
+            wf.fieldMetadata = clone(fieldsRes.fieldMetadata);
+          }
         }
         if (visitDetail) {
           wf.visitDetail = visitDetail;
           wf.visit = visitDetail.visit || null;
+          if (visitDetail.fieldMetadata && typeof visitDetail.fieldMetadata === 'object') {
+            wf.fieldMetadata = clone(visitDetail.fieldMetadata);
+          }
         }
         if (formRes) wf.formRes = formRes;
         if (wf.visit && wf.visit.patientId && (!wf.patient || wf.patient.id !== wf.visit.patientId)) {
@@ -5170,14 +5833,17 @@
           wf.selectedPrescription = clone(m3dec.selectedPrescription);
         }
 
-        // F3 / BUG-10: Hydrate M4 confirmations from GET /workflow?module=m4 projection first, then decision/run
+        // Hydrate M4 confirmations from GET /workflow?module=m4 projection first, then decision/run
         const m4ms = wf.data && wf.data.modules && wf.data.modules.m4;
         const m4dec = m4ms && m4ms.effectiveDecisionId && wf.decisionCache[m4ms.effectiveDecisionId];
         const m4run = m4ms && m4ms.latestRunId && wf.runCache[m4ms.latestRunId];
         const m4Out = wf.m4ProjectionOutput || (m4dec && m4dec.output) || (m4run && m4run.output) || null;
         if (m4Out) wfSyncM4DraftFromOutput(wf, m4Out, Boolean(o.keepM4Draft));
 
-        if (!o.keepModule && wf.data && wf.data.modules) {
+        if (wf.preferredModuleOnLoad && wf.data && wf.data.modules && wf.data.modules[wf.preferredModuleOnLoad] && wf.data.modules[wf.preferredModuleOnLoad].state !== 'locked') {
+          wf.activeModule = wf.preferredModuleOnLoad;
+          wf.preferredModuleOnLoad = null;
+        } else if (!o.keepModule && wf.data && wf.data.modules) {
           const preferred = WF_MODULE_ORDER.find(function (m) {
             const st = wf.data.modules[m] && wf.data.modules[m].state;
             return st && st !== 'locked' && st !== 'accepted';
@@ -5303,82 +5969,36 @@
     }
   }
 
-  async function wfSaveFields(mod, opts) {
+  async function wfSaveRecentTestEvidence(opts) {
     const wf = state.workflow;
     if (!wf.data || wf.savingFields || wf.runningModule) return false;
-    const dirtyCodes = Object.keys(wf.dirtyFields || {}).filter(function (code) {
-      return wfGetFieldOwner(wf, code, mod) === mod;
-    });
-    const sendRecentEvidence = mod === 'm2' && Boolean(wf.recentTestEvidenceDirty);
-    if (dirtyCodes.length === 0 && !sendRecentEvidence) return true;
-
-    // Client-side validation for the 9 v1.2 fields + F2 measuredAt for timed labs
-    const localErrors = [];
-    dirtyCodes.forEach(function (code) {
-      const entry = wf.dirtyFields[code];
-      let msg = validateV12CompactField(code, entry);
-      if (!msg && WF_TIMED_LAB_CODES.indexOf(code) >= 0 && entry && entry.value_state === 'answered') {
-        if (!entry.measuredAt) {
-          msg = 'Vui lòng nhập thời điểm đo (measuredAt) cho xét nghiệm này — không dùng giờ lượt khám thay thế.';
-        }
-      }
-      if (msg) {
-        wf.fieldErrors[code] = msg;
-        localErrors.push({ fieldCode: code, message: msg });
-      } else {
-        delete wf.fieldErrors[code];
-      }
-    });
-    if (localErrors.length > 0) {
-      wf.bannerErrorStatus = 422;
-      wf.bannerErrorCode = 'FIELD_OUT_OF_RANGE';
-      wf.bannerErrorFields = localErrors;
-      wf.bannerError = 'Phát hiện ' + localErrors.length + ' trường thiếu thời điểm đo hoặc ngoài khoảng hợp lệ. Bấm vào từng mục bên dưới để nhảy tới ô cần sửa.';
-      render();
-      return false;
-    }
-
+    if (!wf.recentTestEvidenceDirty) return true;
     wf.savingFields = true;
     wf.bannerError = '';
     wf.bannerErrorFields = [];
     render();
     try {
-      const patchFields = {};
-      dirtyCodes.forEach(function (code) {
-        const cleaned = clone(wf.dirtyFields[code]);
-        if (cleaned && typeof cleaned === 'object') delete cleaned.ownerModule;
-        patchFields[code] = cleaned;
-      });
       const payload = {
-        module: mod,
+        module: 'm2',
         rowVersion: wf.data.rowVersion,
-        fields: patchFields
+        fields: {},
+        recentTestEvidence: clone(wf.recentTestEvidence || {})
       };
-      if (sendRecentEvidence) {
-        payload.recentTestEvidence = clone(wf.recentTestEvidence || {});
-      }
-      const res = await api.saveWorkflowFields(wf.visitId, mod, payload, wf.data.rowVersion);
-      dirtyCodes.forEach(function (code) {
-        wf.savedFieldCodes[code] = true;
-        if (JSON.stringify(wf.dirtyFields[code]) === JSON.stringify(patchFields[code])) {
-          delete wf.dirtyFields[code];
-        }
-      });
-      if (sendRecentEvidence) wf.recentTestEvidenceDirty = false;
-      wf.fieldErrors = {};
+      const res = await api.saveWorkflowFields(wf.visitId, 'm2', payload, wf.data.rowVersion);
+      wf.recentTestEvidenceDirty = false;
       const inv = (res && Array.isArray(res.invalidatedModules) && res.invalidatedModules.length > 0) ? res.invalidatedModules : [];
       if (!opts || !opts.quiet) {
         toast(
           inv.length > 0
-            ? ('Đã lưu thay đổi. Các bước bị đánh dấu "Cần chạy lại": ' + inv.map(wfFormatModuleTitle).join(', ') + '.')
-            : 'Đã lưu dữ liệu bước ' + wfFormatModuleTitle(mod) + '.',
+            ? ('Đã lưu xác nhận dùng lại xét nghiệm. Các bước cần chạy lại: ' + inv.map(wfFormatModuleTitle).join(', ') + '.')
+            : 'Đã lưu xác nhận dùng lại xét nghiệm gần đây.',
           inv.length > 0 ? 'warn' : 'success'
         );
       }
       await loadWorkflow(wf.visitId, { silent: true, keepModule: true, keepPrescription: true, keepM4Draft: true });
       return true;
     } catch (err) {
-      wfApplyApiErrorBanner(err, mod);
+      wfApplyApiErrorBanner(err, 'm2');
       render();
       return false;
     } finally {
@@ -5390,9 +6010,8 @@
   async function wfRunModule(mod) {
     const wf = state.workflow;
     if (!wf.data || wf.runningModule || wf.submittingAction) return;
-    const modDirty = Object.keys(wf.dirtyFields || {}).some(function (code) { return wfGetFieldOwner(wf, code, mod) === mod; });
-    if (modDirty || (mod === 'm2' && wf.recentTestEvidenceDirty)) {
-      const savedOk = await wfSaveFields(mod, { quiet: true });
+    if (mod === 'm2' && wf.recentTestEvidenceDirty) {
+      const savedOk = await wfSaveRecentTestEvidence({ quiet: true });
       if (!savedOk) return;
     }
     wf.runningModule = mod;
@@ -5402,14 +6021,12 @@
     try {
       const payload = { module: mod, rowVersion: wf.data.rowVersion };
       const receipt = await api.runWorkflowModule(wf.visitId, mod, payload, wf.data.rowVersion, makeIdempotencyKey('wf-run-' + mod));
-      wf.editingModule = null;
       wf.manualModeModule = null;
       delete wf.historySelectedRun[mod];
       delete wf.lastRunErrors[mod];
       if (receipt && receipt.runId) {
         try {
           const fullRun = await api.getWorkflowRun(wf.visitId, mod, receipt.runId);
-          // BUG-09: Immediately upsert into wf.historyRuns[mod] so history drawer is complete before reload!
           wfUpsertHistoryRun(wf, mod, fullRun);
         } catch (_e) {}
       }
@@ -5779,6 +6396,37 @@
     }
   }
 
+  function wfOpenFormForModule(mod, fieldCode) {
+    const wf = state.workflow;
+    if (!wf.visitId) return;
+    state.encounter.pendingModuleFilter = mod || 'all';
+    if (fieldCode) {
+      const resolved = resolveFormFieldCode(wf.fieldMetadata, fieldCode);
+      state.encounter.highlightFieldCode = resolved;
+    } else {
+      state.encounter.highlightFieldCode = null;
+    }
+    navigate('#/visits/' + wf.visitId, true);
+  }
+
+  async function wfProceedEditToForm(mod) {
+    const wf = state.workflow;
+    const ms = wf.data && wf.data.modules && wf.data.modules[mod];
+    // For a 'ran' module, entering explicit edit mode allows immediate rerun on return even without changing values
+    if (ms && ms.state === 'ran' && wf.data && wf.data.rowVersion) {
+      try {
+        await api.saveWorkflowFields(wf.visitId, mod, {
+          module: mod,
+          rowVersion: wf.data.rowVersion,
+          fields: {},
+          editing: true
+        }, wf.data.rowVersion);
+      } catch (_ignored) {}
+    }
+    wf.manualModeModule = null;
+    wfOpenFormForModule(mod, null);
+  }
+
   function wfRequestEdit(mod) {
     const wf = state.workflow;
     if (!wf.data || !wf.data.modules) return;
@@ -5796,73 +6444,7 @@
       openModal({ type: 'wf-edit-confirm', module: mod, downstreamNames: affected });
       return;
     }
-    wf.activeModule = mod;
-    wf.editingModule = mod;
-    wf.manualModeModule = null;
-    render();
-  }
-
-  function wfJumpToField(fieldCode) {
-    if (!fieldCode) return;
-    const wf = state.workflow;
-    const mod = wf.activeModule;
-    const ms = wf.data && wf.data.modules && wf.data.modules[mod];
-    const stepSpec = WF_STEP_FIELDS[mod] || { required: [], optional: [] };
-    const reqList = stepSpec.required || [];
-    const optList = stepSpec.optional || [];
-    let needsRender = false;
-
-    // Ensure the step form is visible (if currently collapsed in ran/accepted/stale) when jumping to a field
-    if (ms && !wf.isPharmacistView && !wf.manualModeModule && ms.state !== 'needs_input' && ms.state !== 'ready' && wf.editingModule !== mod) {
-      if (reqList.indexOf(fieldCode) >= 0 || optList.indexOf(fieldCode) >= 0) {
-        wf.editingModule = mod;
-        needsRender = true;
-      }
-    }
-    if (optList.indexOf(fieldCode) >= 0 && !wf.optionalOpen[mod]) {
-      wf.optionalOpen[mod] = true;
-      needsRender = true;
-    }
-    if (needsRender) render();
-
-    const doScrollAndFocus = function () {
-      const el = document.querySelector('.wf-stage-card [data-field-code="' + CSS.escape(fieldCode) + '"]') ||
-                 document.querySelector('[data-field-code="' + CSS.escape(fieldCode) + '"]');
-      if (!el) return;
-      el.classList.remove('field--highlight');
-      try { void el.offsetWidth; } catch (_e) {}
-      el.classList.add('field--highlight');
-
-      // Prefer focusing the errored control first (e.g. missing measuredAt or invalid number), else first enabled input
-      const focusable =
-        el.querySelector('input.input--error:not(:disabled), select.input--error:not(:disabled), textarea.input--error:not(:disabled)') ||
-        el.querySelector('input:not(:disabled), select:not(:disabled), textarea:not(:disabled)') ||
-        el.querySelector('button:not(:disabled)');
-      // Focus with preventScroll BEFORE scrolling so Chromium never interrupts smooth scrolling
-      if (focusable && typeof focusable.focus === 'function') {
-        try { focusable.focus({ preventScroll: true }); } catch (_e) {}
-      }
-      if (typeof el.getBoundingClientRect === 'function' && typeof global.scrollTo === 'function') {
-        const rect = el.getBoundingClientRect();
-        const sticky = document.querySelector('.encounter-sticky-head');
-        const stickyH = sticky ? sticky.getBoundingClientRect().height : 84;
-        const desiredTop = Math.max(0, (global.scrollY || document.documentElement.scrollTop || 0) + rect.top - Math.max(stickyH + 28, Math.round((global.innerHeight - rect.height) / 2)));
-        try {
-          global.scrollTo({ top: desiredTop, behavior: 'smooth' });
-        } catch (_e) {
-          if (typeof el.scrollIntoView === 'function') el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      } else if (typeof el.scrollIntoView === 'function') {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-      setTimeout(function () { el.classList.remove('field--highlight'); }, 2000);
-    };
-
-    if (typeof global.requestAnimationFrame === 'function') {
-      global.requestAnimationFrame(function () { setTimeout(doScrollAndFocus, 20); });
-    } else {
-      setTimeout(doScrollAndFocus, 30);
-    }
+    wfProceedEditToForm(mod);
   }
 
   function renderWorkflowStepper(wf) {
@@ -5996,204 +6578,6 @@
     return '<div class="wf-upstream-stack" aria-label="Tóm tắt các bước trước">' + rows.join('') + '</div>';
   }
 
-  function renderWfGenericField(wf, code, isReadonly) {
-    const val = wf.fieldValues[code] || null;
-    const isUnknown = Boolean(val && val.value_state === 'unknown');
-    const isAnswered = Boolean(val && val.value_state === 'answered');
-    const errMsg = wf.fieldErrors[code] || '';
-    const label = AI_ISSUE_DISPLAY_LABELS[code] || code;
-    const activeMod = wf.activeModule || 'm1';
-    const ownerMod = wfGetFieldOwner(wf, code, activeMod);
-    const isForeignOwner = code !== 'age' && code !== 'sex' && code !== 'selected_medications' && ownerMod !== activeMod;
-    const effectiveReadonly = Boolean(isReadonly || isForeignOwner);
-    const ownerBannerHtml = isForeignOwner
-      ? (
-        '<div class="wf-owner-strip" data-wf-owner-mod="' + esc(ownerMod) + '">' +
-          '<span class="badge badge--neutral badge--xs">Thuộc ' + esc(wfFormatModuleTitle(ownerMod)) + ' (chỉ đọc)</span>' +
-          '<button type="button" class="btn btn--ghost btn--xs" data-wf-jump-owner="' + esc(ownerMod + ':' + code) + '">Sửa ở ' + esc(wfFormatModuleTitle(ownerMod)) + ' ↗</button>' +
-        '</div>'
-      )
-      : '';
-
-    if (isV12NineField(code)) {
-      // F6: Pass explicit unit from cls_creatinin without guessing mg/dL
-      const creat = (wf.fieldValues.cls_creatinin && wf.fieldValues.cls_creatinin.value_state === 'answered' && wf.fieldValues.cls_creatinin.unit)
-        ? { value: wf.fieldValues.cls_creatinin.value, unit: wf.fieldValues.cls_creatinin.unit }
-        : null;
-      const curW = wf.fieldValues.can_nang_kg && wf.fieldValues.can_nang_kg.value_state === 'answered'
-        ? wf.fieldValues.can_nang_kg.value
-        : null;
-      const age = wf.fieldValues.age && wf.fieldValues.age.value_state === 'answered' ? wf.fieldValues.age.value : null;
-      const sex = wf.fieldValues.sex && wf.fieldValues.sex.value_state === 'answered' ? wf.fieldValues.sex.value : null;
-      const widgetHtml = renderV12FieldControl(code, {
-        scope: 'wf',
-        label: label,
-        readonly: effectiveReadonly,
-        errMsg: errMsg,
-        compactValue: val,
-        egfrFormulaCompact: wf.fieldValues.egfr_formula || null,
-        currentWeightKg: curW,
-        creatinineInfo: creat,
-        patientAge: age,
-        patientSex: sex
-      });
-      return isForeignOwner ? ('<div class="field--span-2 wf-foreign-wrap">' + ownerBannerHtml + widgetHtml + '</div>') : widgetHtml;
-    }
-
-    if (code === 'age' || code === 'sex') {
-      const disp = code === 'age'
-        ? (isAnswered ? (val.value + ' tuổi') : 'Chưa ghi nhận (cần nhập trong Hồ sơ bệnh nhân)')
-        : (isAnswered ? formatSex(val.value) : 'Chưa ghi nhận (cần nhập trong Hồ sơ bệnh nhân)');
-      return (
-        '<div class="bmi-card" data-field-code="' + esc(code) + '">' +
-          '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--info badge--xs">Hồ sơ bệnh nhân</span></div>' +
-          '<div class="bmi-card__value bmi-card__value--sm">' + esc(disp) + '</div>' +
-          (wf.visit && wf.visit.patientId ? '<div class="bmi-card__note"><button type="button" class="breadcrumbs__link" data-nav="#/patients/' + esc(wf.visit.patientId) + '">Mở hồ sơ bệnh nhân ↗</button></div>' : '') +
-        '</div>'
-      );
-    }
-
-    // BUG-06 (D3): Structured list editors for diagnoses (ICD-10), medications (C1 drug), allergies
-    if (code === 'diagnoses' || code === 'medications' || code === 'allergies' || code === 'selected_medications') {
-      const items = isAnswered && Array.isArray(val.value) ? val.value : [];
-      const curListState = isUnknown ? 'unknown' : (isAnswered ? (items.length > 0 ? 'known' : 'none') : 'unfilled');
-      const stateBadge = curListState === 'unknown'
-        ? '<span class="badge badge--info badge--xs">Chưa rõ</span>'
-        : (curListState === 'none'
-            ? '<span class="badge badge--success badge--xs">Đã xác nhận: Không có (0)</span>'
-            : (curListState === 'known'
-                ? '<span class="badge badge--success badge--xs">Có (' + items.length + ')</span>'
-                : '<span class="badge badge--warn badge--xs">Chưa xử lý</span>'));
-      const canEditList = !effectiveReadonly && code !== 'selected_medications';
-      let rowsHtml = '';
-      if (code === 'selected_medications') {
-        rowsHtml = items.length > 0
-          ? '<div class="wf-chip-list">' + items.map(function (it) {
-              const txt = typeof it === 'string' ? it : (it.display || it.ingredient || it.ingredientCode || JSON.stringify(it));
-              return '<span class="badge badge--blue">' + esc(txt) + (it && it.class ? (' · ' + esc(it.class)) : '') + (it && it.dose ? (' ' + esc(it.dose) + ' ' + esc(it.unit || '')) : '') + '</span>';
-            }).join('') + '</div>'
-          : '<p class="field__help">Lấy từ phương án đơn thuốc đã chọn khi chốt Module 3.</p>';
-      } else if (curListState === 'known' && items.length > 0) {
-        if (code === 'diagnoses') {
-          rowsHtml = '<div class="wf-list-editor">' + items.map(function (dx, idx) {
-            const dxCode = typeof dx === 'string' ? dx : (dx && dx.code ? dx.code : '');
-            return (
-              '<div class="wf-list-row wf-list-row--dx">' +
-                '<input type="text" class="input input--sm mono" data-wf-list-item="diagnoses:' + idx + ':code" value="' + esc(dxCode) + '" placeholder="Mã ICD-10 (VD: I10, E11, I50.9)"' + (!canEditList ? ' disabled' : '') + '>' +
-                (canEditList ? '<button type="button" class="btn btn--ghost btn--xs" data-wf-list-remove="diagnoses:' + idx + '" aria-label="Xóa chẩn đoán">' + ICONS.trash + '</button>' : '') +
-              '</div>'
-            );
-          }).join('') + '</div>';
-        } else if (code === 'medications') {
-          rowsHtml = '<div class="wf-list-editor">' + items.map(function (med, idx) {
-            const m = (med && typeof med === 'object') ? med : { id: 'med-' + (idx + 1), ingredient: String(med || '') };
-            return (
-              '<div class="wf-list-row wf-list-row--med">' +
-                '<input type="text" class="input input--sm" data-wf-list-item="medications:' + idx + ':ingredient" value="' + esc(m.ingredient || m.activeIngredient || '') + '" placeholder="Hoạt chất (VD: spironolactone)"' + (!canEditList ? ' disabled' : '') + '>' +
-                '<select class="select input--sm" data-wf-list-item="medications:' + idx + ':class"' + (!canEditList ? ' disabled' : '') + '>' +
-                  '<option value="">-- Nhóm thuốc --</option>' +
-                  WF_MED_CLASSES.map(function (c) { return '<option value="' + esc(c) + '"' + (m.class === c ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('') +
-                '</select>' +
-                '<input type="number" step="any" min="0" class="input input--sm" data-wf-list-item="medications:' + idx + ':dose" value="' + esc(m.dose != null ? m.dose : '') + '" placeholder="Liều"' + (!canEditList ? ' disabled' : '') + '>' +
-                '<select class="select input--sm" data-wf-list-item="medications:' + idx + ':unit"' + (!canEditList ? ' disabled' : '') + '>' +
-                  '<option value="">Đơn vị</option>' +
-                  WF_MED_UNITS.map(function (u) { return '<option value="' + esc(u) + '"' + (m.unit === u ? ' selected' : '') + '>' + esc(u) + '</option>'; }).join('') +
-                '</select>' +
-                '<select class="select input--sm" data-wf-list-item="medications:' + idx + ':route"' + (!canEditList ? ' disabled' : '') + '>' +
-                  '<option value="">Đường dùng</option>' +
-                  WF_MED_ROUTES.map(function (r) { return '<option value="' + esc(r) + '"' + (m.route === r ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join('') +
-                '</select>' +
-                '<select class="select input--sm" data-wf-list-item="medications:' + idx + ':frequency"' + (!canEditList ? ' disabled' : '') + '>' +
-                  '<option value="">Tần suất</option>' +
-                  WF_MED_FREQS.map(function (f) { return '<option value="' + esc(f.value) + '"' + (m.frequency === f.value ? ' selected' : '') + '>' + esc(f.label) + '</option>'; }).join('') +
-                '</select>' +
-                (canEditList ? '<button type="button" class="btn btn--ghost btn--xs" data-wf-list-remove="medications:' + idx + '" aria-label="Xóa thuốc">' + ICONS.trash + '</button>' : '') +
-              '</div>'
-            );
-          }).join('') + '</div>';
-        } else if (code === 'allergies') {
-          rowsHtml = '<div class="wf-list-editor">' + items.map(function (alg, idx) {
-            const a = (alg && typeof alg === 'object') ? alg : { id: 'alg-' + (idx + 1), ingredient: String(alg || '') };
-            return (
-              '<div class="wf-list-row wf-list-row--dx">' +
-                '<input type="text" class="input input--sm" data-wf-list-item="allergies:' + idx + ':ingredient" value="' + esc(a.ingredient || a.allergen || '') + '" placeholder="Tác nhân dị ứng (VD: aspirin, contrast_media)"' + (!canEditList ? ' disabled' : '') + '>' +
-                (canEditList ? '<button type="button" class="btn btn--ghost btn--xs" data-wf-list-remove="allergies:' + idx + '" aria-label="Xóa dị ứng">' + ICONS.trash + '</button>' : '') +
-              '</div>'
-            );
-          }).join('') + '</div>';
-        }
-      } else if (curListState === 'none') {
-        rowsHtml = '<p class="field__help">Đã xác nhận không có mục nào (<code>[]</code>).</p>';
-      } else if (curListState === 'unknown') {
-        rowsHtml = '<p class="field__help">Đang ở trạng thái <strong>Chưa rõ</strong> (khác với xác nhận không có).</p>';
-      } else {
-        rowsHtml = '<p class="field__help">Thêm dòng có cấu trúc hoặc bấm "Xác nhận không có" / "Chưa rõ".</p>';
-      }
-      return (
-        '<div class="field field--span-2 wf-list-summary-field" data-field-code="' + esc(code) + '">' +
-          ownerBannerHtml +
-          '<div class="field__label-row">' +
-            '<span class="field__label">' + esc(label) + ' ' + stateBadge + '</span>' +
-            (canEditList ? (
-              '<div class="list-state-bar__group" role="group" aria-label="' + esc(label) + '">' +
-                '<button type="button" class="btn btn--secondary btn--xs" data-wf-list-add="' + esc(code) + '">' + ICONS.plus + ' Thêm dòng</button>' +
-                '<button type="button" class="list-state-btn' + (curListState === 'none' ? ' is-none' : '') + '" data-wf-list-state="' + esc(code) + ':none">Xác nhận không có</button>' +
-                '<button type="button" class="list-state-btn' + (curListState === 'unknown' ? ' is-unknown' : '') + '" data-wf-list-state="' + esc(code) + ':unknown">Chưa rõ</button>' +
-              '</div>'
-            ) : '') +
-          '</div>' +
-          rowsHtml +
-          (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
-        '</div>'
-      );
-    }
-
-    // Boolean tristate fields
-    const boolCodes = ['tinh_mach_co_noi', 'ran_am_phoi', 'bat_thuong_cau_truc_tim', 'tang_huyet_ap', 'dai_thao_duong', 'copd', 'thieu_mau', 'di_ung_thuoc_can_quang', 'ts_thiet_bi_cay_ghep_chong_chi_dinh_mri', 'tinh_trang_worsening_decompensated', 'tinh_trang_sung_huyet', 'giam_tuoi_mau_ngoai_vi'];
-    if (boolCodes.indexOf(code) >= 0) {
-      const curState = !val ? 'unfilled' : (isUnknown ? 'unknown' : (val.value === true ? 'yes' : 'no'));
-      const statusText = curState === 'unfilled' ? 'Chưa điền' : (curState === 'unknown' ? 'Chưa rõ' : (curState === 'yes' ? 'Có' : 'Không'));
-      return (
-        '<div class="tristate' + (curState === 'unfilled' ? ' tristate--unfilled' : '') + (errMsg ? ' tristate--error' : '') + '" data-field-code="' + esc(code) + '">' +
-          ownerBannerHtml +
-          '<div class="tristate__head"><span class="field__label">' + esc(label) + '</span><span class="tristate__status">' + esc(statusText) + '</span></div>' +
-          '<div class="tristate__group" role="group" aria-label="' + esc(label) + '">' +
-            '<button type="button" class="tristate__btn' + (curState === 'unknown' ? ' is-unknown' : '') + '" data-wf-tri="' + esc(code) + ':unknown"' + (effectiveReadonly ? ' disabled' : '') + '>Chưa rõ</button>' +
-            '<button type="button" class="tristate__btn' + (curState === 'yes' ? ' is-yes' : '') + '" data-wf-tri="' + esc(code) + ':yes"' + (effectiveReadonly ? ' disabled' : '') + '>Có</button>' +
-            '<button type="button" class="tristate__btn' + (curState === 'no' ? ' is-no' : '') + '" data-wf-tri="' + esc(code) + ':no"' + (effectiveReadonly ? ' disabled' : '') + '>Không</button>' +
-          '</div>' +
-          (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
-        '</div>'
-      );
-    }
-
-    // Numeric clinical / lab fields — BUG-03: cls_creatinin uses contract unit umol/L; F2/BUG-02: timed labs include measuredAt
-    const isTimedLab = WF_TIMED_LAB_CODES.indexOf(code) >= 0;
-    const unit = WF_CONTRACT_UNITS[code] || (val && val.unit) || '';
-    const numStr = (isAnswered && val.value !== null && val.value !== undefined) ? String(val.value) : '';
-    const measuredLocal = (val && val.measuredAt) ? toDatetimeLocal(val.measuredAt) : '';
-    const cls = 'input' + (!val ? ' input--unfilled' : '') + (isUnknown ? ' input--unknown' : '') + (errMsg ? ' input--error' : '');
-    return (
-      '<div class="field' + (isForeignOwner ? ' field--readonly-foreign' : '') + '" data-field-code="' + esc(code) + '">' +
-        ownerBannerHtml +
-        '<div class="field__label-row"><label class="field__label">' + esc(label) + '</label></div>' +
-        '<div class="input-row-unknown">' +
-          (unit
-            ? '<div class="input-unit-wrap"><input type="number" step="any" class="' + cls + '" data-wf-num="' + esc(code) + '" data-wf-unit="' + esc(unit) + '" placeholder="' + (isUnknown ? 'Chưa rõ' : 'Nhập số...') + '" value="' + esc(numStr) + '"' + (effectiveReadonly || isUnknown ? ' disabled' : '') + '><span class="input-unit-wrap__unit">' + esc(unit) + '</span></div>'
-            : '<input type="text" class="' + cls + '" data-wf-text="' + esc(code) + '" placeholder="' + (isUnknown ? 'Chưa rõ' : 'Nhập thông tin...') + '" value="' + esc(numStr) + '"' + (effectiveReadonly || isUnknown ? ' disabled' : '') + '>') +
-          '<button type="button" class="unknown-toggle' + (isUnknown ? ' is-active' : '') + '" data-wf-unknown="' + esc(code) + '" data-wf-unit="' + esc(unit) + '"' + (effectiveReadonly ? ' disabled' : '') + '>Chưa rõ</button>' +
-        '</div>' +
-        (isTimedLab ? (
-          '<div class="wf-measured-row">' +
-            '<label class="field__help" for="wf-mat-' + esc(code) + '">Thời điểm đo (bắt buộc khi nhập số):</label>' +
-            '<input id="wf-mat-' + esc(code) + '" type="datetime-local" class="input input--sm' + (isAnswered && !measuredLocal ? ' input--error' : '') + '" data-wf-measured-at="' + esc(code) + '" value="' + esc(measuredLocal) + '"' + (effectiveReadonly || isUnknown ? ' disabled' : '') + '>' +
-          '</div>'
-        ) : '') +
-        (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
-      '</div>'
-    );
-  }
-
   function renderM2RecentTestEvidenceBox(wf, isReadonly) {
     const obsList = Array.isArray(wf.observations) ? wf.observations : [];
     const rows = [];
@@ -6216,7 +6600,12 @@
     });
     return (
       '<div class="wf-reuse-box" data-wf-recent-evidence="1">' +
-        '<h4>Xác nhận dùng lại xét nghiệm gần đây (cửa sổ 30 ngày)</h4>' +
+        '<div class="wf-reuse-box__head">' +
+          '<h4>Xác nhận dùng lại xét nghiệm gần đây (cửa sổ 30 ngày)</h4>' +
+          (!isReadonly && wf.recentTestEvidenceDirty
+            ? '<button type="button" class="btn btn--secondary btn--xs' + (wf.savingFields ? ' is-loading' : '') + '" data-wf-save-evidence="1"' + (wf.savingFields ? ' disabled' : '') + '>' + (wf.savingFields ? 'Đang lưu...' : 'Lưu xác nhận dùng lại') + '</button>'
+            : '') +
+        '</div>' +
         (rows.length === 0
           ? '<p class="field__help">Chưa có quan sát cận lâm sàng nào kèm thời điểm đo hợp lệ để xác nhận dùng lại.</p>'
           : '<div class="wf-reuse-list">' + rows.join('') + '</div>') +
@@ -6713,7 +7102,6 @@
       : ((wf.data.modules && wf.data.modules[mod]) || { module: mod, state: 'locked', attemptCount: 0, availableActions: [], missingFieldCodes: [], staleReasons: [] });
 
     const isRunning = Boolean(ms.isRunning || wf.runningModule === mod);
-    const isEditing = !isPharm && (wf.editingModule === mod || Boolean(ms.isEditing));
     const isManual = !isPharm && wf.manualModeModule === mod;
     const actions = Array.isArray(ms.availableActions) ? ms.availableActions : [];
     const hasAction = function (act) { return !isPharm && !isRunning && !wf.submittingAction && !wf.savingFields && actions.indexOf(act) >= 0; };
@@ -6729,7 +7117,6 @@
           '</div>' +
           '<div class="encounter-sticky-head__meta">' +
             (v ? ('<span class="tabular">' + esc(formatDateTime(v.visitDate)) + ' · ' + esc(formatVisitType(v.visitType)) + '</span>') : '') +
-            '<span> · Phiên bản đồng bộ #' + esc(wf.data.rowVersion) + '</span>' +
           '</div>' +
         '</div>' +
         '<div class="encounter-sticky-head__right">' +
@@ -6749,8 +7136,9 @@
           (wf.bannerErrorFields.length > 0 ? (
             '<div class="ai-missing-chips" style="margin-top:8px;">' +
               wf.bannerErrorFields.map(function (ef) {
-                const lbl = AI_ISSUE_DISPLAY_LABELS[ef.fieldCode] || ef.fieldCode;
-                return '<button type="button" class="jump-chip jump-chip--info ai-missing-chip" data-wf-jump-field="' + esc(ef.fieldCode) + '">' + esc(lbl) + ' ↗</button>';
+                const resolved = resolveFormFieldCode(wf.fieldMetadata, ef.fieldCode);
+                const lbl = AI_ISSUE_DISPLAY_LABELS[resolved] || AI_ISSUE_DISPLAY_LABELS[ef.fieldCode] || resolved;
+                return '<button type="button" class="jump-chip jump-chip--info ai-missing-chip" data-wf-open-form="' + esc(mod + ':' + resolved) + '">' + esc(lbl) + ' ↗</button>';
               }).join('') +
             '</div>'
           ) : '') +
@@ -6787,46 +7175,46 @@
         '</div>';
     }
 
-    // Missing fields banner with clickable jump chips
-    const missingCodes = Array.isArray(ms.missingFieldCodes) ? ms.missingFieldCodes : [];
-    const missingBanner = (!isPharm && missingCodes.length > 0 && (ms.state === 'needs_input' || isEditing)) ? (
+    // D5: Results & Decisions ONLY — Missing fields redirect to the 8-group form (filter to mod & focus exact field)
+    const missingCodes = (Array.isArray(ms.missingFieldCodes) ? ms.missingFieldCodes : []).filter(function (fc) { return fc !== 'selected_medications'; });
+    const firstMissingResolved = missingCodes.length > 0 ? resolveFormFieldCode(wf.fieldMetadata, missingCodes[0]) : '';
+    const missingBanner = (!isPharm && missingCodes.length > 0) ? (
       '<div class="ai-missing-block wf-missing-banner">' +
-        '<div class="ai-missing-block__title">' + ICONS.alert + ' Còn thiếu ' + missingCodes.length + ' trường để bật nút "Chạy Module ' + meta.num + '" (bấm vào từng trường để nhảy tới ô):</div>' +
+        '<div class="wf-missing-banner__head">' +
+          '<div class="ai-missing-block__title">' + ICONS.alert + ' Còn thiếu ' + missingCodes.length + ' trường để bật nút "Chạy Module ' + meta.num + '":</div>' +
+          '<button type="button" class="btn btn--primary btn--sm" data-wf-open-form="' + esc(mod + ':' + firstMissingResolved) + '">Nhập trong biểu mẫu ↗</button>' +
+        '</div>' +
         '<div class="ai-missing-chips">' +
           missingCodes.map(function (fc) {
-            const lbl = AI_ISSUE_DISPLAY_LABELS[fc] || fc;
-            const suffix = (fc === 'age' || fc === 'sex') ? ' (Mở hồ sơ bệnh nhân ↗)' : ' ↗';
-            return '<button type="button" class="jump-chip jump-chip--info ai-missing-chip" data-wf-jump-field="' + esc(fc) + '">' + esc(lbl + suffix) + '</button>';
+            const resolved = resolveFormFieldCode(wf.fieldMetadata, fc);
+            const fd = wf.formRes && Array.isArray(wf.formRes.fieldDefinitions)
+              ? wf.formRes.fieldDefinitions.find(function (d) { return d.code === resolved || d.code === fc; })
+              : null;
+            const lbl = (fd && fd.labelVi) || AI_ISSUE_DISPLAY_LABELS[resolved] || AI_ISSUE_DISPLAY_LABELS[fc] || resolved;
+            return '<button type="button" class="jump-chip jump-chip--info ai-missing-chip" data-wf-open-form="' + esc(mod + ':' + resolved) + '">' + esc(lbl) + ' ↗</button>';
           }).join('') +
         '</div>' +
       '</div>'
     ) : '';
 
-    // Step Form (open in needs_input / ready / editing; collapsed summary when ran / accepted / stale and not editing)
-    const showFormOpen = !isPharm && !isManual && (ms.state === 'needs_input' || ms.state === 'ready' || isEditing);
-    const stepSpec = WF_STEP_FIELDS[mod] || { required: [], optional: [] };
-    const dirtyCount = Object.keys(wf.dirtyFields || {}).filter(function (c) { return wfGetFieldOwner(wf, c, mod) === mod; }).length + (mod === 'm2' && wf.recentTestEvidenceDirty ? 1 : 0);
-    const stepFormHtml = showFormOpen ? (
-      '<section class="wf-form-section" aria-label="Biểu mẫu bước ' + esc(meta.full) + '">' +
-        '<div class="wf-form-section__head">' +
-          '<h3>Dữ liệu đầu vào của Module ' + meta.num + '</h3>' +
-          (dirtyCount > 0 ? '<span class="badge badge--warn">Có ' + dirtyCount + ' mục chưa lưu</span>' : '') +
+    // D5: Decision-only guidance when awaiting run (no input fields rendered on workflow screen)
+    const preRunHintHtml = (!isPharm && !isManual && (ms.state === 'needs_input' || ms.state === 'ready')) ? (
+      '<div class="wf-decision-hint">' +
+        '<div class="wf-decision-hint__text">' +
+          (ms.state === 'ready'
+            ? '<strong>Dữ liệu đầu vào cho Module ' + meta.num + ' đã đủ.</strong> Bấm <em>' + (ms.attemptCount > 0 ? ('Chạy lại Module ' + meta.num) : ('Chạy Module ' + meta.num)) + '</em> bên dưới để xem kết quả, hoặc mở biểu mẫu nếu cần bổ sung.'
+            : 'Mọi dữ liệu lâm sàng được nhập tại <strong>Biểu mẫu 8 nhóm</strong>. Hoàn thiện các trường còn thiếu rồi bấm Chạy Module ' + meta.num + '.') +
         '</div>' +
-        (stepSpec.required.length > 0
-          ? '<div class="wf-form-grid">' + stepSpec.required.map(function (fc) { return renderWfGenericField(wf, fc, isRunning); }).join('') + '</div>'
-          : '<p class="field__help">Module ' + meta.num + ' sử dụng dữ liệu và kết quả đã chốt từ các bước trước.</p>') +
-        (mod === 'm2' ? renderM2RecentTestEvidenceBox(wf, isRunning) : '') +
-        (stepSpec.optional.length > 0 ? (
-          '<div class="wf-optional-wrap">' +
-            '<button type="button" class="btn btn--ghost btn--sm" data-wf-toggle-optional="' + esc(mod) + '">' +
-              (wf.optionalOpen[mod] ? ICONS.up : ICONS.down) + ' ' +
-              (wf.optionalOpen[mod] ? 'Ẩn trường tùy chọn' : ('Hiện thêm trường tùy chọn (' + stepSpec.optional.length + ')')) +
-            '</button>' +
-            (wf.optionalOpen[mod] ? '<div class="wf-form-grid" style="margin-top:12px;">' + stepSpec.optional.map(function (fc) { return renderWfGenericField(wf, fc, isRunning); }).join('') + '</div>' : '') +
-          '</div>'
-        ) : '') +
-      '</section>'
+        '<button type="button" class="btn btn--secondary btn--sm" data-wf-open-form="' + esc(mod + (firstMissingResolved ? (':' + firstMissingResolved) : '')) + '">' +
+          (missingCodes.length > 0 ? 'Nhập trong biểu mẫu ↗' : ('Mở biểu mẫu (lọc ' + esc(mod.toUpperCase()) + ') ↗')) +
+        '</button>' +
+      '</div>'
     ) : '';
+
+    // M2 decision control: Confirm reuse of recent lab/imaging tests
+    const m2EvidenceHtml = (!isPharm && !isManual && mod === 'm2' && ms.state !== 'locked')
+      ? renderM2RecentTestEvidenceBox(wf, isRunning)
+      : '';
 
     // Output panel (visible when ran / accepted / stale, or pharmacist M4 view)
     const outInfo = wfGetEffectiveOrLatestOutput(wf, mod);
@@ -6892,36 +7280,30 @@
         statusNote = 'Đang chạy mô phỏng... các nút tạm khóa để tránh bấm 2 lần.';
         btns.push('<button type="button" class="btn btn--primary is-loading" disabled>Đang chạy Module ' + meta.num + '...</button>');
       } else {
-        if (isEditing) {
-          btns.push('<button type="button" class="btn btn--ghost" data-wf-cancel-edit="1">Hủy sửa</button>');
-        }
-        if (showFormOpen) {
-          btns.push('<button type="button" class="btn btn--secondary' + (wf.savingFields ? ' is-loading' : '') + '" data-wf-save-fields="' + esc(mod) + '"' + (dirtyCount === 0 || wf.savingFields ? ' disabled' : '') + '>' + (wf.savingFields ? 'Đang lưu...' : 'Lưu nháp') + '</button>');
-        }
-        if (hasAction('edit') && !isEditing) {
+        if (hasAction('edit')) {
           btns.push('<button type="button" class="btn btn--secondary" data-wf-action="edit" data-wf-module="' + esc(mod) + '">' + ICONS.edit + ' Chỉnh sửa</button>');
         }
         if (hasAction('run')) {
           btns.push('<button type="button" class="btn btn--primary" data-wf-action="run" data-wf-module="' + esc(mod) + '">' + ICONS.play + ' Chạy Module ' + meta.num + '</button>');
         } else if (ms.state === 'needs_input' && !hasAction('rerun')) {
-          const tip = 'Còn thiếu ' + missingCodes.length + ' trường bắt buộc cho Module ' + meta.num + ' — hoàn thiện các trường bên dưới để bật nút này.';
+          const tip = 'Còn thiếu ' + missingCodes.length + ' trường bắt buộc cho Module ' + meta.num + ' — nhập trong biểu mẫu 8 nhóm để bật nút này.';
           btns.push('<button type="button" class="btn btn--primary" data-wf-disabled-action="run" disabled title="' + esc(tip) + '">' + ICONS.play + ' Chạy Module ' + meta.num + '</button>');
           statusNote = tip;
         }
-        if (hasAction('rerun') || (isEditing && !isRunning && !wf.submittingAction && !wf.savingFields && (hasAction('edit') || ms.isEditing) && missingCodes.length === 0)) {
+        if (hasAction('rerun')) {
           btns.push('<button type="button" class="btn btn--primary" data-wf-action="rerun" data-wf-module="' + esc(mod) + '">' + ICONS.refresh + ' Chạy lại Module ' + meta.num + '</button>');
         }
-        if (!isEditing && hasAction('continue_next') && meta.nextNum) {
+        if (hasAction('continue_next') && meta.nextNum) {
           btns.push('<button type="button" class="btn btn--primary" data-wf-action="continue_next" data-wf-module="' + esc(mod) + '">Tiếp tục sang Module ' + meta.nextNum + ' ' + ICONS.arrowRight + '</button>');
         }
-        if (!isEditing && hasAction('accept_ai')) {
+        if (hasAction('accept_ai')) {
           btns.push('<button type="button" class="btn btn--primary" data-wf-action="accept_ai" data-wf-module="' + esc(mod) + '">' + ICONS.checkCircle + ' Sử dụng kết quả AI</button>');
         }
-        if (!isEditing && hasAction('manual_override')) {
+        if (hasAction('manual_override')) {
           const manLabel = mod === 'm4' ? 'Tự nhập đánh giá an toàn và hoàn tất' : 'Tự nhập chẩn đoán và tiếp tục';
           btns.push('<button type="button" class="btn btn--navy" data-wf-action="manual_override" data-wf-module="' + esc(mod) + '">' + ICONS.edit + ' ' + esc(manLabel) + '</button>');
         }
-        if (mod === 'm4' && !isEditing) {
+        if (mod === 'm4') {
           if (hasAction('complete')) {
             btns.push('<button type="button" class="btn btn--primary" data-wf-action="complete" data-wf-module="m4">' + ICONS.checkCircle + ' Hoàn tất workflow</button>');
           } else if (ms.state === 'ran' || (ms.state === 'accepted' && !wf.data.completed)) {
@@ -6946,7 +7328,7 @@
         '<div class="card__header wf-stage-card__head">' +
           '<div>' +
             '<h2 class="card__title">' + esc(meta.full) + '</h2>' +
-            '<p class="card__subtitle">Luồng chạy từng bước theo hợp đồng <code>hf-workflow/1.0</code> — không chạy chuỗi tự động.</p>' +
+            '<p class="card__subtitle">Màn xem kết quả và quyết định theo từng bước — không chạy chuỗi tự động.</p>' +
           '</div>' +
           '<div class="wf-stage-card__badges">' +
             '<span class="badge badge--' + esc(stateInfo.badgeCls) + '">' + esc(stateInfo.label) + '</span>' +
@@ -6957,7 +7339,8 @@
           errorBanner +
           staleBanner +
           missingBanner +
-          stepFormHtml +
+          preRunHintHtml +
+          m2EvidenceHtml +
           outputPanelHtml +
           manualFormHtml +
         '</div>' +
@@ -7231,7 +7614,6 @@
               '<div class="field"><label class="field__label">Mã chuẩn hóa (field_definition.code)</label><input class="input mono" value="' + esc(activeFD.code) + '" disabled></div>' +
               '<div class="field"><label class="field__label">Mức lưu trữ &amp; Phạm vi</label><input class="input" value="' + esc(formatStorageLevelVi(activeFD.storageLevel) + ' · ' + formatScopeVi(activeFD.scopeStatus)) + '" disabled></div>' +
               (activeFD.repeatGroup ? '<div class="field"><label class="field__label">Nhóm lặp &amp; Cột (repeatGroup / memberPath)</label><input class="input mono" value="' + esc(activeFD.repeatGroup + (activeFD.memberPath ? '.' + activeFD.memberPath : '')) + '" disabled></div>' : '') +
-              '<div class="field"><label class="field__label">Nguồn tham chiếu chuyên môn</label><input class="input" value="' + esc(activeFD.sourceRef || '—') + '" disabled></div>' +
             '</div>' +
           '</details>'
         );
@@ -7853,11 +8235,11 @@
       html =
         '<div class="modal__head"><h2 class="modal__title" id="modal-title">Chỉnh sửa dữ liệu ' + esc(mTitle) + '?</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Đóng">' + ICONS.x + '</button></div>' +
         '<div class="modal__body">' +
-          '<div class="banner banner--warn" style="margin-bottom:0;"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">Nếu bạn lưu thay đổi ở <strong>' + esc(mTitle) + '</strong>, các bước phía sau đã chạy (<strong>' + esc(affectedStr) + '</strong>) sẽ được gắn nhãn <strong>"Cần chạy lại"</strong>. Hệ thống sẽ không tự chạy lại các module này.</p></div></div></div>' +
+          '<div class="banner banner--warn" style="margin-bottom:0;"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">Hệ thống sẽ mở lại <strong>Biểu mẫu khám bệnh</strong> và lọc sẵn các trường của <strong>' + esc(mTitle) + '</strong>. Khi bạn lưu thay đổi, các bước phía sau đã chạy (<strong>' + esc(affectedStr) + '</strong>) sẽ được gắn nhãn <strong>"Cần chạy lại"</strong> và không tự chạy lại.</p></div></div></div>' +
         '</div>' +
         '<div class="modal__foot">' +
           '<button type="button" class="btn btn--secondary" data-action="close-modal">Hủy</button>' +
-          '<button type="button" class="btn btn--primary" data-wf-confirm-edit="' + esc(m.module) + '">Tiếp tục chỉnh sửa</button>' +
+          '<button type="button" class="btn btn--primary" data-wf-confirm-edit="' + esc(m.module) + '">Mở biểu mẫu để sửa</button>' +
         '</div>';
     }
 
@@ -8111,25 +8493,71 @@
 
   function buildDraftSavePayload() {
     const enc = state.encounter;
-    const values = Object.keys(enc.valuesByDefId).map(function (k) { return enc.valuesByDefId[k]; }).filter(function (v) {
-      if (!v) return false;
+    const values = [];
+    const hasAnswerList = { diagnoses: false, medications: false, allergies: false };
+    const answerTimedLabs = {};
+
+    Object.keys(enc.valuesByDefId).forEach(function (k) {
+      const v = enc.valuesByDefId[k];
+      if (!v) return;
       const fd = enc.defById[v.fieldDefinitionId] || enc.defByCode[v.fieldCode];
-      if (fd && isWorkflowStorageField(fd)) return false; // F1: workflow_value fields save via workflow API, never legacy draft
-      return !fd || fd.storageLevel === 'visit_value';
+      if (!fd) return;
+      if (fd.storageLevel === 'computed' || fd.storageLevel === 'patient' || fd.storageLevel === 'visit') return;
+
+      if (enc.isV12 && isV12StructuredAnswerCode(fd.code)) {
+        const rawAns = (v.answer && typeof v.answer === 'object') ? v.answer : visitValueToCompact(fd.code, v, fd);
+        const cleaned = cleanAnswerForDraft(fd.code, rawAns);
+        if (!cleaned) return;
+        values.push({
+          fieldDefinitionId: fd.id,
+          fieldCode: fd.code,
+          answer: cleaned
+        });
+        if (isStructuredListCode(fd.code)) hasAnswerList[fd.code] = true;
+        if (isTimedLabCode(fd.code)) answerTimedLabs[fd.code] = true;
+        return;
+      }
+
+      if (fd.storageLevel === 'visit_value') {
+        const scalar = clone(v);
+        delete scalar.answer;
+        delete scalar.updatedAt;
+        if (scalar.valueState === 'unknown') {
+          scalar.valueNum = null;
+          scalar.valueText = null;
+          scalar.valueBool = null;
+          scalar.valueDate = null;
+          scalar.fieldOptionId = null;
+          scalar.selectedOptions = [];
+          scalar.unit = null;
+        }
+        values.push(scalar);
+      }
     });
+
     const payload = {
       rowVersion: enc.visit.rowVersion,
       clinicalNote: enc.clinicalNote || null,
       infoSource: enc.infoSource || null,
       values: values,
       orthostaticBp: enc.orthostaticBp,
-      medications: enc.medications,
-      allergies: enc.allergies,
-      labResults: enc.labResults
+      labResults: enc.isV12
+        ? (enc.labResults || []).filter(function (lr) { return !lr || !answerTimedLabs[lr.labCode]; })
+        : enc.labResults
     };
-    if (enc.supportsListStates) {
-      payload.medicationListState = enc.medicationListState || (enc.medications.length > 0 ? 'known' : 'unknown');
-      payload.allergyListState = enc.allergyListState || (enc.allergies.length > 0 ? 'known' : 'unknown');
+    if (!hasAnswerList.medications) {
+      payload.medications = enc.medications;
+      if (enc.supportsListStates) {
+        payload.medicationListState = enc.medicationListState || (enc.medications.length > 0 ? 'known' : 'unknown');
+      }
+    }
+    if (!hasAnswerList.allergies) {
+      payload.allergies = enc.allergies;
+      if (enc.supportsListStates) {
+        payload.allergyListState = enc.allergyListState || (enc.allergies.length > 0 ? 'known' : 'unknown');
+      }
+    }
+    if (!hasAnswerList.diagnoses && enc.supportsListStates) {
       payload.diagnosisListState = enc.diagnosisListState || (enc.diagnoses.length > 0 ? 'known' : 'unknown');
       payload.diagnoses = (enc.diagnoses || []).map(function (d) {
         return {
@@ -8170,6 +8598,23 @@
   async function saveEncounterSnapshot(enc, isCurrent) {
     const version = enc.editVersion;
     const payload = clone(buildDraftSavePayload());
+
+    // Client-side validation for structured v1.2 values & timed labs before PUT /draft
+    const localErrors = [];
+    (payload.values || []).forEach(function (item) {
+      if (!item || !item.answer || !item.fieldCode) return;
+      const msg = validateV12CompactField(item.fieldCode, item.answer);
+      if (msg) localErrors.push({ fieldCode: item.fieldCode, message: msg });
+    });
+    if (localErrors.length > 0) {
+      enc.errorList = localErrors;
+      enc.fieldErrors = {};
+      localErrors.forEach(function (e) { enc.fieldErrors[e.fieldCode] = e.message; });
+      render();
+      toast('Còn ' + localErrors.length + ' lỗi cần sửa trước khi lưu nháp.', 'error');
+      return false;
+    }
+
     enc.savingVersion = version;
     enc.saving = true;
     enc.conflictError = null;
@@ -8181,53 +8626,9 @@
       if (!isCurrent()) return false;
       if (!res || !res.visit || res.visit.id !== enc.visitId) throw new Error('Phản hồi lưu nháp không khớp lượt khám.');
       enc.visit = res.visit;
-      // F1: Save dirty workflow_value fields via PUT /visits/{id}/workflow/{owner}/fields (never legacy draft)
-      const wfDirty = clone(enc.workflowDirtyFields || {});
-      const wfDirtyCodes = Object.keys(wfDirty);
-      if (wfDirtyCodes.length > 0) {
-        const localWfErrors = [];
-        wfDirtyCodes.forEach(function (code) {
-          const msg = validateV12CompactField(code, wfDirty[code]);
-          if (msg) localWfErrors.push({ fieldCode: code, message: msg });
-        });
-        if (localWfErrors.length > 0) {
-          enc.errorList = localWfErrors;
-          enc.fieldErrors = {};
-          localWfErrors.forEach(function (e) { enc.fieldErrors[e.fieldCode] = e.message; });
-          render();
-          toast('Còn ' + localWfErrors.length + ' lỗi ở các trường thang thử nghiệm v1.2 cần sửa trước khi lưu.', 'error');
-          return false;
-        }
-        const byMod = {};
-        wfDirtyCodes.forEach(function (code) {
-          const owner = wfGetFieldOwner(enc.workflowFieldOwners, code, 'm1');
-          if (!byMod[owner]) byMod[owner] = {};
-          const cleaned = clone(wfDirty[code]);
-          if (cleaned && typeof cleaned === 'object') delete cleaned.ownerModule;
-          byMod[owner][code] = cleaned;
-        });
-        let rv = enc.workflowRowVersion;
-        if (!rv) {
-          const fres = await api.getWorkflowFields(enc.visit.id, 'm1');
-          rv = fres && fres.rowVersion ? fres.rowVersion : 1;
-        }
-        const modsToSave = Object.keys(byMod);
-        for (let i = 0; i < modsToSave.length; i++) {
-          const mod = modsToSave[i];
-          const wfSaveRes = await api.saveWorkflowFields(enc.visit.id, mod, { module: mod, rowVersion: rv, fields: byMod[mod] }, rv);
-          if (wfSaveRes && wfSaveRes.rowVersion) rv = wfSaveRes.rowVersion;
-          Object.keys(byMod[mod]).forEach(function (code) {
-            enc.workflowSavedCodes[code] = true;
-            if (JSON.stringify(enc.workflowDirtyFields[code]) === JSON.stringify(wfDirty[code])) {
-              delete enc.workflowDirtyFields[code];
-            }
-          });
-        }
-        enc.workflowRowVersion = rv;
-      }
+      if (res.workflow !== undefined) enc.workflowSummary = res.workflow;
+      if (res.fieldMetadata !== undefined) enc.fieldMetadata = res.fieldMetadata;
       if (enc.editVersion === version) {
-        enc.valuesByDefId = {};
-        (res.values || []).forEach(function (v) { enc.valuesByDefId[v.fieldDefinitionId] = clone(v); });
         enc.orthostaticBp = clone(res.orthostaticBp || []);
         enc.medications = clone(res.medications || []);
         enc.allergies = clone(res.allergies || []);
@@ -8236,17 +8637,22 @@
         if (res.visit && res.visit.medicationListState !== undefined) enc.medicationListState = res.visit.medicationListState;
         if (res.visit && res.visit.allergyListState !== undefined) enc.allergyListState = res.visit.allergyListState;
         if (res.visit && res.visit.diagnosisListState !== undefined) enc.diagnosisListState = res.visit.diagnosisListState;
+        hydrateEncounterValuesFromDetail(enc, res);
         enc.dirty = false;
       }
       enc.revisions = clone(res.revisions || []);
       enc.lastSavedAt = res.visit.updatedAt;
+      enc.saving = false;
       if (enc.editVersion === version) render();
       toast('Đã lưu nháp lượt khám thành công.', 'success');
       return true;
     } catch (err) {
       if (!isCurrent()) return false;
+      enc.saving = false;
       if (err && err.status === 422) {
-        enc.errorList = err.errors || [];
+        enc.errorList = (err.errors || []).map(function (e) {
+          return Object.assign({}, e, { fieldCode: resolveFormFieldCode(enc.fieldMetadata, e.fieldCode) });
+        });
         enc.fieldErrors = {};
         enc.errorList.forEach(function (e) { enc.fieldErrors[e.fieldCode] = e.message; });
         toast(enc.errorList.length > 0 ? ('Còn ' + enc.errorList.length + ' lỗi kỹ thuật cần sửa trước khi lưu.') : ((err && err.detail) || 'Dữ liệu chưa hợp lệ.'), 'error');
@@ -8313,16 +8719,17 @@
 
   function findTargetElementForField(fieldCode) {
     if (!fieldCode) return null;
-    const canonicalCode = AI_FIELD_CODE_ALIASES[fieldCode] || fieldCode;
-    let el = document.querySelector('[data-field-code="' + CSS.escape(fieldCode) + '"]');
-    if (!el && canonicalCode !== fieldCode) {
-      el = document.querySelector('[data-field-code="' + CSS.escape(canonicalCode) + '"]');
+    const resolved = resolveFormFieldCode(state.encounter.fieldMetadata, fieldCode);
+    const canonicalCode = AI_FIELD_CODE_ALIASES[resolved] || resolved;
+    const candidates = [resolved, fieldCode, canonicalCode].filter(function (c, i, arr) { return c && arr.indexOf(c) === i; });
+    for (let i = 0; i < candidates.length; i++) {
+      const el = document.querySelector('[data-field-code="' + CSS.escape(candidates[i]) + '"]');
+      if (el) return el;
     }
-    if (el) return el;
     const repeatBlocks = document.querySelectorAll('[data-repeat-codes]');
     for (let i = 0; i < repeatBlocks.length; i++) {
       const codes = String(repeatBlocks[i].getAttribute('data-repeat-codes') || '').split(',');
-      if (codes.indexOf(fieldCode) >= 0 || codes.indexOf(canonicalCode) >= 0) return repeatBlocks[i];
+      if (candidates.some(function (c) { return codes.indexOf(c) >= 0; })) return repeatBlocks[i];
     }
     let repeatGroup = null;
     if (/^thuoc_|medication|co_da_thuoc|so_luong_thuoc/i.test(canonicalCode)) repeatGroup = 'medications';
@@ -8331,12 +8738,12 @@
     else if (/^icd_|^diagnos/i.test(canonicalCode)) repeatGroup = 'diagnoses';
     else if (/huyet_ap|^ha_/i.test(canonicalCode)) repeatGroup = 'orthostaticBp';
     if (repeatGroup) {
-      el = document.querySelector('[data-repeat-group="' + repeatGroup + '"]');
+      const el = document.querySelector('[data-repeat-group="' + repeatGroup + '"]');
       if (el) return el;
     }
     const secCode = resolveFieldSectionCode(state.encounter.formStructure, canonicalCode);
     if (secCode) {
-      el = document.getElementById('enc-sec-' + secCode);
+      const el = document.getElementById('enc-sec-' + secCode);
       if (el) return el;
     }
     return null;
@@ -8398,90 +8805,141 @@
   }
 
   /* ------------------------------------------------------------------------
-     Workflow & Encounter v1.2 Field Update Helpers (F1, F2, F5)
+     Encounter v1.2 & D7 Unlock-Unknown Helpers (G2/C8)
      ------------------------------------------------------------------------ */
-  function wfSyncSaveButtonEnabled() {
-    const wf = state.workflow;
-    const mod = wf.activeModule || 'm1';
-    const hasModDirty = Object.keys(wf.dirtyFields || {}).some(function (c) {
-      return wfGetFieldOwner(wf, c, mod) === mod;
-    }) || (mod === 'm2' && Boolean(wf.recentTestEvidenceDirty));
-    const saveBtn = document.querySelector('[data-wf-save-fields]');
-    if (saveBtn) saveBtn.disabled = !hasModDirty || wf.savingFields;
-  }
-
-  function wfMakeUnknownCompact(code, fallbackUnit) {
-    const unit = WF_CONTRACT_UNITS[code] || fallbackUnit || (
-      code === 'bien_thien_can_nang_7ngay' ? 'kg' :
-      (code === 'e_over_a_ratio' ? 'ratio' :
-      (code === 'egfr_ckd_epi' ? 'mL/min/1.73m2' : null))
-    );
-    const entry = { value_state: 'unknown', value: null };
-    if (unit) entry.unit = unit;
-    return entry;
-  }
-
-  function wfApplyClearOrUnknown(wf, code, fallbackUnit) {
-    // F5: Clearing a field already saved on the server must explicitly send value_state='unknown'
-    // instead of silently deleting locally (which leaves the old server value intact).
-    if (wf.savedFieldCodes && wf.savedFieldCodes[code]) {
-      const unk = wfMakeUnknownCompact(code, fallbackUnit);
-      wf.fieldValues[code] = unk;
-      wf.dirtyFields[code] = clone(unk);
-      toast('Giá trị đã lưu trên máy chủ được chuyển sang "Chưa rõ" — bấm "Lưu dữ liệu bước" để cập nhật.', 'info');
-      return true;
-    }
-    delete wf.fieldValues[code];
-    delete wf.dirtyFields[code];
-    return false;
-  }
-
-  function encApplyWorkflowCompact(code, compact) {
-    const enc = state.encounter;
-    if (!compact) {
-      if (enc.workflowSavedCodes && enc.workflowSavedCodes[code]) {
-        const unk = wfMakeUnknownCompact(code, null);
-        enc.workflowFields[code] = unk;
-        enc.workflowDirtyFields[code] = clone(unk);
-        toast('Giá trị đã lưu trên máy chủ được chuyển sang "Chưa rõ" — bấm "Lưu nháp" để cập nhật.', 'info');
-      } else {
-        delete enc.workflowFields[code];
-        delete enc.workflowDirtyFields[code];
+  function focusUnlockedFieldInput(code) {
+    setTimeout(function () {
+      const box = document.querySelector('[data-field-code="' + CSS.escape(code) + '"]');
+      if (!box) return;
+      const focusable = box.querySelector('input:not(:disabled):not([readonly]), select:not(:disabled), textarea:not(:disabled):not([readonly])');
+      if (focusable && typeof focusable.focus === 'function') {
+        try { focusable.focus({ preventScroll: true }); } catch (_e) {}
       }
-    } else {
-      const cleaned = clone(compact);
-      if (cleaned && typeof cleaned === 'object') delete cleaned.ownerModule;
-      enc.workflowFields[code] = cleaned;
-      enc.workflowDirtyFields[code] = clone(cleaned);
-    }
-    delete enc.fieldErrors[code];
-    markEncounterDirty();
+    }, 20);
   }
 
-  function wfApplyMeasuredAtUpdate(t) {
-    const code = t.getAttribute('data-wf-measured-at');
+  function encApplyV12Answer(scope, code, compact) {
+    const isPrev = scope === 'prev';
+    const ft = getFormTarget(isPrev);
+    const fd = Object.values(ft.defById).find(function (d) { return d.code === code; });
+    if (!fd) return;
+    if (!isPrev) {
+      delete state.encounter.unlockedUnknownCodes[code];
+      delete state.encounter.fieldErrors[code];
+    }
+    if (!compact) {
+      delete ft.valuesByDefId[fd.id];
+    } else {
+      ft.valuesByDefId[fd.id] = compactToVisitValue(ft.visitId, fd, compact);
+    }
+    ft.markDirty();
+  }
+
+  function encReadV12Answer(scope, code) {
+    const ft = getFormTarget(scope === 'prev');
+    const fd = Object.values(ft.defById).find(function (d) { return d.code === code; });
+    return fd ? visitValueToCompact(code, ft.valuesByDefId[fd.id], fd) : null;
+  }
+
+  function encRefreshWeightCalcPreview(scope, boxEl) {
+    const isPrev = scope === 'prev';
+    const box = boxEl || document.querySelector('.v12-calc-box[data-v12-wcalc-box="' + CSS.escape(scope) + '"]') || document.querySelector('.v12-calc-box');
+    if (!box) return;
+    const ft = getFormTarget(isPrev);
+    const curW = getEncounterCurrentWeight({ defByCode: ft.defByCode || state.encounter.defByCode, valuesByDefId: ft.valuesByDefId });
+    const prevStr = isPrev ? state.adminForms.previewWeightPrev7d : state.encounter.weightPrev7d;
+    const prevW = prevStr !== '' && prevStr != null && isFinite(Number(prevStr)) ? Number(prevStr) : null;
+    const oldWarn = box.querySelector('.v12-calc-box__warn');
+    const oldPreview = box.querySelector('.v12-calc-box__preview');
+    if (curW === null) {
+      if (oldPreview) oldPreview.remove();
+      let warn = oldWarn;
+      if (!warn) {
+        warn = document.createElement('p');
+        warn.className = 'v12-calc-box__warn';
+        box.appendChild(warn);
+      }
+      warn.innerHTML = ICONS.alert + ' Cần nhập cân nặng hiện tại để tự tính';
+      return;
+    }
+    if (oldWarn) oldWarn.remove();
+    if (prevW !== null) {
+      const delta = Math.round((curW - prevW) * 10) / 10;
+      const signed = (delta > 0 ? '+' : '') + delta.toFixed(1);
+      let preview = oldPreview;
+      if (!preview) {
+        preview = document.createElement('div');
+        preview.className = 'v12-calc-box__preview';
+        box.appendChild(preview);
+      }
+      preview.innerHTML =
+        '<span>Hiện tại ' + esc(curW) + ' − 7 ngày trước ' + esc(prevW) + ' = <strong>' + esc(signed) + ' kg</strong></span>' +
+        '<button type="button" class="btn btn--secondary btn--xs" data-v12-apply-wdelta="' + esc(delta) + '" data-v12-scope="' + esc(scope) + '" data-v12-code="bien_thien_can_nang_7ngay">Áp dụng (' + esc(signed) + ' kg)</button>';
+    } else if (oldPreview) {
+      oldPreview.remove();
+    }
+  }
+
+  function encApplyTimedLabMeasuredAt(t) {
+    const code = t.getAttribute('data-enc-v12lab-time');
     if (!code) return;
-    const wf = state.workflow;
-    const prev = wf.fieldValues[code] ? clone(wf.fieldValues[code]) : null;
-    if (prev && typeof prev === 'object') delete prev.ownerModule;
+    const enc = state.encounter;
+    const fd = enc.defByCode[code];
+    if (!fd) return;
     const iso = t.value ? fromDatetimeLocal(t.value) : null;
-    const unit = WF_CONTRACT_UNITS[code] || (prev && prev.unit) || null;
-    if (prev && prev.value_state === 'answered') {
-      if (iso) prev.measuredAt = iso;
-      else delete prev.measuredAt;
-      if (unit && !prev.unit) prev.unit = unit;
-      wf.fieldValues[code] = prev;
-      wf.dirtyFields[code] = clone(prev);
+    const unit = WF_CONTRACT_UNITS[code] || fd.canonicalUnit || null;
+    const curVal = enc.valuesByDefId[fd.id];
+    const curAns = (curVal && curVal.answer && typeof curVal.answer === 'object') ? clone(curVal.answer) : null;
+    if (!enc.pendingMeasuredAt) enc.pendingMeasuredAt = {};
+    if (curAns && curAns.value_state === 'answered') {
+      if (iso) curAns.measuredAt = iso;
+      else delete curAns.measuredAt;
+      if (unit && !curAns.unit) curAns.unit = unit;
+      delete enc.unlockedUnknownCodes[code];
+      enc.valuesByDefId[fd.id] = {
+        visitId: enc.visit && enc.visit.id,
+        fieldDefinitionId: fd.id,
+        fieldCode: code,
+        valueState: 'answered',
+        answer: curAns
+      };
+      delete enc.fieldErrors[code];
+      markEncounterDirty();
       t.classList.toggle('input--error', !iso);
-    } else if (iso) {
-      const next = { value_state: 'unknown', value: null, measuredAt: iso };
-      if (unit) next.unit = unit;
-      wf.fieldValues[code] = next;
-      wf.dirtyFields[code] = clone(next);
+    } else {
+      if (iso) enc.pendingMeasuredAt[code] = iso;
+      else delete enc.pendingMeasuredAt[code];
       t.classList.remove('input--error');
     }
-    delete wf.fieldErrors[code];
-    wfSyncSaveButtonEnabled();
+  }
+
+  function encUpdateV12ListItem(t, trimVal) {
+    const attr = t.getAttribute('data-enc-v12list-item');
+    if (!attr) return;
+    const parts = attr.split(':');
+    const code = parts[0];
+    const idx = Number(parts[1]);
+    const prop = parts[2];
+    const enc = state.encounter;
+    const fd = enc.defByCode[code];
+    if (!fd) return;
+    const cur = visitValueToCompact(code, enc.valuesByDefId[fd.id], fd);
+    const items = (cur && cur.value_state === 'answered' && Array.isArray(cur.value)) ? clone(cur.value) : [];
+    const raw = trimVal ? String(t.value || '').trim() : String(t.value || '');
+    if (code === 'diagnoses') {
+      items[idx] = raw.toUpperCase();
+    } else if (code === 'medications') {
+      const row = (items[idx] && typeof items[idx] === 'object') ? items[idx] : { id: 'med-' + (idx + 1), ingredient: '', class: null, dose: null, unit: null, route: null, frequency: null };
+      if (prop === 'dose') row.dose = t.value === '' ? null : Number(t.value);
+      else if (prop === 'ingredient') row.ingredient = raw;
+      else row[prop] = t.value === '' ? null : t.value;
+      items[idx] = row;
+    } else if (code === 'allergies') {
+      const row = (items[idx] && typeof items[idx] === 'object') ? items[idx] : { id: 'alg-' + (idx + 1), ingredient: '' };
+      row.ingredient = raw;
+      items[idx] = row;
+    }
+    encApplyV12Answer('enc', code, { value_state: 'answered', value: items });
   }
 
   /* ------------------------------------------------------------------------
@@ -8553,103 +9011,87 @@
       return;
     }
 
-    // ---- Form v1.2 9-Field Widget Click Handlers ----
+    // ---- Form v1.2 9-Field Widget Click Handlers (G2: single-form draft only) ----
     const v12Scope = target.getAttribute('data-v12-scope');
     const v12Code = target.getAttribute('data-v12-code');
     if (v12Scope && v12Code) {
-      function applyV12Compact(code, compact, doRender) {
-        if (v12Scope === 'wf') {
-          const wf = state.workflow;
-          if (!compact) {
-            wfApplyClearOrUnknown(wf, code, null);
-          } else {
-            wf.fieldValues[code] = compact;
-            wf.dirtyFields[code] = clone(compact);
-          }
-          delete wf.fieldErrors[code];
-          if (doRender) render();
-          return;
-        }
-        const ft = getFormTarget(v12Scope === 'prev');
-        const fd = Object.values(ft.defById).find(function (d) { return d.code === code; });
-        // F1: Persist workflow_value fields in state.encounter.workflowFields/workflowDirtyFields (never valuesByDefId)
-        if (v12Scope === 'enc' && isWorkflowStorageField(fd || code)) {
-          encApplyWorkflowCompact(code, compact);
-          if (doRender) render();
-          return;
-        }
-        if (!fd) return;
-        if (!compact) {
-          delete ft.valuesByDefId[fd.id];
-        } else {
-          ft.valuesByDefId[fd.id] = compactToVisitValue(ft.visitId, fd, compact);
-        }
-        if (v12Scope === 'enc') delete state.encounter.fieldErrors[code];
-        ft.markDirty();
-        if (doRender) render();
-      }
-      function readV12Compact(code) {
-        if (v12Scope === 'wf') return state.workflow.fieldValues[code] || null;
-        const ft = getFormTarget(v12Scope === 'prev');
-        const fd = Object.values(ft.defById).find(function (d) { return d.code === code; });
-        if (v12Scope === 'enc' && isWorkflowStorageField(fd || code)) {
-          return state.encounter.workflowFields[code] || null;
-        }
-        return fd ? visitValueToCompact(code, ft.valuesByDefId[fd.id], fd) : null;
-      }
-
+      const isPrev = v12Scope === 'prev';
       if (target.hasAttribute('data-v12-scale-opt')) {
         const valNum = Number(target.getAttribute('data-v12-scale-opt'));
-        applyV12Compact(v12Code, { value_state: 'answered', value: valNum }, true);
+        encApplyV12Answer(v12Scope, v12Code, { value_state: 'answered', value: valNum });
+        render();
         return;
       }
       if (target.hasAttribute('data-v12-clear')) {
-        applyV12Compact(v12Code, null, true);
+        encApplyV12Answer(v12Scope, v12Code, null);
+        render();
         return;
       }
       if (target.hasAttribute('data-v12-unknown')) {
-        const cur = readV12Compact(v12Code);
-        if (cur && cur.value_state === 'unknown') {
-          applyV12Compact(v12Code, null, true);
-        } else {
-          const unit = v12Code === 'bien_thien_can_nang_7ngay' ? 'kg' : (v12Code === 'e_over_a_ratio' ? 'ratio' : (v12Code === 'egfr_ckd_epi' ? 'mL/min/1.73m2' : null));
-          const unk = { value_state: 'unknown', value: null };
-          if (unit) unk.unit = unit;
-          applyV12Compact(v12Code, unk, true);
+        const cur = encReadV12Answer(v12Scope, v12Code);
+        const isUnlocked = !isPrev && Boolean(state.encounter.unlockedUnknownCodes[v12Code]);
+        const isSavedUnk = !isPrev && Boolean(state.encounter.savedUnknownCodes[v12Code]);
+        if (isUnlocked) {
+          // Clicking "Chưa rõ" again while unlocked re-locks to saved unknown
+          delete state.encounter.unlockedUnknownCodes[v12Code];
+          render();
+          return;
         }
+        if (cur && cur.value_state === 'unknown') {
+          // D7: If saved as unknown on server, toggling off only unlocks input without snapping back or wiping saved value
+          if (isSavedUnk) {
+            state.encounter.unlockedUnknownCodes[v12Code] = true;
+            render();
+            focusUnlockedFieldInput(v12Code);
+            return;
+          }
+          encApplyV12Answer(v12Scope, v12Code, null);
+          render();
+          focusUnlockedFieldInput(v12Code);
+          return;
+        }
+        const unk = makeUnknownAnswer(v12Code, null);
+        encApplyV12Answer(v12Scope, v12Code, unk);
+        render();
         return;
       }
       if (target.hasAttribute('data-v12-ea-af')) {
-        const cur = readV12Compact('e_over_a_ratio');
+        const cur = encReadV12Answer(v12Scope, 'e_over_a_ratio');
         if (cur && cur.value_state === 'answered' && cur.value === 'not_measurable_af') {
-          applyV12Compact('e_over_a_ratio', null, true);
+          encApplyV12Answer(v12Scope, 'e_over_a_ratio', null);
         } else {
-          applyV12Compact('e_over_a_ratio', { value_state: 'answered', value: 'not_measurable_af', unit: 'ratio' }, true);
+          encApplyV12Answer(v12Scope, 'e_over_a_ratio', { value_state: 'answered', value: 'not_measurable_af', unit: 'ratio' });
         }
+        render();
         return;
       }
       if (target.hasAttribute('data-v12-apply-wdelta')) {
         const delta = Number(target.getAttribute('data-v12-apply-wdelta'));
         if (isFinite(delta)) {
-          applyV12Compact('bien_thien_can_nang_7ngay', { value_state: 'answered', value: delta, unit: 'kg' }, true);
+          encApplyV12Answer(v12Scope, 'bien_thien_can_nang_7ngay', { value_state: 'answered', value: delta, unit: 'kg' });
+          render();
         }
         return;
       }
       if (target.hasAttribute('data-v12-apply-egfr')) {
         const egfrNum = Number(target.getAttribute('data-v12-apply-egfr'));
         if (isFinite(egfrNum)) {
-          applyV12Compact('egfr_ckd_epi', { value_state: 'answered', value: egfrNum, unit: 'mL/min/1.73m2' }, false);
-          applyV12Compact('egfr_formula', { value_state: 'answered', value: 'CKD-EPI 2021' }, true);
+          encApplyV12Answer(v12Scope, 'egfr_ckd_epi', { value_state: 'answered', value: egfrNum, unit: 'mL/min/1.73m2' });
+          encApplyV12Answer(v12Scope, 'egfr_formula', { value_state: 'answered', value: 'CKD-EPI 2021' });
+          render();
         }
         return;
       }
       if (target.hasAttribute('data-v12-struct-subunk')) {
         const subKey = target.getAttribute('data-v12-struct-subunk');
         const maker = v12Code === 'ecg_12_chuyen_dao' ? makeDefaultEcgValue : makeDefaultXrayValue;
-        const cur = readV12Compact(v12Code);
+        const cur = encReadV12Answer(v12Scope, v12Code);
         const obj = (cur && cur.value_state === 'answered' && cur.value && typeof cur.value === 'object') ? clone(cur.value) : maker();
         obj[subKey] = null;
-        applyV12Compact(v12Code, { value_state: 'answered', value: obj }, true);
+        const nextAns = { value_state: 'answered', value: obj };
+        if (cur && cur.measuredAt) nextAns.measuredAt = cur.measuredAt;
+        encApplyV12Answer(v12Scope, v12Code, nextAns);
+        render();
         return;
       }
       if (target.hasAttribute('data-v12-struct-tri')) {
@@ -8657,22 +9099,197 @@
         const subKey = parts[0];
         const triVal = parts[1];
         const maker = v12Code === 'ecg_12_chuyen_dao' ? makeDefaultEcgValue : makeDefaultXrayValue;
-        const cur = readV12Compact(v12Code);
+        const cur = encReadV12Answer(v12Scope, v12Code);
         const obj = (cur && cur.value_state === 'answered' && cur.value && typeof cur.value === 'object') ? clone(cur.value) : maker();
         obj[subKey] = triVal === 'yes' ? true : (triVal === 'no' ? false : null);
-        applyV12Compact(v12Code, { value_state: 'answered', value: obj }, true);
+        const nextAns = { value_state: 'answered', value: obj };
+        if (cur && cur.measuredAt) nextAns.measuredAt = cur.measuredAt;
+        encApplyV12Answer(v12Scope, v12Code, nextAns);
+        render();
         return;
       }
     }
 
+    // D7: Weight delta calculator toggle (lives on state.encounter / state.adminForms)
     const wCalcScope = target.getAttribute('data-v12-toggle-wcalc');
     if (wCalcScope) {
-      state.workflow.weightCalcOpen[wCalcScope] = !state.workflow.weightCalcOpen[wCalcScope];
+      if (wCalcScope === 'prev') {
+        state.adminForms.previewWeightCalcOpen = !state.adminForms.previewWeightCalcOpen;
+      } else {
+        state.encounter.weightCalcOpen = !state.encounter.weightCalcOpen;
+      }
       render();
       return;
     }
 
-    // ---- Workflow 4-Module Click Handlers ----
+    // ---- Encounter v1.2 Timed Labs & Structured Lists Click Handlers ----
+    const encLabUnk = target.getAttribute('data-enc-v12lab-unknown');
+    if (encLabUnk) {
+      const enc = state.encounter;
+      const fd = enc.defByCode[encLabUnk];
+      if (fd) {
+        const cur = visitValueToCompact(encLabUnk, enc.valuesByDefId[fd.id], fd);
+        const isUnlocked = Boolean(enc.unlockedUnknownCodes[encLabUnk]);
+        const isSavedUnk = Boolean(enc.savedUnknownCodes[encLabUnk]);
+        if (isUnlocked) {
+          delete enc.unlockedUnknownCodes[encLabUnk];
+          render();
+        } else if (cur && cur.value_state === 'unknown') {
+          if (isSavedUnk) {
+            enc.unlockedUnknownCodes[encLabUnk] = true;
+            render();
+            focusUnlockedFieldInput(encLabUnk);
+          } else {
+            encApplyV12Answer('enc', encLabUnk, null);
+            render();
+            focusUnlockedFieldInput(encLabUnk);
+          }
+        } else {
+          encApplyV12Answer('enc', encLabUnk, makeUnknownAnswer(encLabUnk, fd.canonicalUnit));
+          render();
+        }
+      }
+      return;
+    }
+
+    const encListAdd = target.getAttribute('data-enc-v12list-add');
+    if (encListAdd) {
+      const enc = state.encounter;
+      const fd = enc.defByCode[encListAdd];
+      if (fd) {
+        const cur = visitValueToCompact(encListAdd, enc.valuesByDefId[fd.id], fd);
+        const items = (cur && cur.value_state === 'answered' && Array.isArray(cur.value)) ? clone(cur.value) : [];
+        if (encListAdd === 'diagnoses') {
+          items.push('');
+        } else if (encListAdd === 'medications') {
+          items.push({ id: 'med-' + Date.now().toString(36) + '-' + items.length, ingredient: '', class: null, dose: null, unit: null, route: null, frequency: null });
+        } else if (encListAdd === 'allergies') {
+          items.push({ id: 'alg-' + Date.now().toString(36) + '-' + items.length, ingredient: '' });
+        }
+        encApplyV12Answer('enc', encListAdd, { value_state: 'answered', value: items });
+        render();
+      }
+      return;
+    }
+
+    const encListRm = target.getAttribute('data-enc-v12list-remove');
+    if (encListRm) {
+      const parts = encListRm.split(':');
+      const code = parts[0];
+      const idx = Number(parts[1]);
+      const enc = state.encounter;
+      const fd = enc.defByCode[code];
+      if (fd) {
+        const cur = visitValueToCompact(code, enc.valuesByDefId[fd.id], fd);
+        const items = (cur && cur.value_state === 'answered' && Array.isArray(cur.value)) ? clone(cur.value) : [];
+        if (idx >= 0 && idx < items.length) items.splice(idx, 1);
+        encApplyV12Answer('enc', code, { value_state: 'answered', value: items });
+        render();
+      }
+      return;
+    }
+
+    const encListSt = target.getAttribute('data-enc-v12list-state');
+    if (encListSt) {
+      const parts = encListSt.split(':');
+      const code = parts[0];
+      const st = parts[1];
+      const enc = state.encounter;
+      const fd = enc.defByCode[code];
+      if (fd) {
+        if (st === 'none') {
+          encApplyV12Answer('enc', code, { value_state: 'answered', value: [] });
+          render();
+        } else if (st === 'unknown') {
+          const cur = visitValueToCompact(code, enc.valuesByDefId[fd.id], fd);
+          if (enc.unlockedUnknownCodes[code]) {
+            delete enc.unlockedUnknownCodes[code];
+            render();
+          } else if (cur && cur.value_state === 'unknown' && enc.savedUnknownCodes[code]) {
+            enc.unlockedUnknownCodes[code] = true;
+            render();
+          } else if (cur && cur.value_state === 'unknown') {
+            encApplyV12Answer('enc', code, null);
+            render();
+          } else {
+            encApplyV12Answer('enc', code, { value_state: 'unknown', value: null });
+            render();
+          }
+        }
+      }
+      return;
+    }
+
+    // ---- Encounter 4-Module Pinned Progress Bar & Module Filter Click Handlers (D3, D4) ----
+    const encWfRun = target.getAttribute('data-enc-wf-run');
+    if (encWfRun) {
+      await encRunModuleFromForm(encWfRun);
+      return;
+    }
+
+    const encWfView = target.getAttribute('data-enc-wf-view');
+    if (encWfView && state.encounter.visit) {
+      state.workflow.preferredModuleOnLoad = encWfView;
+      navigate('#/visits/' + state.encounter.visit.id + '/workflow');
+      return;
+    }
+
+    const encWfMissMod = target.getAttribute('data-enc-wf-missing-mod');
+    if (encWfMissMod) {
+      const enc = state.encounter;
+      const opening = enc.expandedMissingMod !== encWfMissMod;
+      enc.expandedMissingMod = opening ? encWfMissMod : null;
+      if (opening) {
+        enc.fieldSearch = '';
+        enc.fieldFilter = 'all';
+        if (enc.moduleFilter !== 'all' && enc.moduleFilter !== encWfMissMod) {
+          enc.moduleFilter = encWfMissMod;
+        }
+      }
+      render();
+      if (opening) {
+        const ms = enc.workflowSummary && enc.workflowSummary.modules && enc.workflowSummary.modules[encWfMissMod];
+        const missingList = (ms && Array.isArray(ms.missingFieldCodes)) ? ms.missingFieldCodes : [];
+        if (missingList.length > 0) {
+          const firstCode = resolveFormFieldCode(enc.fieldMetadata, missingList[0]);
+          setTimeout(function () { scrollToAndPulseField(firstCode); }, 40);
+        }
+      }
+      return;
+    }
+
+    if (target.hasAttribute('data-enc-wf-close-missing')) {
+      state.encounter.expandedMissingMod = null;
+      render();
+      return;
+    }
+
+    const encWfJumpMissing = target.getAttribute('data-enc-wf-jump-missing');
+    if (encWfJumpMissing) {
+      const parts = encWfJumpMissing.split(':');
+      const mMod = parts[0];
+      const fieldCode = parts[1];
+      const enc = state.encounter;
+      enc.fieldSearch = '';
+      enc.fieldFilter = 'all';
+      if (enc.moduleFilter !== 'all' && enc.moduleFilter !== mMod) {
+        enc.moduleFilter = mMod;
+      }
+      render();
+      if (fieldCode) {
+        setTimeout(function () { scrollToAndPulseField(fieldCode); }, 40);
+      }
+      return;
+    }
+
+    const encModFilter = target.getAttribute('data-enc-mod-filter');
+    if (encModFilter) {
+      state.encounter.moduleFilter = encModFilter;
+      render();
+      return;
+    }
+
+    // ---- Workflow 4-Module Click Handlers (D5: Results & Decisions Only) ----
     const wfSelMod = target.getAttribute('data-wf-select-module');
     if (wfSelMod) {
       const wf = state.workflow;
@@ -8686,11 +9303,25 @@
       return;
     }
 
+    const wfOpenFormAttr = target.getAttribute('data-wf-open-form');
+    if (wfOpenFormAttr) {
+      const idxColon = wfOpenFormAttr.indexOf(':');
+      const mod = idxColon >= 0 ? wfOpenFormAttr.slice(0, idxColon) : wfOpenFormAttr;
+      const fieldCode = idxColon >= 0 ? wfOpenFormAttr.slice(idxColon + 1) : null;
+      wfOpenFormForModule(mod, fieldCode || null);
+      return;
+    }
+
+    if (target.hasAttribute('data-wf-save-evidence')) {
+      await wfSaveRecentTestEvidence();
+      return;
+    }
+
     const wfAction = target.getAttribute('data-wf-action');
     if (wfAction) {
       const mod = target.getAttribute('data-wf-module') || state.workflow.activeModule;
       if (wfAction === 'run' || wfAction === 'rerun') { await wfRunModule(mod); return; }
-      if (wfAction === 'edit') { wfRequestEdit(mod); return; }
+      if (wfAction === 'edit') { await wfRequestEdit(mod); return; }
       if (wfAction === 'continue_next') { await wfSubmitDecisionAi(mod, 'accept'); return; }
       if (wfAction === 'accept_ai') { await wfSubmitDecisionAi(mod, 'accept'); return; }
       if (wfAction === 'manual_override') { wfOpenManualOverride(mod); return; }
@@ -8700,66 +9331,13 @@
 
     const wfEditMod = target.getAttribute('data-wf-edit-module');
     if (wfEditMod) {
-      wfRequestEdit(wfEditMod);
+      await wfRequestEdit(wfEditMod);
       return;
     }
     const wfConfirmEdit = target.getAttribute('data-wf-confirm-edit');
     if (wfConfirmEdit) {
-      const pendingJump = state.workflow.pendingJumpField || null;
-      state.workflow.pendingJumpField = null;
       closeModal();
-      state.workflow.activeModule = wfConfirmEdit;
-      state.workflow.editingModule = wfConfirmEdit;
-      state.workflow.manualModeModule = null;
-      render();
-      if (pendingJump) wfJumpToField(pendingJump);
-      return;
-    }
-    if (target.hasAttribute('data-wf-cancel-edit')) {
-      state.workflow.editingModule = null;
-      state.workflow.dirtyFields = {};
-      state.workflow.recentTestEvidenceDirty = false;
-      state.workflow.fieldErrors = {};
-      wfHydrateFieldValuesFromVisit(state.workflow);
-      render();
-      return;
-    }
-    // BUG-07 (D2): Jump to owner module to edit cross-owner read-only field
-    const wfJumpOwner = target.getAttribute('data-wf-jump-owner');
-    if (wfJumpOwner) {
-      const parts = wfJumpOwner.split(':');
-      const ownerMod = parts[0];
-      const fieldCode = parts[1];
-      const wf = state.workflow;
-      const ms = wf.data && wf.data.modules && wf.data.modules[ownerMod];
-      if (!ms || ms.state === 'locked') {
-        toast('Bước ' + wfFormatModuleTitle(ownerMod) + ' hiện đang bị khóa.', 'warn');
-        return;
-      }
-      if (ms.state === 'accepted' || ms.state === 'ran' || ms.state === 'stale') {
-        wf.pendingJumpField = fieldCode;
-        wfRequestEdit(ownerMod);
-        if (!state.modal || state.modal.type !== 'wf-edit-confirm') {
-          wf.pendingJumpField = null;
-          if (fieldCode) wfJumpToField(fieldCode);
-        }
-      } else {
-        wf.activeModule = ownerMod;
-        wf.manualModeModule = null;
-        render();
-        if (fieldCode) wfJumpToField(fieldCode);
-      }
-      return;
-    }
-    const wfSaveMod = target.getAttribute('data-wf-save-fields');
-    if (wfSaveMod) {
-      await wfSaveFields(wfSaveMod);
-      return;
-    }
-    const wfOptMod = target.getAttribute('data-wf-toggle-optional');
-    if (wfOptMod) {
-      state.workflow.optionalOpen[wfOptMod] = !state.workflow.optionalOpen[wfOptMod];
-      render();
+      await wfProceedEditToForm(wfConfirmEdit);
       return;
     }
     const wfUpMod = target.getAttribute('data-wf-toggle-upstream');
@@ -8802,11 +9380,6 @@
       render();
       return;
     }
-    const wfJumpCode = target.getAttribute('data-wf-jump-field');
-    if (wfJumpCode) {
-      wfJumpToField(wfJumpCode);
-      return;
-    }
     if (target.hasAttribute('data-wf-reload')) {
       await loadWorkflow(state.workflow.visitId, { keepModule: true });
       return;
@@ -8842,83 +9415,6 @@
     }
     if (target.hasAttribute('data-wf-save-m4-confirmations')) {
       await wfSaveM4Confirmations();
-      return;
-    }
-    const wfTri = target.getAttribute('data-wf-tri');
-    if (wfTri) {
-      const parts = wfTri.split(':');
-      const code = parts[0];
-      const val = parts[1];
-      const entry = val === 'unknown' ? { value_state: 'unknown', value: null } : { value_state: 'answered', value: val === 'yes' };
-      state.workflow.fieldValues[code] = entry;
-      state.workflow.dirtyFields[code] = clone(entry);
-      delete state.workflow.fieldErrors[code];
-      render();
-      return;
-    }
-    const wfUnkCode = target.getAttribute('data-wf-unknown');
-    if (wfUnkCode) {
-      const wf = state.workflow;
-      const unit = WF_CONTRACT_UNITS[wfUnkCode] || target.getAttribute('data-wf-unit') || null;
-      const cur = wf.fieldValues[wfUnkCode];
-      if (cur && cur.value_state === 'unknown') {
-        wfApplyClearOrUnknown(wf, wfUnkCode, unit);
-      } else {
-        const entry = { value_state: 'unknown', value: null };
-        if (unit) entry.unit = unit;
-        wf.fieldValues[wfUnkCode] = entry;
-        wf.dirtyFields[wfUnkCode] = clone(entry);
-      }
-      delete wf.fieldErrors[wfUnkCode];
-      render();
-      return;
-    }
-    const wfListSt = target.getAttribute('data-wf-list-state');
-    if (wfListSt) {
-      const parts = wfListSt.split(':');
-      const code = parts[0];
-      const st = parts[1];
-      const entry = st === 'none' ? { value_state: 'answered', value: [] } : { value_state: 'unknown', value: null };
-      state.workflow.fieldValues[code] = entry;
-      state.workflow.dirtyFields[code] = clone(entry);
-      delete state.workflow.fieldErrors[code];
-      render();
-      return;
-    }
-    // BUG-06 (D3): Structured list add / remove row for diagnoses, medications, allergies
-    const wfListAdd = target.getAttribute('data-wf-list-add');
-    if (wfListAdd) {
-      const wf = state.workflow;
-      const cur = wf.fieldValues[wfListAdd];
-      const items = (cur && cur.value_state === 'answered' && Array.isArray(cur.value)) ? clone(cur.value) : [];
-      if (wfListAdd === 'diagnoses') {
-        items.push('');
-      } else if (wfListAdd === 'medications') {
-        items.push({ id: 'med-' + Date.now().toString(36) + '-' + items.length, ingredient: '', class: null, dose: null, unit: null, route: null, frequency: null });
-      } else if (wfListAdd === 'allergies') {
-        items.push({ id: 'alg-' + Date.now().toString(36) + '-' + items.length, ingredient: '' });
-      }
-      const entry = { value_state: 'answered', value: items };
-      wf.fieldValues[wfListAdd] = entry;
-      wf.dirtyFields[wfListAdd] = clone(entry);
-      delete wf.fieldErrors[wfListAdd];
-      render();
-      return;
-    }
-    const wfListRm = target.getAttribute('data-wf-list-remove');
-    if (wfListRm) {
-      const parts = wfListRm.split(':');
-      const code = parts[0];
-      const idx = Number(parts[1]);
-      const wf = state.workflow;
-      const cur = wf.fieldValues[code];
-      const items = (cur && cur.value_state === 'answered' && Array.isArray(cur.value)) ? clone(cur.value) : [];
-      if (idx >= 0 && idx < items.length) items.splice(idx, 1);
-      const entry = { value_state: 'answered', value: items };
-      wf.fieldValues[code] = entry;
-      wf.dirtyFields[code] = clone(entry);
-      delete wf.fieldErrors[code];
-      render();
       return;
     }
     // F4: Manual override dynamic row actions (M3 followups & M4 alerts)
@@ -9001,10 +9497,12 @@
     // Encounter section rail (UI-06: smooth scroll to section without full re-render)
     const encSec = target.getAttribute('data-enc-section');
     if (encSec) {
-      if (state.encounter.fieldSearch || state.encounter.fieldFilter !== 'all') {
+      const targetMissing = !document.getElementById('enc-sec-' + encSec);
+      if (state.encounter.fieldSearch || state.encounter.fieldFilter !== 'all' || (targetMissing && state.encounter.moduleFilter !== 'all')) {
         state.encounter.activeSectionCode = encSec;
         state.encounter.fieldSearch = '';
         state.encounter.fieldFilter = 'all';
+        if (targetMissing) state.encounter.moduleFilter = 'all';
         render();
         setTimeout(function () { scrollToSectionBlock('encounter', encSec, true); }, 30);
       } else {
@@ -9102,14 +9600,9 @@
       const fd = ft.defById[encTri];
       const val = target.getAttribute('data-val');
       if (fd) {
-        // F1: workflow_value boolean fields (e.g. bat_thuong_cau_truc_tim) save via workflow fields API
-        if (!isPrev && isWorkflowStorageField(fd)) {
-          const compact = val === 'clear'
-            ? null
-            : (val === 'unknown' ? { value_state: 'unknown', value: null } : { value_state: 'answered', value: (val === 'yes') });
-          encApplyWorkflowCompact(fd.code, compact);
-          render();
-          return;
+        if (!isPrev) {
+          delete state.encounter.unlockedUnknownCodes[fd.code];
+          delete state.encounter.fieldErrors[fd.code];
         }
         if (val === 'clear') {
           delete ft.valuesByDefId[fd.id];
@@ -9150,7 +9643,7 @@
       return;
     }
 
-    // Unknown toggle for non-boolean fields
+    // Unknown toggle for non-boolean fields (D7: unlock without snapping back when saved as unknown)
     const unkId = target.getAttribute('data-enc-toggle-unknown') || target.getAttribute('data-prev-toggle-unknown');
     if (unkId) {
       const isPrev = target.hasAttribute('data-prev-toggle-unknown');
@@ -9158,11 +9651,29 @@
       const fd = ft.defById[unkId];
       if (fd) {
         const cur = ft.valuesByDefId[fd.id];
-        if (cur && cur.valueState === 'unknown') {
-          delete ft.valuesByDefId[fd.id];
-        } else {
-          ft.valuesByDefId[fd.id] = makeEmptyVisitValue(ft.visitId, fd, 'unknown');
+        const isUnlocked = !isPrev && Boolean(state.encounter.unlockedUnknownCodes[fd.code]);
+        const isSavedUnk = !isPrev && Boolean(state.encounter.savedUnknownCodes[fd.code]);
+        if (isUnlocked) {
+          delete state.encounter.unlockedUnknownCodes[fd.code];
+          render();
+          return;
         }
+        if (cur && cur.valueState === 'unknown') {
+          if (isSavedUnk) {
+            state.encounter.unlockedUnknownCodes[fd.code] = true;
+            render();
+            focusUnlockedFieldInput(fd.code);
+            return;
+          }
+          delete ft.valuesByDefId[fd.id];
+          if (fd.code === 'mach') ft.setAutoPulseSourceIndex(null);
+          ft.markDirty();
+          render();
+          if (!isPrev) focusUnlockedFieldInput(fd.code);
+          return;
+        }
+        if (!isPrev) delete state.encounter.unlockedUnknownCodes[fd.code];
+        ft.valuesByDefId[fd.id] = makeEmptyVisitValue(ft.visitId, fd, 'unknown');
         if (fd.code === 'mach') ft.setAutoPulseSourceIndex(null);
         ft.markDirty();
         render();
@@ -10123,29 +10634,23 @@
     if (t.id === 'confirm-note-input') { state.review.confirmNote = t.value; return; }
     if (t.id === 'publish-note-input') { state.adminForms.publishNote = t.value; return; }
 
-    // ---- Form v1.2 & Workflow Live Inputs (never re-render numeric inputs while typing!) ----
+    // ---- Form v1.2 Live Inputs (never re-render numeric inputs while typing!) ----
     const v12NumCode = t.getAttribute('data-v12-num');
     if (v12NumCode) {
       const scope = t.getAttribute('data-v12-scope') || 'enc';
+      const isPrev = scope === 'prev';
       const unit = v12NumCode === 'bien_thien_can_nang_7ngay' ? 'kg' : (v12NumCode === 'e_over_a_ratio' ? 'ratio' : (v12NumCode === 'egfr_ckd_epi' ? 'mL/min/1.73m2' : null));
       const compact = t.value === '' ? null : { value_state: 'answered', value: Number(t.value) };
       if (compact && unit) compact.unit = unit;
       const errMsg = compact ? validateV12CompactField(v12NumCode, compact) : '';
-      if (scope === 'wf') {
-        if (!compact) { wfApplyClearOrUnknown(state.workflow, v12NumCode, unit); }
-        else { state.workflow.fieldValues[v12NumCode] = compact; state.workflow.dirtyFields[v12NumCode] = clone(compact); }
-        if (errMsg) state.workflow.fieldErrors[v12NumCode] = errMsg; else delete state.workflow.fieldErrors[v12NumCode];
-        wfSyncSaveButtonEnabled();
+      if (!compact && !isPrev && state.encounter.savedUnknownCodes[v12NumCode] && state.encounter.unlockedUnknownCodes[v12NumCode]) {
+        // D7: Left blank while unlocked from saved unknown -> preserve saved unknown value
+        delete state.encounter.fieldErrors[v12NumCode];
       } else {
-        const ft = getFormTarget(scope === 'prev');
-        const fd = Object.values(ft.defById).find(function (d) { return d.code === v12NumCode; });
-        if (scope === 'enc' && isWorkflowStorageField(fd || v12NumCode)) {
-          encApplyWorkflowCompact(v12NumCode, compact);
+        encApplyV12Answer(scope, v12NumCode, compact);
+        if (!isPrev) {
           if (errMsg) state.encounter.fieldErrors[v12NumCode] = errMsg;
-        } else if (fd) {
-          if (!compact) delete ft.valuesByDefId[fd.id];
-          else ft.valuesByDefId[fd.id] = compactToVisitValue(ft.visitId, fd, compact);
-          ft.markDirty();
+          else delete state.encounter.fieldErrors[v12NumCode];
         }
       }
       refreshNumericInput(t);
@@ -10166,32 +10671,19 @@
     const v12StructNum = t.getAttribute('data-v12-struct-num');
     if (v12StructNum) {
       const scope = t.getAttribute('data-v12-scope') || 'enc';
+      const isPrev = scope === 'prev';
       const code = t.getAttribute('data-v12-code');
       const maker = code === 'ecg_12_chuyen_dao' ? makeDefaultEcgValue : makeDefaultXrayValue;
-      let cur = null;
-      if (scope === 'wf') cur = state.workflow.fieldValues[code] || null;
-      else if (scope === 'enc' && isWorkflowStorageField(code)) cur = state.encounter.workflowFields[code] || null;
-      else {
-        const ft = getFormTarget(scope === 'prev');
-        const fd = Object.values(ft.defById).find(function (d) { return d.code === code; });
-        cur = fd ? visitValueToCompact(code, ft.valuesByDefId[fd.id], fd) : null;
-      }
+      const cur = encReadV12Answer(scope, code);
       const obj = (cur && cur.value_state === 'answered' && cur.value && typeof cur.value === 'object') ? clone(cur.value) : maker();
       obj[v12StructNum] = t.value === '' ? null : Number(t.value);
       const compact = { value_state: 'answered', value: obj };
+      if (cur && cur.measuredAt) compact.measuredAt = cur.measuredAt;
       const errMsg = validateV12CompactField(code, compact);
-      if (scope === 'wf') {
-        state.workflow.fieldValues[code] = compact;
-        state.workflow.dirtyFields[code] = clone(compact);
-        if (errMsg) state.workflow.fieldErrors[code] = errMsg; else delete state.workflow.fieldErrors[code];
-        wfSyncSaveButtonEnabled();
-      } else if (scope === 'enc' && isWorkflowStorageField(code)) {
-        encApplyWorkflowCompact(code, compact);
+      encApplyV12Answer(scope, code, compact);
+      if (!isPrev) {
         if (errMsg) state.encounter.fieldErrors[code] = errMsg;
-      } else {
-        const ft = getFormTarget(scope === 'prev');
-        const fd = Object.values(ft.defById).find(function (d) { return d.code === code; });
-        if (fd) { ft.valuesByDefId[fd.id] = compactToVisitValue(ft.visitId, fd, compact); ft.markDirty(); }
+        else delete state.encounter.fieldErrors[code];
       }
       t.classList.remove('input--unknown');
       t.classList.toggle('input--error', Boolean(errMsg));
@@ -10208,103 +10700,72 @@
       return;
     }
 
+    if (t.hasAttribute('data-v12-struct-measured-at')) {
+      const scope = t.getAttribute('data-v12-scope') || 'enc';
+      const code = t.getAttribute('data-v12-code');
+      const iso = t.value ? fromDatetimeLocal(t.value) : null;
+      const cur = encReadV12Answer(scope, code);
+      if (cur && cur.value_state === 'answered' && cur.value && typeof cur.value === 'object') {
+        const nextAns = clone(cur);
+        if (iso) nextAns.measuredAt = iso;
+        else delete nextAns.measuredAt;
+        encApplyV12Answer(scope, code, nextAns);
+      }
+      return;
+    }
+
     const v12WPrevScope = t.getAttribute('data-v12-wprev');
     if (v12WPrevScope) {
-      state.workflow.weightPrev7d[v12WPrevScope] = t.value;
-      const box = t.closest('.v12-calc-box');
-      if (box) {
-        const curW = v12WPrevScope === 'wf'
-          ? (state.workflow.fieldValues.can_nang_kg && state.workflow.fieldValues.can_nang_kg.value_state === 'answered' ? Number(state.workflow.fieldValues.can_nang_kg.value) : null)
-          : getEncounterCurrentWeight({ defByCode: state.encounter.defByCode, valuesByDefId: state.encounter.valuesByDefId });
-        const prevW = t.value !== '' && isFinite(Number(t.value)) ? Number(t.value) : null;
-        let preview = box.querySelector('.v12-calc-box__preview');
-        if (curW !== null && prevW !== null) {
-          const delta = Math.round((curW - prevW) * 10) / 10;
-          const signed = (delta > 0 ? '+' : '') + delta.toFixed(1);
-          if (!preview) {
-            preview = document.createElement('div');
-            preview.className = 'v12-calc-box__preview';
-            box.appendChild(preview);
-          }
-          preview.innerHTML = '<span>Hiện tại ' + esc(curW) + ' − 7 ngày trước ' + esc(prevW) + ' = <strong>' + esc(signed) + ' kg</strong></span>' +
-            '<button type="button" class="btn btn--secondary btn--xs" data-v12-apply-wdelta="' + esc(delta) + '" data-v12-scope="' + esc(v12WPrevScope) + '" data-v12-code="bien_thien_can_nang_7ngay">Áp dụng (' + esc(signed) + ' kg)</button>';
-        }
-      }
+      if (v12WPrevScope === 'prev') state.adminForms.previewWeightPrev7d = t.value;
+      else state.encounter.weightPrev7d = t.value;
+      encRefreshWeightCalcPreview(v12WPrevScope, t.closest('.v12-calc-box'));
       return;
     }
 
     const v12AtypScope = t.getAttribute('data-v12-atypical-note');
     if (v12AtypScope) {
-      state.workflow.atypicalNote[v12AtypScope] = t.value;
+      if (v12AtypScope === 'prev') state.adminForms.previewAtypicalNote = t.value;
+      else state.encounter.atypicalNote = t.value;
       return;
     }
 
-    const wfNumCode = t.getAttribute('data-wf-num');
-    if (wfNumCode) {
-      const unit = WF_CONTRACT_UNITS[wfNumCode] || t.getAttribute('data-wf-unit') || null;
-      const prev = state.workflow.fieldValues[wfNumCode];
+    // ---- Encounter v1.2 Timed Labs & Structured Lists Live Inputs ----
+    const encLabNum = t.getAttribute('data-enc-v12lab-num');
+    if (encLabNum) {
+      const enc = state.encounter;
+      const fd = enc.defByCode[encLabNum];
+      if (!fd) return;
+      const unit = WF_CONTRACT_UNITS[encLabNum] || t.getAttribute('data-enc-v12lab-unit') || fd.canonicalUnit || null;
+      const prevAns = visitValueToCompact(encLabNum, enc.valuesByDefId[fd.id], fd);
+      const pendingMat = enc.pendingMeasuredAt && enc.pendingMeasuredAt[encLabNum];
+      const existingMat = (prevAns && prevAns.measuredAt) || pendingMat || null;
       if (t.value === '') {
-        wfApplyClearOrUnknown(state.workflow, wfNumCode, unit);
+        if (enc.savedUnknownCodes[encLabNum] && enc.unlockedUnknownCodes[encLabNum]) {
+          // D7: preserve saved unknown when unlocked input stays blank
+          delete enc.fieldErrors[encLabNum];
+        } else {
+          encApplyV12Answer('enc', encLabNum, null);
+        }
       } else {
         const entry = { value_state: 'answered', value: Number(t.value) };
         if (unit) entry.unit = unit;
-        // F2 / BUG-02: Preserve existing measuredAt when editing numeric value (never substitute visitDate)
-        if (prev && prev.measuredAt) entry.measuredAt = prev.measuredAt;
-        state.workflow.fieldValues[wfNumCode] = entry;
-        state.workflow.dirtyFields[wfNumCode] = clone(entry);
+        if (existingMat) entry.measuredAt = existingMat;
+        if (enc.pendingMeasuredAt) delete enc.pendingMeasuredAt[encLabNum];
+        encApplyV12Answer('enc', encLabNum, entry);
+        const matEl = document.getElementById('enc-mat-' + encLabNum);
+        if (matEl) matEl.classList.toggle('input--error', !entry.measuredAt);
       }
-      delete state.workflow.fieldErrors[wfNumCode];
       refreshNumericInput(t);
-      wfSyncSaveButtonEnabled();
       return;
     }
 
-    if (t.hasAttribute('data-wf-measured-at')) {
-      wfApplyMeasuredAtUpdate(t);
+    if (t.hasAttribute('data-enc-v12lab-time')) {
+      encApplyTimedLabMeasuredAt(t);
       return;
     }
 
-    const wfTxtCode = t.getAttribute('data-wf-text');
-    if (wfTxtCode) {
-      if (t.value === '') {
-        wfApplyClearOrUnknown(state.workflow, wfTxtCode, null);
-      } else {
-        const entry = { value_state: 'answered', value: t.value };
-        state.workflow.fieldValues[wfTxtCode] = entry;
-        state.workflow.dirtyFields[wfTxtCode] = clone(entry);
-      }
-      wfSyncSaveButtonEnabled();
-      return;
-    }
-
-    // BUG-06 (D3): Live structured list item edits (never re-render while typing)
-    const wfListItemAttr = t.getAttribute('data-wf-list-item');
-    if (wfListItemAttr) {
-      const parts = wfListItemAttr.split(':');
-      const code = parts[0];
-      const idx = Number(parts[1]);
-      const prop = parts[2];
-      const wf = state.workflow;
-      const cur = wf.fieldValues[code];
-      const items = (cur && cur.value_state === 'answered' && Array.isArray(cur.value)) ? clone(cur.value) : [];
-      if (code === 'diagnoses') {
-        items[idx] = String(t.value || '').toUpperCase();
-      } else if (code === 'medications') {
-        const row = (items[idx] && typeof items[idx] === 'object') ? items[idx] : { id: 'med-' + (idx + 1), ingredient: '', class: null, dose: null, unit: null, route: null, frequency: null };
-        if (prop === 'dose') row.dose = t.value === '' ? null : Number(t.value);
-        else if (prop === 'ingredient') row.ingredient = t.value;
-        else row[prop] = t.value === '' ? null : t.value;
-        items[idx] = row;
-      } else if (code === 'allergies') {
-        const row = (items[idx] && typeof items[idx] === 'object') ? items[idx] : { id: 'alg-' + (idx + 1), ingredient: '' };
-        row.ingredient = t.value;
-        items[idx] = row;
-      }
-      const entry = { value_state: 'answered', value: items };
-      wf.fieldValues[code] = entry;
-      wf.dirtyFields[code] = clone(entry);
-      delete wf.fieldErrors[code];
-      wfSyncSaveButtonEnabled();
+    if (t.hasAttribute('data-enc-v12list-item')) {
+      encUpdateV12ListItem(t, false);
       return;
     }
 
@@ -10411,19 +10872,30 @@
       const fd = ft.defById[numId];
       if (!fd) return;
       if (t.value === '') {
-        delete ft.valuesByDefId[fd.id];
+        if (!isPrev && state.encounter.savedUnknownCodes[fd.code] && state.encounter.unlockedUnknownCodes[fd.code]) {
+          // D7: keep saved unknown intact when unlocked field left blank
+        } else {
+          delete ft.valuesByDefId[fd.id];
+          if (fd.code === 'mach') ft.setAutoPulseSourceIndex(null);
+          ft.markDirty();
+        }
       } else {
+        if (!isPrev) delete state.encounter.unlockedUnknownCodes[fd.code];
         const item = makeEmptyVisitValue(ft.visitId, fd, 'answered');
         item.valueNum = Number(t.value);
         item.unit = fd.canonicalUnit || null;
         ft.valuesByDefId[fd.id] = item;
+        if (fd.code === 'mach') ft.setAutoPulseSourceIndex(null);
+        ft.markDirty();
       }
-      if (fd.code === 'mach') ft.setAutoPulseSourceIndex(null);
-      ft.markDirty();
       // Do not rebuild number inputs while typing: replacement resets the native
       // caret for number fields and reverses subsequent digits/backspaces.
       refreshNumericInput(t);
       if (fd.code === 'chieu_cao_cm' || fd.code === 'can_nang_kg') refreshLiveBmi(ft);
+      if (fd.code === 'can_nang_kg') {
+        if (isPrev && state.adminForms.previewWeightCalcOpen) encRefreshWeightCalcPreview('prev');
+        if (!isPrev && state.encounter.weightCalcOpen) encRefreshWeightCalcPreview('enc');
+      }
       return;
     }
 
@@ -10435,14 +10907,20 @@
       const fd = ft.defById[txtId];
       if (!fd) return;
       if (t.value === '') {
-        delete ft.valuesByDefId[fd.id];
+        if (!isPrev && state.encounter.savedUnknownCodes[fd.code] && state.encounter.unlockedUnknownCodes[fd.code]) {
+          // D7: keep saved unknown intact when unlocked field left blank
+        } else {
+          delete ft.valuesByDefId[fd.id];
+          ft.markDirty();
+        }
       } else {
+        if (!isPrev) delete state.encounter.unlockedUnknownCodes[fd.code];
         const item = makeEmptyVisitValue(ft.visitId, fd, 'answered');
         if (fd.dataType === 'date') item.valueDate = t.value;
         else item.valueText = t.value;
         ft.valuesByDefId[fd.id] = item;
+        ft.markDirty();
       }
-      ft.markDirty();
       return;
     }
 
@@ -10563,25 +11041,11 @@
       return;
     }
 
-    // Form v1.2 eGFR formula select & structured ECG rhythm select
+    // Form v1.2 eGFR formula select & structured ECG/X-ray controls (G2: single-form draft only)
     if (t.hasAttribute('data-v12-egfr-formula')) {
       const scope = t.getAttribute('data-v12-scope') || 'enc';
       const compact = t.value ? { value_state: 'answered', value: t.value } : null;
-      if (scope === 'wf') {
-        if (!compact) wfApplyClearOrUnknown(state.workflow, 'egfr_formula', null);
-        else { state.workflow.fieldValues.egfr_formula = compact; state.workflow.dirtyFields.egfr_formula = clone(compact); }
-        render();
-      } else if (scope === 'enc' && isWorkflowStorageField('egfr_formula')) {
-        encApplyWorkflowCompact('egfr_formula', compact);
-      } else {
-        const ft = getFormTarget(scope === 'prev');
-        const fd = Object.values(ft.defById).find(function (d) { return d.code === 'egfr_formula'; });
-        if (fd) {
-          if (!compact) delete ft.valuesByDefId[fd.id];
-          else ft.valuesByDefId[fd.id] = compactToVisitValue(ft.visitId, fd, compact);
-          ft.markDirty();
-        }
-      }
+      encApplyV12Answer(scope, 'egfr_formula', compact);
       return;
     }
 
@@ -10590,69 +11054,40 @@
       const scope = t.getAttribute('data-v12-scope') || 'enc';
       const code = t.getAttribute('data-v12-code');
       const maker = code === 'ecg_12_chuyen_dao' ? makeDefaultEcgValue : makeDefaultXrayValue;
-      let cur = null;
-      if (scope === 'wf') cur = state.workflow.fieldValues[code] || null;
-      else if (scope === 'enc' && isWorkflowStorageField(code)) cur = state.encounter.workflowFields[code] || null;
-      else {
-        const ft = getFormTarget(scope === 'prev');
-        const fd = Object.values(ft.defById).find(function (d) { return d.code === code; });
-        cur = fd ? visitValueToCompact(code, ft.valuesByDefId[fd.id], fd) : null;
-      }
+      const cur = encReadV12Answer(scope, code);
       const obj = (cur && cur.value_state === 'answered' && cur.value && typeof cur.value === 'object') ? clone(cur.value) : maker();
       obj[v12StructSel] = t.value || 'unknown';
       const compact = { value_state: 'answered', value: obj };
-      if (scope === 'wf') {
-        state.workflow.fieldValues[code] = compact;
-        state.workflow.dirtyFields[code] = clone(compact);
-        render();
-      } else if (scope === 'enc' && isWorkflowStorageField(code)) {
-        encApplyWorkflowCompact(code, compact);
-      } else {
-        const ft = getFormTarget(scope === 'prev');
-        const fd = Object.values(ft.defById).find(function (d) { return d.code === code; });
-        if (fd) { ft.valuesByDefId[fd.id] = compactToVisitValue(ft.visitId, fd, compact); ft.markDirty(); }
+      if (cur && cur.measuredAt) compact.measuredAt = cur.measuredAt;
+      encApplyV12Answer(scope, code, compact);
+      return;
+    }
+
+    if (t.hasAttribute('data-v12-struct-measured-at')) {
+      const scope = t.getAttribute('data-v12-scope') || 'enc';
+      const code = t.getAttribute('data-v12-code');
+      const iso = t.value ? fromDatetimeLocal(t.value) : null;
+      const cur = encReadV12Answer(scope, code);
+      if (cur && cur.value_state === 'answered' && cur.value && typeof cur.value === 'object') {
+        const nextAns = clone(cur);
+        if (iso) nextAns.measuredAt = iso;
+        else delete nextAns.measuredAt;
+        encApplyV12Answer(scope, code, nextAns);
       }
       return;
     }
 
-    // F2: measuredAt datetime-local change event
-    if (t.hasAttribute('data-wf-measured-at')) {
-      wfApplyMeasuredAtUpdate(t);
+    if (t.hasAttribute('data-enc-v12lab-time')) {
+      encApplyTimedLabMeasuredAt(t);
       return;
     }
 
-    // BUG-06 (D3): Structured list <select> and trimmed text change events
-    const wfListChg = t.getAttribute('data-wf-list-item');
-    if (wfListChg) {
-      const parts = wfListChg.split(':');
-      const code = parts[0];
-      const idx = Number(parts[1]);
-      const prop = parts[2];
-      const wf = state.workflow;
-      const cur = wf.fieldValues[code];
-      const items = (cur && cur.value_state === 'answered' && Array.isArray(cur.value)) ? clone(cur.value) : [];
-      if (code === 'diagnoses') {
-        items[idx] = String(t.value || '').trim().toUpperCase();
-      } else if (code === 'medications') {
-        const row = (items[idx] && typeof items[idx] === 'object') ? items[idx] : { id: 'med-' + (idx + 1), ingredient: '', class: null, dose: null, unit: null, route: null, frequency: null };
-        if (prop === 'dose') row.dose = t.value === '' ? null : Number(t.value);
-        else if (prop === 'ingredient') row.ingredient = String(t.value || '').trim();
-        else row[prop] = t.value === '' ? null : t.value;
-        items[idx] = row;
-      } else if (code === 'allergies') {
-        const row = (items[idx] && typeof items[idx] === 'object') ? items[idx] : { id: 'alg-' + (idx + 1), ingredient: '' };
-        row.ingredient = String(t.value || '').trim();
-        items[idx] = row;
-      }
-      const entry = { value_state: 'answered', value: items };
-      wf.fieldValues[code] = entry;
-      wf.dirtyFields[code] = clone(entry);
-      delete wf.fieldErrors[code];
-      wfSyncSaveButtonEnabled();
+    if (t.hasAttribute('data-enc-v12list-item')) {
+      encUpdateV12ListItem(t, true);
       return;
     }
 
-    // BUG-08: M2 recentTestEvidence doctorConfirmedReuse checkbox
+    // M2 recentTestEvidence doctorConfirmedReuse checkbox (kept on workflow screen)
     const wfReuseKey = t.getAttribute('data-wf-reuse-test');
     if (wfReuseKey) {
       const wf = state.workflow;
@@ -10668,7 +11103,7 @@
         delete wf.recentTestEvidence[wfReuseKey];
       }
       wf.recentTestEvidenceDirty = true;
-      wfSyncSaveButtonEnabled();
+      render();
       return;
     }
 
@@ -10721,14 +11156,20 @@
       const fd = ft.defById[selId];
       if (!fd) return;
       if (!t.value) {
-        delete ft.valuesByDefId[fd.id];
+        if (!isPrev && state.encounter.savedUnknownCodes[fd.code] && state.encounter.unlockedUnknownCodes[fd.code]) {
+          // D7: preserve saved unknown when unlocked select stays blank
+        } else {
+          delete ft.valuesByDefId[fd.id];
+          ft.markDirty();
+        }
       } else {
+        if (!isPrev) delete state.encounter.unlockedUnknownCodes[fd.code];
         const item = makeEmptyVisitValue(ft.visitId, fd, 'answered');
         item.fieldOptionId = t.value;
         ft.valuesByDefId[fd.id] = item;
+        ft.markDirty();
       }
-      ft.markDirty();
-      t.classList.toggle('input--unfilled', !ft.valuesByDefId[fd.id]);
+      t.classList.toggle('input--unfilled', !t.value);
       return;
     }
 
@@ -10742,6 +11183,7 @@
       const cur = ft.valuesByDefId[fd.id];
       let opts = (cur && cur.valueState === 'answered' && Array.isArray(cur.selectedOptions)) ? clone(cur.selectedOptions) : [];
       if (t.checked) {
+        if (!isPrev) delete state.encounter.unlockedUnknownCodes[fd.code];
         if (!opts.some(function (o) { return o.fieldOptionId === t.value; })) {
           opts.push({ visitId: ft.visitId, fieldDefinitionId: fd.id, fieldOptionId: t.value });
         }
@@ -10749,15 +11191,20 @@
         opts = opts.filter(function (o) { return o.fieldOptionId !== t.value; });
       }
       if (opts.length === 0) {
-        delete ft.valuesByDefId[fd.id];
+        if (!isPrev && state.encounter.savedUnknownCodes[fd.code] && state.encounter.unlockedUnknownCodes[fd.code]) {
+          // D7: preserve saved unknown
+        } else {
+          delete ft.valuesByDefId[fd.id];
+          ft.markDirty();
+        }
       } else {
         const item = makeEmptyVisitValue(ft.visitId, fd, 'answered');
         item.selectedOptions = opts;
         ft.valuesByDefId[fd.id] = item;
+        ft.markDirty();
       }
-      ft.markDirty();
       const choices = t.closest('.multi-choice-box');
-      if (choices) choices.classList.toggle('multi-choice-box--unfilled', !ft.valuesByDefId[fd.id]);
+      if (choices) choices.classList.toggle('multi-choice-box--unfilled', opts.length === 0);
       return;
     }
 
@@ -10851,12 +11298,12 @@
     if (t.id === 'audit-to') { state.adminAudit.toDate = t.value; await loadAdminAudit(); return; }
   });
 
-  // A4-fix #2: Prevent mouse wheel from accidentally changing focused number inputs in workflow
+  // A4-fix #2 / A5: Prevent mouse wheel from accidentally changing focused number inputs in encounter form & workflow
   document.addEventListener('wheel', function (ev) {
     const active = document.activeElement;
     if (!active || active.tagName !== 'INPUT' || active.type !== 'number') return;
-    const inWorkflow = state.screen === 'workflow' || Boolean(active.closest && active.closest('.wf-stage-card, .v12-field'));
-    if (!inWorkflow) return;
+    const inClinical = state.screen === 'workflow' || state.screen === 'encounter' || Boolean(active.closest && active.closest('.wf-stage-card, .v12-field, .clinical-section'));
+    if (!inClinical) return;
     if (ev.target === active || (active.contains && active.contains(ev.target))) {
       active.blur();
     }
