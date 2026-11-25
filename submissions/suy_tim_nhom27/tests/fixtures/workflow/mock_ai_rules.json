@@ -169,7 +169,10 @@
         "ran_am_phoi",
         "bien_thien_can_nang_7ngay",
         "trieu_chung_khong_dien_hinh",
-        "danh_gia_suy_yeu_frailty"
+        "danh_gia_suy_yeu_frailty",
+        "cls_lvef",
+        "cls_bnp",
+        "cls_nt_probnp"
       ],
       "M2": [
         "age",
@@ -181,7 +184,10 @@
         "ran_am_phoi",
         "bien_thien_can_nang_7ngay",
         "trieu_chung_khong_dien_hinh",
-        "danh_gia_suy_yeu_frailty"
+        "danh_gia_suy_yeu_frailty",
+        "cls_lvef",
+        "cls_bnp",
+        "cls_nt_probnp"
       ],
       "M3": [
         "age",

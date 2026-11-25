@@ -599,9 +599,9 @@
 
   const WF_STEP_FIELDS = {
     m1: {
-      required: ['age', 'sex', 'diagnoses', 'kho_tho_nang', 'phu_chi_duoi_muc_do', 'tinh_mach_co_noi', 'ran_am_phoi', 'bien_thien_can_nang_7ngay', 'trieu_chung_khong_dien_hinh', 'danh_gia_suy_yeu_frailty'],
+      required: ['age', 'sex', 'diagnoses', 'kho_tho_nang', 'phu_chi_duoi_muc_do', 'tinh_mach_co_noi', 'ran_am_phoi', 'bien_thien_can_nang_7ngay', 'trieu_chung_khong_dien_hinh', 'danh_gia_suy_yeu_frailty', 'cls_lvef', 'cls_bnp', 'cls_nt_probnp'],
       optional: [
-        'cls_lvef', 'cls_nt_probnp', 'cls_bnp', 'bat_thuong_cau_truc_tim', 'spo2', 'mach', 'cls_natri',
+        'bat_thuong_cau_truc_tim', 'spo2', 'mach', 'cls_natri',
         'tang_huyet_ap', 'dai_thao_duong', 'copd', 'thieu_mau', 'can_nang_kg',
         'nyha_hien_tai', 'tinh_trang_worsening_decompensated', 'tinh_trang_sung_huyet', 'giam_tuoi_mau_ngoai_vi',
         'di_ung_thuoc_can_quang', 'ts_thiet_bi_cay_ghep_chong_chi_dinh_mri',
