@@ -107,6 +107,9 @@
       if (opts.ifMatch !== undefined && opts.ifMatch !== null) {
         headers['If-Match'] = '"' + String(opts.ifMatch).replace(/^"|"$/g, '') + '"';
       }
+      if (opts.idempotencyKey) {
+        headers['Idempotency-Key'] = String(opts.idempotencyKey);
+      }
       let bodyStr;
       if (opts.body !== undefined) {
         headers['Content-Type'] = 'application/json';
@@ -116,10 +119,11 @@
       let res;
       const controller = typeof global.AbortController === 'function' ? new global.AbortController() : null;
       let timedOut = false;
+      const timeoutMs = opts.timeoutMs || REQUEST_TIMEOUT_MS;
       const timeoutId = controller ? global.setTimeout(function () {
         timedOut = true;
         controller.abort();
-      }, REQUEST_TIMEOUT_MS) : null;
+      }, timeoutMs) : null;
       try {
         const fetchOpts = { method: method, headers: headers, body: bodyStr, signal: controller ? controller.signal : undefined };
         if (opts.keepalive) fetchOpts.keepalive = true;
@@ -239,6 +243,67 @@
         return request('GET', '/visits/' + encodeURIComponent(visitId) + '/ai-input/hf/1.0' + buildQuery(params));
       },
 
+      /* Workflow 4-Module (hf-workflow/1.0) */
+      getVisitWorkflow(visitId, params) {
+        return request('GET', '/visits/' + encodeURIComponent(visitId) + '/workflow' + buildQuery(params), { timeoutMs: 10000 });
+      },
+      getWorkflowFields(visitId, moduleCode) {
+        return request('GET', '/visits/' + encodeURIComponent(visitId) + '/workflow/' + encodeURIComponent(moduleCode || 'm1') + '/fields', { timeoutMs: 10000 });
+      },
+      getWorkflowRun(visitId, moduleCode, runId) {
+        return request('GET', '/visits/' + encodeURIComponent(visitId) + '/workflow/' + encodeURIComponent(moduleCode) + '/runs/' + encodeURIComponent(runId), { timeoutMs: 10000 });
+      },
+      listWorkflowRuns(visitId, moduleCode) {
+        return request('GET', '/visits/' + encodeURIComponent(visitId) + '/workflow/' + encodeURIComponent(moduleCode) + '/runs', { timeoutMs: 10000 });
+      },
+      getWorkflowDecision(visitId, moduleCode, decisionId) {
+        return request('GET', '/visits/' + encodeURIComponent(visitId) + '/workflow/' + encodeURIComponent(moduleCode) + '/decisions/' + encodeURIComponent(decisionId), { timeoutMs: 10000 });
+      },
+      saveWorkflowFields(visitId, moduleCode, payload, rowVersion) {
+        const rv = rowVersion !== undefined && rowVersion !== null ? rowVersion : (payload && payload.rowVersion);
+        return request('PUT', '/visits/' + encodeURIComponent(visitId) + '/workflow/' + encodeURIComponent(moduleCode) + '/fields', {
+          body: payload,
+          ifMatch: rv,
+          timeoutMs: 10000
+        });
+      },
+      runWorkflowModule(visitId, moduleCode, payload, rowVersion, idempotencyKey) {
+        const rv = rowVersion !== undefined && rowVersion !== null ? rowVersion : (payload && payload.rowVersion);
+        return request('POST', '/visits/' + encodeURIComponent(visitId) + '/workflow/' + encodeURIComponent(moduleCode) + '/runs', {
+          body: payload,
+          ifMatch: rv,
+          idempotencyKey: idempotencyKey,
+          timeoutMs: 35000
+        });
+      },
+      submitWorkflowDecision(visitId, moduleCode, payload, rowVersion, idempotencyKey) {
+        const rv = rowVersion !== undefined && rowVersion !== null ? rowVersion : (payload && payload.rowVersion);
+        return request('POST', '/visits/' + encodeURIComponent(visitId) + '/workflow/' + encodeURIComponent(moduleCode) + '/decision', {
+          body: payload,
+          ifMatch: rv,
+          idempotencyKey: idempotencyKey,
+          timeoutMs: 10000
+        });
+      },
+      submitM4Confirmations(visitId, payload, rowVersion, idempotencyKey) {
+        const rv = rowVersion !== undefined && rowVersion !== null ? rowVersion : (payload && payload.rowVersion);
+        return request('POST', '/visits/' + encodeURIComponent(visitId) + '/workflow/m4/confirmations', {
+          body: payload,
+          ifMatch: rv,
+          idempotencyKey: idempotencyKey,
+          timeoutMs: 10000
+        });
+      },
+      finishWorkflow(visitId, payload, rowVersion, idempotencyKey) {
+        const rv = rowVersion !== undefined && rowVersion !== null ? rowVersion : (payload && payload.rowVersion);
+        return request('POST', '/visits/' + encodeURIComponent(visitId) + '/workflow/finish', {
+          body: payload,
+          ifMatch: rv,
+          idempotencyKey: idempotencyKey,
+          timeoutMs: 10000
+        });
+      },
+
       /* Admin Users */
       listUsers(params) { return request('GET', '/admin/users' + buildQuery(params)); },
       createUser(payload) { return request('POST', '/admin/users', { body: payload }); },
@@ -329,6 +394,46 @@
       createVisitRevision: function (id, p, rv) { return adapter.createVisitRevision(id, p, rv); },
       getVisitAiInput: function (id) { return adapter.getVisitAiInput(id); },
       getVisitAiInputV1: function (id, params) { return adapter.getVisitAiInputV1(id, params); },
+      getVisitWorkflow: function (id, params) {
+        if (typeof adapter.getVisitWorkflow !== 'function') return Promise.reject(new HttpApiError(501, { code: 'WORKFLOW_STATIC_UNSUPPORTED', detail: 'Luồng 4 Module AI yêu cầu kết nối máy chủ API.' }));
+        return adapter.getVisitWorkflow(id, params);
+      },
+      getWorkflowFields: function (id, mod) {
+        if (typeof adapter.getWorkflowFields !== 'function') return Promise.reject(new HttpApiError(501, { code: 'WORKFLOW_STATIC_UNSUPPORTED', detail: 'Luồng 4 Module AI yêu cầu kết nối máy chủ API.' }));
+        return adapter.getWorkflowFields(id, mod);
+      },
+      getWorkflowRun: function (id, mod, runId) {
+        if (typeof adapter.getWorkflowRun !== 'function') return Promise.reject(new HttpApiError(501, { code: 'WORKFLOW_STATIC_UNSUPPORTED', detail: 'Luồng 4 Module AI yêu cầu kết nối máy chủ API.' }));
+        return adapter.getWorkflowRun(id, mod, runId);
+      },
+      listWorkflowRuns: function (id, mod) {
+        if (typeof adapter.listWorkflowRuns !== 'function') return Promise.reject(new HttpApiError(501, { code: 'WORKFLOW_STATIC_UNSUPPORTED', detail: 'Luồng 4 Module AI yêu cầu kết nối máy chủ API.' }));
+        return adapter.listWorkflowRuns(id, mod);
+      },
+      getWorkflowDecision: function (id, mod, decId) {
+        if (typeof adapter.getWorkflowDecision !== 'function') return Promise.reject(new HttpApiError(501, { code: 'WORKFLOW_STATIC_UNSUPPORTED', detail: 'Luồng 4 Module AI yêu cầu kết nối máy chủ API.' }));
+        return adapter.getWorkflowDecision(id, mod, decId);
+      },
+      saveWorkflowFields: function (id, mod, p, rv) {
+        if (typeof adapter.saveWorkflowFields !== 'function') return Promise.reject(new HttpApiError(501, { code: 'WORKFLOW_STATIC_UNSUPPORTED', detail: 'Luồng 4 Module AI yêu cầu kết nối máy chủ API.' }));
+        return adapter.saveWorkflowFields(id, mod, p, rv);
+      },
+      runWorkflowModule: function (id, mod, p, rv, idk) {
+        if (typeof adapter.runWorkflowModule !== 'function') return Promise.reject(new HttpApiError(501, { code: 'WORKFLOW_STATIC_UNSUPPORTED', detail: 'Luồng 4 Module AI yêu cầu kết nối máy chủ API.' }));
+        return adapter.runWorkflowModule(id, mod, p, rv, idk);
+      },
+      submitWorkflowDecision: function (id, mod, p, rv, idk) {
+        if (typeof adapter.submitWorkflowDecision !== 'function') return Promise.reject(new HttpApiError(501, { code: 'WORKFLOW_STATIC_UNSUPPORTED', detail: 'Luồng 4 Module AI yêu cầu kết nối máy chủ API.' }));
+        return adapter.submitWorkflowDecision(id, mod, p, rv, idk);
+      },
+      submitM4Confirmations: function (id, p, rv, idk) {
+        if (typeof adapter.submitM4Confirmations !== 'function') return Promise.reject(new HttpApiError(501, { code: 'WORKFLOW_STATIC_UNSUPPORTED', detail: 'Luồng 4 Module AI yêu cầu kết nối máy chủ API.' }));
+        return adapter.submitM4Confirmations(id, p, rv, idk);
+      },
+      finishWorkflow: function (id, p, rv, idk) {
+        if (typeof adapter.finishWorkflow !== 'function') return Promise.reject(new HttpApiError(501, { code: 'WORKFLOW_STATIC_UNSUPPORTED', detail: 'Luồng 4 Module AI yêu cầu kết nối máy chủ API.' }));
+        return adapter.finishWorkflow(id, p, rv, idk);
+      },
       listUsers: function (p) { return adapter.listUsers(p); },
       createUser: function (p) { return adapter.createUser(p); },
       getUser: function (id) { return adapter.getUser(id); },

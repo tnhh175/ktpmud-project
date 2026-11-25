@@ -41,7 +41,10 @@
     code: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
     refresh: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>',
     panelLeft: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>',
-    download: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'
+    download: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+    play: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>',
+    edit: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+    history: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><polyline points="3 3 3 8 8 8"/><polyline points="12 7 12 12 15 14"/></svg>'
   };
 
   /* ------------------------------------------------------------------------
@@ -324,8 +327,469 @@
     cls_thoi_diem: 'Thời điểm xét nghiệm',
     cls_ecg_thoi_diem: 'Thời điểm điện tâm đồ (ECG)',
     cls_sieu_am_tim_thoi_diem: 'Thời điểm siêu âm tim',
-    cls_xquang_thoi_diem: 'Thời điểm X-quang ngực'
+    cls_xquang_thoi_diem: 'Thời điểm X-quang ngực',
+    kho_tho_nang: 'Mức độ khó thở (0–3)',
+    phu_chi_duoi_muc_do: 'Mức độ phù chi dưới (0–2)',
+    bien_thien_can_nang_7ngay: 'Biến thiên cân nặng 7 ngày (kg)',
+    trieu_chung_khong_dien_hinh: 'Triệu chứng không điển hình nổi bật',
+    danh_gia_suy_yeu_frailty: 'Điểm suy yếu CFS (1–9)',
+    e_over_a_ratio: 'Tỉ lệ E/A (Doppler)',
+    egfr_ckd_epi: 'eGFR kèm công thức',
+    egfr_formula: 'Công thức tính eGFR',
+    ecg_12_chuyen_dao: 'ECG 12 chuyển đạo có cấu trúc',
+    xquang_nguc_thang: 'X-quang ngực thẳng có cấu trúc',
+    bat_thuong_cau_truc_tim: 'Xác nhận bất thường cấu trúc/chức năng tim',
+    selected_medications: 'Phương án đơn thuốc đã chọn ở Module 3',
+    age: 'Tuổi tại lượt khám',
+    sex: 'Giới tính',
+    tinh_mach_co_noi: 'Tĩnh mạch cổ nổi',
+    ran_am_phoi: 'Ran ẩm ở phổi',
+    cls_nt_probnp: 'Xét nghiệm NT-proBNP',
+    cls_bnp: 'Xét nghiệm BNP',
+    cls_lvef: 'Phân suất tống máu thất trái (LVEF)',
+    cls_creatinin: 'Creatinin huyết thanh',
+    cls_kali: 'Kali máu (K+)',
+    cls_natri: 'Natri máu (Na+)',
+    cls_chuc_nang_gan: 'Chức năng gan (AST/ALT)',
+    spo2: 'Độ bão hòa oxy máu (SpO₂)',
+    mach: 'Mạch / Tần số tim',
+    can_nang_kg: 'Cân nặng hiện tại',
+    tang_huyet_ap: 'Tiền sử Tăng huyết áp',
+    dai_thao_duong: 'Tiền sử Đái tháo đường',
+    copd: 'Tiền sử COPD / bệnh phổi mạn',
+    thieu_mau: 'Tiền sử Thiếu máu',
+    nyha_hien_tai: 'Phân độ NYHA hiện tại',
+    tinh_trang_worsening_decompensated: 'Tình trạng nặng lên / mất bù',
+    tinh_trang_sung_huyet: 'Tình trạng sung huyết',
+    giam_tuoi_mau_ngoai_vi: 'Giảm tưới máu ngoại vi',
+    kha_nang_hop_tac_xet_nghiem: 'Khả năng hợp tác xét nghiệm',
+    di_ung_thuoc_can_quang: 'Dị ứng thuốc cản quang',
+    ts_thiet_bi_cay_ghep_chong_chi_dinh_mri: 'Thiết bị cấy ghép chống chỉ định MRI',
+    kha_nang_gang_suc_tham_do_xam_lan: 'Khả năng gắng sức / thăm dò xâm lấn',
+    muc_tieu_dieu_tri: 'Mục tiêu điều trị',
+    xh_kha_nang_chi_tra: 'Khả năng chi trả',
+    kha_nang_thuc_hien_xet_nghiem: 'Khả năng thực hiện xét nghiệm'
   };
+
+  /* ------------------------------------------------------------------------
+     Workflow 4-Module (hf-workflow/1.0) & Form v1.2 9-Field Specifications
+     ------------------------------------------------------------------------ */
+  const WF_SIMULATION_LABEL = 'Kết quả AI mô phỏng — chỉ để kiểm thử, không dùng cho lâm sàng';
+  const WF_EXP_TAG_FULL = 'Thang thử nghiệm · chờ bác sĩ duyệt';
+  const WF_MODULE_ORDER = ['m1', 'm2', 'm3', 'm4'];
+  const WF_MODULE_META = {
+    m1: { num: 1, full: 'M1 · Chẩn đoán (Diagnosis)', short: 'M1 Chẩn đoán', next: 'm2', nextNum: 2 },
+    m2: { num: 2, full: 'M2 · Cận lâm sàng (Lab/Test)', short: 'M2 Xét nghiệm', next: 'm3', nextNum: 3 },
+    m3: { num: 3, full: 'M3 · Điều trị (Treatment)', short: 'M3 Điều trị', next: 'm4', nextNum: 4 },
+    m4: { num: 4, full: 'M4 · An toàn thuốc (MedSafety)', short: 'M4 An toàn thuốc', next: null, nextNum: null }
+  };
+
+  const V12_NINE_FIELD_CODES = [
+    'kho_tho_nang',
+    'phu_chi_duoi_muc_do',
+    'bien_thien_can_nang_7ngay',
+    'trieu_chung_khong_dien_hinh',
+    'danh_gia_suy_yeu_frailty',
+    'e_over_a_ratio',
+    'egfr_ckd_epi',
+    'ecg_12_chuyen_dao',
+    'xquang_nguc_thang'
+  ];
+
+  const V12_SCALE_SPECS = {
+    kho_tho_nang: {
+      label: 'Mức độ khó thở (0–3)',
+      sectionCode: 'trieu_chung_dien_bien',
+      options: [
+        { value: 0, title: '0 — Không khó thở', desc: 'Không có triệu chứng khó thở' },
+        { value: 1, title: '1 — Khi gắng sức nặng', desc: 'Như leo từ hai tầng trở lên' },
+        { value: 2, title: '2 — Khi gắng sức nhẹ hoặc sinh hoạt thường', desc: 'Đi bộ đoạn ngắn hoặc sinh hoạt hằng ngày' },
+        { value: 3, title: '3 — Khi nghỉ hoặc phải ngồi dậy để thở', desc: 'Khó thở ngay cả lúc nghỉ ngơi' }
+      ]
+    },
+    phu_chi_duoi_muc_do: {
+      label: 'Mức độ phù chi dưới (0–2)',
+      sectionCode: 'trieu_chung_dien_bien',
+      options: [
+        { value: 0, title: '0 — Không phù', desc: 'Không ghi nhận phù chi dưới' },
+        { value: 1, title: '1 — Phù mắt cá / 1/3 dưới cẳng chân, ấn lõm nông', desc: 'Khu trú vùng cổ chân hoặc 1/3 dưới cẳng chân' },
+        { value: 2, title: '2 — Phù rõ vượt 1/3 dưới cẳng chân', desc: 'Gồm quá gối, ấn lõm sâu hoặc phù toàn thân' }
+      ]
+    },
+    trieu_chung_khong_dien_hinh: {
+      label: 'Triệu chứng không điển hình nổi bật',
+      sectionCode: 'trieu_chung_dien_bien',
+      help: 'Nếu có cả hai triệu chứng, chọn 1 và giữ ghi chú trong hồ sơ.',
+      hasNoteOnNonZero: true,
+      options: [
+        { value: 0, title: '0 — Không', desc: 'Không có triệu chứng không điển hình nổi bật' },
+        { value: 1, title: '1 — Lơ mơ / lú lẫn / sảng', desc: 'Ưu tiên chọn mức này nếu có cả hai triệu chứng' },
+        { value: 2, title: '2 — Chán ăn / sụt ăn', desc: 'Giảm ăn uống rõ rệt không giải thích được' }
+      ]
+    }
+  };
+
+  const V12_CFS_LEVELS = [
+    { value: 1, desc: 'Rất khỏe, vận động tốt' },
+    { value: 2, desc: 'Khỏe, chưa hoạt động đều như mức 1' },
+    { value: 3, desc: 'Quản lý bệnh tốt, sinh hoạt độc lập' },
+    { value: 4, desc: 'Dễ tổn thương, triệu chứng hạn chế hoạt động' },
+    { value: 5, desc: 'Suy yếu nhẹ, cần giúp việc phức tạp' },
+    { value: 6, desc: 'Suy yếu vừa, cần giúp hoạt động thường ngày' },
+    { value: 7, desc: 'Suy yếu nặng, phụ thuộc chăm sóc cá nhân' },
+    { value: 8, desc: 'Suy yếu rất nặng, phụ thuộc hoàn toàn' },
+    { value: 9, desc: 'Bệnh giai đoạn cuối' }
+  ];
+
+  const V12_ECG_RHYTHMS = [
+    { value: 'sinus', label: 'Xoang' },
+    { value: 'atrial_fibrillation', label: 'Rung nhĩ' },
+    { value: 'atrial_flutter', label: 'Cuồng nhĩ' },
+    { value: 'paced', label: 'Nhịp máy' },
+    { value: 'other', label: 'Khác' },
+    { value: 'unknown', label: 'Chưa rõ' }
+  ];
+
+  const V12_EGFR_FORMULAS = [
+    { value: 'CKD-EPI 2021', label: 'CKD-EPI 2021' },
+    { value: 'MDRD', label: 'MDRD' },
+    { value: 'Cockcroft-Gault', label: 'Cockcroft-Gault' },
+    { value: 'Không rõ', label: 'Không rõ' }
+  ];
+
+  const WF_M1_PROB_LEVELS = [
+    { value: 'Không phù hợp', stage: null },
+    { value: 'Có nguy cơ – Stage A', stage: 'A' },
+    { value: 'Pre-HF – Stage B', stage: 'B' },
+    { value: 'Nghi ngờ suy tim', stage: null },
+    { value: 'Suy tim có triệu chứng – Stage C', stage: 'C' },
+    { value: 'Suy tim tiến triển – Stage D', stage: 'D' },
+    { value: 'Chưa đủ dữ liệu để kết luận', stage: null }
+  ];
+
+  const WF_M1_PHENOTYPES = ['HFrEF', 'HFmrEF', 'HFpEF', 'HFimpEF', 'Chưa phân loại do thiếu EF', 'Không áp dụng'];
+  const WF_M1_CONTEXTS = [
+    'Suy tim mới khởi phát',
+    'Suy tim cấp hoặc mạn tính',
+    'Worsening HF',
+    'Decompensated HF',
+    'Suy tim cải thiện/thuyên giảm',
+    'Suy tim tiến triển/kháng trị'
+  ];
+  const WF_M1_RISK_KEYS = [
+    { key: 'nhap_vien', label: 'Nguy cơ nhập viện' },
+    { key: 'tu_vong', label: 'Nguy cơ tử vong' },
+    { key: 'te_nga', label: 'Nguy cơ té ngã' },
+    { key: 'sang', label: 'Nguy cơ sảng' },
+    { key: 'suy_giam_chuc_nang', label: 'Suy giảm chức năng' },
+    { key: 'mat_tu_cham_soc', label: 'Mất khả năng tự chăm sóc' }
+  ];
+  const WF_M1_MIMICS = [
+    'Quá tải dịch do bệnh thận',
+    'COPD/bệnh phổi khác',
+    'Thiếu máu',
+    'Béo phì',
+    'Giảm thể lực',
+    'Suy dinh dưỡng/sarcopenia',
+    'Bệnh tuyến giáp'
+  ];
+  const WF_M1_EMERGENCIES = [
+    'Phù phổi cấp',
+    'Sốc tim',
+    'Tụt huyết áp',
+    'Giảm SpO₂',
+    'Rối loạn nhịp nguy hiểm',
+    'Hội chứng vành cấp',
+    'Thiểu niệu hoặc giảm tưới máu'
+  ];
+
+  const WF_M2_TESTS = [
+    { key: 'bnp_ntprobnp', dd: 121, label: 'BNP hoặc NT-proBNP' },
+    { key: 'ecg', dd: 122, label: 'ECG 12 chuyển đạo' },
+    { key: 'sieu_am_tim', dd: 123, label: 'Siêu âm tim' },
+    { key: 'xquang', dd: 124, label: 'X-quang tim phổi' },
+    { key: 'cong_thuc_mau', dd: 125, label: 'Công thức máu' },
+    { key: 'ure_creatinin_egfr', dd: 126, label: 'Urê, creatinin, eGFR' },
+    { key: 'kali_natri', dd: 127, label: 'Kali, natri' },
+    { key: 'chuc_nang_gan', dd: 128, label: 'Chức năng gan' },
+    { key: 'duong_huyet_hba1c', dd: 129, label: 'Đường huyết/HbA1c' },
+    { key: 'tsh', dd: 130, label: 'TSH' },
+    { key: 'ferritin_tsat', dd: 131, label: 'Ferritin và TSAT' },
+    { key: 'uacr', dd: 132, label: 'UACR' },
+    { key: 'danh_gia_mach_vanh', dd: 133, label: 'Đánh giá bệnh mạch vành' },
+    { key: 'doppler_van_tim', dd: 134, label: 'Siêu âm Doppler van tim' },
+    { key: 'holter_ecg', dd: 135, label: 'Holter ECG' },
+    { key: 'mri_tim', dd: 136, label: 'MRI tim' },
+    { key: 'xet_nghiem_amyloidosis', dd: 137, label: 'Xét nghiệm amyloidosis' },
+    { key: 'danh_gia_benh_co_tim', dd: 138, label: 'Đánh giá bệnh cơ tim' },
+    { key: 'suy_tim_cung_luong_cao', dd: 139, label: 'Nguyên nhân suy tim cung lượng cao' },
+    { key: 'danh_gia_benh_than', dd: 140, label: 'Đánh giá bệnh thận' },
+    { key: 'danh_gia_benh_phoi', dd: 141, label: 'Đánh giá bệnh phổi' },
+    { key: 'danh_gia_thieu_mau', dd: 142, label: 'Đánh giá thiếu máu' },
+    { key: 'dinh_duong', dd: 143, label: 'Đánh giá suy dinh dưỡng' },
+    { key: 'tuyen_giap', dd: 144, label: 'Đánh giá tuyến giáp' },
+    { key: 'gang_suc_tham_do_huyet_dong', dd: 145, label: 'Gắng sức/thăm dò huyết động' }
+  ];
+  const WF_M2_CLASSIFICATIONS = ['Phù hợp với suy tim', 'Chưa đủ bằng chứng', 'Nghi ngờ bệnh giả suy tim', 'Cần xét nghiệm bổ sung', 'Cần hội chẩn chuyên khoa'];
+  const WF_M2_PRIORITIES = ['Cấp cứu', 'Trong 24 giờ', 'Trong đợt khám hiện tại', 'Theo dõi định kỳ'];
+
+  const WF_M3_DRUG_GROUPS = [
+    { key: 'ARNI_ACEI_ARB', label: 'ARNI / ACEI / ARB' },
+    { key: 'beta_blocker', label: 'Chẹn beta giao cảm' },
+    { key: 'MRA', label: 'Kháng Aldosterone (MRA)' },
+    { key: 'SGLT2i', label: 'Ức chế SGLT2 (SGLT2i)' },
+    { key: 'loop_diuretic', label: 'Lợi tiểu quai' }
+  ];
+  const WF_M3_REC_LEVELS = ['Khuyến nghị', 'Cân nhắc', 'Không khuyến nghị', 'Chống chỉ định'];
+  const WF_M3_KHUYEN_NGHI_KEYS = [
+    { key: 'dieu_tri_stage_a', label: 'Điều trị Stage A (DD #173)' },
+    { key: 'dieu_tri_stage_b', label: 'Điều trị Stage B (DD #174)' },
+    { key: 'dieu_tri_stage_c', label: 'Điều trị Stage C (DD #175)' },
+    { key: 'ca_the_hoa_nguoi_cao_tuoi', label: 'Cá thể hóa người cao tuổi (DD #176)' },
+    { key: 'xu_tri_worsening_hf', label: 'Xử trí Worsening HF (DD #177)' },
+    { key: 'xu_tri_decompensated_hf', label: 'Xử trí Decompensated HF (DD #178)' },
+    { key: 'dieu_tri_stage_d', label: 'Điều trị Stage D (DD #179)' }
+  ];
+
+  const WF_TIMED_LAB_CODES = ['cls_bnp', 'cls_nt_probnp', 'cls_lvef', 'cls_creatinin', 'cls_kali'];
+  const WF_CONTRACT_UNITS = {
+    cls_nt_probnp: 'pg/mL',
+    cls_bnp: 'pg/mL',
+    cls_lvef: '%',
+    cls_creatinin: 'umol/L',
+    cls_kali: 'mmol/L',
+    cls_natri: 'mmol/L',
+    spo2: '%',
+    mach: 'l/ph',
+    can_nang_kg: 'kg',
+    bien_thien_can_nang_7ngay: 'kg',
+    e_over_a_ratio: 'ratio',
+    egfr_ckd_epi: 'mL/min/1.73m2'
+  };
+  const WF_DEFAULT_FIELD_OWNERS = {
+    // Stable C5 D1/D2 owners: M3 owns 7 measurement fields (+ selected_medications),
+    // M4 owns medications & allergies, and M1 owns all general/shared fields (including LVEF/BNP/NT-proBNP).
+    e_over_a_ratio: 'm3',
+    cls_creatinin: 'm3',
+    egfr_ckd_epi: 'm3',
+    egfr_formula: 'm3',
+    cls_kali: 'm3',
+    ecg_12_chuyen_dao: 'm3',
+    xquang_nguc_thang: 'm3',
+    selected_medications: 'm3',
+    medications: 'm4',
+    allergies: 'm4'
+  };
+  const WF_MED_CLASSES = ['MRA', 'ACEI', 'ARB', 'ARNI', 'NSAID', 'digoxin', 'amiodarone', 'loop_diuretic', 'beta_blocker', 'SGLT2i', 'other'];
+  const WF_MED_UNITS = ['mg', 'g', 'mcg', 'mL', 'IU', 'tablet'];
+  const WF_MED_ROUTES = ['oral', 'iv', 'im', 'sc', 'inhaled', 'topical', 'other'];
+  const WF_MED_FREQS = [
+    { value: 'once_daily', label: '1 lần/ngày' },
+    { value: 'twice_daily', label: '2 lần/ngày' },
+    { value: 'three_times_daily', label: '3 lần/ngày' },
+    { value: 'as_needed', label: 'Khi cần' },
+    { value: 'unknown', label: 'Chưa rõ' }
+  ];
+  const WF_RECENT_TEST_FIELDS = [
+    { testKey: 'bnp_ntprobnp', label: 'BNP / NT-proBNP', fieldCodes: ['cls_nt_probnp', 'cls_bnp'] },
+    { testKey: 'sieu_am_tim', label: 'Siêu âm tim (LVEF)', fieldCodes: ['cls_lvef'] },
+    { testKey: 'ecg', label: 'ECG 12 chuyển đạo', fieldCodes: ['ecg_12_chuyen_dao'] },
+    { testKey: 'xquang', label: 'X-quang ngực thẳng', fieldCodes: ['xquang_nguc_thang'] }
+  ];
+
+  const WF_STEP_FIELDS = {
+    m1: {
+      required: ['age', 'sex', 'diagnoses', 'kho_tho_nang', 'phu_chi_duoi_muc_do', 'tinh_mach_co_noi', 'ran_am_phoi', 'bien_thien_can_nang_7ngay', 'trieu_chung_khong_dien_hinh', 'danh_gia_suy_yeu_frailty'],
+      optional: [
+        'cls_lvef', 'cls_nt_probnp', 'cls_bnp', 'bat_thuong_cau_truc_tim', 'spo2', 'mach', 'cls_natri',
+        'tang_huyet_ap', 'dai_thao_duong', 'copd', 'thieu_mau', 'can_nang_kg',
+        'nyha_hien_tai', 'tinh_trang_worsening_decompensated', 'tinh_trang_sung_huyet', 'giam_tuoi_mau_ngoai_vi',
+        'di_ung_thuoc_can_quang', 'ts_thiet_bi_cay_ghep_chong_chi_dinh_mri',
+        'kha_nang_hop_tac_xet_nghiem', 'kha_nang_gang_suc_tham_do_xam_lan', 'muc_tieu_dieu_tri',
+        'xh_kha_nang_chi_tra', 'kha_nang_thuc_hien_xet_nghiem', 'cls_chuc_nang_gan'
+      ]
+    },
+    m2: {
+      required: [],
+      optional: ['kha_nang_hop_tac_xet_nghiem', 'di_ung_thuoc_can_quang', 'ts_thiet_bi_cay_ghep_chong_chi_dinh_mri', 'kha_nang_gang_suc_tham_do_xam_lan', 'muc_tieu_dieu_tri', 'xh_kha_nang_chi_tra', 'kha_nang_thuc_hien_xet_nghiem', 'cls_chuc_nang_gan']
+    },
+    m3: {
+      required: ['cls_nt_probnp', 'cls_bnp', 'cls_lvef', 'e_over_a_ratio', 'cls_creatinin', 'egfr_ckd_epi', 'cls_kali', 'ecg_12_chuyen_dao', 'xquang_nguc_thang'],
+      optional: ['nyha_hien_tai', 'tinh_trang_worsening_decompensated', 'tinh_trang_sung_huyet', 'giam_tuoi_mau_ngoai_vi', 'mach', 'spo2', 'cls_natri']
+    },
+    m4: {
+      required: ['allergies', 'medications', 'selected_medications'],
+      optional: ['cls_creatinin', 'egfr_ckd_epi', 'cls_kali']
+    }
+  };
+
+  function wfExtractFieldOwners(fieldsRes) {
+    const out = {};
+    if (!fieldsRes || typeof fieldsRes !== 'object') return out;
+    if (fieldsRes.fieldMetadata && typeof fieldsRes.fieldMetadata === 'object') {
+      Object.keys(fieldsRes.fieldMetadata).forEach(function (k) {
+        const meta = fieldsRes.fieldMetadata[k];
+        if (meta && meta.ownerModule) out[k] = meta.ownerModule;
+      });
+    }
+    if (fieldsRes.fieldOwners && typeof fieldsRes.fieldOwners === 'object') {
+      Object.keys(fieldsRes.fieldOwners).forEach(function (k) {
+        if (fieldsRes.fieldOwners[k]) out[k] = fieldsRes.fieldOwners[k];
+      });
+    }
+    if (fieldsRes.ownerModule && typeof fieldsRes.ownerModule === 'object') {
+      Object.keys(fieldsRes.ownerModule).forEach(function (k) {
+        if (fieldsRes.ownerModule[k]) out[k] = fieldsRes.ownerModule[k];
+      });
+    }
+    if (fieldsRes.fields && typeof fieldsRes.fields === 'object') {
+      Object.keys(fieldsRes.fields).forEach(function (k) {
+        const ans = fieldsRes.fields[k];
+        if (ans && typeof ans === 'object' && ans.ownerModule) out[k] = ans.ownerModule;
+      });
+    }
+    return out;
+  }
+
+  function wfGetFieldOwner(wfOrOwners, code, _fallbackMod) {
+    const ownersMap = (wfOrOwners && wfOrOwners.fieldOwners) ? wfOrOwners.fieldOwners : (wfOrOwners || {});
+    if (ownersMap && ownersMap[code]) return ownersMap[code];
+    if (WF_DEFAULT_FIELD_OWNERS[code]) return WF_DEFAULT_FIELD_OWNERS[code];
+    return 'm1';
+  }
+
+  function isWorkflowStorageField(fdOrCode) {
+    if (!fdOrCode) return false;
+    const code = typeof fdOrCode === 'string' ? fdOrCode : fdOrCode.code;
+    const storageLevel = typeof fdOrCode === 'object' ? fdOrCode.storageLevel : null;
+    if (storageLevel === 'workflow_value') return true;
+    return isV12NineField(code) || code === 'egfr_formula' || code === 'bat_thuong_cau_truc_tim';
+  }
+
+  function isFormV12(formVersion, fieldDefs) {
+    if (formVersion) {
+      const lbl = String(formVersion.versionLabel || '').toLowerCase();
+      if (lbl.indexOf('1.2') >= 0 || Number(formVersion.versionNo) >= 3) return true;
+    }
+    if (Array.isArray(fieldDefs)) {
+      return fieldDefs.some(function (fd) { return fd && V12_NINE_FIELD_CODES.indexOf(fd.code) >= 0; });
+    }
+    return false;
+  }
+
+  function isV12NineField(code) {
+    return V12_NINE_FIELD_CODES.indexOf(code) >= 0;
+  }
+
+  function makeDefaultEcgValue() {
+    return { rhythm: 'unknown', rate: null, qrs_ms: null, qtc_ms: null, lbbb: null, pathological_q: null };
+  }
+
+  function makeDefaultXrayValue() {
+    return { ctr: null, pulmonary_congestion: null, pleural_effusion: null };
+  }
+
+  function parseStructuredJsonVal(rawVal, fallbackMaker) {
+    const base = fallbackMaker();
+    if (!rawVal) return base;
+    let obj = null;
+    if (typeof rawVal === 'object' && !Array.isArray(rawVal)) {
+      obj = rawVal;
+    } else if (typeof rawVal === 'string') {
+      try {
+        const parsed = JSON.parse(rawVal);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) obj = parsed;
+      } catch (_e) {}
+    }
+    if (!obj) return base;
+    return Object.assign(base, obj);
+  }
+
+  function computeCkdEpi2021(creatinineVal, unit, age, sex) {
+    if (creatinineVal === null || creatinineVal === undefined || creatinineVal === '' || !isFinite(Number(creatinineVal))) return null;
+    if (age === null || age === undefined || !isFinite(Number(age)) || Number(age) < 1) return null;
+    if (sex !== 'male' && sex !== 'female') return null;
+    if (!unit || typeof unit !== 'string') return null;
+    const rawNum = Number(creatinineVal);
+    if (rawNum <= 0) return null;
+    // F6: Convert strictly by explicit unit; NEVER guess unit from numeric threshold!
+    const u = unit.trim().toLowerCase();
+    let scrMgDl = null;
+    if (u === 'mg/dl') {
+      scrMgDl = rawNum;
+    } else if (u === 'umol/l' || u === 'µmol/l' || u === 'μmol/l') {
+      scrMgDl = rawNum / 88.4;
+    } else {
+      return null;
+    }
+    const isFemale = sex === 'female';
+    const kappa = isFemale ? 0.7 : 0.9;
+    const alpha = isFemale ? -0.241 : -0.302;
+    const ratio = scrMgDl / kappa;
+    const egfr = 142 * Math.pow(Math.min(ratio, 1), alpha) * Math.pow(Math.max(ratio, 1), -1.200) * Math.pow(0.9938, Number(age)) * (isFemale ? 1.012 : 1.0);
+    if (!isFinite(egfr)) return null;
+    return Math.max(1, Math.min(200, Math.round(egfr)));
+  }
+
+  function hasExactDecimalStep(num, step) {
+    if (typeof num !== 'number' || !isFinite(num)) return false;
+    const factor = Math.round(1 / step);
+    const scaled = num * factor;
+    return Math.abs(scaled - Math.round(scaled)) < 1e-6;
+  }
+
+  function validateV12CompactField(code, entry) {
+    if (!entry || entry.value_state === 'unknown') return '';
+    const v = entry.value;
+    if (code === 'kho_tho_nang') {
+      if (!Number.isInteger(v) || v < 0 || v > 3) return 'Giá trị khó thở phải là số nguyên 0–3.';
+    } else if (code === 'phu_chi_duoi_muc_do') {
+      if (!Number.isInteger(v) || v < 0 || v > 2) return 'Giá trị phù chi dưới phải là số nguyên 0–2.';
+    } else if (code === 'trieu_chung_khong_dien_hinh') {
+      if (!Number.isInteger(v) || v < 0 || v > 2) return 'Giá trị triệu chứng không điển hình phải là số nguyên 0–2.';
+    } else if (code === 'danh_gia_suy_yeu_frailty') {
+      if (!Number.isInteger(v) || v < 1 || v > 9) return 'Điểm suy yếu CFS phải là số nguyên 1–9.';
+    } else if (code === 'bien_thien_can_nang_7ngay') {
+      if (typeof v !== 'number' || !isFinite(v) || v < -20 || v > 20 || !hasExactDecimalStep(v, 0.1)) {
+        return 'Biến thiên cân nặng 7 ngày phải nằm trong −20.0 đến +20.0 kg (bước 0.1).';
+      }
+    } else if (code === 'e_over_a_ratio') {
+      if (v === 'not_measurable_af') return '';
+      if (typeof v !== 'number' || !isFinite(v) || v < 0.2 || v > 5.0 || !hasExactDecimalStep(v, 0.01)) {
+        return 'Tỉ lệ E/A phải nằm trong 0.20 đến 5.00 (bước 0.01) hoặc chọn Không đo được (rung nhĩ).';
+      }
+    } else if (code === 'egfr_ckd_epi') {
+      if (typeof v !== 'number' || !isFinite(v) || !Number.isInteger(v) || v < 1 || v > 200) {
+        return 'eGFR phải là số nguyên từ 1 đến 200 mL/phút/1.73m².';
+      }
+    } else if (code === 'ecg_12_chuyen_dao') {
+      if (!v || typeof v !== 'object') return 'Dữ liệu ECG phải là nhóm cấu trúc hợp lệ.';
+      const validRhythms = ['sinus', 'atrial_fibrillation', 'atrial_flutter', 'paced', 'other', 'unknown'];
+      if (validRhythms.indexOf(v.rhythm) < 0) return 'Nhịp tim ECG không hợp lệ.';
+      if (v.rate !== null && v.rate !== undefined && (!Number.isInteger(v.rate) || v.rate < 20 || v.rate > 250)) {
+        return 'Tần số tim ECG phải là số nguyên 20–250 l/ph.';
+      }
+      if (v.qrs_ms !== null && v.qrs_ms !== undefined && (!Number.isInteger(v.qrs_ms) || v.qrs_ms < 40 || v.qrs_ms > 300)) {
+        return 'Khoảng QRS phải là số nguyên 40–300 ms.';
+      }
+      if (v.qtc_ms !== null && v.qtc_ms !== undefined && (!Number.isInteger(v.qtc_ms) || v.qtc_ms < 200 || v.qtc_ms > 700)) {
+        return 'Khoảng QTc phải là số nguyên 200–700 ms.';
+      }
+    } else if (code === 'xquang_nguc_thang') {
+      if (!v || typeof v !== 'object') return 'Dữ liệu X-quang phải là nhóm cấu trúc hợp lệ.';
+      if (v.ctr !== null && v.ctr !== undefined && (typeof v.ctr !== 'number' || !isFinite(v.ctr) || v.ctr < 0.3 || v.ctr > 0.8 || !hasExactDecimalStep(v.ctr, 0.01))) {
+        return 'Chỉ số tim/ngực (CTR) phải nằm trong 0.30 đến 0.80 (bước 0.01).';
+      }
+    }
+    return '';
+  }
+
+  function makeIdempotencyKey(prefix) {
+    if (global.crypto && typeof global.crypto.randomUUID === 'function') {
+      return prefix + '-' + global.crypto.randomUUID();
+    }
+    return prefix + '-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+  }
 
   const AI_ISSUE_REASON_VI = {
     MISSING_VALUE: 'Chưa nhập giá trị',
@@ -562,6 +1026,11 @@
       defById: {},
       defByCode: {},
       valuesByDefId: {}, // { fieldDefinitionId: VisitValue }
+      workflowRowVersion: null,
+      workflowFields: {},       // { fieldCode: compactAnswer } hydrated from workflow API (F1)
+      workflowDirtyFields: {},  // { fieldCode: compactAnswer } pending PUT /workflow/{mod}/fields
+      workflowSavedCodes: {},   // { fieldCode: true }
+      workflowFieldOwners: {},  // { fieldCode: 'm1'|'m3'|... }
       orthostaticBp: [],
       medications: [],
       allergies: [],
@@ -619,6 +1088,59 @@
       confirmError: '',
       loading: false,
       error: ''
+    },
+
+    // Workflow 4-Module (hf-workflow/1.0)
+    workflow: {
+      visitId: null,
+      loading: false,
+      error: '',
+      errorStatus: null,
+      errorCode: '',
+      bannerError: '',
+      bannerErrorStatus: null,
+      bannerErrorCode: '',
+      bannerErrorFields: [],
+      visit: null,
+      patient: null,
+      formRes: null,
+      visitDetail: null,
+      data: null,           // workflowState or pharmacist m4ReadView
+      isPharmacistView: false,
+      activeModule: 'm1',
+      editingModule: null,
+      manualModeModule: null,
+      manualDraft: null,
+      manualReason: '',
+      manualReasonError: '',
+      manualM4Alerts: [],
+      manualM4Confirmations: {},
+      selectedPrescription: { value_state: 'answered', listState: 'none', items: [] },
+      historyOpen: {},      // { m1: bool, ... }
+      historyRuns: {},      // { m1: [moduleRun, ...] }
+      historySelectedRun: {}, // { m1: runId }
+      runCache: {},         // { runId: moduleRun }
+      decisionCache: {},    // { decisionId: effectiveDecision }
+      expandedUpstream: {}, // { m1: bool }
+      optionalOpen: {},     // { m1: bool }
+      runningModule: null,
+      submittingAction: false,
+      savingFields: false,
+      dirtyFields: {},      // { fieldCode: compactEntry }
+      fieldValues: {},      // { fieldCode: compactEntry }
+      savedFieldCodes: {},  // { fieldCode: true } tracks fields persisted on server (F5)
+      fieldOwners: {},      // { fieldCode: 'm1'..'m4' } from API ownerModule (D2)
+      observations: [],     // workflow observations with measuredAt for M2 recentTestEvidence (BUG-08)
+      recentTestEvidence: {}, // { testKey: { id, fieldCode, measuredAt, doctorConfirmedReuse } }
+      recentTestEvidenceDirty: false,
+      m4ProjectionOutput: null, // hydrated from GET /workflow?module=m4 (F3/BUG-10)
+      fieldErrors: {},      // { fieldCode: message }
+      weightCalcOpen: {},   // { enc|wf: bool }
+      weightPrev7d: {},     // { enc|wf: string }
+      atypicalNote: {},     // { enc|wf: string }
+      m4Decisions: {},      // { alertId: { quyet_dinh, ly_do, error } }
+      m4Saving: false,
+      lastRunErrors: {}     // { m1: runError }
     },
 
     // M6 Admin Users
@@ -877,25 +1399,44 @@
     const role = state.user.role;
     const head = parts[0] || '';
 
+    const isWorkflowRoute = head === 'visits' && parts.length === 3 && parts[2] === 'workflow';
+
     // Enforce K8 role separation on routes
     if (head === 'login' || head === '') {
+      if (role === 'pharmacist') {
+        state.screen = 'workflow';
+        state.workflow.error = 'Tài khoản Dược sĩ chỉ xem được Module 4: An toàn thuốc khi mở trực tiếp đường dẫn lượt khám (#/visits/:visitId/workflow).';
+        state.workflow.isPharmacistView = true;
+        render();
+        return;
+      }
       const target = role === 'admin' ? '#/admin/users' : '#/patients';
       global.location.hash = target;
       return;
     }
 
     if ((head === 'patients' || head === 'visits') && role !== 'doctor') {
+      if (role === 'pharmacist' && isWorkflowRoute) {
+        state.screen = 'workflow';
+        await loadWorkflow(parts[1]);
+        return;
+      }
       state.screen = 'forbidden';
-      state.forbiddenReason = 'Tài khoản Quản trị viên (admin) không có quyền truy cập hồ sơ bệnh nhân hoặc dữ liệu lượt khám lâm sàng theo nguyên tắc tách quyền K8.';
-      // Also trigger audit log denial on backend/runtime
-      try { await api.listPatients({}); } catch (_ignored) {}
+      state.forbiddenReason = role === 'pharmacist'
+        ? 'Tài khoản Dược sĩ chỉ có quyền xem Module 4 (An toàn thuốc) trên tuyến #/visits/:visitId/workflow.'
+        : 'Tài khoản Quản trị viên (admin) không có quyền truy cập hồ sơ bệnh nhân hoặc dữ liệu lượt khám lâm sàng theo nguyên tắc tách quyền K8.';
+      if (role === 'admin') {
+        try { await api.listPatients({}); } catch (_ignored) {}
+      }
       render();
       return;
     }
 
     if (head === 'admin' && role !== 'admin') {
       state.screen = 'forbidden';
-      state.forbiddenReason = 'Tài khoản Bác sĩ không có quyền truy cập phân hệ Quản trị tài khoản, Biểu mẫu hay Nhật ký hệ thống.';
+      state.forbiddenReason = role === 'pharmacist'
+        ? 'Tài khoản Dược sĩ không có quyền truy cập phân hệ Quản trị.'
+        : 'Tài khoản Bác sĩ không có quyền truy cập phân hệ Quản trị tài khoản, Biểu mẫu hay Nhật ký hệ thống.';
       try { await api.listUsers({}); } catch (_ignored) {}
       render();
       return;
@@ -919,6 +1460,11 @@
     if (head === 'visits' && parts.length === 3 && parts[2] === 'review') {
       state.screen = 'review';
       await loadReview(parts[1]);
+      return;
+    }
+    if (isWorkflowRoute) {
+      state.screen = 'workflow';
+      await loadWorkflow(parts[1]);
       return;
     }
     if (head === 'admin' && parts[1] === 'users') {
@@ -1057,6 +1603,22 @@
       (detail.values || []).forEach(function (v) {
         enc.valuesByDefId[v.fieldDefinitionId] = clone(v);
       });
+      enc.workflowRowVersion = null;
+      enc.workflowFields = {};
+      enc.workflowDirtyFields = {};
+      enc.workflowSavedCodes = {};
+      enc.workflowFieldOwners = {};
+      if (isFormV12(formRes.formVersion, formRes.fieldDefinitions)) {
+        try {
+          const wfFieldsRes = await api.getWorkflowFields(visitId, 'm1');
+          if (wfFieldsRes && wfFieldsRes.fields && typeof wfFieldsRes.fields === 'object') {
+            enc.workflowRowVersion = wfFieldsRes.rowVersion || null;
+            enc.workflowFields = clone(wfFieldsRes.fields);
+            Object.keys(wfFieldsRes.fields).forEach(function (k) { enc.workflowSavedCodes[k] = true; });
+            enc.workflowFieldOwners = wfExtractFieldOwners(wfFieldsRes);
+          }
+        } catch (_wfErr) {}
+      }
       enc.orthostaticBp = clone(detail.orthostaticBp || []);
       enc.medications = clone(detail.medications || []);
       enc.allergies = clone(detail.allergies || []);
@@ -1408,6 +1970,7 @@
   function renderShell(breadcrumbsHtml, workspaceHtml) {
     const u = state.user;
     const isAdmin = u.role === 'admin';
+    const isPharmacist = u.role === 'pharmacist';
     const collapsed = Boolean(state.sidebarCollapsed);
     const navItems = isAdmin
       ? [
@@ -1416,16 +1979,20 @@
           { id: 'admin-forms', hash: '#/admin/forms', label: 'Biểu mẫu & Phiên bản', icon: ICONS.layers },
           { id: 'admin-audit', hash: '#/admin/audit', label: 'Nhật ký hệ thống', icon: ICONS.list }
         ]
-      : [
-          { id: 'patients', hash: '#/patients', label: 'Bệnh nhân của tôi', icon: ICONS.fileText }
-        ];
+      : (isPharmacist
+          ? [
+              { id: 'workflow', hash: state.workflow.visitId ? ('#/visits/' + state.workflow.visitId + '/workflow') : '#/login', label: 'An toàn thuốc (M4)', icon: ICONS.shield }
+            ]
+          : [
+              { id: 'patients', hash: '#/patients', label: 'Bệnh nhân của tôi', icon: ICONS.fileText }
+            ]);
 
     const navHtml = navItems.map(function (item) {
-      const active = state.screen === item.id || (!isAdmin && ['profile', 'encounter', 'review'].indexOf(state.screen) >= 0 && item.id === 'patients');
+      const active = state.screen === item.id || (!isAdmin && !isPharmacist && ['profile', 'encounter', 'review', 'workflow'].indexOf(state.screen) >= 0 && item.id === 'patients');
       return '<button type="button" class="nav-item' + (active ? ' is-active' : '') + '" data-nav="' + item.hash + '" title="' + esc(item.label) + '">' + item.icon + '<span class="nav-item__label">' + esc(item.label) + '</span></button>';
     }).join('');
 
-    const roleLabel = isAdmin ? 'Quản trị viên' : 'Bác sĩ lâm sàng';
+    const roleLabel = isAdmin ? 'Quản trị viên' : (isPharmacist ? 'Dược sĩ (chỉ xem M4)' : 'Bác sĩ lâm sàng');
 
     return (
       '<div class="shell' + (collapsed ? ' is-sidebar-collapsed' : '') + '">' +
@@ -2007,6 +2574,448 @@
     });
   }
 
+  function visitValueToCompact(code, vv, fd) {
+    if (!vv) return null;
+    const vs = vv.value_state || vv.valueState;
+    if (vs === 'unknown') {
+      const unit = code === 'bien_thien_can_nang_7ngay' ? 'kg' : (code === 'e_over_a_ratio' ? 'ratio' : (code === 'egfr_ckd_epi' ? 'mL/min/1.73m2' : null));
+      const res = { value_state: 'unknown', value: null };
+      if (unit) res.unit = unit;
+      return res;
+    }
+    if (vs !== 'answered') return null;
+
+    if (V12_SCALE_SPECS[code] || code === 'danh_gia_suy_yeu_frailty') {
+      let num = null;
+      if (vv.value !== undefined && vv.value !== null && !isNaN(Number(vv.value))) {
+        num = Number(vv.value);
+      } else if (vv.valueNum !== null && vv.valueNum !== undefined && !isNaN(Number(vv.valueNum))) {
+        num = Number(vv.valueNum);
+      } else if (vv.fieldOptionId && fd && Array.isArray(fd.options)) {
+        const opt = fd.options.find(function (o) { return o.id === vv.fieldOptionId; });
+        if (opt) {
+          const m = String(opt.code || opt.value || opt.labelVi || '').match(/-?\d+/);
+          if (m) num = Number(m[0]);
+        }
+      } else if (vv.valueText !== null && vv.valueText !== undefined && vv.valueText !== '') {
+        const parsed = Number(vv.valueText);
+        if (!isNaN(parsed)) num = parsed;
+      }
+      return num === null ? null : { value_state: 'answered', value: num };
+    }
+
+    if (code === 'bien_thien_can_nang_7ngay') {
+      const raw = vv.value !== undefined ? vv.value : (vv.valueNum !== null && vv.valueNum !== undefined ? vv.valueNum : vv.valueText);
+      if (raw === null || raw === undefined || raw === '') return null;
+      return { value_state: 'answered', value: Number(raw), unit: 'kg' };
+    }
+
+    if (code === 'e_over_a_ratio') {
+      if (vv.value === 'not_measurable_af' || vv.valueText === 'not_measurable_af') {
+        return { value_state: 'answered', value: 'not_measurable_af', unit: 'ratio', measuredAt: vv.measuredAt || null };
+      }
+      const raw = vv.value !== undefined ? vv.value : (vv.valueNum !== null && vv.valueNum !== undefined ? vv.valueNum : vv.valueText);
+      if (raw === null || raw === undefined || raw === '') return null;
+      return { value_state: 'answered', value: Number(raw), unit: 'ratio', measuredAt: vv.measuredAt || null };
+    }
+
+    if (code === 'egfr_ckd_epi') {
+      const raw = vv.value !== undefined ? vv.value : (vv.valueNum !== null && vv.valueNum !== undefined ? vv.valueNum : vv.valueText);
+      if (raw === null || raw === undefined || raw === '') return null;
+      return { value_state: 'answered', value: Number(raw), unit: 'mL/min/1.73m2', measuredAt: vv.measuredAt || null };
+    }
+
+    if (code === 'egfr_formula') {
+      let txt = vv.value !== undefined ? vv.value : vv.valueText;
+      if (!txt && vv.fieldOptionId && fd && Array.isArray(fd.options)) {
+        const opt = fd.options.find(function (o) { return o.id === vv.fieldOptionId; });
+        if (opt) txt = opt.labelVi || opt.code;
+      }
+      return txt ? { value_state: 'answered', value: String(txt) } : null;
+    }
+
+    if (code === 'ecg_12_chuyen_dao') {
+      const raw = vv.value !== undefined ? vv.value : (vv.valueJson || vv.valueObject || vv.valueText);
+      return { value_state: 'answered', value: parseStructuredJsonVal(raw, makeDefaultEcgValue), measuredAt: vv.measuredAt || null };
+    }
+
+    if (code === 'xquang_nguc_thang') {
+      const raw = vv.value !== undefined ? vv.value : (vv.valueJson || vv.valueObject || vv.valueText);
+      return { value_state: 'answered', value: parseStructuredJsonVal(raw, makeDefaultXrayValue), measuredAt: vv.measuredAt || null };
+    }
+
+    if (vv.value !== undefined) return { value_state: 'answered', value: vv.value, unit: vv.unit || null, measuredAt: vv.measuredAt || null };
+    if (vv.valueBool !== null && vv.valueBool !== undefined) return { value_state: 'answered', value: Boolean(vv.valueBool) };
+    if (vv.valueNum !== null && vv.valueNum !== undefined) return { value_state: 'answered', value: Number(vv.valueNum), unit: vv.unit || (fd && fd.canonicalUnit) || null };
+    if (vv.valueText !== null && vv.valueText !== undefined && vv.valueText !== '') return { value_state: 'answered', value: vv.valueText };
+    return null;
+  }
+
+  function compactToVisitValue(visitId, fd, compact) {
+    if (!fd || !compact) return null;
+    if (compact.value_state === 'unknown') {
+      return makeEmptyVisitValue(visitId, fd, 'unknown');
+    }
+    const item = makeEmptyVisitValue(visitId, fd, 'answered');
+    const v = compact.value;
+    if (fd.dataType === 'single_choice' && Array.isArray(fd.options) && fd.options.length > 0) {
+      const match = fd.options.find(function (o) {
+        return String(o.code) === String(v) || String(o.labelVi) === String(v) || String(o.code).replace(/^[a-z_]+_/, '') === String(v);
+      });
+      if (match) item.fieldOptionId = match.id;
+      if (typeof v === 'number' && isFinite(v)) item.valueNum = v;
+      else if (v !== null && v !== undefined) item.valueText = String(v);
+      return item;
+    }
+    if (fd.code === 'e_over_a_ratio' && v === 'not_measurable_af') {
+      item.valueText = 'not_measurable_af';
+      item.valueNum = null;
+      item.unit = 'ratio';
+      return item;
+    }
+    if (fd.code === 'ecg_12_chuyen_dao' || fd.code === 'xquang_nguc_thang') {
+      item.valueText = JSON.stringify(v);
+      return item;
+    }
+    if (typeof v === 'boolean') {
+      item.valueBool = v;
+    } else if (typeof v === 'number' && isFinite(v)) {
+      item.valueNum = v;
+      item.unit = compact.unit || fd.canonicalUnit || null;
+    } else if (v !== null && v !== undefined) {
+      item.valueText = String(v);
+    }
+    return item;
+  }
+
+  function getEncounterCreatinineForEgfr(ctx) {
+    if (ctx.creatinineInfo) return ctx.creatinineInfo;
+    const labs = ctx.labResults || [];
+    for (let i = labs.length - 1; i >= 0; i--) {
+      if (labs[i] && labs[i].labCode === 'cls_creatinin' && labs[i].valueNum !== null && labs[i].valueNum !== undefined && labs[i].valueNum !== '') {
+        return { value: Number(labs[i].valueNum), unit: labs[i].unit || 'mg/dL' };
+      }
+    }
+    const def = ctx.defByCode && ctx.defByCode.cls_creatinin;
+    const vv = def && ctx.valuesByDefId && ctx.valuesByDefId[def.id];
+    if (vv && vv.valueState === 'answered' && vv.valueNum !== null && vv.valueNum !== undefined) {
+      return { value: Number(vv.valueNum), unit: vv.unit || def.canonicalUnit || 'mg/dL' };
+    }
+    return null;
+  }
+
+  function getEncounterCurrentWeight(ctx) {
+    if (ctx.currentWeightKg !== undefined && ctx.currentWeightKg !== null) return Number(ctx.currentWeightKg);
+    const def = ctx.defByCode && ctx.defByCode.can_nang_kg;
+    const vv = def && ctx.valuesByDefId && ctx.valuesByDefId[def.id];
+    if (vv && vv.valueState === 'answered' && vv.valueNum !== null && vv.valueNum !== undefined) {
+      return Number(vv.valueNum);
+    }
+    return null;
+  }
+
+  function renderV12FieldControl(code, opts) {
+    const scope = opts.scope || 'enc';
+    const ro = Boolean(opts.readonly);
+    const label = opts.label || AI_ISSUE_DISPLAY_LABELS[code] || code;
+    const reqTag = opts.reqTag || '';
+    const errMsg = opts.errMsg || '';
+    const helpText = opts.helpText || '';
+    const compact = opts.compactValue || null;
+    const isUnknown = Boolean(compact && compact.value_state === 'unknown');
+    const isAnswered = Boolean(compact && compact.value_state === 'answered');
+    const expBadge = '<span class="badge badge--warn badge--xs wf-exp-tag" title="' + esc(WF_EXP_TAG_FULL) + '">Thang thử nghiệm · chờ bác sĩ duyệt</span>';
+    const scopeAttr = ' data-v12-scope="' + esc(scope) + '" data-v12-code="' + esc(code) + '"';
+
+    // 1, 2, 4: Ordinal radio-card scales (kho_tho_nang, phu_chi_duoi_muc_do, trieu_chung_khong_dien_hinh)
+    if (V12_SCALE_SPECS[code]) {
+      const spec = V12_SCALE_SPECS[code];
+      const curVal = isAnswered ? Number(compact.value) : null;
+      const statusText = isUnknown ? 'Chưa rõ' : (curVal !== null ? ('Đã chọn mức ' + curVal) : 'Chưa điền');
+      const cardsHtml = spec.options.map(function (o) {
+        const selected = curVal === o.value;
+        return (
+          '<button type="button" class="scale-card' + (selected ? ' is-selected' : '') + (isUnknown ? ' is-muted' : '') + '" ' +
+            'role="radio" aria-checked="' + (selected ? 'true' : 'false') + '" ' +
+            'data-v12-scale-opt="' + esc(o.value) + '"' + scopeAttr + (ro || isUnknown ? ' disabled' : '') + '>' +
+            '<span class="scale-card__title">' + esc(o.title) + '</span>' +
+            '<span class="scale-card__desc">' + esc(o.desc) + '</span>' +
+          '</button>'
+        );
+      }).join('');
+      const noteVal = (state.workflow.atypicalNote && state.workflow.atypicalNote[scope]) || '';
+      const extraNoteHtml = (spec.hasNoteOnNonZero && curVal !== null && curVal > 0 && !isUnknown)
+        ? (
+          '<div class="wf-inline-subnote">' +
+            '<label class="field__help" for="v12-atypical-note-' + esc(scope) + '">Ghi chú triệu chứng không điển hình (tùy chọn):</label>' +
+            '<input id="v12-atypical-note-' + esc(scope) + '" type="text" class="input" data-v12-atypical-note="' + esc(scope) + '" placeholder="Ghi nhận thêm nếu có cả hai triệu chứng..." value="' + esc(noteVal) + '"' + (ro ? ' disabled' : '') + '>' +
+          '</div>'
+        )
+        : '';
+      return (
+        '<div class="field field--span-2 v12-field' + (!compact ? ' v12-field--unfilled' : '') + (errMsg ? ' v12-field--error' : '') + '" data-field-code="' + esc(code) + '">' +
+          '<div class="field__label-row">' +
+            '<span class="field__label">' + esc(label) + ' ' + reqTag + ' ' + expBadge + '</span>' +
+            '<div class="v12-field__head-actions">' +
+              '<span class="tristate__status">' + esc(statusText) + ((curVal !== null && !ro) ? ' · <button type="button" class="tristate__clear" data-v12-clear="1"' + scopeAttr + '>Xóa chọn</button>' : '') + '</span>' +
+              '<button type="button" class="unknown-toggle unknown-toggle--sm' + (isUnknown ? ' is-active' : '') + '" data-v12-unknown="1"' + scopeAttr + ' aria-pressed="' + (isUnknown ? 'true' : 'false') + '"' + (ro ? ' disabled' : '') + '>Chưa rõ</button>' +
+            '</div>' +
+          '</div>' +
+          '<div class="scale-card-grid scale-card-grid--' + spec.options.length + '" role="radiogroup" aria-label="' + esc(label) + '">' + cardsHtml + '</div>' +
+          extraNoteHtml +
+          (spec.help ? '<p class="field__help">' + esc(spec.help) + '</p>' : '') +
+          (helpText && helpText !== spec.help ? '<p class="field__help">' + esc(helpText) + '</p>' : '') +
+          (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
+        '</div>'
+      );
+    }
+
+    // 5: Clinical Frailty Scale CFS 1-9
+    if (code === 'danh_gia_suy_yeu_frailty') {
+      const curVal = isAnswered ? Number(compact.value) : null;
+      const statusText = isUnknown ? 'Chưa rõ' : (curVal !== null ? ('CFS mức ' + curVal) : 'Chưa điền');
+      const cfsCards = V12_CFS_LEVELS.map(function (lv) {
+        const selected = curVal === lv.value;
+        return (
+          '<button type="button" class="cfs-card' + (selected ? ' is-selected' : '') + (isUnknown ? ' is-muted' : '') + '" ' +
+            'role="radio" aria-checked="' + (selected ? 'true' : 'false') + '" ' +
+            'data-v12-scale-opt="' + esc(lv.value) + '"' + scopeAttr + (ro || isUnknown ? ' disabled' : '') + '>' +
+            '<span class="cfs-card__num">' + esc(lv.value) + '</span>' +
+            '<span class="cfs-card__desc">' + esc(lv.desc) + '</span>' +
+          '</button>'
+        );
+      }).join('');
+      return (
+        '<div class="field field--span-2 v12-field' + (!compact ? ' v12-field--unfilled' : '') + (errMsg ? ' v12-field--error' : '') + '" data-field-code="' + esc(code) + '">' +
+          '<div class="field__label-row">' +
+            '<span class="field__label">' + esc(label) + ' ' + reqTag + ' ' + expBadge + '</span>' +
+            '<div class="v12-field__head-actions">' +
+              '<span class="tristate__status">' + esc(statusText) + ((curVal !== null && !ro) ? ' · <button type="button" class="tristate__clear" data-v12-clear="1"' + scopeAttr + '>Xóa chọn</button>' : '') + '</span>' +
+              '<button type="button" class="unknown-toggle unknown-toggle--sm' + (isUnknown ? ' is-active' : '') + '" data-v12-unknown="1"' + scopeAttr + ' aria-pressed="' + (isUnknown ? 'true' : 'false') + '"' + (ro ? ' disabled' : '') + '>Chưa rõ</button>' +
+            '</div>' +
+          '</div>' +
+          '<div class="cfs-grid" role="radiogroup" aria-label="' + esc(label) + '">' + cfsCards + '</div>' +
+          '<p class="field__help">Thang Clinical Frailty Scale (1–9); không tự suy ra từ tuổi bệnh nhân.</p>' +
+          (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
+        '</div>'
+      );
+    }
+
+    // 3: Weight delta 7 days (-20.0 .. +20.0 kg, step 0.1) + optional calculator
+    if (code === 'bien_thien_can_nang_7ngay') {
+      const hasNum = isAnswered && compact.value !== null && compact.value !== undefined;
+      const numVal = hasNum ? Number(compact.value) : null;
+      const numStr = hasNum ? String(numVal) : '';
+      const isZero = hasNum && numVal === 0;
+      const calcOpen = Boolean(state.workflow.weightCalcOpen && state.workflow.weightCalcOpen[scope]);
+      const prevStr = (state.workflow.weightPrev7d && state.workflow.weightPrev7d[scope]) || '';
+      const curW = opts.currentWeightKg !== undefined && opts.currentWeightKg !== null ? Number(opts.currentWeightKg) : null;
+      const prevW = prevStr !== '' && isFinite(Number(prevStr)) ? Number(prevStr) : null;
+      const calcDelta = (curW !== null && prevW !== null) ? Math.round((curW - prevW) * 10) / 10 : null;
+      const signedDelta = calcDelta !== null ? ((calcDelta > 0 ? '+' : '') + calcDelta.toFixed(1)) : '';
+      const cls = 'input' + (!compact ? ' input--unfilled' : '') + (isUnknown ? ' input--unknown' : '') + (errMsg ? ' input--error' : '');
+      return (
+        '<div class="field v12-field' + (errMsg ? ' v12-field--error' : '') + '" data-field-code="' + esc(code) + '">' +
+          '<div class="field__label-row"><label class="field__label">' + esc(label) + ' ' + reqTag + ' ' + expBadge + '</label></div>' +
+          '<div class="input-row-unknown">' +
+            '<div class="input-unit-wrap">' +
+              '<input type="number" class="' + cls + '" min="-20" max="20" step="0.1" data-v12-num="bien_thien_can_nang_7ngay"' + scopeAttr + ' placeholder="' + (isUnknown ? 'Chưa rõ' : '−20.0 đến +20.0') + '" value="' + esc(numStr) + '"' + (ro || isUnknown ? ' disabled' : '') + '>' +
+              '<span class="input-unit-wrap__unit">kg</span>' +
+            '</div>' +
+            '<button type="button" class="unknown-toggle' + (isUnknown ? ' is-active' : '') + '" data-v12-unknown="1"' + scopeAttr + ' aria-pressed="' + (isUnknown ? 'true' : 'false') + '"' + (ro ? ' disabled' : '') + '>Chưa rõ</button>' +
+          '</div>' +
+          (isZero ? '<span class="zero-chip">Đã nhập: 0 (khác với để trống)</span>' : '') +
+          '<div class="v12-helper-row">' +
+            '<button type="button" class="btn btn--ghost btn--xs" data-v12-toggle-wcalc="' + esc(scope) + '"' + (ro || isUnknown ? ' disabled' : '') + '>' + (calcOpen ? 'Ẩn bộ tính từ cân nặng 7 ngày trước' : 'Tính từ cân nặng 7 ngày trước') + '</button>' +
+            '<span class="field__help">Khoảng: −20.0 đến +20.0 kg (bước 0.1; âm là giảm, dương là tăng).</span>' +
+          '</div>' +
+          (calcOpen && !isUnknown ? (
+            '<div class="v12-calc-box">' +
+              '<div class="v12-calc-box__row">' +
+                '<label class="field__help" for="v12-prev7d-' + esc(scope) + '">Cân nặng 7 ngày trước (kg):</label>' +
+                '<input id="v12-prev7d-' + esc(scope) + '" type="number" step="0.1" min="20" max="250" class="input input--sm" data-v12-wprev="' + esc(scope) + '" value="' + esc(prevStr) + '" placeholder="VD: 62.0"' + (ro ? ' disabled' : '') + '>' +
+              '</div>' +
+              (curW === null
+                ? '<p class="field__help">Chưa có cân nặng hiện tại (<code>can_nang_kg</code>) để tự tính hiệu.</p>'
+                : (calcDelta !== null
+                    ? '<div class="v12-calc-box__preview"><span>Hiện tại ' + esc(curW) + ' − 7 ngày trước ' + esc(prevW) + ' = <strong>' + esc(signedDelta) + ' kg</strong></span>' +
+                      '<button type="button" class="btn btn--secondary btn--xs" data-v12-apply-wdelta="' + esc(calcDelta) + '"' + scopeAttr + (ro ? ' disabled' : '') + '>Áp dụng (' + esc(signedDelta) + ' kg)</button></div>'
+                    : '<p class="field__help">Cân nặng hiện tại: <strong>' + esc(curW) + ' kg</strong> — nhập cân nặng 7 ngày trước để tính gợi ý.</p>')) +
+            '</div>'
+          ) : '') +
+          (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
+        '</div>'
+      );
+    }
+
+    // 6: E/A Ratio (0.20..5.00 step 0.01) + Not measurable (AF) pill + Unknown
+    if (code === 'e_over_a_ratio') {
+      const isAf = isAnswered && compact.value === 'not_measurable_af';
+      const hasNum = isAnswered && !isAf && compact.value !== null && compact.value !== undefined;
+      const numStr = hasNum ? String(compact.value) : '';
+      const cls = 'input' + (!compact ? ' input--unfilled' : '') + (isUnknown ? ' input--unknown' : '') + (isAf ? ' input--af-sentinel' : '') + (errMsg ? ' input--error' : '');
+      return (
+        '<div class="field v12-field' + (errMsg ? ' v12-field--error' : '') + '" data-field-code="' + esc(code) + '">' +
+          '<div class="field__label-row"><label class="field__label">' + esc(label) + ' ' + reqTag + ' ' + expBadge + '</label></div>' +
+          '<div class="input-row-unknown input-row-unknown--wrap">' +
+            '<div class="input-unit-wrap">' +
+              '<input type="number" class="' + cls + '" min="0.20" max="5.00" step="0.01" data-v12-num="e_over_a_ratio"' + scopeAttr + ' placeholder="' + (isUnknown ? 'Chưa rõ' : (isAf ? 'Không đo được (rung nhĩ)' : '0.20 – 5.00')) + '" value="' + esc(numStr) + '"' + (ro || isUnknown || isAf ? ' disabled' : '') + '>' +
+              '<span class="input-unit-wrap__unit">tỉ lệ</span>' +
+            '</div>' +
+            '<button type="button" class="v12-sentinel-pill' + (isAf ? ' is-active' : '') + '" data-v12-ea-af="1"' + scopeAttr + ' aria-pressed="' + (isAf ? 'true' : 'false') + '"' + (ro ? ' disabled' : '') + '>Không đo được (rung nhĩ)</button>' +
+            '<button type="button" class="unknown-toggle' + (isUnknown ? ' is-active' : '') + '" data-v12-unknown="1"' + scopeAttr + ' aria-pressed="' + (isUnknown ? 'true' : 'false') + '"' + (ro ? ' disabled' : '') + '>Chưa rõ</button>' +
+          '</div>' +
+          (isAf ? '<p class="field__help v12-sentinel-note">Đã ghi nhận có lý do (<code>not_measurable_af</code>) — phân biệt hoàn toàn với trạng thái Chưa rõ.</p>' : '<p class="field__help">Khoảng hợp lệ: 0.20 đến 5.00 (bước 0.01). Không đồng nhất với E/e′.</p>') +
+          (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
+        '</div>'
+      );
+    }
+
+    // 7: eGFR (1..200 mL/min/1.73m2, step 1) + formula + CKD-EPI 2021 suggestion
+    if (code === 'egfr_ckd_epi') {
+      const hasNum = isAnswered && compact.value !== null && compact.value !== undefined;
+      const numStr = hasNum ? String(compact.value) : '';
+      const formulaCompact = opts.egfrFormulaCompact || null;
+      const curFormula = (formulaCompact && formulaCompact.value_state === 'answered' && formulaCompact.value) ? String(formulaCompact.value) : '';
+      const creat = opts.creatinineInfo || null;
+      const suggested = creat ? computeCkdEpi2021(creat.value, creat.unit, opts.patientAge, opts.patientSex) : null;
+      const cls = 'input' + (!compact ? ' input--unfilled' : '') + (isUnknown ? ' input--unknown' : '') + (errMsg ? ' input--error' : '');
+      return (
+        '<div class="field field--span-2 v12-field' + (errMsg ? ' v12-field--error' : '') + '" data-field-code="' + esc(code) + '">' +
+          '<div class="field__label-row"><label class="field__label">' + esc(label) + ' ' + reqTag + ' ' + expBadge + '</label></div>' +
+          '<div class="v12-egfr-row">' +
+            '<div class="input-unit-wrap">' +
+              '<input type="number" class="' + cls + '" min="1" max="200" step="1" data-v12-num="egfr_ckd_epi"' + scopeAttr + ' placeholder="' + (isUnknown ? 'Chưa rõ' : '1 – 200') + '" value="' + esc(numStr) + '"' + (ro || isUnknown ? ' disabled' : '') + '>' +
+              '<span class="input-unit-wrap__unit">mL/phút/1.73m²</span>' +
+            '</div>' +
+            '<select class="select v12-egfr-formula" aria-label="Công thức tính eGFR" data-v12-egfr-formula="1"' + scopeAttr + (ro || isUnknown ? ' disabled' : '') + '>' +
+              '<option value="">-- Công thức eGFR --</option>' +
+              V12_EGFR_FORMULAS.map(function (f) {
+                return '<option value="' + esc(f.value) + '"' + (curFormula === f.value ? ' selected' : '') + '>' + esc(f.label) + '</option>';
+              }).join('') +
+            '</select>' +
+            '<button type="button" class="unknown-toggle' + (isUnknown ? ' is-active' : '') + '" data-v12-unknown="1"' + scopeAttr + ' aria-pressed="' + (isUnknown ? 'true' : 'false') + '"' + (ro ? ' disabled' : '') + '>Chưa rõ</button>' +
+          '</div>' +
+          (suggested !== null && !isUnknown ? (
+            '<div class="v12-suggestion-strip">' +
+              '<span>Gợi ý CKD-EPI 2021 từ Creatinin (' + esc(creat.value) + ' ' + esc(creat.unit || 'mg/dL') + '), ' + esc(opts.patientAge) + ' tuổi, ' + esc(formatSex(opts.patientSex)) + ': <strong>' + esc(suggested) + ' mL/phút/1.73m²</strong></span>' +
+              '<button type="button" class="btn btn--secondary btn--sm" data-v12-apply-egfr="' + esc(suggested) + '"' + scopeAttr + (ro ? ' disabled' : '') + '>Dùng giá trị gợi ý (CKD-EPI 2021)</button>' +
+            '</div>'
+          ) : '') +
+          '<p class="field__help">Số nguyên 1–200 mL/phút/1.73m². Chỉ giá trị theo CKD-EPI 2021 được xuất trực tiếp vào biến AI <code>EGFR_CKD_EPI</code>.</p>' +
+          (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
+        '</div>'
+      );
+    }
+
+    // 8: Structured ECG (1 object with 6 sub-keys + whole-group Unknown)
+    if (code === 'ecg_12_chuyen_dao') {
+      const ecg = isAnswered ? parseStructuredJsonVal(compact.value, makeDefaultEcgValue) : makeDefaultEcgValue();
+      const renderEcgNum = function (subKey, subLabel, min, max, unit) {
+        const subVal = isAnswered ? ecg[subKey] : null;
+        const subUnk = isAnswered && subVal === null;
+        const strVal = (subVal !== null && subVal !== undefined) ? String(subVal) : '';
+        return (
+          '<div class="wf-struct-item">' +
+            '<label class="wf-struct-item__label">' + esc(subLabel) + ' <span class="field__help">(' + min + '–' + max + ' ' + esc(unit) + ')</span></label>' +
+            '<div class="input-row-unknown">' +
+              '<div class="input-unit-wrap">' +
+                '<input type="number" class="input' + (subUnk ? ' input--unknown' : '') + '" min="' + min + '" max="' + max + '" step="1" data-v12-struct-num="' + esc(subKey) + '"' + scopeAttr + ' placeholder="' + (subUnk ? 'Chưa rõ' : (min + '–' + max)) + '" value="' + esc(strVal) + '"' + (ro || isUnknown ? ' disabled' : '') + '>' +
+                '<span class="input-unit-wrap__unit">' + esc(unit) + '</span>' +
+              '</div>' +
+              '<button type="button" class="unknown-toggle unknown-toggle--sm' + (subUnk ? ' is-active' : '') + '" data-v12-struct-subunk="' + esc(subKey) + '"' + scopeAttr + (ro || isUnknown ? ' disabled' : '') + '>Chưa rõ</button>' +
+            '</div>' +
+          '</div>'
+        );
+      };
+      const renderEcgTri = function (subKey, subLabel) {
+        const subVal = isAnswered ? ecg[subKey] : undefined;
+        const cur = subVal === true ? 'yes' : (subVal === false ? 'no' : (isAnswered && subVal === null ? 'unknown' : 'unfilled'));
+        return (
+          '<div class="wf-struct-item">' +
+            '<span class="wf-struct-item__label">' + esc(subLabel) + '</span>' +
+            '<div class="tristate__group" role="group" aria-label="' + esc(subLabel) + '">' +
+              '<button type="button" class="tristate__btn' + (cur === 'unknown' ? ' is-unknown' : '') + '" data-v12-struct-tri="' + esc(subKey) + ':unknown"' + scopeAttr + (ro || isUnknown ? ' disabled' : '') + '>Chưa rõ</button>' +
+              '<button type="button" class="tristate__btn' + (cur === 'yes' ? ' is-yes' : '') + '" data-v12-struct-tri="' + esc(subKey) + ':yes"' + scopeAttr + (ro || isUnknown ? ' disabled' : '') + '>Có</button>' +
+              '<button type="button" class="tristate__btn' + (cur === 'no' ? ' is-no' : '') + '" data-v12-struct-tri="' + esc(subKey) + ':no"' + scopeAttr + (ro || isUnknown ? ' disabled' : '') + '>Không</button>' +
+            '</div>' +
+          '</div>'
+        );
+      };
+      return (
+        '<div class="field field--span-2 v12-field wf-struct-group' + (isUnknown ? ' is-group-unknown' : '') + (errMsg ? ' v12-field--error' : '') + '" data-field-code="' + esc(code) + '">' +
+          '<div class="field__label-row">' +
+            '<span class="field__label">' + esc(label) + ' ' + reqTag + ' ' + expBadge + '</span>' +
+            '<button type="button" class="unknown-toggle unknown-toggle--sm' + (isUnknown ? ' is-active' : '') + '" data-v12-unknown="1"' + scopeAttr + ' aria-pressed="' + (isUnknown ? 'true' : 'false') + '"' + (ro ? ' disabled' : '') + '>Chưa rõ toàn bộ ECG</button>' +
+          '</div>' +
+          '<div class="wf-struct-grid">' +
+            '<div class="wf-struct-item">' +
+              '<label class="wf-struct-item__label">Nhịp tim (rhythm)</label>' +
+              '<select class="select' + (isUnknown ? ' input--unknown' : '') + '" data-v12-struct-sel="rhythm"' + scopeAttr + (ro || isUnknown ? ' disabled' : '') + '>' +
+                '<option value="">-- Chọn nhịp tim --</option>' +
+                V12_ECG_RHYTHMS.map(function (r) {
+                  return '<option value="' + esc(r.value) + '"' + (isAnswered && ecg.rhythm === r.value ? ' selected' : '') + '>' + esc(r.label) + '</option>';
+                }).join('') +
+              '</select>' +
+            '</div>' +
+            renderEcgNum('rate', 'Tần số tim', 20, 250, 'l/ph') +
+            renderEcgNum('qrs_ms', 'Khoảng QRS', 40, 300, 'ms') +
+            renderEcgNum('qtc_ms', 'Khoảng QTc', 200, 700, 'ms') +
+            renderEcgTri('lbbb', 'Block nhánh trái (LBBB)') +
+            renderEcgTri('pathological_q', 'Sóng Q bệnh lý') +
+          '</div>' +
+          (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
+        '</div>'
+      );
+    }
+
+    // 9: Structured Chest X-ray (1 object with 3 sub-keys + whole-group Unknown)
+    if (code === 'xquang_nguc_thang') {
+      const xr = isAnswered ? parseStructuredJsonVal(compact.value, makeDefaultXrayValue) : makeDefaultXrayValue();
+      const ctrVal = isAnswered ? xr.ctr : null;
+      const ctrUnk = isAnswered && ctrVal === null;
+      const ctrStr = (ctrVal !== null && ctrVal !== undefined) ? String(ctrVal) : '';
+      const ctrHigh = ctrVal !== null && Number(ctrVal) > 0.5;
+      const renderXrTri = function (subKey, subLabel) {
+        const subVal = isAnswered ? xr[subKey] : undefined;
+        const cur = subVal === true ? 'yes' : (subVal === false ? 'no' : (isAnswered && subVal === null ? 'unknown' : 'unfilled'));
+        return (
+          '<div class="wf-struct-item">' +
+            '<span class="wf-struct-item__label">' + esc(subLabel) + '</span>' +
+            '<div class="tristate__group" role="group" aria-label="' + esc(subLabel) + '">' +
+              '<button type="button" class="tristate__btn' + (cur === 'unknown' ? ' is-unknown' : '') + '" data-v12-struct-tri="' + esc(subKey) + ':unknown"' + scopeAttr + (ro || isUnknown ? ' disabled' : '') + '>Chưa rõ</button>' +
+              '<button type="button" class="tristate__btn' + (cur === 'yes' ? ' is-yes' : '') + '" data-v12-struct-tri="' + esc(subKey) + ':yes"' + scopeAttr + (ro || isUnknown ? ' disabled' : '') + '>Có</button>' +
+              '<button type="button" class="tristate__btn' + (cur === 'no' ? ' is-no' : '') + '" data-v12-struct-tri="' + esc(subKey) + ':no"' + scopeAttr + (ro || isUnknown ? ' disabled' : '') + '>Không</button>' +
+            '</div>' +
+          '</div>'
+        );
+      };
+      return (
+        '<div class="field field--span-2 v12-field wf-struct-group' + (isUnknown ? ' is-group-unknown' : '') + (errMsg ? ' v12-field--error' : '') + '" data-field-code="' + esc(code) + '">' +
+          '<div class="field__label-row">' +
+            '<span class="field__label">' + esc(label) + ' ' + reqTag + ' ' + expBadge + '</span>' +
+            '<button type="button" class="unknown-toggle unknown-toggle--sm' + (isUnknown ? ' is-active' : '') + '" data-v12-unknown="1"' + scopeAttr + ' aria-pressed="' + (isUnknown ? 'true' : 'false') + '"' + (ro ? ' disabled' : '') + '>Chưa rõ toàn bộ X-quang</button>' +
+          '</div>' +
+          '<div class="wf-struct-grid wf-struct-grid--xray">' +
+            '<div class="wf-struct-item">' +
+              '<label class="wf-struct-item__label">Chỉ số tim/ngực — CTR <span class="field__help">(0.30–0.80, bước 0.01)</span></label>' +
+              '<div class="input-row-unknown">' +
+                '<input type="number" class="input' + (ctrUnk ? ' input--unknown' : '') + '" min="0.30" max="0.80" step="0.01" data-v12-struct-num="ctr"' + scopeAttr + ' placeholder="' + (ctrUnk ? 'Chưa rõ' : '0.30 – 0.80') + '" value="' + esc(ctrStr) + '"' + (ro || isUnknown ? ' disabled' : '') + '>' +
+                '<button type="button" class="unknown-toggle unknown-toggle--sm' + (ctrUnk ? ' is-active' : '') + '" data-v12-struct-subunk="ctr"' + scopeAttr + (ro || isUnknown ? ' disabled' : '') + '>Chưa rõ</button>' +
+              '</div>' +
+              (ctrHigh ? '<span class="badge badge--warn badge--xs" style="margin-top:4px;">CTR &gt; 0.50 (gợi ý bóng tim to)</span>' : '') +
+            '</div>' +
+            renderXrTri('pulmonary_congestion', 'Sung huyết phổi / đường Kerley B') +
+            renderXrTri('pleural_effusion', 'Tràn dịch màng phổi') +
+          '</div>' +
+          (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
+        '</div>'
+      );
+    }
+
+    return '';
+  }
+
   function renderClinicalSectionForm(ctx) {
     // ctx: { mode: 'encounter'|'preview', readonly, sections, defById, defByCode, valuesByDefId,
     //        orthostaticBp, medications, allergies, labResults, diagnoses,
@@ -2057,6 +3066,43 @@
       const flags = getFieldMetaFlags(ff, fd);
       const isReadonly = ro || flags.readonlyInput;
       const reqTag = ff.requiredForConfirm ? '<span class="badge badge--warn badge--xs">Bắt buộc</span>' : '';
+
+      // Form v1.2: 9 experimental manual-entry widgets (F1: hydrated from workflowFields on encounter screen)
+      if (isV12NineField(fd.code)) {
+        const formulaDef = ctx.defByCode && ctx.defByCode.egfr_formula;
+        const formulaVal = formulaDef ? ctx.valuesByDefId[formulaDef.id] : null;
+        const compactVal = (!isPreview && ctx.workflowFields && ctx.workflowFields[fd.code])
+          ? ctx.workflowFields[fd.code]
+          : visitValueToCompact(fd.code, val, fd);
+        const formulaCompact = (!isPreview && ctx.workflowFields && ctx.workflowFields.egfr_formula)
+          ? ctx.workflowFields.egfr_formula
+          : (formulaDef ? visitValueToCompact('egfr_formula', formulaVal, formulaDef) : null);
+        return renderV12FieldControl(fd.code, {
+          scope: isPreview ? 'prev' : 'enc',
+          label: label,
+          helpText: helpText,
+          reqTag: reqTag,
+          readonly: isReadonly,
+          errMsg: errMsg,
+          compactValue: compactVal,
+          egfrFormulaCompact: formulaCompact,
+          currentWeightKg: getEncounterCurrentWeight(ctx),
+          creatinineInfo: getEncounterCreatinineForEgfr(ctx),
+          patientAge: ctx.patient ? computeAge(ctx.patient, ctx.visit && ctx.visit.visitDate) : null,
+          patientSex: ctx.patient ? ctx.patient.sex : null
+        });
+      }
+      if (fd.code === 'egfr_formula' && ctx.defByCode && ctx.defByCode.egfr_ckd_epi) {
+        return ''; // Rendered inline inside egfr_ckd_epi composite widget
+      }
+      // Also support bat_thuong_cau_truc_tim stored in workflowFields (F1)
+      if (!isPreview && fd.storageLevel === 'workflow_value' && fd.dataType === 'boolean' && ctx.workflowFields && ctx.workflowFields[fd.code]) {
+        const wfc = ctx.workflowFields[fd.code];
+        const synthVal = wfc.value_state === 'unknown'
+          ? { valueState: 'unknown', valueBool: null }
+          : (wfc.value_state === 'answered' ? { valueState: 'answered', valueBool: Boolean(wfc.value) } : null);
+        if (synthVal) ctx.valuesByDefId[fd.id] = Object.assign(makeEmptyVisitValue(ctx.visit && ctx.visit.id, fd, synthVal.valueState), synthVal);
+      }
 
       // List-state system fields (medication_list_state, allergy_list_state, diagnosis_list_state)
       if (flags.isListStateField) {
@@ -3122,6 +4168,7 @@
       defById: enc.defById,
       defByCode: enc.defByCode,
       valuesByDefId: enc.valuesByDefId,
+      workflowFields: enc.workflowFields,
       orthostaticBp: enc.orthostaticBp,
       medications: enc.medications,
       allergies: enc.allergies,
@@ -3176,6 +4223,9 @@
           '</div>' +
         '</div>' +
         '<div class="encounter-sticky-head__right">' +
+          (isFormV12(enc.formStructure && enc.formStructure.formVersion, enc.formStructure && enc.formStructure.fieldDefinitions)
+            ? '<button type="button" class="btn btn--navy btn--sm" data-nav="#/visits/' + esc(v.id) + '/workflow">Luồng 4 Module AI ' + ICONS.arrowRight + '</button>'
+            : '<span class="badge badge--neutral" title="Biểu mẫu cũ — chỉ hỗ trợ luồng AI ở v1.2">Biểu mẫu cũ — chỉ hỗ trợ luồng AI ở v1.2</span>') +
           '<button type="button" class="btn btn--secondary btn--sm" data-nav="#/patients/' + esc(v.patientId) + '">' + ICONS.arrowLeft + ' Về hồ sơ</button>' +
         '</div>' +
       '</div>' +
@@ -3699,7 +4749,11 @@
       '<div class="mobile-cards" style="margin-top:12px;">' + secCards + '</div>' +
       enteredSummaryHtml +
       '<section class="card" id="review-ai-readiness" style="margin-top:16px;">' +
-        '<div class="card__header"><div><h2 class="card__title">Đối chiếu độ sẵn sàng dữ liệu cho 4 Module AI (Danh sách dự kiến, chờ nhóm AI xác nhận)</h2><p class="card__subtitle">Chỉ mang tính tham khảo đối chiếu — <strong>không chặn xác nhận lượt khám</strong> và không chạy dự đoán AI trong phạm vi hệ thống thu thập dữ liệu.</p></div></div>' +
+        '<div class="card__header"><div><h2 class="card__title">Đối chiếu độ sẵn sàng dữ liệu cho 4 Module AI (Danh sách dự kiến, chờ nhóm AI xác nhận)</h2><p class="card__subtitle">Chỉ mang tính tham khảo đối chiếu — <strong>không chặn xác nhận lượt khám</strong> và không chạy dự đoán AI trong phạm vi hệ thống thu thập dữ liệu.</p></div>' +
+        (isFormV12(fv, rev.formRes && rev.formRes.fieldDefinitions)
+          ? '<button type="button" class="btn btn--primary btn--sm" data-nav="#/visits/' + esc(v.id) + '/workflow">Chạy luồng 4 Module theo từng bước ' + ICONS.arrowRight + '</button>'
+          : '') +
+        '</div>' +
         '<div class="card__body"><div class="ai-module-grid">' + tier4Cards + '</div></div>' +
       '</section>' +
       gateHtml + revisionsHtml;
@@ -3709,6 +4763,2000 @@
       '<button type="button" class="breadcrumbs__link mono" data-nav="#/patients/' + esc(v.patientId) + '">' + esc(pt ? pt.patientCode : 'BN') + '</button><span>/</span>' +
       '<button type="button" class="breadcrumbs__link mono" data-nav="#/visits/' + esc(v.id) + '">' + esc(v.visitCode) + '</button><span>/</span>' +
       '<span class="breadcrumbs__current">Xem lại &amp; Xác nhận</span>';
+    return renderShell(crumbs, body);
+  }
+
+  /* ------------------------------------------------------------------------
+     Workflow 4-Module AI (hf-workflow/1.0): Loader, Actions & Renderer
+     ------------------------------------------------------------------------ */
+  function wfFormatModuleTitle(modCode) {
+    const m = WF_MODULE_META[modCode];
+    return m ? ('Module ' + m.num) : String(modCode || '').toUpperCase();
+  }
+
+  function wfHydrateFieldValuesFromVisit(wf) {
+    const map = {};
+    const detail = wf.visitDetail;
+    const formRes = wf.formRes;
+    const pt = wf.patient;
+    const v = wf.visit;
+    const defById = {};
+    const defByCode = {};
+    ((formRes && formRes.fieldDefinitions) || []).forEach(function (fd) {
+      defById[fd.id] = fd;
+      defByCode[fd.code] = fd;
+    });
+
+    if (pt) {
+      const age = computeAge(pt, v && v.visitDate);
+      if (age !== null) map.age = { value_state: 'answered', value: age };
+      if (pt.sex === 'male' || pt.sex === 'female') map.sex = { value_state: 'answered', value: pt.sex };
+    }
+
+    if (detail) {
+      (detail.values || []).forEach(function (vv) {
+        const fd = defById[vv.fieldDefinitionId] || defByCode[vv.fieldCode];
+        const code = (fd && fd.code) || vv.fieldCode;
+        if (!code) return;
+        const c = visitValueToCompact(code, vv, fd);
+        if (c) map[code] = c;
+      });
+      (detail.labResults || []).forEach(function (lr) {
+        if (!lr || !lr.labCode) return;
+        if (lr.valueNum !== null && lr.valueNum !== undefined) {
+          map[lr.labCode] = { value_state: 'answered', value: Number(lr.valueNum), unit: lr.unit || null, measuredAt: lr.measuredAt || null };
+        }
+      });
+      // List states for diagnoses, medications, allergies
+      const dxState = (v && v.diagnosisListState) || ((detail.diagnoses || []).length > 0 ? 'known' : 'unknown');
+      if (dxState === 'known' || dxState === 'none') {
+        map.diagnoses = { value_state: 'answered', value: (detail.diagnoses || []).map(function (d) { return d.code; }).filter(Boolean) };
+      } else {
+        map.diagnoses = { value_state: 'unknown', value: null };
+      }
+      const medState = (v && v.medicationListState) || ((detail.medications || []).length > 0 ? 'known' : 'unknown');
+      if (medState === 'known' || medState === 'none') {
+        map.medications = { value_state: 'answered', value: clone(detail.medications || []) };
+      } else {
+        map.medications = { value_state: 'unknown', value: null };
+      }
+      const algState = (v && v.allergyListState) || ((detail.allergies || []).length > 0 ? 'known' : 'unknown');
+      if (algState === 'known' || algState === 'none') {
+        map.allergies = { value_state: 'answered', value: clone(detail.allergies || []) };
+      } else {
+        map.allergies = { value_state: 'unknown', value: null };
+      }
+    }
+
+    // Also overlay fields from workflow response if backend includes them or from latest run snapshot
+    if (wf.data && wf.data.fields && typeof wf.data.fields === 'object') {
+      Object.keys(wf.data.fields).forEach(function (k) {
+        map[k] = clone(wf.data.fields[k]);
+      });
+    }
+    WF_MODULE_ORDER.forEach(function (mod) {
+      const ms = wf.data && wf.data.modules && wf.data.modules[mod];
+      const run = ms && ms.latestRunId && wf.runCache[ms.latestRunId];
+      if (run && run.inputSnapshot && run.inputSnapshot.fields) {
+        Object.keys(run.inputSnapshot.fields).forEach(function (k) {
+          if (!map[k]) map[k] = clone(run.inputSnapshot.fields[k]);
+        });
+      }
+    });
+
+    // Preserve unsaved local dirty edits
+    Object.keys(wf.dirtyFields || {}).forEach(function (k) {
+      if (wf.dirtyFields[k]) map[k] = clone(wf.dirtyFields[k]);
+    });
+    wf.fieldValues = map;
+  }
+
+  function wfSyncM4DraftFromOutput(wf, output, keepExisting) {
+    if (!output || !Array.isArray(output.canh_bao)) return;
+    const savedByAlert = {};
+    (output.xac_nhan_bac_si || []).forEach(function (c) {
+      if (c && c.alertId) savedByAlert[c.alertId] = c;
+    });
+    const next = {};
+    output.canh_bao.forEach(function (al) {
+      const existing = keepExisting && wf.m4Decisions[al.id];
+      const saved = savedByAlert[al.id];
+      if (existing && (existing.quyet_dinh || existing.ly_do)) {
+        next[al.id] = existing;
+      } else if (saved) {
+        next[al.id] = { quyet_dinh: saved.quyet_dinh || '', ly_do: saved.ly_do || '', error: '' };
+      } else {
+        next[al.id] = { quyet_dinh: '', ly_do: '', error: '' };
+      }
+    });
+    wf.m4Decisions = next;
+  }
+
+  function wfUpsertHistoryRun(wf, mod, run) {
+    if (!run || !run.id) return;
+    wf.runCache[run.id] = run;
+    const list = (wf.historyRuns[mod] || []).filter(function (r) { return r && r.id !== run.id; });
+    list.push(run);
+    list.sort(function (a, b) { return (b.attempt || 0) - (a.attempt || 0); });
+    wf.historyRuns[mod] = list;
+  }
+
+  async function wfHydrateModuleArtifacts(wf) {
+    if (!wf.data || wf.isPharmacistView || !wf.data.modules) return;
+    const tasks = [];
+    WF_MODULE_ORDER.forEach(function (mod) {
+      const ms = wf.data.modules[mod];
+      if (!ms) return;
+      // BUG-09: Proactively fetch full run history list (GET /workflow/{mod}/runs) when attempts exist
+      if (ms.attemptCount > 0) {
+        tasks.push(
+          api.listWorkflowRuns(wf.visitId, mod)
+            .then(function (res) {
+              const list = Array.isArray(res) ? res : ((res && Array.isArray(res.items)) ? res.items : ((res && Array.isArray(res.runs)) ? res.runs : null));
+              if (list && list.length > 0) {
+                list.forEach(function (r) { wfUpsertHistoryRun(wf, mod, r); });
+              }
+            })
+            .catch(function () {})
+        );
+      }
+      if (ms.latestRunId) {
+        if (wf.runCache[ms.latestRunId]) {
+          wfUpsertHistoryRun(wf, mod, wf.runCache[ms.latestRunId]);
+        } else {
+          tasks.push(
+            api.getWorkflowRun(wf.visitId, mod, ms.latestRunId)
+              .then(function (run) { wfUpsertHistoryRun(wf, mod, run); })
+              .catch(function () {})
+          );
+        }
+      }
+      if (ms.effectiveDecisionId && !wf.decisionCache[ms.effectiveDecisionId]) {
+        tasks.push(
+          api.getWorkflowDecision(wf.visitId, mod, ms.effectiveDecisionId)
+            .then(function (dec) {
+              if (dec && dec.id) wf.decisionCache[dec.id] = dec;
+            })
+            .catch(function () {})
+        );
+      }
+    });
+    // F3 / BUG-10: Fetch GET /workflow?module=m4 projection for assigned doctor so saved M4 confirmations survive reload
+    const m4ms = wf.data.modules.m4;
+    if (m4ms && (m4ms.state === 'ran' || m4ms.state === 'accepted' || m4ms.state === 'stale')) {
+      tasks.push(
+        api.getVisitWorkflow(wf.visitId, { module: 'm4' })
+          .then(function (m4View) {
+            wf.m4ProjectionOutput = (m4View && m4View.output) ? m4View.output : null;
+          })
+          .catch(function () {})
+      );
+    } else {
+      wf.m4ProjectionOutput = null;
+    }
+    if (tasks.length > 0) await Promise.all(tasks);
+  }
+
+  async function loadWorkflow(visitId, opts) {
+    const o = opts || {};
+    const wf = state.workflow;
+    const isSameVisit = wf.visitId === visitId;
+    wf.visitId = visitId;
+    wf.loading = !o.silent;
+    wf.error = '';
+    wf.errorStatus = null;
+    wf.errorCode = '';
+    if (!o.keepBanner) {
+      wf.bannerError = '';
+      wf.bannerErrorStatus = null;
+      wf.bannerErrorCode = '';
+      wf.bannerErrorFields = [];
+    }
+    if (!isSameVisit) {
+      wf.data = null;
+      wf.visit = null;
+      wf.patient = null;
+      wf.formRes = null;
+      wf.visitDetail = null;
+      wf.activeModule = 'm1';
+      wf.editingModule = null;
+      wf.manualModeModule = null;
+      wf.manualDraft = null;
+      wf.manualReason = '';
+      wf.manualReasonError = '';
+      wf.historyOpen = {};
+      wf.historyRuns = {};
+      wf.historySelectedRun = {};
+      wf.runCache = {};
+      wf.decisionCache = {};
+      wf.expandedUpstream = {};
+      wf.optionalOpen = {};
+      wf.dirtyFields = {};
+      wf.fieldValues = {};
+      wf.savedFieldCodes = {};
+      wf.fieldOwners = {};
+      wf.observations = [];
+      wf.recentTestEvidence = {};
+      wf.recentTestEvidenceDirty = false;
+      wf.m4ProjectionOutput = null;
+      wf.fieldErrors = {};
+      wf.m4Decisions = {};
+      wf.lastRunErrors = {};
+      wf.selectedPrescription = { value_state: 'answered', listState: 'none', items: [] };
+    }
+    wf.isPharmacistView = Boolean(state.user && state.user.role === 'pharmacist');
+    if (!o.silent) render();
+
+    try {
+      if (wf.isPharmacistView) {
+        const res = await api.getVisitWorkflow(visitId, { module: 'm4' });
+        wf.data = res;
+        wf.activeModule = 'm4';
+        // BUG-10: Hydrate doctor confirmations for Pharmacist read-only M4 view
+        if (res && res.output) wfSyncM4DraftFromOutput(wf, res.output, false);
+      } else {
+        const [wfRes, fieldsRes, visitDetail, formRes] = await Promise.all([
+          api.getVisitWorkflow(visitId),
+          api.getWorkflowFields(visitId, 'm1').catch(function () { return null; }),
+          api.getVisit(visitId).catch(function () { return null; }),
+          api.getVisitForm(visitId).catch(function () { return null; })
+        ]);
+        wf.data = wfRes;
+        if (fieldsRes) {
+          if (fieldsRes.fields && typeof fieldsRes.fields === 'object') {
+            wf.data = Object.assign({}, wfRes, { fields: fieldsRes.fields });
+            wf.savedFieldCodes = {};
+            Object.keys(fieldsRes.fields).forEach(function (k) { wf.savedFieldCodes[k] = true; });
+          }
+          if (Array.isArray(fieldsRes.observations)) {
+            wf.observations = clone(fieldsRes.observations);
+          }
+          if (fieldsRes.recentTestEvidence && typeof fieldsRes.recentTestEvidence === 'object' && !wf.recentTestEvidenceDirty) {
+            wf.recentTestEvidence = clone(fieldsRes.recentTestEvidence);
+          }
+          wf.fieldOwners = wfExtractFieldOwners(fieldsRes);
+        }
+        if (visitDetail) {
+          wf.visitDetail = visitDetail;
+          wf.visit = visitDetail.visit || null;
+        }
+        if (formRes) wf.formRes = formRes;
+        if (wf.visit && wf.visit.patientId && (!wf.patient || wf.patient.id !== wf.visit.patientId)) {
+          try {
+            const ptRes = await api.getPatient(wf.visit.patientId);
+            wf.patient = ptRes && ptRes.patient ? ptRes.patient : null;
+          } catch (_e) {}
+        }
+        await wfHydrateModuleArtifacts(wf);
+        wfHydrateFieldValuesFromVisit(wf);
+
+        // Hydrate M3 selectedPrescription from effective M3 decision if present
+        const m3ms = wf.data && wf.data.modules && wf.data.modules.m3;
+        const m3dec = m3ms && m3ms.effectiveDecisionId && wf.decisionCache[m3ms.effectiveDecisionId];
+        if (m3dec && m3dec.selectedPrescription && !o.keepPrescription) {
+          wf.selectedPrescription = clone(m3dec.selectedPrescription);
+        }
+
+        // F3 / BUG-10: Hydrate M4 confirmations from GET /workflow?module=m4 projection first, then decision/run
+        const m4ms = wf.data && wf.data.modules && wf.data.modules.m4;
+        const m4dec = m4ms && m4ms.effectiveDecisionId && wf.decisionCache[m4ms.effectiveDecisionId];
+        const m4run = m4ms && m4ms.latestRunId && wf.runCache[m4ms.latestRunId];
+        const m4Out = wf.m4ProjectionOutput || (m4dec && m4dec.output) || (m4run && m4run.output) || null;
+        if (m4Out) wfSyncM4DraftFromOutput(wf, m4Out, Boolean(o.keepM4Draft));
+
+        if (!o.keepModule && wf.data && wf.data.modules) {
+          const preferred = WF_MODULE_ORDER.find(function (m) {
+            const st = wf.data.modules[m] && wf.data.modules[m].state;
+            return st && st !== 'locked' && st !== 'accepted';
+          });
+          wf.activeModule = preferred || (wf.data.modules.m4 && wf.data.modules.m4.state !== 'locked' ? 'm4' : 'm1');
+        }
+      }
+    } catch (err) {
+      wf.errorStatus = (err && err.status) || 0;
+      wf.errorCode = (err && err.code) || '';
+      if (err && err.status === 401) return handleAuthOrError(err);
+      if (err && err.status === 403) {
+        wf.error = 'Bạn không có quyền thực hiện thao tác này trên luồng 4 Module AI.';
+      } else if (err && err.status === 404) {
+        wf.error = NOT_FOUND_OR_NO_ACCESS_MSG;
+      } else if (err && err.status === 0) {
+        wf.error = 'Không thể kết nối máy chủ — dữ liệu chưa được chạy hoặc chốt. Kiểm tra mạng và thử lại.';
+      } else {
+        wf.error = (err && err.detail) || 'Không tải được trạng thái luồng 4 Module AI.';
+      }
+    } finally {
+      wf.loading = false;
+      render();
+    }
+  }
+
+  function wfGetEffectiveOrLatestOutput(wf, mod) {
+    if (wf.isPharmacistView) {
+      return {
+        output: wf.data ? wf.data.output : null,
+        source: 'ai',
+        attempt: null,
+        engine: 'mock-rules',
+        rulesVersion: 'mock-1.1',
+        timestamp: null,
+        runId: null,
+        decisionId: null
+      };
+    }
+    const ms = wf.data && wf.data.modules && wf.data.modules[mod];
+    if (!ms) return null;
+    const dec = ms.effectiveDecisionId ? wf.decisionCache[ms.effectiveDecisionId] : null;
+    const latestRun = ms.latestRunId ? wf.runCache[ms.latestRunId] : null;
+    const selRunId = wf.historySelectedRun[mod];
+    const viewingRun = selRunId && wf.runCache[selRunId] ? wf.runCache[selRunId] : null;
+    if (viewingRun && viewingRun.output) {
+      return {
+        output: viewingRun.output,
+        source: 'ai',
+        attempt: viewingRun.attempt,
+        engine: viewingRun.engine || (wf.data && wf.data.engine) || 'mock-rules',
+        rulesVersion: viewingRun.rulesVersion || (viewingRun.output && viewingRun.output.rulesVersion) || 'mock-1.1',
+        timestamp: viewingRun.finishedAt || viewingRun.startedAt,
+        runId: viewingRun.id,
+        decisionId: null,
+        isHistoryPreview: viewingRun.id !== ms.latestRunId
+      };
+    }
+    if (ms.state === 'accepted' && dec && dec.output) {
+      return {
+        output: dec.output,
+        source: dec.source || ms.decisionSource || 'ai',
+        attempt: (latestRun && latestRun.attempt) || ms.attemptCount || 1,
+        engine: (latestRun && latestRun.engine) || (wf.data && wf.data.engine) || 'mock-rules',
+        rulesVersion: (latestRun && latestRun.rulesVersion) || (dec.output && dec.output.rulesVersion) || 'mock-1.1',
+        timestamp: dec.decidedAt,
+        runId: dec.runId || ms.latestRunId,
+        decisionId: dec.id,
+        manualReason: dec.manualReason || null
+      };
+    }
+    if (latestRun && latestRun.output) {
+      return {
+        output: latestRun.output,
+        source: 'ai',
+        attempt: latestRun.attempt || ms.attemptCount || 1,
+        engine: latestRun.engine || (wf.data && wf.data.engine) || 'mock-rules',
+        rulesVersion: latestRun.rulesVersion || (latestRun.output && latestRun.output.rulesVersion) || 'mock-1.1',
+        timestamp: latestRun.finishedAt || latestRun.startedAt,
+        runId: latestRun.id,
+        decisionId: null
+      };
+    }
+    return null;
+  }
+
+  function wfApplyApiErrorBanner(err, mod) {
+    const wf = state.workflow;
+    const meta = WF_MODULE_META[mod] || { num: 1 };
+    const status = (err && err.status) || 0;
+    const code = (err && err.code) || '';
+    wf.bannerErrorStatus = status;
+    wf.bannerErrorCode = code;
+    wf.bannerErrorFields = [];
+    if (status === 401) {
+      handleAuthOrError(err);
+      return;
+    }
+    if (status === 403) {
+      wf.bannerError = 'Bạn không có quyền thực hiện thao tác này trên luồng 4 Module AI.';
+    } else if (status === 409) {
+      if (code === 'WORKFLOW_UPSTREAM_NOT_ACCEPTED') {
+        const prevNum = Math.max(1, meta.num - 1);
+        wf.bannerError = 'Không thể chạy Module ' + meta.num + ': Module ' + prevNum + ' chưa được chốt hoặc đang ở trạng thái cần chạy lại. Vui lòng hoàn tất Module ' + prevNum + ' trước.';
+      } else if (code === 'CONCURRENCY_ROW_VERSION_MISMATCH' || code === 'WORKFLOW_RESULT_STALE' || code === 'INPUT_CHANGED_DURING_RUN') {
+        wf.bannerError = 'Lượt khám vừa được cập nhật ở phiên khác (HTTP 409). Hãy tải lại dữ liệu mới nhất trước khi tiếp tục.';
+      } else {
+        wf.bannerError = (err && err.detail) || ('Xung đột trạng thái workflow (HTTP 409) tại Module ' + meta.num + '.');
+      }
+    } else if (status === 422) {
+      const errs = Array.isArray(err && err.errors) ? err.errors : [];
+      wf.bannerErrorFields = errs;
+      errs.forEach(function (e) {
+        if (e && e.fieldCode) wf.fieldErrors[e.fieldCode] = e.message || 'Giá trị chưa hợp lệ';
+      });
+      wf.bannerError = errs.length > 0
+        ? ('Chưa thể chạy Module ' + meta.num + ': phát hiện ' + errs.length + ' trường thiếu hoặc ngoài khoảng hợp lệ. Bấm vào từng mục bên dưới để nhảy tới ô cần sửa.')
+        : ((err && err.detail) || ('Dữ liệu chưa hợp lệ (HTTP 422) tại Module ' + meta.num + '.'));
+    } else if (status === 0 || status === 503 || status === 504) {
+      wf.bannerError = 'Không thể kết nối máy chủ — dữ liệu chưa được chạy hoặc chốt. Kiểm tra mạng và thử lại.';
+    } else {
+      wf.bannerError = (err && err.detail) || 'Đã xảy ra lỗi khi xử lý yêu cầu workflow.';
+    }
+  }
+
+  async function wfSaveFields(mod, opts) {
+    const wf = state.workflow;
+    if (!wf.data || wf.savingFields || wf.runningModule) return false;
+    const dirtyCodes = Object.keys(wf.dirtyFields || {}).filter(function (code) {
+      return wfGetFieldOwner(wf, code, mod) === mod;
+    });
+    const sendRecentEvidence = mod === 'm2' && Boolean(wf.recentTestEvidenceDirty);
+    if (dirtyCodes.length === 0 && !sendRecentEvidence) return true;
+
+    // Client-side validation for the 9 v1.2 fields + F2 measuredAt for timed labs
+    const localErrors = [];
+    dirtyCodes.forEach(function (code) {
+      const entry = wf.dirtyFields[code];
+      let msg = validateV12CompactField(code, entry);
+      if (!msg && WF_TIMED_LAB_CODES.indexOf(code) >= 0 && entry && entry.value_state === 'answered') {
+        if (!entry.measuredAt) {
+          msg = 'Vui lòng nhập thời điểm đo (measuredAt) cho xét nghiệm này — không dùng giờ lượt khám thay thế.';
+        }
+      }
+      if (msg) {
+        wf.fieldErrors[code] = msg;
+        localErrors.push({ fieldCode: code, message: msg });
+      } else {
+        delete wf.fieldErrors[code];
+      }
+    });
+    if (localErrors.length > 0) {
+      wf.bannerErrorStatus = 422;
+      wf.bannerErrorCode = 'FIELD_OUT_OF_RANGE';
+      wf.bannerErrorFields = localErrors;
+      wf.bannerError = 'Phát hiện ' + localErrors.length + ' trường thiếu thời điểm đo hoặc ngoài khoảng hợp lệ. Bấm vào từng mục bên dưới để nhảy tới ô cần sửa.';
+      render();
+      return false;
+    }
+
+    wf.savingFields = true;
+    wf.bannerError = '';
+    wf.bannerErrorFields = [];
+    render();
+    try {
+      const patchFields = {};
+      dirtyCodes.forEach(function (code) {
+        const cleaned = clone(wf.dirtyFields[code]);
+        if (cleaned && typeof cleaned === 'object') delete cleaned.ownerModule;
+        patchFields[code] = cleaned;
+      });
+      const payload = {
+        module: mod,
+        rowVersion: wf.data.rowVersion,
+        fields: patchFields
+      };
+      if (sendRecentEvidence) {
+        payload.recentTestEvidence = clone(wf.recentTestEvidence || {});
+      }
+      const res = await api.saveWorkflowFields(wf.visitId, mod, payload, wf.data.rowVersion);
+      dirtyCodes.forEach(function (code) {
+        wf.savedFieldCodes[code] = true;
+        if (JSON.stringify(wf.dirtyFields[code]) === JSON.stringify(patchFields[code])) {
+          delete wf.dirtyFields[code];
+        }
+      });
+      if (sendRecentEvidence) wf.recentTestEvidenceDirty = false;
+      wf.fieldErrors = {};
+      const inv = (res && Array.isArray(res.invalidatedModules) && res.invalidatedModules.length > 0) ? res.invalidatedModules : [];
+      if (!opts || !opts.quiet) {
+        toast(
+          inv.length > 0
+            ? ('Đã lưu thay đổi. Các bước bị đánh dấu "Cần chạy lại": ' + inv.map(wfFormatModuleTitle).join(', ') + '.')
+            : 'Đã lưu dữ liệu bước ' + wfFormatModuleTitle(mod) + '.',
+          inv.length > 0 ? 'warn' : 'success'
+        );
+      }
+      await loadWorkflow(wf.visitId, { silent: true, keepModule: true, keepPrescription: true, keepM4Draft: true });
+      return true;
+    } catch (err) {
+      wfApplyApiErrorBanner(err, mod);
+      render();
+      return false;
+    } finally {
+      wf.savingFields = false;
+      render();
+    }
+  }
+
+  async function wfRunModule(mod) {
+    const wf = state.workflow;
+    if (!wf.data || wf.runningModule || wf.submittingAction) return;
+    const modDirty = Object.keys(wf.dirtyFields || {}).some(function (code) { return wfGetFieldOwner(wf, code, mod) === mod; });
+    if (modDirty || (mod === 'm2' && wf.recentTestEvidenceDirty)) {
+      const savedOk = await wfSaveFields(mod, { quiet: true });
+      if (!savedOk) return;
+    }
+    wf.runningModule = mod;
+    wf.bannerError = '';
+    wf.bannerErrorFields = [];
+    render();
+    try {
+      const payload = { module: mod, rowVersion: wf.data.rowVersion };
+      const receipt = await api.runWorkflowModule(wf.visitId, mod, payload, wf.data.rowVersion, makeIdempotencyKey('wf-run-' + mod));
+      wf.editingModule = null;
+      wf.manualModeModule = null;
+      delete wf.historySelectedRun[mod];
+      delete wf.lastRunErrors[mod];
+      if (receipt && receipt.runId) {
+        try {
+          const fullRun = await api.getWorkflowRun(wf.visitId, mod, receipt.runId);
+          // BUG-09: Immediately upsert into wf.historyRuns[mod] so history drawer is complete before reload!
+          wfUpsertHistoryRun(wf, mod, fullRun);
+        } catch (_e) {}
+      }
+      toast('Đã chạy ' + wfFormatModuleTitle(mod) + (receipt && receipt.attempt ? (' (Lần #' + receipt.attempt + ')') : '') + '.', 'success');
+      await loadWorkflow(wf.visitId, { silent: true, keepModule: true, keepPrescription: true });
+    } catch (err) {
+      wfApplyApiErrorBanner(err, mod);
+      if (err && (err.status === 503 || err.status === 504)) {
+        wf.lastRunErrors[mod] = { code: err.code || 'ENGINE_UNAVAILABLE', detail: err.detail || 'Lỗi chạy mô phỏng.' };
+      }
+      render();
+    } finally {
+      wf.runningModule = null;
+      render();
+    }
+  }
+
+  function wfBuildManualSkeleton(mod, baseOutput) {
+    if (baseOutput) {
+      const copy = clone(baseOutput);
+      delete copy.engine;
+      delete copy.rulesVersion;
+      delete copy.displayLabel;
+      delete copy.clinicalUse;
+      delete copy.author;
+      return copy;
+    }
+    if (mod === 'm1') {
+      return {
+        stage: null,
+        xac_suat_suy_tim: { muc: 'Chưa đủ dữ liệu để kết luận', xac_suat: null },
+        kieu_hinh_ef: 'Chưa phân loại do thiếu EF',
+        benh_canh: null,
+        xep_hang_nguyen_nhan: [],
+        canh_bao_gia_suy_tim: [],
+        frailty_dung_nap: 'Bác sĩ tự đánh giá lâm sàng',
+        du_bao_nguy_co: { nhap_vien: null, tu_vong: null, te_nga: null, sang: null, suy_giam_chuc_nang: null, mat_tu_cham_soc: null },
+        canh_bao_cap_cuu: [],
+        dataGaps: []
+      };
+    }
+    if (mod === 'm2') {
+      const goiY = {};
+      WF_M2_TESTS.forEach(function (t) {
+        goiY[t.key] = { trang_thai: 'Không đề xuất', ly_do: 'Bác sĩ tự đánh giá chỉ định' };
+      });
+      return {
+        goi_y_chi_dinh: goiY,
+        phan_loai_ket_qua: 'Chưa đủ bằng chứng',
+        muc_uu_tien: 'Trong đợt khám hiện tại',
+        loi_ich_nguy_co: 'Bác sĩ tự cân nhắc lợi ích và nguy cơ cận lâm sàng.',
+        canh_bao_xam_lan: 'Không chỉ định thăm dò xâm lấn chỉ dựa trên tuổi đơn thuần.',
+        khoa_trung_lap: [],
+        dataGaps: []
+      };
+    }
+    if (mod === 'm3') {
+      const khuyenNghi = {};
+      WF_M3_KHUYEN_NGHI_KEYS.forEach(function (k) {
+        khuyenNghi[k.key] = { ap_dung: 'chua_ro', noi_dung: 'Bác sĩ tự đánh giá', ly_do: 'Nhập tay theo bối cảnh lâm sàng' };
+      });
+      const nhomThuoc = {};
+      WF_M3_DRUG_GROUPS.forEach(function (g) {
+        nhomThuoc[g.key] = { muc: 'Cân nhắc', ly_do: 'Bác sĩ tự đánh giá' };
+      });
+      return {
+        stage: null,
+        kieu_hinh_ef: 'Chưa phân loại do thiếu EF',
+        dinh_huong: 'Bác sĩ tự nhập định hướng điều trị',
+        khuyen_nghi: khuyenNghi,
+        nhom_thuoc: nhomThuoc,
+        ke_hoach_do_lieu: 'Theo dõi và dò liều theo đánh giá bác sĩ.',
+        ke_hoach_theo_doi: [{ hang_muc: 'Tái khám lâm sàng & điện giải/creatinin', thoi_diem: 'Theo lịch bác sĩ chọn', ly_do: 'Đánh giá dung nạp điều trị' }],
+        don_thuoc_de_xuat: { items: [], ghi_chu: 'Bác sĩ tự quyết định phương án đơn thuốc.' },
+        dataGaps: []
+      };
+    }
+    return {
+      canh_bao: [],
+      de_xuat_chinh_lieu: [],
+      don_gian_hoa_phac_do: [],
+      giam_ngung_thuoc: [],
+      ke_hoach_theo_doi: [],
+      xac_nhan_bac_si: [],
+      coverage: 'incomplete',
+      dataGaps: ['Đánh giá an toàn thuốc do bác sĩ tự nhập'],
+      auto_change_medication: false
+    };
+  }
+
+  function wfOpenManualOverride(mod) {
+    const wf = state.workflow;
+    wf.manualModeModule = mod;
+    wf.editingModule = null;
+    wf.manualReason = '';
+    wf.manualReasonError = '';
+    const latest = wfGetEffectiveOrLatestOutput(wf, mod);
+    const skeleton = wfBuildManualSkeleton(mod, null);
+    if (mod === 'm4' && latest && latest.output && Array.isArray(latest.output.canh_bao)) {
+      skeleton.canh_bao = clone(latest.output.canh_bao);
+      wfSyncM4DraftFromOutput(wf, latest.output, true);
+    }
+    wf.manualDraft = skeleton;
+    render();
+  }
+
+  function wfPrefillManualFromAi(mod) {
+    const wf = state.workflow;
+    const ms = wf.data && wf.data.modules && wf.data.modules[mod];
+    const run = ms && ms.latestRunId ? wf.runCache[ms.latestRunId] : null;
+    if (!run || !run.output) {
+      toast('Chưa có kết quả AI gần nhất để điền sẵn.', 'warn');
+      return;
+    }
+    wf.manualDraft = wfBuildManualSkeleton(mod, run.output);
+    if (mod === 'm4') wfSyncM4DraftFromOutput(wf, run.output, true);
+    toast('Đã điền sẵn từ kết quả AI lần #' + (run.attempt || ms.attemptCount || 1) + ' — hãy chỉnh sửa các mục cần thay đổi.', 'info');
+    render();
+  }
+
+  function wfSanitizePrescription(sp) {
+    const raw = sp || { value_state: 'answered', listState: 'none', items: [] };
+    const items = Array.isArray(raw.items) ? raw.items.map(function (it, idx) {
+      const dNum = (it.dose === null || it.dose === undefined || it.dose === '') ? null : Number(it.dose);
+      const tpdNum = (it.timesPerDay === null || it.timesPerDay === undefined || it.timesPerDay === '') ? null : Number(it.timesPerDay);
+      const doseValid = dNum !== null && isFinite(dNum) && dNum > 0;
+      const hasFullDetail = doseValid && Boolean(it.doseUnit) && tpdNum !== null && isFinite(tpdNum) && tpdNum > 0 && Boolean(it.route);
+      return {
+        id: it.id || ('rx-' + (idx + 1)),
+        ingredientCode: String(it.ingredientCode || it.display || ('drug_' + (idx + 1))).trim(),
+        atcCode: it.atcCode || null,
+        display: String(it.display || it.ingredientCode || ('Thuốc ' + (idx + 1))).trim(),
+        detailState: hasFullDetail ? 'answered' : 'unknown',
+        dose: doseValid ? dNum : null,
+        doseUnit: it.doseUnit || null,
+        timesPerDay: (tpdNum !== null && isFinite(tpdNum) && tpdNum > 0) ? tpdNum : null,
+        route: it.route || null,
+        action: it.action || 'start',
+        replacesMedicationId: it.replacesMedicationId || null,
+        therapeuticGroup: it.therapeuticGroup || 'other'
+      };
+    }) : [];
+    return {
+      value_state: 'answered',
+      listState: items.length > 0 ? 'known' : 'none',
+      items: items
+    };
+  }
+
+  function wfValidateM4Confirmations(alerts, decisionsMap, opts) {
+    const requireAllSerious = Boolean(opts && opts.requireAllSerious);
+    const list = [];
+    let hasError = false;
+    (alerts || []).forEach(function (al) {
+      const d = decisionsMap[al.id] || { quyet_dinh: '', ly_do: '', error: '' };
+      d.error = '';
+      const qd = d.quyet_dinh;
+      const reason = String(d.ly_do || '').trim();
+      if (al.muc_do === 'Nghiêm trọng') {
+        if (!qd) {
+          // BUG-11: Only require ALL serious alerts simultaneously on manual override submit;
+          // partial incremental confirmation saves skip untouched alerts so doctor can confirm one-by-one.
+          if (requireAllSerious || reason) {
+            d.error = 'Cảnh báo mức Nghiêm trọng bắt buộc chọn Đồng ý hoặc Không đồng ý.';
+            hasError = true;
+          }
+        } else if (!reason) {
+          d.error = 'Vui lòng nhập lý do khi chọn "Không đồng ý" hoặc với cảnh báo mức Nghiêm trọng.';
+          hasError = true;
+        } else {
+          list.push({ alertId: al.id, quyet_dinh: qd, ly_do: reason });
+        }
+      } else if (qd) {
+        if (qd === 'Không đồng ý' && !reason) {
+          d.error = 'Vui lòng nhập lý do khi chọn "Không đồng ý" hoặc với cảnh báo mức Nghiêm trọng.';
+          hasError = true;
+        } else {
+          const item = { alertId: al.id, quyet_dinh: qd };
+          if (reason) item.ly_do = reason;
+          list.push(item);
+        }
+      }
+      decisionsMap[al.id] = d;
+    });
+    return { valid: !hasError, confirmations: list };
+  }
+
+  async function wfSaveM4Confirmations() {
+    const wf = state.workflow;
+    if (!wf.data || wf.m4Saving || wf.runningModule) return;
+    const m4ms = wf.data.modules && wf.data.modules.m4;
+    const run = m4ms && m4ms.latestRunId ? wf.runCache[m4ms.latestRunId] : null;
+    const alerts = (run && run.output && run.output.canh_bao) || [];
+    // BUG-11: Allow partial confirmation saves when >= 2 Serious alerts exist
+    const check = wfValidateM4Confirmations(alerts, wf.m4Decisions, { requireAllSerious: false });
+    if (!check.valid || check.confirmations.length === 0) {
+      if (check.confirmations.length === 0 && check.valid) {
+        toast('Chọn ít nhất một quyết định Đồng ý / Không đồng ý trước khi lưu xác nhận.', 'warn');
+      }
+      render();
+      return;
+    }
+    wf.m4Saving = true;
+    wf.bannerError = '';
+    render();
+    try {
+      const payload = {
+        module: 'm4',
+        rowVersion: wf.data.rowVersion,
+        outputRef: m4ms.latestRunId,
+        confirmations: check.confirmations
+      };
+      await api.submitM4Confirmations(wf.visitId, payload, wf.data.rowVersion, makeIdempotencyKey('m4-conf'));
+      toast('Đã lưu xác nhận cảnh báo Module 4.', 'success');
+      // F3: Reload fresh projection from GET /workflow?module=m4 without stale local cache
+      await loadWorkflow(wf.visitId, { silent: true, keepModule: true, keepM4Draft: false });
+    } catch (err) {
+      wfApplyApiErrorBanner(err, 'm4');
+      render();
+    } finally {
+      wf.m4Saving = false;
+      render();
+    }
+  }
+
+  async function wfSubmitDecisionAi(mod, intent) {
+    const wf = state.workflow;
+    if (!wf.data || wf.submittingAction || wf.runningModule) return;
+    const ms = wf.data.modules && wf.data.modules[mod];
+    if (!ms || !ms.latestRunId) return;
+    wf.submittingAction = true;
+    wf.bannerError = '';
+    wf.bannerErrorFields = [];
+    render();
+    try {
+      const payload = {
+        module: mod,
+        source: 'ai',
+        runId: ms.latestRunId,
+        rowVersion: wf.data.rowVersion
+      };
+      if (mod === 'm3') {
+        payload.selectedPrescription = wfSanitizePrescription(wf.selectedPrescription);
+      }
+      if (intent) payload.intent = intent;
+      const receipt = await api.submitWorkflowDecision(wf.visitId, mod, payload, wf.data.rowVersion, makeIdempotencyKey('dec-ai-' + mod));
+      wf.editingModule = null;
+      wf.manualModeModule = null;
+      const meta = WF_MODULE_META[mod];
+      if (intent === 'finish_workflow') {
+        toast('Đã hoàn tất luồng 4 Module AI cho lượt khám ' + ((wf.visit && wf.visit.visitCode) || wf.visitId) + '.', 'success');
+      } else if (meta && meta.next && (receipt && receipt.nextModule ? receipt.nextModule : meta.next)) {
+        // U3: Switch view to next module ONLY — NEVER auto-run downstream module!
+        wf.activeModule = (receipt && receipt.nextModule) || meta.next;
+        toast('Đã chốt kết quả AI cho ' + wfFormatModuleTitle(mod) + '. Chuyển sang ' + wfFormatModuleTitle(wf.activeModule) + '.', 'success');
+      } else {
+        toast('Đã chọn sử dụng kết quả AI cho ' + wfFormatModuleTitle(mod) + '.', 'success');
+      }
+      await loadWorkflow(wf.visitId, { silent: true, keepModule: true, keepPrescription: true });
+    } catch (err) {
+      wfApplyApiErrorBanner(err, mod);
+      render();
+    } finally {
+      wf.submittingAction = false;
+      render();
+    }
+  }
+
+  async function wfSubmitDecisionManual(mod) {
+    const wf = state.workflow;
+    if (!wf.data || wf.submittingAction || wf.runningModule || !wf.manualDraft) return;
+    const trimmedReason = String(wf.manualReason || '').trim();
+    if (!trimmedReason) {
+      wf.manualReasonError = 'Vui lòng nhập lý do tự nhập / điều chỉnh so với kết quả AI.';
+      render();
+      return;
+    }
+    wf.manualReasonError = '';
+    const output = clone(wf.manualDraft);
+    if (mod === 'm4') {
+      const check = wfValidateM4Confirmations(output.canh_bao || [], wf.m4Decisions, { requireAllSerious: true });
+      if (!check.valid) {
+        render();
+        return;
+      }
+      output.xac_nhan_bac_si = check.confirmations;
+      output.auto_change_medication = false;
+    }
+    wf.submittingAction = true;
+    wf.bannerError = '';
+    wf.bannerErrorFields = [];
+    render();
+    try {
+      const payload = {
+        module: mod,
+        source: 'manual',
+        output: output,
+        rowVersion: wf.data.rowVersion,
+        manualReason: trimmedReason
+      };
+      if (mod === 'm3') {
+        payload.selectedPrescription = wfSanitizePrescription(wf.selectedPrescription);
+      }
+      if (mod === 'm4') {
+        payload.intent = 'finish_workflow';
+      }
+      const receipt = await api.submitWorkflowDecision(wf.visitId, mod, payload, wf.data.rowVersion, makeIdempotencyKey('dec-manual-' + mod));
+      wf.manualModeModule = null;
+      wf.manualDraft = null;
+      wf.manualReason = '';
+      const meta = WF_MODULE_META[mod];
+      if (mod === 'm4') {
+        toast('Đã hoàn tất luồng 4 Module AI (nguồn Tự nhập) cho lượt khám ' + ((wf.visit && wf.visit.visitCode) || wf.visitId) + '.', 'success');
+      } else if (meta && meta.next) {
+        // U3: Never auto-run downstream module!
+        wf.activeModule = (receipt && receipt.nextModule) || meta.next;
+        toast('Đã lưu kết quả tự nhập cho ' + wfFormatModuleTitle(mod) + '. Chuyển sang ' + wfFormatModuleTitle(wf.activeModule) + '.', 'success');
+      }
+      await loadWorkflow(wf.visitId, { silent: true, keepModule: true, keepPrescription: true });
+    } catch (err) {
+      wfApplyApiErrorBanner(err, mod);
+      render();
+    } finally {
+      wf.submittingAction = false;
+      render();
+    }
+  }
+
+  async function wfFinishWorkflow() {
+    const wf = state.workflow;
+    if (!wf.data || wf.submittingAction || wf.runningModule) return;
+    const m4ms = wf.data.modules && wf.data.modules.m4;
+    if (!m4ms) return;
+    if (m4ms.state === 'ran') {
+      await wfSubmitDecisionAi('m4', 'finish_workflow');
+      return;
+    }
+    wf.submittingAction = true;
+    wf.bannerError = '';
+    render();
+    try {
+      await api.finishWorkflow(wf.visitId, { rowVersion: wf.data.rowVersion }, wf.data.rowVersion, makeIdempotencyKey('wf-finish'));
+      toast('Đã hoàn tất luồng 4 Module AI cho lượt khám ' + ((wf.visit && wf.visit.visitCode) || wf.visitId) + '.', 'success');
+      await loadWorkflow(wf.visitId, { silent: true, keepModule: true });
+    } catch (err) {
+      wfApplyApiErrorBanner(err, 'm4');
+      render();
+    } finally {
+      wf.submittingAction = false;
+      render();
+    }
+  }
+
+  function wfRequestEdit(mod) {
+    const wf = state.workflow;
+    if (!wf.data || !wf.data.modules) return;
+    const ms = wf.data.modules[mod];
+    const idx = WF_MODULE_ORDER.indexOf(mod);
+    const affected = [];
+    for (let i = idx + 1; i < WF_MODULE_ORDER.length; i++) {
+      const dm = WF_MODULE_ORDER[i];
+      const dms = wf.data.modules[dm];
+      if (dms && (dms.state === 'ran' || dms.state === 'accepted' || dms.state === 'stale' || dms.attemptCount > 0)) {
+        affected.push(wfFormatModuleTitle(dm));
+      }
+    }
+    if (ms && ms.state === 'accepted' && affected.length > 0) {
+      openModal({ type: 'wf-edit-confirm', module: mod, downstreamNames: affected });
+      return;
+    }
+    wf.activeModule = mod;
+    wf.editingModule = mod;
+    wf.manualModeModule = null;
+    render();
+  }
+
+  function wfJumpToField(fieldCode) {
+    const wf = state.workflow;
+    const mod = wf.activeModule;
+    const optList = (WF_STEP_FIELDS[mod] && WF_STEP_FIELDS[mod].optional) || [];
+    if (optList.indexOf(fieldCode) >= 0 && !wf.optionalOpen[mod]) {
+      wf.optionalOpen[mod] = true;
+      render();
+    }
+    setTimeout(function () {
+      const el = document.querySelector('.wf-stage-card [data-field-code="' + CSS.escape(fieldCode) + '"]') ||
+                 document.querySelector('[data-field-code="' + CSS.escape(fieldCode) + '"]');
+      if (!el) return;
+      if (typeof el.scrollIntoView === 'function') el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.remove('field--highlight');
+      try { void el.offsetWidth; } catch (_e) {}
+      el.classList.add('field--highlight');
+      const focusable = el.querySelector('input:not(:disabled), select:not(:disabled), textarea:not(:disabled), button:not(:disabled)');
+      if (focusable && typeof focusable.focus === 'function') {
+        try { focusable.focus({ preventScroll: true }); } catch (_e) {}
+      }
+      setTimeout(function () { el.classList.remove('field--highlight'); }, 2000);
+    }, 30);
+  }
+
+  function renderWorkflowStepper(wf) {
+    const isPharm = wf.isPharmacistView;
+    const modules = (wf.data && wf.data.modules) || {};
+    const items = WF_MODULE_ORDER.map(function (mod, idx) {
+      const meta = WF_MODULE_META[mod];
+      const isCurrent = wf.activeModule === mod;
+      if (isPharm && mod !== 'm4') {
+        return (
+          '<button type="button" class="wf-step wf-step--restricted" disabled title="Giới hạn theo vai trò Dược sĩ">' +
+            '<div class="wf-step__head">' +
+              '<span class="wf-step__icon">' + ICONS.lock + '</span>' +
+              '<span class="wf-step__title"><span class="wf-step__full">' + esc(meta.full) + '</span><span class="wf-step__short">' + esc(meta.short) + '</span></span>' +
+            '</div>' +
+            '<div class="wf-step__status">Giới hạn theo vai trò</div>' +
+          '</button>'
+        );
+      }
+      const ms = isPharm ? { state: wf.data ? wf.data.state : 'locked', attemptCount: 0, missingFieldCodes: [], decisionSource: null } : (modules[mod] || { state: 'locked', attemptCount: 0, missingFieldCodes: [] });
+      const isRunning = Boolean(ms.isRunning || wf.runningModule === mod);
+      const st = isRunning ? 'running' : (ms.state || 'locked');
+      let icon = ICONS.lock;
+      let label = 'Đã khóa';
+      let extraPill = '';
+      let titleAttr = '';
+      if (st === 'locked') {
+        icon = ICONS.lock;
+        label = 'Đã khóa';
+        titleAttr = 'Hoàn tất và chốt Module ' + Math.max(1, meta.num - 1) + ' trước để mở bước này';
+      } else if (st === 'needs_input') {
+        icon = ICONS.alert;
+        const mc = (ms.missingFieldCodes || []).length;
+        label = mc > 0 ? ('Cần nhập (thiếu ' + mc + ')') : 'Cần nhập';
+      } else if (st === 'ready') {
+        icon = ICONS.play;
+        label = 'Sẵn sàng chạy';
+      } else if (st === 'running') {
+        icon = '<span class="wf-spinner" aria-hidden="true"></span>';
+        label = 'Đang chạy...';
+      } else if (st === 'ran') {
+        icon = ICONS.clock;
+        label = 'Chờ duyệt (Lần #' + (ms.attemptCount || 1) + ')';
+      } else if (st === 'accepted') {
+        icon = ICONS.checkCircle;
+        if (ms.decisionSource === 'manual') {
+          label = 'Đã chốt · Tự nhập';
+          extraPill = '<span class="badge badge--blue badge--xs">Tự nhập</span>';
+        } else {
+          label = 'Đã chốt · AI';
+        }
+      } else if (st === 'stale') {
+        icon = ICONS.refresh;
+        label = 'Cần chạy lại';
+      }
+      const disabled = st === 'locked' || Boolean(wf.runningModule);
+      return (
+        '<button type="button" class="wf-step wf-step--' + esc(st) + (isCurrent ? ' is-current' : '') + '" ' +
+          'data-wf-select-module="' + esc(mod) + '" ' +
+          (isCurrent ? 'aria-current="step" ' : '') +
+          (titleAttr ? ('title="' + esc(titleAttr) + '" ') : '') +
+          (disabled ? 'disabled' : '') + '>' +
+          '<div class="wf-step__head">' +
+            '<span class="wf-step__icon">' + icon + '</span>' +
+            '<span class="wf-step__title"><span class="wf-step__full">' + esc(meta.full) + '</span><span class="wf-step__short">' + esc(meta.short) + '</span></span>' +
+          '</div>' +
+          '<div class="wf-step__status"><span>' + esc(label) + '</span>' + extraPill + '</div>' +
+        '</button>' +
+        (idx < 3 ? '<span class="wf-stepper__arrow" aria-hidden="true">' + ICONS.arrowRight + '</span>' : '')
+      );
+    }).join('');
+    return '<nav class="wf-stepper" aria-label="Tiến trình 4 Module AI">' + items + '</nav>';
+  }
+
+  function wfSummarizeOutputOneLine(mod, output) {
+    if (!output) return 'Chưa có tóm tắt đầu ra.';
+    if (mod === 'm1') {
+      const muc = output.xac_suat_suy_tim && output.xac_suat_suy_tim.muc ? output.xac_suat_suy_tim.muc : 'Chưa kết luận';
+      const ef = output.kieu_hinh_ef || '—';
+      const ctx = output.benh_canh ? (' · ' + output.benh_canh) : '';
+      return muc + ' · ' + ef + ctx;
+    }
+    if (mod === 'm2') {
+      return (output.phan_loai_ket_qua || '—') + ' · Ưu tiên: ' + (output.muc_uu_tien || '—');
+    }
+    if (mod === 'm3') {
+      return (output.dinh_huong || ('Stage ' + (output.stage || '—') + ' · ' + (output.kieu_hinh_ef || '—')));
+    }
+    if (mod === 'm4') {
+      const n = (output.canh_bao || []).length;
+      return n > 0 ? (n + ' cảnh báo an toàn thuốc') : 'Không có cảnh báo trong phạm vi luật mock';
+    }
+    return 'Đã chốt';
+  }
+
+  function renderUpstreamSummaryStack(wf) {
+    if (wf.isPharmacistView || !wf.data || !wf.data.modules) return '';
+    const curIdx = WF_MODULE_ORDER.indexOf(wf.activeModule);
+    if (curIdx <= 0) return '';
+    const rows = [];
+    for (let i = 0; i < curIdx; i++) {
+      const mod = WF_MODULE_ORDER[i];
+      const ms = wf.data.modules[mod];
+      if (!ms || (ms.state !== 'accepted' && ms.state !== 'stale' && ms.state !== 'ran')) continue;
+      const meta = WF_MODULE_META[mod];
+      const outInfo = wfGetEffectiveOrLatestOutput(wf, mod);
+      const isExp = Boolean(wf.expandedUpstream[mod]);
+      const canEdit = Array.isArray(ms.availableActions) && ms.availableActions.indexOf('edit') >= 0 && !wf.runningModule;
+      const srcBadge = ms.state === 'stale'
+        ? '<span class="badge badge--error badge--xs">Cần chạy lại</span>'
+        : (ms.decisionSource === 'manual'
+            ? '<span class="badge badge--blue badge--xs">Đã chốt · Tự nhập</span>'
+            : '<span class="badge badge--success badge--xs">Đã chốt · AI</span>');
+      rows.push(
+        '<div class="wf-upstream-card" data-wf-upstream="' + esc(mod) + '">' +
+          '<div class="wf-upstream-card__row">' +
+            '<div class="wf-upstream-card__main">' +
+              '<strong>' + esc(meta.short) + '</strong> ' + srcBadge +
+              '<span class="wf-upstream-card__summary">' + esc(wfSummarizeOutputOneLine(mod, outInfo && outInfo.output)) + '</span>' +
+            '</div>' +
+            '<div class="wf-upstream-card__actions">' +
+              '<button type="button" class="btn btn--ghost btn--xs" data-wf-toggle-upstream="' + esc(mod) + '">' + (isExp ? 'Thu gọn' : 'Xem') + '</button>' +
+              (canEdit ? '<button type="button" class="btn btn--secondary btn--xs" data-wf-edit-module="' + esc(mod) + '">' + ICONS.edit + ' Chỉnh sửa</button>' : '') +
+            '</div>' +
+          '</div>' +
+          (isExp && outInfo && outInfo.output ? '<div class="wf-upstream-card__detail">' + renderModuleOutputBody(mod, outInfo.output, wf, true) + '</div>' : '') +
+        '</div>'
+      );
+    }
+    if (rows.length === 0) return '';
+    return '<div class="wf-upstream-stack" aria-label="Tóm tắt các bước trước">' + rows.join('') + '</div>';
+  }
+
+  function renderWfGenericField(wf, code, isReadonly) {
+    const val = wf.fieldValues[code] || null;
+    const isUnknown = Boolean(val && val.value_state === 'unknown');
+    const isAnswered = Boolean(val && val.value_state === 'answered');
+    const errMsg = wf.fieldErrors[code] || '';
+    const label = AI_ISSUE_DISPLAY_LABELS[code] || code;
+    const activeMod = wf.activeModule || 'm1';
+    const ownerMod = wfGetFieldOwner(wf, code, activeMod);
+    const isForeignOwner = code !== 'age' && code !== 'sex' && code !== 'selected_medications' && ownerMod !== activeMod;
+    const effectiveReadonly = Boolean(isReadonly || isForeignOwner);
+    const ownerBannerHtml = isForeignOwner
+      ? (
+        '<div class="wf-owner-strip" data-wf-owner-mod="' + esc(ownerMod) + '">' +
+          '<span class="badge badge--neutral badge--xs">Thuộc ' + esc(wfFormatModuleTitle(ownerMod)) + ' (chỉ đọc)</span>' +
+          '<button type="button" class="btn btn--ghost btn--xs" data-wf-jump-owner="' + esc(ownerMod + ':' + code) + '">Sửa ở ' + esc(wfFormatModuleTitle(ownerMod)) + ' ↗</button>' +
+        '</div>'
+      )
+      : '';
+
+    if (isV12NineField(code)) {
+      // F6: Pass explicit unit from cls_creatinin without guessing mg/dL
+      const creat = (wf.fieldValues.cls_creatinin && wf.fieldValues.cls_creatinin.value_state === 'answered' && wf.fieldValues.cls_creatinin.unit)
+        ? { value: wf.fieldValues.cls_creatinin.value, unit: wf.fieldValues.cls_creatinin.unit }
+        : null;
+      const curW = wf.fieldValues.can_nang_kg && wf.fieldValues.can_nang_kg.value_state === 'answered'
+        ? wf.fieldValues.can_nang_kg.value
+        : null;
+      const age = wf.fieldValues.age && wf.fieldValues.age.value_state === 'answered' ? wf.fieldValues.age.value : null;
+      const sex = wf.fieldValues.sex && wf.fieldValues.sex.value_state === 'answered' ? wf.fieldValues.sex.value : null;
+      const widgetHtml = renderV12FieldControl(code, {
+        scope: 'wf',
+        label: label,
+        readonly: effectiveReadonly,
+        errMsg: errMsg,
+        compactValue: val,
+        egfrFormulaCompact: wf.fieldValues.egfr_formula || null,
+        currentWeightKg: curW,
+        creatinineInfo: creat,
+        patientAge: age,
+        patientSex: sex
+      });
+      return isForeignOwner ? ('<div class="field--span-2 wf-foreign-wrap">' + ownerBannerHtml + widgetHtml + '</div>') : widgetHtml;
+    }
+
+    if (code === 'age' || code === 'sex') {
+      const disp = code === 'age'
+        ? (isAnswered ? (val.value + ' tuổi') : 'Chưa ghi nhận (cần nhập trong Hồ sơ bệnh nhân)')
+        : (isAnswered ? formatSex(val.value) : 'Chưa ghi nhận (cần nhập trong Hồ sơ bệnh nhân)');
+      return (
+        '<div class="bmi-card" data-field-code="' + esc(code) + '">' +
+          '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--info badge--xs">Hồ sơ bệnh nhân</span></div>' +
+          '<div class="bmi-card__value bmi-card__value--sm">' + esc(disp) + '</div>' +
+          (wf.visit && wf.visit.patientId ? '<div class="bmi-card__note"><button type="button" class="breadcrumbs__link" data-nav="#/patients/' + esc(wf.visit.patientId) + '">Mở hồ sơ bệnh nhân ↗</button></div>' : '') +
+        '</div>'
+      );
+    }
+
+    // BUG-06 (D3): Structured list editors for diagnoses (ICD-10), medications (C1 drug), allergies
+    if (code === 'diagnoses' || code === 'medications' || code === 'allergies' || code === 'selected_medications') {
+      const items = isAnswered && Array.isArray(val.value) ? val.value : [];
+      const curListState = isUnknown ? 'unknown' : (isAnswered ? (items.length > 0 ? 'known' : 'none') : 'unfilled');
+      const stateBadge = curListState === 'unknown'
+        ? '<span class="badge badge--info badge--xs">Chưa rõ</span>'
+        : (curListState === 'none'
+            ? '<span class="badge badge--success badge--xs">Đã xác nhận: Không có (0)</span>'
+            : (curListState === 'known'
+                ? '<span class="badge badge--success badge--xs">Có (' + items.length + ')</span>'
+                : '<span class="badge badge--warn badge--xs">Chưa xử lý</span>'));
+      const canEditList = !effectiveReadonly && code !== 'selected_medications';
+      let rowsHtml = '';
+      if (code === 'selected_medications') {
+        rowsHtml = items.length > 0
+          ? '<div class="wf-chip-list">' + items.map(function (it) {
+              const txt = typeof it === 'string' ? it : (it.display || it.ingredient || it.ingredientCode || JSON.stringify(it));
+              return '<span class="badge badge--blue">' + esc(txt) + (it && it.class ? (' · ' + esc(it.class)) : '') + (it && it.dose ? (' ' + esc(it.dose) + ' ' + esc(it.unit || '')) : '') + '</span>';
+            }).join('') + '</div>'
+          : '<p class="field__help">Lấy từ phương án đơn thuốc đã chọn khi chốt Module 3.</p>';
+      } else if (curListState === 'known' && items.length > 0) {
+        if (code === 'diagnoses') {
+          rowsHtml = '<div class="wf-list-editor">' + items.map(function (dx, idx) {
+            const dxCode = typeof dx === 'string' ? dx : (dx && dx.code ? dx.code : '');
+            return (
+              '<div class="wf-list-row wf-list-row--dx">' +
+                '<input type="text" class="input input--sm mono" data-wf-list-item="diagnoses:' + idx + ':code" value="' + esc(dxCode) + '" placeholder="Mã ICD-10 (VD: I10, E11, I50.9)"' + (!canEditList ? ' disabled' : '') + '>' +
+                (canEditList ? '<button type="button" class="btn btn--ghost btn--xs" data-wf-list-remove="diagnoses:' + idx + '" aria-label="Xóa chẩn đoán">' + ICONS.trash + '</button>' : '') +
+              '</div>'
+            );
+          }).join('') + '</div>';
+        } else if (code === 'medications') {
+          rowsHtml = '<div class="wf-list-editor">' + items.map(function (med, idx) {
+            const m = (med && typeof med === 'object') ? med : { id: 'med-' + (idx + 1), ingredient: String(med || '') };
+            return (
+              '<div class="wf-list-row wf-list-row--med">' +
+                '<input type="text" class="input input--sm" data-wf-list-item="medications:' + idx + ':ingredient" value="' + esc(m.ingredient || m.activeIngredient || '') + '" placeholder="Hoạt chất (VD: spironolactone)"' + (!canEditList ? ' disabled' : '') + '>' +
+                '<select class="select input--sm" data-wf-list-item="medications:' + idx + ':class"' + (!canEditList ? ' disabled' : '') + '>' +
+                  '<option value="">-- Nhóm thuốc --</option>' +
+                  WF_MED_CLASSES.map(function (c) { return '<option value="' + esc(c) + '"' + (m.class === c ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('') +
+                '</select>' +
+                '<input type="number" step="any" min="0" class="input input--sm" data-wf-list-item="medications:' + idx + ':dose" value="' + esc(m.dose != null ? m.dose : '') + '" placeholder="Liều"' + (!canEditList ? ' disabled' : '') + '>' +
+                '<select class="select input--sm" data-wf-list-item="medications:' + idx + ':unit"' + (!canEditList ? ' disabled' : '') + '>' +
+                  '<option value="">Đơn vị</option>' +
+                  WF_MED_UNITS.map(function (u) { return '<option value="' + esc(u) + '"' + (m.unit === u ? ' selected' : '') + '>' + esc(u) + '</option>'; }).join('') +
+                '</select>' +
+                '<select class="select input--sm" data-wf-list-item="medications:' + idx + ':route"' + (!canEditList ? ' disabled' : '') + '>' +
+                  '<option value="">Đường dùng</option>' +
+                  WF_MED_ROUTES.map(function (r) { return '<option value="' + esc(r) + '"' + (m.route === r ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join('') +
+                '</select>' +
+                '<select class="select input--sm" data-wf-list-item="medications:' + idx + ':frequency"' + (!canEditList ? ' disabled' : '') + '>' +
+                  '<option value="">Tần suất</option>' +
+                  WF_MED_FREQS.map(function (f) { return '<option value="' + esc(f.value) + '"' + (m.frequency === f.value ? ' selected' : '') + '>' + esc(f.label) + '</option>'; }).join('') +
+                '</select>' +
+                (canEditList ? '<button type="button" class="btn btn--ghost btn--xs" data-wf-list-remove="medications:' + idx + '" aria-label="Xóa thuốc">' + ICONS.trash + '</button>' : '') +
+              '</div>'
+            );
+          }).join('') + '</div>';
+        } else if (code === 'allergies') {
+          rowsHtml = '<div class="wf-list-editor">' + items.map(function (alg, idx) {
+            const a = (alg && typeof alg === 'object') ? alg : { id: 'alg-' + (idx + 1), ingredient: String(alg || '') };
+            return (
+              '<div class="wf-list-row wf-list-row--dx">' +
+                '<input type="text" class="input input--sm" data-wf-list-item="allergies:' + idx + ':ingredient" value="' + esc(a.ingredient || a.allergen || '') + '" placeholder="Tác nhân dị ứng (VD: aspirin, contrast_media)"' + (!canEditList ? ' disabled' : '') + '>' +
+                (canEditList ? '<button type="button" class="btn btn--ghost btn--xs" data-wf-list-remove="allergies:' + idx + '" aria-label="Xóa dị ứng">' + ICONS.trash + '</button>' : '') +
+              '</div>'
+            );
+          }).join('') + '</div>';
+        }
+      } else if (curListState === 'none') {
+        rowsHtml = '<p class="field__help">Đã xác nhận không có mục nào (<code>[]</code>).</p>';
+      } else if (curListState === 'unknown') {
+        rowsHtml = '<p class="field__help">Đang ở trạng thái <strong>Chưa rõ</strong> (khác với xác nhận không có).</p>';
+      } else {
+        rowsHtml = '<p class="field__help">Thêm dòng có cấu trúc hoặc bấm "Xác nhận không có" / "Chưa rõ".</p>';
+      }
+      return (
+        '<div class="field field--span-2 wf-list-summary-field" data-field-code="' + esc(code) + '">' +
+          ownerBannerHtml +
+          '<div class="field__label-row">' +
+            '<span class="field__label">' + esc(label) + ' ' + stateBadge + '</span>' +
+            (canEditList ? (
+              '<div class="list-state-bar__group" role="group" aria-label="' + esc(label) + '">' +
+                '<button type="button" class="btn btn--secondary btn--xs" data-wf-list-add="' + esc(code) + '">' + ICONS.plus + ' Thêm dòng</button>' +
+                '<button type="button" class="list-state-btn' + (curListState === 'none' ? ' is-none' : '') + '" data-wf-list-state="' + esc(code) + ':none">Xác nhận không có</button>' +
+                '<button type="button" class="list-state-btn' + (curListState === 'unknown' ? ' is-unknown' : '') + '" data-wf-list-state="' + esc(code) + ':unknown">Chưa rõ</button>' +
+              '</div>'
+            ) : '') +
+          '</div>' +
+          rowsHtml +
+          (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
+        '</div>'
+      );
+    }
+
+    // Boolean tristate fields
+    const boolCodes = ['tinh_mach_co_noi', 'ran_am_phoi', 'bat_thuong_cau_truc_tim', 'tang_huyet_ap', 'dai_thao_duong', 'copd', 'thieu_mau', 'di_ung_thuoc_can_quang', 'ts_thiet_bi_cay_ghep_chong_chi_dinh_mri', 'tinh_trang_worsening_decompensated', 'tinh_trang_sung_huyet', 'giam_tuoi_mau_ngoai_vi'];
+    if (boolCodes.indexOf(code) >= 0) {
+      const curState = !val ? 'unfilled' : (isUnknown ? 'unknown' : (val.value === true ? 'yes' : 'no'));
+      const statusText = curState === 'unfilled' ? 'Chưa điền' : (curState === 'unknown' ? 'Chưa rõ' : (curState === 'yes' ? 'Có' : 'Không'));
+      return (
+        '<div class="tristate' + (curState === 'unfilled' ? ' tristate--unfilled' : '') + (errMsg ? ' tristate--error' : '') + '" data-field-code="' + esc(code) + '">' +
+          ownerBannerHtml +
+          '<div class="tristate__head"><span class="field__label">' + esc(label) + '</span><span class="tristate__status">' + esc(statusText) + '</span></div>' +
+          '<div class="tristate__group" role="group" aria-label="' + esc(label) + '">' +
+            '<button type="button" class="tristate__btn' + (curState === 'unknown' ? ' is-unknown' : '') + '" data-wf-tri="' + esc(code) + ':unknown"' + (effectiveReadonly ? ' disabled' : '') + '>Chưa rõ</button>' +
+            '<button type="button" class="tristate__btn' + (curState === 'yes' ? ' is-yes' : '') + '" data-wf-tri="' + esc(code) + ':yes"' + (effectiveReadonly ? ' disabled' : '') + '>Có</button>' +
+            '<button type="button" class="tristate__btn' + (curState === 'no' ? ' is-no' : '') + '" data-wf-tri="' + esc(code) + ':no"' + (effectiveReadonly ? ' disabled' : '') + '>Không</button>' +
+          '</div>' +
+          (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
+        '</div>'
+      );
+    }
+
+    // Numeric clinical / lab fields — BUG-03: cls_creatinin uses contract unit umol/L; F2/BUG-02: timed labs include measuredAt
+    const isTimedLab = WF_TIMED_LAB_CODES.indexOf(code) >= 0;
+    const unit = WF_CONTRACT_UNITS[code] || (val && val.unit) || '';
+    const numStr = (isAnswered && val.value !== null && val.value !== undefined) ? String(val.value) : '';
+    const measuredLocal = (val && val.measuredAt) ? toDatetimeLocal(val.measuredAt) : '';
+    const cls = 'input' + (!val ? ' input--unfilled' : '') + (isUnknown ? ' input--unknown' : '') + (errMsg ? ' input--error' : '');
+    return (
+      '<div class="field' + (isForeignOwner ? ' field--readonly-foreign' : '') + '" data-field-code="' + esc(code) + '">' +
+        ownerBannerHtml +
+        '<div class="field__label-row"><label class="field__label">' + esc(label) + '</label></div>' +
+        '<div class="input-row-unknown">' +
+          (unit
+            ? '<div class="input-unit-wrap"><input type="number" step="any" class="' + cls + '" data-wf-num="' + esc(code) + '" data-wf-unit="' + esc(unit) + '" placeholder="' + (isUnknown ? 'Chưa rõ' : 'Nhập số...') + '" value="' + esc(numStr) + '"' + (effectiveReadonly || isUnknown ? ' disabled' : '') + '><span class="input-unit-wrap__unit">' + esc(unit) + '</span></div>'
+            : '<input type="text" class="' + cls + '" data-wf-text="' + esc(code) + '" placeholder="' + (isUnknown ? 'Chưa rõ' : 'Nhập thông tin...') + '" value="' + esc(numStr) + '"' + (effectiveReadonly || isUnknown ? ' disabled' : '') + '>') +
+          '<button type="button" class="unknown-toggle' + (isUnknown ? ' is-active' : '') + '" data-wf-unknown="' + esc(code) + '" data-wf-unit="' + esc(unit) + '"' + (effectiveReadonly ? ' disabled' : '') + '>Chưa rõ</button>' +
+        '</div>' +
+        (isTimedLab ? (
+          '<div class="wf-measured-row">' +
+            '<label class="field__help" for="wf-mat-' + esc(code) + '">Thời điểm đo (bắt buộc khi nhập số):</label>' +
+            '<input id="wf-mat-' + esc(code) + '" type="datetime-local" class="input input--sm' + (isAnswered && !measuredLocal ? ' input--error' : '') + '" data-wf-measured-at="' + esc(code) + '" value="' + esc(measuredLocal) + '"' + (effectiveReadonly || isUnknown ? ' disabled' : '') + '>' +
+          '</div>'
+        ) : '') +
+        (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
+      '</div>'
+    );
+  }
+
+  function renderM2RecentTestEvidenceBox(wf, isReadonly) {
+    const obsList = Array.isArray(wf.observations) ? wf.observations : [];
+    const rows = [];
+    WF_RECENT_TEST_FIELDS.forEach(function (spec) {
+      const match = obsList.find(function (o) {
+        return o && spec.fieldCodes.indexOf(o.fieldCode) >= 0 && o.answer && o.answer.value_state === 'answered' && o.answer.measuredAt;
+      });
+      if (!match) return;
+      const ev = wf.recentTestEvidence && wf.recentTestEvidence[spec.testKey];
+      const checked = Boolean(ev && ev.doctorConfirmedReuse && ev.id === match.id);
+      const valSummary = typeof match.answer.value === 'object'
+        ? 'Dữ liệu có cấu trúc'
+        : (String(match.answer.value) + (match.answer.unit ? (' ' + match.answer.unit) : ''));
+      rows.push(
+        '<label class="choice-row wf-reuse-row">' +
+          '<input type="checkbox" data-wf-reuse-test="' + esc(spec.testKey) + '" data-wf-reuse-obs="' + esc(match.id) + '" data-wf-reuse-field="' + esc(match.fieldCode) + '" data-wf-reuse-time="' + esc(match.answer.measuredAt) + '"' + (checked ? ' checked' : '') + (isReadonly ? ' disabled' : '') + '>' +
+          '<span><strong>' + esc(spec.label) + '</strong> (' + esc(valSummary) + ' · đo lúc <span class="tabular">' + esc(formatDateTime(match.answer.measuredAt)) + '</span>) — Bác sĩ xác nhận dùng lại kết quả gần đây</span>' +
+        '</label>'
+      );
+    });
+    return (
+      '<div class="wf-reuse-box" data-wf-recent-evidence="1">' +
+        '<h4>Xác nhận dùng lại xét nghiệm gần đây (cửa sổ 30 ngày)</h4>' +
+        (rows.length === 0
+          ? '<p class="field__help">Chưa có quan sát cận lâm sàng nào kèm thời điểm đo hợp lệ để xác nhận dùng lại.</p>'
+          : '<div class="wf-reuse-list">' + rows.join('') + '</div>') +
+      '</div>'
+    );
+  }
+
+  function renderM3SelectedPrescriptionBox(wf, isReadonly) {
+    const sp = wf.selectedPrescription || { value_state: 'answered', listState: 'none', items: [] };
+    const items = Array.isArray(sp.items) ? sp.items : [];
+    const listState = items.length > 0 ? 'known' : (sp.listState || 'none');
+    return (
+      '<div class="wf-rx-box">' +
+        '<div class="wf-rx-box__head">' +
+          '<div><strong>Phương án đơn thuốc bác sĩ chọn cho Module 3 (chuyển sang Module 4)</strong><p class="field__help">Độc lập với khuyến nghị AI; chỉ lưu trong workflow thử nghiệm, không tự ghi vào đơn thuốc thật.</p></div>' +
+          '<div class="list-state-bar__group">' +
+            '<button type="button" class="list-state-btn' + (listState === 'none' ? ' is-none' : '') + '" data-wf-rx-mode="none"' + (isReadonly ? ' disabled' : '') + '>Không kê đơn mới</button>' +
+            '<button type="button" class="list-state-btn' + (listState === 'known' ? ' is-known' : '') + '" data-wf-rx-mode="known"' + (isReadonly ? ' disabled' : '') + '>Có thuốc mới (' + items.length + ')</button>' +
+          '</div>' +
+        '</div>' +
+        (listState === 'known' ? (
+          '<div class="wf-rx-list">' +
+            items.map(function (it, idx) {
+              return (
+                '<div class="wf-rx-row">' +
+                  '<input type="text" class="input input--sm" data-wf-rx-field="' + idx + ':display" placeholder="Tên thuốc / hoạt chất" value="' + esc(it.display || '') + '"' + (isReadonly ? ' disabled' : '') + '>' +
+                  '<input type="text" class="input input--sm" data-wf-rx-field="' + idx + ':ingredientCode" placeholder="Mã hoạt chất (VD: amiodarone)" value="' + esc(it.ingredientCode || '') + '"' + (isReadonly ? ' disabled' : '') + '>' +
+                  '<input type="number" step="any" class="input input--sm" data-wf-rx-field="' + idx + ':dose" placeholder="Liều" value="' + esc(it.dose != null ? it.dose : '') + '"' + (isReadonly ? ' disabled' : '') + '>' +
+                  '<select class="select input--sm" data-wf-rx-field="' + idx + ':therapeuticGroup"' + (isReadonly ? ' disabled' : '') + '>' +
+                    ['raas', 'beta_blocker', 'mra', 'sglt2i', 'loop_diuretic', 'other'].map(function (g) {
+                      return '<option value="' + g + '"' + (it.therapeuticGroup === g ? ' selected' : '') + '>' + g + '</option>';
+                    }).join('') +
+                  '</select>' +
+                  (!isReadonly ? '<button type="button" class="btn btn--ghost btn--xs" data-wf-rx-remove="' + idx + '" aria-label="Xóa dòng thuốc">' + ICONS.trash + '</button>' : '') +
+                '</div>'
+              );
+            }).join('') +
+            (!isReadonly ? '<button type="button" class="btn btn--secondary btn--xs" data-wf-rx-add="1">' + ICONS.plus + ' Thêm thuốc vào phương án</button>' : '') +
+          '</div>'
+        ) : '') +
+      '</div>'
+    );
+  }
+
+  function renderRiskChip(val) {
+    if (val === 'Thấp') return '<span class="badge badge--success">Thấp</span>';
+    if (val === 'Trung bình') return '<span class="badge badge--warn">Trung bình</span>';
+    if (val === 'Cao') return '<span class="badge badge--error">Cao</span>';
+    return '<span class="badge badge--neutral">Chưa đủ dữ liệu</span>';
+  }
+
+  function renderM4AlertCard(al, wf, canConfirm, isManualForm) {
+    const sevCls = al.muc_do === 'Nghiêm trọng' ? 'error' : (al.muc_do === 'Quan trọng' ? 'warn' : 'info');
+    const dec = (wf.m4Decisions && wf.m4Decisions[al.id]) || { quyet_dinh: '', ly_do: '', error: '' };
+    const isSerious = al.muc_do === 'Nghiêm trọng';
+    const isDisagree = dec.quyet_dinh === 'Không đồng ý';
+    const reasonRequired = isSerious || isDisagree;
+    const controlsEnabled = Boolean(canConfirm || isManualForm);
+    return (
+      '<article class="wf-alert-card wf-alert-card--' + sevCls + '" data-wf-alert-id="' + esc(al.id) + '">' +
+        '<div class="wf-alert-card__info">' +
+          '<div class="wf-alert-card__head">' +
+            '<span class="badge badge--' + sevCls + '">' + esc(al.muc_do) + '</span>' +
+            '<strong>' + esc(al.loai) + '</strong>' +
+            '<span class="badge badge--neutral badge--xs mono">DD #' + esc(al.ddCode || '—') + '</span>' +
+          '</div>' +
+          '<p class="wf-alert-card__desc">' + esc(al.noi_dung) + '</p>' +
+          '<p class="wf-alert-card__action"><strong>Đề xuất:</strong> ' + esc(al.hanh_dong_de_xuat || 'Bác sĩ rà soát') + '</p>' +
+          (Array.isArray(al.thuoc_lien_quan) && al.thuoc_lien_quan.length > 0
+            ? '<div class="wf-chip-list"><span class="field__help">Thuốc liên quan:</span>' + al.thuoc_lien_quan.map(function (id) { return '<span class="code-chip">' + esc(id) + '</span>'; }).join('') + '</div>'
+            : '') +
+        '</div>' +
+        '<div class="wf-alert-card__decision">' +
+          (wf.isPharmacistView ? (
+            '<div class="wf-alert-readonly">' +
+              '<span class="field__help">Quyết định bác sĩ:</span> ' +
+              (dec.quyet_dinh ? ('<strong>' + esc(dec.quyet_dinh) + '</strong>' + (dec.ly_do ? (' — ' + esc(dec.ly_do)) : '')) : '<span class="cell-sub">Chưa ghi nhận</span>') +
+            '</div>'
+          ) : (
+            '<div class="wf-yn-group" role="group" aria-label="Xác nhận cảnh báo ' + esc(al.loai) + '">' +
+              '<button type="button" class="wf-yn-btn' + (dec.quyet_dinh === 'Đồng ý' ? ' is-agree' : '') + '" data-wf-m4-choice="' + esc(al.id) + ':Đồng ý"' + (!controlsEnabled ? ' disabled' : '') + '>Đồng ý</button>' +
+              '<button type="button" class="wf-yn-btn' + (dec.quyet_dinh === 'Không đồng ý' ? ' is-disagree' : '') + '" data-wf-m4-choice="' + esc(al.id) + ':Không đồng ý"' + (!controlsEnabled ? ' disabled' : '') + '>Không đồng ý</button>' +
+            '</div>' +
+            '<label class="field__help" for="wf-m4-reason-' + esc(al.id) + '">' + (reasonRequired ? 'Lý do xác nhận (bắt buộc)' : 'Lý do (tùy chọn)') + '</label>' +
+            '<input id="wf-m4-reason-' + esc(al.id) + '" type="text" class="input input--sm' + (dec.error ? ' input--error' : '') + '" data-wf-m4-reason="' + esc(al.id) + '" value="' + esc(dec.ly_do || '') + '" placeholder="' + (reasonRequired ? 'Nhập lý do xác nhận...' : 'Ghi chú tùy chọn...') + '"' + (!controlsEnabled ? ' disabled' : '') + '>' +
+            (dec.error ? '<p class="field__error">' + ICONS.alert + ' ' + esc(dec.error) + '</p>' : '')
+          )) +
+        '</div>' +
+      '</article>'
+    );
+  }
+
+  function renderModuleOutputBody(mod, output, wf, readonlyPreview) {
+    if (!output) return '<p class="field__help">Chưa có dữ liệu kết quả.</p>';
+    const gapsHtml = Array.isArray(output.dataGaps) && output.dataGaps.length > 0
+      ? '<div class="wf-gaps-box"><strong>Khoảng trống dữ liệu (dataGaps):</strong><ul>' + output.dataGaps.map(function (g) { return '<li>' + esc(g) + '</li>'; }).join('') + '</ul></div>'
+      : '';
+
+    if (mod === 'm1') {
+      const prob = output.xac_suat_suy_tim || {};
+      const pctText = (prob.xac_suat !== null && prob.xac_suat !== undefined) ? (Math.round(Number(prob.xac_suat) * 100) + '%') : 'Chưa ước tính';
+      const risks = output.du_bao_nguy_co || {};
+      return (
+        (Array.isArray(output.canh_bao_cap_cuu) && output.canh_bao_cap_cuu.length > 0 ? (
+          '<div class="banner banner--error" role="alert"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__title">Cảnh báo cấp cứu cần bác sĩ đánh giá ngay</p><div class="wf-chip-list">' +
+            output.canh_bao_cap_cuu.map(function (c) { return '<span class="badge badge--error">' + esc(c) + '</span>'; }).join('') +
+          '</div></div></div></div>'
+        ) : '') +
+        '<div class="wf-kpi-3">' +
+          '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Xác suất / Giai đoạn suy tim</div><div class="wf-kpi-card__val">' + esc(prob.muc || '—') + '</div><div class="wf-kpi-card__sub">Xác suất mô phỏng: <strong>' + esc(pctText) + '</strong>' + (output.stage ? (' · Stage ' + esc(output.stage)) : '') + '</div></div>' +
+          '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Kiểu hình EF nghi ngờ</div><div class="wf-kpi-card__val">' + esc(output.kieu_hinh_ef || '—') + '</div><div class="wf-kpi-card__sub">Không tự suy kiểu hình khi thiếu EF</div></div>' +
+          '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Bệnh cảnh lâm sàng</div><div class="wf-kpi-card__val">' + esc(output.benh_canh || 'Chưa xác định') + '</div><div class="wf-kpi-card__sub">Frailty/dung nạp: ' + esc(output.frailty_dung_nap || '—') + '</div></div>' +
+        '</div>' +
+        (Array.isArray(output.canh_bao_gia_suy_tim) && output.canh_bao_gia_suy_tim.length > 0 ? (
+          '<div class="wf-subblock"><h4>Cảnh báo giả suy tim cần loại trừ</h4><div class="wf-chip-list">' +
+            output.canh_bao_gia_suy_tim.map(function (m) { return '<span class="badge badge--warn">' + esc(m) + '</span>'; }).join('') +
+          '</div></div>'
+        ) : '') +
+        (Array.isArray(output.xep_hang_nguyen_nhan) && output.xep_hang_nguyen_nhan.length > 0 ? (
+          '<div class="wf-subblock"><h4>Xếp hạng nguyên nhân nghi ngờ</h4><ol class="wf-ranked-list">' +
+            output.xep_hang_nguyen_nhan.map(function (x) { return '<li><strong>' + esc(x.code) + '</strong> — ' + esc(x.ly_do) + '</li>'; }).join('') +
+          '</ol></div>'
+        ) : '') +
+        '<div class="wf-subblock"><h4>Dự báo 6 nhóm nguy cơ (mô phỏng chưa hiệu chuẩn)</h4><div class="wf-risk-grid">' +
+          WF_M1_RISK_KEYS.map(function (rk) {
+            return '<div class="wf-risk-item"><span>' + esc(rk.label) + '</span>' + renderRiskChip(risks[rk.key]) + '</div>';
+          }).join('') +
+        '</div></div>' +
+        gapsHtml
+      );
+    }
+
+    if (mod === 'm2') {
+      const goiY = output.goi_y_chi_dinh || {};
+      const proposed = [];
+      const recent = [];
+      const notProposed = [];
+      WF_M2_TESTS.forEach(function (t) {
+        const entry = goiY[t.key];
+        if (!entry) return;
+        const row = Object.assign({ label: t.label, dd: t.dd, key: t.key }, entry);
+        if (entry.trang_thai === 'Đề xuất') proposed.push(row);
+        else if (entry.trang_thai === 'Đã có kết quả gần đây') recent.push(row);
+        else notProposed.push(row);
+      });
+      const prioCls = output.muc_uu_tien === 'Cấp cứu' ? 'error' : (output.muc_uu_tien === 'Trong 24 giờ' ? 'warn' : 'info');
+      const renderRows = function (arr, badgeCls) {
+        if (arr.length === 0) return '<p class="field__help">Không có mục nào.</p>';
+        return '<div class="wf-m2-list">' + arr.map(function (r) {
+          return (
+            '<div class="wf-m2-row">' +
+              '<div><strong>' + esc(r.label) + '</strong> <span class="cell-sub mono">(DD #' + r.dd + ')</span><div class="cell-sub">' + esc(r.ly_do) + '</div>' +
+              (Array.isArray(r.evidenceObservationIds) && r.evidenceObservationIds.length > 0 ? '<div class="cell-sub mono">Bằng chứng: ' + esc(r.evidenceObservationIds.join(', ')) + '</div>' : '') +
+              '</div>' +
+              '<span class="badge badge--' + badgeCls + '">' + esc(r.trang_thai) + '</span>' +
+            '</div>'
+          );
+        }).join('') + '</div>';
+      };
+      return (
+        '<div class="wf-kpi-3">' +
+          '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Phân loại kết quả</div><div class="wf-kpi-card__val">' + esc(output.phan_loai_ket_qua || '—') + '</div></div>' +
+          '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Mức ưu tiên</div><div class="wf-kpi-card__val"><span class="badge badge--' + prioCls + '">' + esc(output.muc_uu_tien || '—') + '</span></div></div>' +
+          '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Cân nhắc lợi ích / nguy cơ</div><div class="wf-kpi-card__sub">' + esc(output.loi_ich_nguy_co || '—') + '</div></div>' +
+        '</div>' +
+        '<div class="banner banner--info"><div class="banner__main">' + ICONS.shield + '<div><p class="banner__title">Lưu ý thủ thuật xâm lấn</p><p class="banner__desc">' + esc(output.canh_bao_xam_lan || 'Không chỉ định thăm dò xâm lấn chỉ dựa trên tuổi đơn thuần.') + '</p></div></div></div>' +
+        '<div class="wf-subblock"><h4>Đề xuất thực hiện (' + proposed.length + ')</h4>' + renderRows(proposed, 'info') + '</div>' +
+        '<div class="wf-subblock"><h4>Đã có kết quả gần đây — khóa trùng lặp (' + recent.length + ')</h4>' + renderRows(recent, 'success') + '</div>' +
+        '<details class="wf-details"><summary>Không đề xuất (' + notProposed.length + ' mục DD #121–145)</summary>' + renderRows(notProposed, 'neutral') + '</details>' +
+        gapsHtml
+      );
+    }
+
+    if (mod === 'm3') {
+      const nhom = output.nhom_thuoc || {};
+      const badgeForMuc = function (muc) {
+        if (muc === 'Khuyến nghị') return 'success';
+        if (muc === 'Cân nhắc') return 'info';
+        if (muc === 'Không khuyến nghị') return 'warn';
+        if (muc === 'Chống chỉ định') return 'error';
+        return 'neutral';
+      };
+      return (
+        (output.canh_bao ? '<div class="banner banner--warn"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc"><strong>' + esc(output.canh_bao) + '</strong></p></div></div></div>' : '') +
+        '<div class="wf-kpi-3">' +
+          '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Giai đoạn &amp; Kiểu hình EF</div><div class="wf-kpi-card__val">Stage ' + esc(output.stage || '—') + ' · ' + esc(output.kieu_hinh_ef || '—') + '</div></div>' +
+          '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Định hướng tổng quan</div><div class="wf-kpi-card__sub">' + esc(output.dinh_huong || '—') + '</div></div>' +
+          '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Kế hoạch dò liều</div><div class="wf-kpi-card__sub">' + esc(output.ke_hoach_do_lieu || '—') + '</div></div>' +
+        '</div>' +
+        '<div class="wf-subblock"><h4>5 Nhóm thuốc nền tảng</h4><div class="wf-drug-grid">' +
+          WF_M3_DRUG_GROUPS.map(function (g) {
+            const info = nhom[g.key] || { muc: 'Cân nhắc', ly_do: '—' };
+            return (
+              '<div class="wf-drug-card">' +
+                '<div class="wf-drug-card__head"><strong>' + esc(g.label) + '</strong><span class="badge badge--' + badgeForMuc(info.muc) + '">' + esc(info.muc) + '</span></div>' +
+                '<p class="wf-drug-card__reason">' + esc(info.ly_do) + '</p>' +
+              '</div>'
+            );
+          }).join('') +
+        '</div></div>' +
+        (Array.isArray(output.ca_the_hoa) && output.ca_the_hoa.length > 0 ? (
+          '<div class="wf-subblock"><h4>Cá thể hóa người cao tuổi</h4><div class="wf-chip-list">' +
+            output.ca_the_hoa.map(function (c) { return '<span class="badge badge--blue">' + esc(c) + '</span>'; }).join('') +
+          '</div></div>'
+        ) : '') +
+        (Array.isArray(output.ke_hoach_theo_doi) && output.ke_hoach_theo_doi.length > 0 ? (
+          '<div class="wf-subblock"><h4>Kế hoạch theo dõi</h4><ul class="wf-bullet-list">' +
+            output.ke_hoach_theo_doi.map(function (f) {
+              return '<li><strong>' + esc(f.hang_muc) + '</strong> (' + esc(f.thoi_diem) + '): ' + esc(f.ly_do) + '</li>';
+            }).join('') +
+          '</ul></div>'
+        ) : '') +
+        gapsHtml
+      );
+    }
+
+    if (mod === 'm4') {
+      const alerts = Array.isArray(output.canh_bao) ? output.canh_bao : [];
+      const nSer = alerts.filter(function (a) { return a.muc_do === 'Nghiêm trọng'; }).length;
+      const nImp = alerts.filter(function (a) { return a.muc_do === 'Quan trọng'; }).length;
+      const nMon = alerts.filter(function (a) { return a.muc_do === 'Theo dõi'; }).length;
+      const m4ms = wf.data && wf.data.modules && wf.data.modules.m4;
+      const actions = (m4ms && Array.isArray(m4ms.availableActions)) ? m4ms.availableActions : [];
+      const canConfirm = !readonlyPreview && !wf.isPharmacistView && actions.indexOf('confirm_m4') >= 0 && !wf.runningModule;
+      return (
+        '<div class="banner banner--info"><div class="banner__main">' + ICONS.shield + '<div><p class="banner__desc"><strong>AI chỉ đưa ra cảnh báo tham khảo, không tự ngừng hoặc đổi thuốc.</strong> Bác sĩ cần xác nhận tất cả cảnh báo mức Nghiêm trọng trước khi hoàn tất workflow.</p></div></div></div>' +
+        '<div class="wf-m4-counters">' +
+          '<span class="badge badge--error">' + nSer + ' Nghiêm trọng</span>' +
+          '<span class="badge badge--warn">' + nImp + ' Quan trọng</span>' +
+          '<span class="badge badge--info">' + nMon + ' Theo dõi</span>' +
+          '<span class="badge badge--neutral">Độ bao phủ: ' + esc(output.coverage === 'complete' ? 'Đầy đủ' : 'Chưa đầy đủ (incomplete)') + '</span>' +
+        '</div>' +
+        (alerts.length === 0
+          ? '<p class="field__help">Không phát sinh cảnh báo trong bộ luật mock hiện hành (không đồng nghĩa an toàn tuyệt đối khi độ bao phủ chưa đầy đủ).</p>'
+          : (
+            '<div class="wf-alert-stack">' +
+              alerts.map(function (al) { return renderM4AlertCard(al, wf, canConfirm, false); }).join('') +
+            '</div>'
+          )) +
+        // BUG-12b (D5): Confirmation button strictly follows API availableActions ('confirm_m4'), never independently hidden
+        (canConfirm ? (
+          '<div class="wf-m4-save-row">' +
+            '<button type="button" class="btn btn--secondary' + (wf.m4Saving ? ' is-loading' : '') + '" data-wf-save-m4-confirmations="1"' + (wf.m4Saving ? ' disabled' : '') + '>' + (wf.m4Saving ? 'Đang lưu xác nhận...' : 'Lưu xác nhận cảnh báo M4') + '</button>' +
+          '</div>'
+        ) : '') +
+        gapsHtml
+      );
+    }
+    return '';
+  }
+
+  function renderManualOverrideForm(wf, mod) {
+    const draft = wf.manualDraft;
+    if (!draft) return '';
+    const meta = WF_MODULE_META[mod];
+    const isM4 = mod === 'm4';
+    let fieldsHtml = '';
+    if (mod === 'm1') {
+      fieldsHtml =
+        '<div class="form-grid">' +
+          '<div class="field"><label class="field__label" for="wf-man-m1-muc">Phân loại suy tim</label>' +
+            '<select id="wf-man-m1-muc" class="select" data-wf-man="xac_suat_suy_tim.muc">' +
+              WF_M1_PROB_LEVELS.map(function (p) {
+                return '<option value="' + esc(p.value) + '"' + (draft.xac_suat_suy_tim && draft.xac_suat_suy_tim.muc === p.value ? ' selected' : '') + '>' + esc(p.value) + '</option>';
+              }).join('') +
+            '</select></div>' +
+          '<div class="field"><label class="field__label" for="wf-man-m1-stage">Stage (A/B/C/D)</label>' +
+            '<select id="wf-man-m1-stage" class="select" data-wf-man="stage">' +
+              ['', 'A', 'B', 'C', 'D'].map(function (s) {
+                return '<option value="' + s + '"' + ((draft.stage || '') === s ? ' selected' : '') + '>' + (s ? ('Stage ' + s) : 'Không / Chưa xác định (null)') + '</option>';
+              }).join('') +
+            '</select></div>' +
+          '<div class="field"><label class="field__label" for="wf-man-m1-ef">Kiểu hình EF</label>' +
+            '<select id="wf-man-m1-ef" class="select" data-wf-man="kieu_hinh_ef">' +
+              WF_M1_PHENOTYPES.map(function (p) {
+                return '<option value="' + esc(p) + '"' + (draft.kieu_hinh_ef === p ? ' selected' : '') + '>' + esc(p) + '</option>';
+              }).join('') +
+            '</select></div>' +
+          '<div class="field"><label class="field__label" for="wf-man-m1-ctx">Bệnh cảnh lâm sàng</label>' +
+            '<select id="wf-man-m1-ctx" class="select" data-wf-man="benh_canh">' +
+              '<option value="">-- Chưa xác định (null) --</option>' +
+              WF_M1_CONTEXTS.map(function (c) {
+                return '<option value="' + esc(c) + '"' + (draft.benh_canh === c ? ' selected' : '') + '>' + esc(c) + '</option>';
+              }).join('') +
+            '</select></div>' +
+          '<div class="field field--span-2"><label class="field__label" for="wf-man-m1-frailty">Đánh giá Frailty / dung nạp</label>' +
+            '<input id="wf-man-m1-frailty" type="text" class="input" data-wf-man="frailty_dung_nap" value="' + esc(draft.frailty_dung_nap || '') + '"></div>' +
+        '</div>' +
+        '<div class="wf-subblock"><h4>Dự báo 6 nhóm nguy cơ (để trống = Chưa đủ dữ liệu)</h4><div class="wf-risk-grid">' +
+          WF_M1_RISK_KEYS.map(function (rk) {
+            const cur = (draft.du_bao_nguy_co && draft.du_bao_nguy_co[rk.key]) || '';
+            return (
+              '<div class="field"><label class="field__help">' + esc(rk.label) + '</label>' +
+                '<select class="select input--sm" data-wf-man="du_bao_nguy_co.' + esc(rk.key) + '">' +
+                  '<option value=""' + (!cur ? ' selected' : '') + '>Chưa đủ dữ liệu (null)</option>' +
+                  '<option value="Thấp"' + (cur === 'Thấp' ? ' selected' : '') + '>Thấp</option>' +
+                  '<option value="Trung bình"' + (cur === 'Trung bình' ? ' selected' : '') + '>Trung bình</option>' +
+                  '<option value="Cao"' + (cur === 'Cao' ? ' selected' : '') + '>Cao</option>' +
+                '</select></div>'
+            );
+          }).join('') +
+        '</div></div>';
+    } else if (mod === 'm2') {
+      const goiY = draft.goi_y_chi_dinh || {};
+      fieldsHtml =
+        '<div class="wf-form-grid">' +
+          '<div class="field"><label class="field__label" for="wf-man-m2-cls">Phân loại kết quả</label>' +
+            '<select id="wf-man-m2-cls" class="select" data-wf-man="phan_loai_ket_qua">' +
+              WF_M2_CLASSIFICATIONS.map(function (c) { return '<option value="' + esc(c) + '"' + (draft.phan_loai_ket_qua === c ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('') +
+            '</select></div>' +
+          '<div class="field"><label class="field__label" for="wf-man-m2-prio">Mức ưu tiên</label>' +
+            '<select id="wf-man-m2-prio" class="select" data-wf-man="muc_uu_tien">' +
+              WF_M2_PRIORITIES.map(function (p) { return '<option value="' + esc(p) + '"' + (draft.muc_uu_tien === p ? ' selected' : '') + '>' + esc(p) + '</option>'; }).join('') +
+            '</select></div>' +
+          '<div class="field field--span-2"><label class="field__label" for="wf-man-m2-br">Cân nhắc lợi ích / nguy cơ</label>' +
+            '<input id="wf-man-m2-br" type="text" class="input" data-wf-man="loi_ich_nguy_co" value="' + esc(draft.loi_ich_nguy_co || '') + '"></div>' +
+          '<div class="field field--span-2"><label class="field__label" for="wf-man-m2-inv">Cảnh báo thủ thuật xâm lấn</label>' +
+            '<input id="wf-man-m2-inv" type="text" class="input" data-wf-man="canh_bao_xam_lan" value="' + esc(draft.canh_bao_xam_lan || '') + '"></div>' +
+        '</div>' +
+        '<div class="wf-subblock"><h4>Chỉnh sửa 25 mục chỉ định cận lâm sàng (DD #121–145)</h4>' +
+          '<div class="wf-man-m2-tests">' +
+            WF_M2_TESTS.map(function (t) {
+              const cur = goiY[t.key] || { trang_thai: 'Không đề xuất', ly_do: '' };
+              return (
+                '<div class="wf-man-m2-row">' +
+                  '<span class="wf-man-m2-label"><strong>' + esc(t.label) + '</strong> <span class="cell-sub mono">#' + t.dd + '</span></span>' +
+                  '<select class="select input--sm" data-wf-man="goi_y_chi_dinh.' + esc(t.key) + '.trang_thai">' +
+                    ['Đề xuất', 'Không đề xuất', 'Đã có kết quả gần đây'].map(function (st) {
+                      return '<option value="' + esc(st) + '"' + (cur.trang_thai === st ? ' selected' : '') + '>' + esc(st) + '</option>';
+                    }).join('') +
+                  '</select>' +
+                  '<input type="text" class="input input--sm" data-wf-man="goi_y_chi_dinh.' + esc(t.key) + '.ly_do" value="' + esc(cur.ly_do || '') + '" placeholder="Lý do chỉ định...">' +
+                '</div>'
+              );
+            }).join('') +
+          '</div>' +
+        '</div>' +
+        '<div class="field"><label class="field__label">Khoảng trống dữ liệu (mỗi dòng 1 mục)</label>' +
+          '<textarea class="textarea" rows="2" data-wf-man-lines="dataGaps">' + esc((draft.dataGaps || []).join('\n')) + '</textarea></div>';
+    } else if (mod === 'm3') {
+      const khuyenNghi = draft.khuyen_nghi || {};
+      const followups = Array.isArray(draft.ke_hoach_theo_doi) ? draft.ke_hoach_theo_doi : [];
+      fieldsHtml =
+        '<div class="wf-form-grid">' +
+          '<div class="field"><label class="field__label">Stage</label>' +
+            '<select class="select" data-wf-man="stage">' +
+              ['', 'A', 'B', 'C', 'D'].map(function (s) { return '<option value="' + s + '"' + ((draft.stage || '') === s ? ' selected' : '') + '>' + (s ? ('Stage ' + s) : 'Chưa xác định (null)') + '</option>'; }).join('') +
+            '</select></div>' +
+          '<div class="field"><label class="field__label">Kiểu hình EF</label>' +
+            '<select class="select" data-wf-man="kieu_hinh_ef">' +
+              WF_M1_PHENOTYPES.map(function (p) { return '<option value="' + esc(p) + '"' + (draft.kieu_hinh_ef === p ? ' selected' : '') + '>' + esc(p) + '</option>'; }).join('') +
+            '</select></div>' +
+          '<div class="field field--span-2"><label class="field__label">Định hướng điều trị tổng quan</label>' +
+            '<input type="text" class="input" data-wf-man="dinh_huong" value="' + esc(draft.dinh_huong || '') + '"></div>' +
+          '<div class="field field--span-2"><label class="field__label">Kế hoạch dò liều</label>' +
+            '<input type="text" class="input" data-wf-man="ke_hoach_do_lieu" value="' + esc(draft.ke_hoach_do_lieu || '') + '"></div>' +
+        '</div>' +
+        '<div class="wf-subblock"><h4>5 Nhóm thuốc nền tảng</h4><div class="wf-drug-grid">' +
+          WF_M3_DRUG_GROUPS.map(function (g) {
+            const cur = (draft.nhom_thuoc && draft.nhom_thuoc[g.key]) || { muc: 'Cân nhắc', ly_do: '' };
+            return (
+              '<div class="wf-drug-card">' +
+                '<strong>' + esc(g.label) + '</strong>' +
+                '<select class="select input--sm" data-wf-man="nhom_thuoc.' + esc(g.key) + '.muc">' +
+                  WF_M3_REC_LEVELS.map(function (lv) { return '<option value="' + esc(lv) + '"' + (cur.muc === lv ? ' selected' : '') + '>' + esc(lv) + '</option>'; }).join('') +
+                '</select>' +
+                '<input type="text" class="input input--sm" data-wf-man="nhom_thuoc.' + esc(g.key) + '.ly_do" value="' + esc(cur.ly_do || '') + '" placeholder="Lý do...">' +
+              '</div>'
+            );
+          }).join('') +
+        '</div></div>' +
+        '<div class="wf-subblock"><h4>7 Nhóm khuyến nghị (DD #173–179)</h4><div class="wf-man-m2-tests">' +
+          WF_M3_KHUYEN_NGHI_KEYS.map(function (k) {
+            const cur = khuyenNghi[k.key] || { ap_dung: 'chua_ro', noi_dung: '', ly_do: '' };
+            return (
+              '<div class="wf-man-m3-rec-row">' +
+                '<strong>' + esc(k.label) + '</strong>' +
+                '<select class="select input--sm" data-wf-man="khuyen_nghi.' + esc(k.key) + '.ap_dung">' +
+                  [['co', 'Áp dụng'], ['khong', 'Không áp dụng'], ['chua_ro', 'Chưa rõ']].map(function (o) {
+                    return '<option value="' + o[0] + '"' + (cur.ap_dung === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
+                  }).join('') +
+                '</select>' +
+                '<input type="text" class="input input--sm" data-wf-man="khuyen_nghi.' + esc(k.key) + '.noi_dung" value="' + esc(cur.noi_dung || '') + '" placeholder="Nội dung...">' +
+                '<input type="text" class="input input--sm" data-wf-man="khuyen_nghi.' + esc(k.key) + '.ly_do" value="' + esc(cur.ly_do || '') + '" placeholder="Lý do...">' +
+              '</div>'
+            );
+          }).join('') +
+        '</div></div>' +
+        '<div class="wf-subblock"><h4>Kế hoạch theo dõi (DD #180) <button type="button" class="btn btn--secondary btn--xs" data-wf-man-add-followup="1">' + ICONS.plus + ' Thêm lịch theo dõi</button></h4>' +
+          '<div class="wf-list-editor">' + followups.map(function (f, idx) {
+            return (
+              '<div class="wf-man-m3-rec-row">' +
+                '<input type="text" class="input input--sm" data-wf-man-followup="' + idx + ':hang_muc" value="' + esc(f.hang_muc || '') + '" placeholder="Hạng mục">' +
+                '<input type="text" class="input input--sm" data-wf-man-followup="' + idx + ':thoi_diem" value="' + esc(f.thoi_diem || '') + '" placeholder="Thời điểm">' +
+                '<input type="text" class="input input--sm" data-wf-man-followup="' + idx + ':ly_do" value="' + esc(f.ly_do || '') + '" placeholder="Lý do">' +
+                (followups.length > 1 ? '<button type="button" class="btn btn--ghost btn--xs" data-wf-man-rm-followup="' + idx + '">' + ICONS.trash + '</button>' : '') +
+              '</div>'
+            );
+          }).join('') + '</div>' +
+        '</div>' +
+        renderM3SelectedPrescriptionBox(wf, false);
+    } else if (mod === 'm4') {
+      const alerts = Array.isArray(draft.canh_bao) ? draft.canh_bao : [];
+      fieldsHtml =
+        '<div class="wf-subblock"><h4>Danh sách cảnh báo an toàn thuốc <button type="button" class="btn btn--secondary btn--xs" data-wf-man-m4-add-alert="1">' + ICONS.plus + ' Thêm cảnh báo</button></h4>' +
+        (alerts.length === 0
+          ? '<p class="field__help">Không có cảnh báo trong bản tự nhập hiện tại.</p>'
+          : '<div class="wf-alert-stack">' + alerts.map(function (al, idx) {
+              return (
+                '<div class="wf-man-m4-alert-wrap">' +
+                  '<div class="wf-man-m4-alert-edit">' +
+                    '<input type="text" class="input input--sm" data-wf-man-m4-alert="' + idx + ':loai" value="' + esc(al.loai || '') + '" placeholder="Loại cảnh báo">' +
+                    '<select class="select input--sm" data-wf-man-m4-alert="' + idx + ':muc_do">' +
+                      ['Nghiêm trọng', 'Quan trọng', 'Theo dõi'].map(function (lv) { return '<option value="' + esc(lv) + '"' + (al.muc_do === lv ? ' selected' : '') + '>' + esc(lv) + '</option>'; }).join('') +
+                    '</select>' +
+                    '<input type="text" class="input input--sm" data-wf-man-m4-alert="' + idx + ':noi_dung" value="' + esc(al.noi_dung || '') + '" placeholder="Nội dung cảnh báo">' +
+                    '<input type="text" class="input input--sm" data-wf-man-m4-alert="' + idx + ':hanh_dong_de_xuat" value="' + esc(al.hanh_dong_de_xuat || '') + '" placeholder="Hành động đề xuất">' +
+                    '<button type="button" class="btn btn--ghost btn--xs" data-wf-man-m4-rm-alert="' + idx + '" aria-label="Xóa cảnh báo">' + ICONS.trash + '</button>' +
+                  '</div>' +
+                  renderM4AlertCard(al, wf, true, true) +
+                '</div>'
+              );
+            }).join('') + '</div>') +
+        '</div>' +
+        '<div class="wf-form-grid" style="margin-top:12px;">' +
+          '<div class="field"><label class="field__label">Đề xuất chỉnh liều (mỗi dòng 1 mục)</label><textarea class="textarea" rows="2" data-wf-man-lines="de_xuat_chinh_lieu">' + esc((draft.de_xuat_chinh_lieu || []).join('\n')) + '</textarea></div>' +
+          '<div class="field"><label class="field__label">Đơn giản hóa phác đồ (mỗi dòng 1 mục)</label><textarea class="textarea" rows="2" data-wf-man-lines="don_gian_hoa_phac_do">' + esc((draft.don_gian_hoa_phac_do || []).join('\n')) + '</textarea></div>' +
+          '<div class="field"><label class="field__label">Giảm / ngừng thuốc cần cân nhắc</label><textarea class="textarea" rows="2" data-wf-man-lines="giam_ngung_thuoc">' + esc((draft.giam_ngung_thuoc || []).join('\n')) + '</textarea></div>' +
+          '<div class="field"><label class="field__label">Độ bao phủ &amp; Khoảng trống dữ liệu</label>' +
+            '<select class="select input--sm" data-wf-man="coverage" style="margin-bottom:6px;"><option value="incomplete"' + (draft.coverage !== 'complete' ? ' selected' : '') + '>Chưa đầy đủ (incomplete)</option><option value="complete"' + (draft.coverage === 'complete' ? ' selected' : '') + '>Đầy đủ (complete)</option></select>' +
+            '<textarea class="textarea" rows="2" data-wf-man-lines="dataGaps">' + esc((draft.dataGaps || []).join('\n')) + '</textarea></div>' +
+        '</div>';
+    }
+
+    return (
+      '<section class="wf-manual-panel" aria-label="Biểu mẫu tự nhập kết quả">' +
+        '<div class="wf-manual-panel__head">' +
+          '<div><h3>Tự nhập kết quả Module ' + meta.num + ' (thay cho kết quả AI)</h3><p class="field__help">Biểu mẫu giữ nguyên cấu trúc schema của AI. Lịch sử các lần chạy AI trước vẫn được bảo toàn.</p></div>' +
+          '<button type="button" class="btn btn--secondary btn--sm" data-wf-prefill-manual="' + esc(mod) + '">Điền sẵn từ kết quả AI</button>' +
+        '</div>' +
+        fieldsHtml +
+        '<div class="field" style="margin-top:14px;">' +
+          '<label class="field__label" for="wf-manual-reason">Lý do tự nhập / điều chỉnh so với AI <span class="badge badge--warn badge--xs">Bắt buộc</span></label>' +
+          '<textarea id="wf-manual-reason" class="textarea' + (wf.manualReasonError ? ' input--error' : '') + '" data-wf-manual-reason="1" placeholder="Ghi rõ căn cứ lâm sàng hoặc lý do điều chỉnh so với kết quả AI...">' + esc(wf.manualReason) + '</textarea>' +
+          (wf.manualReasonError ? '<p class="field__error">' + ICONS.alert + ' ' + esc(wf.manualReasonError) + '</p>' : '') +
+        '</div>' +
+        '<div class="wf-manual-panel__foot">' +
+          '<button type="button" class="btn btn--ghost" data-wf-cancel-manual="1"' + (wf.submittingAction ? ' disabled' : '') + '>Quay lại kết quả AI</button>' +
+          '<button type="button" class="btn btn--primary' + (wf.submittingAction ? ' is-loading' : '') + '" data-wf-submit-manual="' + esc(mod) + '"' + (wf.submittingAction ? ' disabled' : '') + '>' +
+            (wf.submittingAction ? 'Đang lưu...' : (isM4 ? 'Lưu và hoàn tất workflow' : 'Lưu và tiếp tục')) +
+          '</button>' +
+        '</div>' +
+      '</section>'
+    );
+  }
+
+  function renderWorkflow() {
+    const wf = state.workflow;
+    if (wf.loading) {
+      return renderShell('<span class="breadcrumbs__current">Đang tải luồng 4 Module AI...</span>', '<div class="skeleton-stack"><div class="skeleton-bar"></div><div class="skeleton-card"></div></div>');
+    }
+    if (wf.error || !wf.data) {
+      const backBtn = wf.isPharmacistView
+        ? ''
+        : '<button type="button" class="btn btn--secondary btn--sm" data-nav="#/patients">Quay lại danh sách</button>';
+      const retryBtn = wf.errorStatus === 0 && wf.visitId
+        ? '<button type="button" class="btn btn--primary btn--sm" data-wf-reload="1">Thử lại</button>'
+        : '';
+      return renderShell(
+        '<span class="breadcrumbs__current">Luồng 4 Module AI</span>',
+        '<div class="banner banner--error" role="alert"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(wf.error || NOT_FOUND_OR_NO_ACCESS_MSG) + '</p></div></div><div style="display:flex;gap:8px;">' + retryBtn + backBtn + '</div></div>'
+      );
+    }
+
+    const v = wf.visit;
+    const pt = wf.patient;
+    const isPharm = wf.isPharmacistView;
+    const mod = isPharm ? 'm4' : wf.activeModule;
+    const meta = WF_MODULE_META[mod] || WF_MODULE_META.m1;
+    const ms = isPharm
+      ? { module: 'm4', state: wf.data.state || 'locked', attemptCount: 0, availableActions: [], missingFieldCodes: [], staleReasons: [], staleChangedAt: null, staleChangedModule: null }
+      : ((wf.data.modules && wf.data.modules[mod]) || { module: mod, state: 'locked', attemptCount: 0, availableActions: [], missingFieldCodes: [], staleReasons: [] });
+
+    const isRunning = Boolean(ms.isRunning || wf.runningModule === mod);
+    const isEditing = !isPharm && (wf.editingModule === mod || Boolean(ms.isEditing));
+    const isManual = !isPharm && wf.manualModeModule === mod;
+    const actions = Array.isArray(ms.availableActions) ? ms.availableActions : [];
+    const hasAction = function (act) { return !isPharm && !isRunning && !wf.submittingAction && !wf.savingFields && actions.indexOf(act) >= 0; };
+
+    const stickyHead =
+      '<div class="encounter-sticky-head">' +
+        '<div>' +
+          '<div class="encounter-sticky-head__id">' +
+            (pt ? ('<span class="mono">' + esc(pt.patientCode) + '</span><span>' + esc(pt.fullName) + '</span>') : '<span>Lượt khám</span>') +
+            '<span class="badge badge--blue mono">' + esc((v && v.visitCode) || wf.visitId) + '</span>' +
+            '<span class="badge badge--info">v1.2 · Luồng 4 Module</span>' +
+            (wf.data.completed ? '<span class="badge badge--success">Đã hoàn tất workflow</span>' : '') +
+          '</div>' +
+          '<div class="encounter-sticky-head__meta">' +
+            (v ? ('<span class="tabular">' + esc(formatDateTime(v.visitDate)) + ' · ' + esc(formatVisitType(v.visitType)) + '</span>') : '') +
+            '<span> · Phiên bản đồng bộ #' + esc(wf.data.rowVersion) + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="encounter-sticky-head__right">' +
+          (!isPharm ? '<button type="button" class="btn btn--secondary btn--sm" data-nav="#/visits/' + esc(wf.visitId) + '">' + ICONS.arrowLeft + ' Về biểu mẫu 8 nhóm</button>' : '') +
+          (!isPharm ? '<button type="button" class="btn btn--secondary btn--sm" data-nav="#/visits/' + esc(wf.visitId) + '/review">Về Xem lại &amp; Xác nhận</button>' : '') +
+        '</div>' +
+      '</div>';
+
+    const pharmacistBanner = isPharm
+      ? '<div class="banner banner--info" role="status"><div class="banner__main">' + ICONS.shield + '<div><p class="banner__title">Chế độ Dược sĩ (chỉ xem)</p><p class="banner__desc">Chế độ Dược sĩ (chỉ xem) — Bạn chỉ có quyền xem Module 4: An toàn thuốc (MedSafety) và danh sách thuốc liên quan.</p></div></div></div>'
+      : '';
+
+    const errorBanner = wf.bannerError ? (
+      '<div class="banner banner--error wf-error-banner" role="alert">' +
+        '<div class="banner__main">' + ICONS.alert + '<div>' +
+          '<p class="banner__desc">' + esc(wf.bannerError) + '</p>' +
+          (wf.bannerErrorFields.length > 0 ? (
+            '<div class="ai-missing-chips" style="margin-top:8px;">' +
+              wf.bannerErrorFields.map(function (ef) {
+                const lbl = AI_ISSUE_DISPLAY_LABELS[ef.fieldCode] || ef.fieldCode;
+                return '<button type="button" class="jump-chip jump-chip--info ai-missing-chip" data-wf-jump-field="' + esc(ef.fieldCode) + '">' + esc(lbl) + ' ↗</button>';
+              }).join('') +
+            '</div>'
+          ) : '') +
+        '</div></div>' +
+        ((wf.bannerErrorStatus === 409 || wf.bannerErrorStatus === 0 || wf.bannerErrorStatus === 503 || wf.bannerErrorStatus === 504)
+          ? '<button type="button" class="btn btn--secondary btn--sm" data-wf-reload="1">' + ICONS.refresh + ' Đồng bộ lại trạng thái</button>'
+          : '') +
+      '</div>'
+    ) : '';
+
+    // Stale banner (uses staleChangedModule and staleChangedAt directly from API!)
+    const staleBanner = (ms.state === 'stale') ? (
+      '<div class="banner banner--error wf-stale-banner" role="alert">' +
+        '<div class="banner__main">' + ICONS.refresh + '<div>' +
+          '<p class="banner__title">Cần chạy lại ' + esc(wfFormatModuleTitle(mod)) + '</p>' +
+          '<p class="banner__desc">Cần chạy lại ' + esc(wfFormatModuleTitle(mod)) + ' — Dữ liệu ở <strong>' + esc(wfFormatModuleTitle(ms.staleChangedModule || mod)) + '</strong> đã thay đổi lúc <strong class="tabular">' + esc(formatDateTime(ms.staleChangedAt)) + '</strong>. Kết quả bên dưới thuộc lần chạy trước và có thể không còn phù hợp. Hệ thống không tự chạy lại.</p>' +
+          (Array.isArray(ms.staleReasons) && ms.staleReasons.length > 0 ? '<p class="field__help" style="margin-top:4px;">Nguyên nhân: ' + esc(ms.staleReasons.join('; ')) + '</p>' : '') +
+        '</div></div>' +
+      '</div>'
+    ) : '';
+
+    // Missing fields banner with clickable jump chips
+    const missingCodes = Array.isArray(ms.missingFieldCodes) ? ms.missingFieldCodes : [];
+    const missingBanner = (!isPharm && missingCodes.length > 0 && (ms.state === 'needs_input' || isEditing)) ? (
+      '<div class="ai-missing-block wf-missing-banner">' +
+        '<div class="ai-missing-block__title">' + ICONS.alert + ' Còn thiếu ' + missingCodes.length + ' trường để bật nút "Chạy Module ' + meta.num + '" (bấm vào từng trường để nhảy tới ô):</div>' +
+        '<div class="ai-missing-chips">' +
+          missingCodes.map(function (fc) {
+            const lbl = AI_ISSUE_DISPLAY_LABELS[fc] || fc;
+            const suffix = (fc === 'age' || fc === 'sex') ? ' (Mở hồ sơ bệnh nhân ↗)' : ' ↗';
+            return '<button type="button" class="jump-chip jump-chip--info ai-missing-chip" data-wf-jump-field="' + esc(fc) + '">' + esc(lbl + suffix) + '</button>';
+          }).join('') +
+        '</div>' +
+      '</div>'
+    ) : '';
+
+    // Step Form (open in needs_input / ready / editing; collapsed summary when ran / accepted / stale and not editing)
+    const showFormOpen = !isPharm && !isManual && (ms.state === 'needs_input' || ms.state === 'ready' || isEditing);
+    const stepSpec = WF_STEP_FIELDS[mod] || { required: [], optional: [] };
+    const dirtyCount = Object.keys(wf.dirtyFields || {}).filter(function (c) { return wfGetFieldOwner(wf, c, mod) === mod; }).length + (mod === 'm2' && wf.recentTestEvidenceDirty ? 1 : 0);
+    const stepFormHtml = showFormOpen ? (
+      '<section class="wf-form-section" aria-label="Biểu mẫu bước ' + esc(meta.full) + '">' +
+        '<div class="wf-form-section__head">' +
+          '<h3>Dữ liệu đầu vào của Module ' + meta.num + '</h3>' +
+          (dirtyCount > 0 ? '<span class="badge badge--warn">Có ' + dirtyCount + ' mục chưa lưu</span>' : '') +
+        '</div>' +
+        (stepSpec.required.length > 0
+          ? '<div class="wf-form-grid">' + stepSpec.required.map(function (fc) { return renderWfGenericField(wf, fc, isRunning); }).join('') + '</div>'
+          : '<p class="field__help">Module ' + meta.num + ' sử dụng dữ liệu và kết quả đã chốt từ các bước trước.</p>') +
+        (mod === 'm2' ? renderM2RecentTestEvidenceBox(wf, isRunning) : '') +
+        (stepSpec.optional.length > 0 ? (
+          '<div class="wf-optional-wrap">' +
+            '<button type="button" class="btn btn--ghost btn--sm" data-wf-toggle-optional="' + esc(mod) + '">' +
+              (wf.optionalOpen[mod] ? ICONS.up : ICONS.down) + ' ' +
+              (wf.optionalOpen[mod] ? 'Ẩn trường tùy chọn' : ('Hiện thêm trường tùy chọn (' + stepSpec.optional.length + ')')) +
+            '</button>' +
+            (wf.optionalOpen[mod] ? '<div class="wf-form-grid" style="margin-top:12px;">' + stepSpec.optional.map(function (fc) { return renderWfGenericField(wf, fc, isRunning); }).join('') + '</div>' : '') +
+          '</div>'
+        ) : '') +
+      '</section>'
+    ) : '';
+
+    // Output panel (visible when ran / accepted / stale, or pharmacist M4 view)
+    const outInfo = wfGetEffectiveOrLatestOutput(wf, mod);
+    const showOutputPanel = !isManual && ((isPharm && wf.data.output) || (!isPharm && outInfo && outInfo.output && (ms.state === 'ran' || ms.state === 'accepted' || ms.state === 'stale')));
+    const histRuns = wf.historyRuns[mod] || [];
+    const failedCount = (typeof ms.succeededAttemptCount === 'number' && ms.attemptCount > ms.succeededAttemptCount) ? (ms.attemptCount - ms.succeededAttemptCount) : 0;
+    const outputPanelHtml = showOutputPanel ? (
+      '<section class="wf-output-panel' + (ms.state === 'stale' ? ' wf-output-panel--stale' : '') + '" aria-label="Kết quả Module ' + meta.num + '">' +
+        '<div class="wf-sim-banner" role="note">' +
+          '<div class="wf-sim-banner__left">' + ICONS.alert + ' <strong>' + esc((wf.data && wf.data.simulationLabel) || WF_SIMULATION_LABEL) + '</strong></div>' +
+          '<div class="wf-sim-banner__right mono">Engine: ' + esc(outInfo.engine || 'mock-rules') + ' · Luật: ' + esc(outInfo.rulesVersion || 'mock-1.1') + '</div>' +
+        '</div>' +
+        '<div class="wf-meta-strip">' +
+          '<div class="wf-meta-strip__left">' +
+            (ms.state === 'stale' ? '<span class="badge badge--error">Cần chạy lại</span>' : '') +
+            (outInfo.attempt ? '<span class="badge badge--neutral tabular">Lần chạy #' + esc(outInfo.attempt) + '</span>' : '') +
+            (failedCount > 0 ? '<span class="badge badge--warn tabular">Tổng ' + esc(ms.attemptCount) + ' lần (' + esc(failedCount) + ' thất bại)</span>' : '') +
+            (outInfo.source === 'manual' ? '<span class="badge badge--blue">Nguồn: Tự nhập</span>' : '<span class="badge badge--info">Nguồn: AI</span>') +
+            (outInfo.timestamp ? '<span class="cell-sub tabular">Thời điểm: ' + esc(formatDateTime(outInfo.timestamp)) + '</span>' : '') +
+          '</div>' +
+          (!isPharm && ms.attemptCount > 0 ? (
+            '<button type="button" class="btn btn--ghost btn--sm" data-wf-toggle-history="' + esc(mod) + '">' + ICONS.history + ' ' +
+              (wf.historyOpen[mod] ? 'Thu gọn lịch sử' : ('Xem lịch sử các lần chạy (' + esc(ms.attemptCount) + ')')) +
+            '</button>'
+          ) : '') +
+        '</div>' +
+        (!isPharm && wf.historyOpen[mod] ? (
+          '<div class="wf-history-drawer">' +
+            '<strong>Lịch sử các lần chạy Module ' + meta.num + '</strong>' +
+            (histRuns.length === 0
+              ? '<p class="field__help">Đang có ' + esc(ms.attemptCount) + ' lần chạy được ghi nhận trên máy chủ.</p>'
+              : '<div class="wf-history-list">' + histRuns.map(function (r) {
+                  const isLatest = r.id === ms.latestRunId;
+                  const isSel = (wf.historySelectedRun[mod] || ms.latestRunId) === r.id;
+                  return (
+                    '<div class="wf-history-item' + (isSel ? ' is-selected' : '') + '">' +
+                      '<div><strong>Lần #' + esc(r.attempt) + '</strong> · <span class="tabular">' + esc(formatDateTime(r.finishedAt || r.startedAt)) + '</span> · ' +
+                        (r.status === 'failed' ? '<span class="badge badge--error badge--xs">Thất bại</span>' : '<span class="badge badge--info badge--xs">AI</span>') + ' ' +
+                        (isLatest ? '<span class="badge badge--success badge--xs">Mới nhất</span>' : '<span class="badge badge--neutral badge--xs">Bản cũ</span>') +
+                      '</div>' +
+                      (r.output ? '<button type="button" class="btn btn--ghost btn--xs" data-wf-view-run="' + esc(mod) + ':' + esc(r.id) + '">Xem chi tiết</button>' : '') +
+                    '</div>'
+                  );
+                }).join('') + '</div>') +
+          '</div>'
+        ) : '') +
+        '<div class="wf-output-body">' +
+          renderModuleOutputBody(mod, outInfo.output, wf, false) +
+          (mod === 'm3' && !isPharm && (hasAction('continue_next') || hasAction('accept_ai')) ? renderM3SelectedPrescriptionBox(wf, false) : '') +
+        '</div>' +
+      '</section>'
+    ) : (isPharm && !wf.data.output ? '<div class="empty-state"><h3 class="empty-state__title">Module 4 chưa có kết quả</h3><p class="empty-state__desc">Trạng thái hiện tại: <strong>' + esc(ms.state) + '</strong>. Bác sĩ chưa chạy Module 4 cho lượt khám này.</p></div>' : '');
+
+    const manualFormHtml = isManual ? renderManualOverrideForm(wf, mod) : '';
+
+    // Action Bar strictly driven by `availableActions` from API (never inferred!)
+    let actionBarHtml = '';
+    if (!isPharm && !isManual && ms.state !== 'locked') {
+      const btns = [];
+      let statusNote = '';
+      if (isRunning) {
+        statusNote = 'Đang chạy mô phỏng... các nút tạm khóa để tránh bấm 2 lần.';
+        btns.push('<button type="button" class="btn btn--primary is-loading" disabled>Đang chạy Module ' + meta.num + '...</button>');
+      } else {
+        if (isEditing) {
+          btns.push('<button type="button" class="btn btn--ghost" data-wf-cancel-edit="1">Hủy sửa</button>');
+        }
+        if (showFormOpen) {
+          btns.push('<button type="button" class="btn btn--secondary' + (wf.savingFields ? ' is-loading' : '') + '" data-wf-save-fields="' + esc(mod) + '"' + (dirtyCount === 0 || wf.savingFields ? ' disabled' : '') + '>' + (wf.savingFields ? 'Đang lưu...' : 'Lưu nháp') + '</button>');
+        }
+        if (hasAction('edit') && !isEditing) {
+          btns.push('<button type="button" class="btn btn--secondary" data-wf-action="edit" data-wf-module="' + esc(mod) + '">' + ICONS.edit + ' Chỉnh sửa</button>');
+        }
+        if (hasAction('run')) {
+          btns.push('<button type="button" class="btn btn--primary" data-wf-action="run" data-wf-module="' + esc(mod) + '">' + ICONS.play + ' Chạy Module ' + meta.num + '</button>');
+        } else if (ms.state === 'needs_input' && !hasAction('rerun')) {
+          const tip = 'Còn thiếu ' + missingCodes.length + ' trường bắt buộc cho Module ' + meta.num + ' — hoàn thiện các trường bên dưới để bật nút này.';
+          btns.push('<button type="button" class="btn btn--primary" data-wf-disabled-action="run" disabled title="' + esc(tip) + '">' + ICONS.play + ' Chạy Module ' + meta.num + '</button>');
+          statusNote = tip;
+        }
+        if (hasAction('rerun') || (isEditing && !isRunning && !wf.submittingAction && !wf.savingFields && (hasAction('edit') || ms.isEditing) && missingCodes.length === 0)) {
+          btns.push('<button type="button" class="btn btn--primary" data-wf-action="rerun" data-wf-module="' + esc(mod) + '">' + ICONS.refresh + ' Chạy lại Module ' + meta.num + '</button>');
+        }
+        if (!isEditing && hasAction('continue_next') && meta.nextNum) {
+          btns.push('<button type="button" class="btn btn--primary" data-wf-action="continue_next" data-wf-module="' + esc(mod) + '">Tiếp tục sang Module ' + meta.nextNum + ' ' + ICONS.arrowRight + '</button>');
+        }
+        if (!isEditing && hasAction('accept_ai')) {
+          btns.push('<button type="button" class="btn btn--primary" data-wf-action="accept_ai" data-wf-module="' + esc(mod) + '">' + ICONS.checkCircle + ' Sử dụng kết quả AI</button>');
+        }
+        if (!isEditing && hasAction('manual_override')) {
+          const manLabel = mod === 'm4' ? 'Tự nhập đánh giá an toàn và hoàn tất' : 'Tự nhập chẩn đoán và tiếp tục';
+          btns.push('<button type="button" class="btn btn--navy" data-wf-action="manual_override" data-wf-module="' + esc(mod) + '">' + ICONS.edit + ' ' + esc(manLabel) + '</button>');
+        }
+        if (mod === 'm4' && !isEditing) {
+          if (hasAction('complete')) {
+            btns.push('<button type="button" class="btn btn--primary" data-wf-action="complete" data-wf-module="m4">' + ICONS.checkCircle + ' Hoàn tất workflow</button>');
+          } else if (ms.state === 'ran' || (ms.state === 'accepted' && !wf.data.completed)) {
+            const pendingCount = (wf.data.pendingSeriousAlertIds || []).length;
+            const cTip = 'Chưa thể hoàn tất workflow: còn ' + (pendingCount || 1) + ' cảnh báo mức Nghiêm trọng chưa có quyết định hoặc thiếu lý do.';
+            btns.push('<button type="button" class="btn btn--primary" data-wf-disabled-action="complete" disabled title="' + esc(cTip) + '">' + ICONS.checkCircle + ' Hoàn tất workflow</button>');
+            statusNote = cTip;
+          }
+        }
+      }
+      if (btns.length > 0) {
+        actionBarHtml =
+          '<div class="wf-action-bar" role="region" aria-label="Thanh hành động Module ' + meta.num + '">' +
+            '<div class="wf-action-bar__status">' + esc(statusNote || ('Trạng thái: ' + ms.state + (ms.attemptCount ? (' · Lần chạy #' + ms.attemptCount) : ''))) + '</div>' +
+            '<div class="wf-action-bar__btns">' + btns.join('') + '</div>' +
+          '</div>';
+      }
+    }
+
+    const stageCard =
+      '<section class="card wf-stage-card" data-wf-active-module="' + esc(mod) + '" data-wf-state="' + esc(ms.state) + '">' +
+        '<div class="card__header wf-stage-card__head">' +
+          '<div>' +
+            '<h2 class="card__title">' + esc(meta.full) + '</h2>' +
+            '<p class="card__subtitle">Luồng chạy từng bước theo hợp đồng <code>hf-workflow/1.0</code> — không chạy chuỗi tự động.</p>' +
+          '</div>' +
+          '<div class="wf-stage-card__badges">' +
+            '<span class="badge badge--info">' + esc(ms.state) + '</span>' +
+            (ms.attemptCount > 0 ? '<span class="badge badge--neutral tabular">Lần chạy #' + esc(ms.attemptCount) + '</span>' : '') +
+          '</div>' +
+        '</div>' +
+        '<div class="card__body wf-stage-card__body">' +
+          errorBanner +
+          staleBanner +
+          missingBanner +
+          stepFormHtml +
+          outputPanelHtml +
+          manualFormHtml +
+        '</div>' +
+        actionBarHtml +
+      '</section>';
+
+    const body = stickyHead + pharmacistBanner + renderWorkflowStepper(wf) + renderUpstreamSummaryStack(wf) + stageCard;
+    const crumbs = isPharm
+      ? '<span class="breadcrumbs__current">Module 4 · An toàn thuốc (Chế độ Dược sĩ)</span>'
+      : (
+        '<button type="button" class="breadcrumbs__link" data-nav="#/patients">Hồ sơ bệnh nhân</button><span>/</span>' +
+        (pt ? '<button type="button" class="breadcrumbs__link mono" data-nav="#/patients/' + esc(pt.id) + '">' + esc(pt.patientCode) + '</button><span>/</span>' : '') +
+        '<button type="button" class="breadcrumbs__link mono" data-nav="#/visits/' + esc(wf.visitId) + '">' + esc((v && v.visitCode) || wf.visitId) + '</button><span>/</span>' +
+        '<span class="breadcrumbs__current">Luồng 4 Module AI</span>'
+      );
     return renderShell(crumbs, body);
   }
 
@@ -4583,6 +7631,20 @@
         '</div>';
     }
 
+    if (m.type === 'wf-edit-confirm') {
+      const mTitle = wfFormatModuleTitle(m.module);
+      const affectedStr = (m.downstreamNames || []).join(', ');
+      html =
+        '<div class="modal__head"><h2 class="modal__title" id="modal-title">Chỉnh sửa dữ liệu ' + esc(mTitle) + '?</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Đóng">' + ICONS.x + '</button></div>' +
+        '<div class="modal__body">' +
+          '<div class="banner banner--warn" style="margin-bottom:0;"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">Nếu bạn lưu thay đổi ở <strong>' + esc(mTitle) + '</strong>, các bước phía sau đã chạy (<strong>' + esc(affectedStr) + '</strong>) sẽ được gắn nhãn <strong>"Cần chạy lại"</strong>. Hệ thống sẽ không tự chạy lại các module này.</p></div></div></div>' +
+        '</div>' +
+        '<div class="modal__foot">' +
+          '<button type="button" class="btn btn--secondary" data-action="close-modal">Hủy</button>' +
+          '<button type="button" class="btn btn--primary" data-wf-confirm-edit="' + esc(m.module) + '">Tiếp tục chỉnh sửa</button>' +
+        '</div>';
+    }
+
     dialog.innerHTML = html;
     if (m.type === 'change-password') {
       document.getElementById('app-root').inert = true;
@@ -4729,6 +7791,7 @@
     else if (state.screen === 'profile') html = renderProfile();
     else if (state.screen === 'encounter') html = renderEncounter();
     else if (state.screen === 'review') html = renderReview();
+    else if (state.screen === 'workflow') html = renderWorkflow();
     else if (state.screen === 'admin-accounts') html = renderAdminUsers();
     else if (state.screen === 'admin-care') html = renderAdminCare();
     else if (state.screen === 'admin-forms') html = renderAdminForms();
@@ -4835,6 +7898,7 @@
     const values = Object.keys(enc.valuesByDefId).map(function (k) { return enc.valuesByDefId[k]; }).filter(function (v) {
       if (!v) return false;
       const fd = enc.defById[v.fieldDefinitionId] || enc.defByCode[v.fieldCode];
+      if (fd && isWorkflowStorageField(fd)) return false; // F1: workflow_value fields save via workflow API, never legacy draft
       return !fd || fd.storageLevel === 'visit_value';
     });
     const payload = {
@@ -4901,6 +7965,50 @@
       if (!isCurrent()) return false;
       if (!res || !res.visit || res.visit.id !== enc.visitId) throw new Error('Phản hồi lưu nháp không khớp lượt khám.');
       enc.visit = res.visit;
+      // F1: Save dirty workflow_value fields via PUT /visits/{id}/workflow/{owner}/fields (never legacy draft)
+      const wfDirty = clone(enc.workflowDirtyFields || {});
+      const wfDirtyCodes = Object.keys(wfDirty);
+      if (wfDirtyCodes.length > 0) {
+        const localWfErrors = [];
+        wfDirtyCodes.forEach(function (code) {
+          const msg = validateV12CompactField(code, wfDirty[code]);
+          if (msg) localWfErrors.push({ fieldCode: code, message: msg });
+        });
+        if (localWfErrors.length > 0) {
+          enc.errorList = localWfErrors;
+          enc.fieldErrors = {};
+          localWfErrors.forEach(function (e) { enc.fieldErrors[e.fieldCode] = e.message; });
+          render();
+          toast('Còn ' + localWfErrors.length + ' lỗi ở các trường thang thử nghiệm v1.2 cần sửa trước khi lưu.', 'error');
+          return false;
+        }
+        const byMod = {};
+        wfDirtyCodes.forEach(function (code) {
+          const owner = wfGetFieldOwner(enc.workflowFieldOwners, code, 'm1');
+          if (!byMod[owner]) byMod[owner] = {};
+          const cleaned = clone(wfDirty[code]);
+          if (cleaned && typeof cleaned === 'object') delete cleaned.ownerModule;
+          byMod[owner][code] = cleaned;
+        });
+        let rv = enc.workflowRowVersion;
+        if (!rv) {
+          const fres = await api.getWorkflowFields(enc.visit.id, 'm1');
+          rv = fres && fres.rowVersion ? fres.rowVersion : 1;
+        }
+        const modsToSave = Object.keys(byMod);
+        for (let i = 0; i < modsToSave.length; i++) {
+          const mod = modsToSave[i];
+          const wfSaveRes = await api.saveWorkflowFields(enc.visit.id, mod, { module: mod, rowVersion: rv, fields: byMod[mod] }, rv);
+          if (wfSaveRes && wfSaveRes.rowVersion) rv = wfSaveRes.rowVersion;
+          Object.keys(byMod[mod]).forEach(function (code) {
+            enc.workflowSavedCodes[code] = true;
+            if (JSON.stringify(enc.workflowDirtyFields[code]) === JSON.stringify(wfDirty[code])) {
+              delete enc.workflowDirtyFields[code];
+            }
+          });
+        }
+        enc.workflowRowVersion = rv;
+      }
       if (enc.editVersion === version) {
         enc.valuesByDefId = {};
         (res.values || []).forEach(function (v) { enc.valuesByDefId[v.fieldDefinitionId] = clone(v); });
@@ -5074,6 +8182,93 @@
   }
 
   /* ------------------------------------------------------------------------
+     Workflow & Encounter v1.2 Field Update Helpers (F1, F2, F5)
+     ------------------------------------------------------------------------ */
+  function wfSyncSaveButtonEnabled() {
+    const wf = state.workflow;
+    const mod = wf.activeModule || 'm1';
+    const hasModDirty = Object.keys(wf.dirtyFields || {}).some(function (c) {
+      return wfGetFieldOwner(wf, c, mod) === mod;
+    }) || (mod === 'm2' && Boolean(wf.recentTestEvidenceDirty));
+    const saveBtn = document.querySelector('[data-wf-save-fields]');
+    if (saveBtn) saveBtn.disabled = !hasModDirty || wf.savingFields;
+  }
+
+  function wfMakeUnknownCompact(code, fallbackUnit) {
+    const unit = WF_CONTRACT_UNITS[code] || fallbackUnit || (
+      code === 'bien_thien_can_nang_7ngay' ? 'kg' :
+      (code === 'e_over_a_ratio' ? 'ratio' :
+      (code === 'egfr_ckd_epi' ? 'mL/min/1.73m2' : null))
+    );
+    const entry = { value_state: 'unknown', value: null };
+    if (unit) entry.unit = unit;
+    return entry;
+  }
+
+  function wfApplyClearOrUnknown(wf, code, fallbackUnit) {
+    // F5: Clearing a field already saved on the server must explicitly send value_state='unknown'
+    // instead of silently deleting locally (which leaves the old server value intact).
+    if (wf.savedFieldCodes && wf.savedFieldCodes[code]) {
+      const unk = wfMakeUnknownCompact(code, fallbackUnit);
+      wf.fieldValues[code] = unk;
+      wf.dirtyFields[code] = clone(unk);
+      toast('Giá trị đã lưu trên máy chủ được chuyển sang "Chưa rõ" — bấm "Lưu dữ liệu bước" để cập nhật.', 'info');
+      return true;
+    }
+    delete wf.fieldValues[code];
+    delete wf.dirtyFields[code];
+    return false;
+  }
+
+  function encApplyWorkflowCompact(code, compact) {
+    const enc = state.encounter;
+    if (!compact) {
+      if (enc.workflowSavedCodes && enc.workflowSavedCodes[code]) {
+        const unk = wfMakeUnknownCompact(code, null);
+        enc.workflowFields[code] = unk;
+        enc.workflowDirtyFields[code] = clone(unk);
+        toast('Giá trị đã lưu trên máy chủ được chuyển sang "Chưa rõ" — bấm "Lưu nháp" để cập nhật.', 'info');
+      } else {
+        delete enc.workflowFields[code];
+        delete enc.workflowDirtyFields[code];
+      }
+    } else {
+      const cleaned = clone(compact);
+      if (cleaned && typeof cleaned === 'object') delete cleaned.ownerModule;
+      enc.workflowFields[code] = cleaned;
+      enc.workflowDirtyFields[code] = clone(cleaned);
+    }
+    delete enc.fieldErrors[code];
+    markEncounterDirty();
+  }
+
+  function wfApplyMeasuredAtUpdate(t) {
+    const code = t.getAttribute('data-wf-measured-at');
+    if (!code) return;
+    const wf = state.workflow;
+    const prev = wf.fieldValues[code] ? clone(wf.fieldValues[code]) : null;
+    if (prev && typeof prev === 'object') delete prev.ownerModule;
+    const iso = t.value ? fromDatetimeLocal(t.value) : null;
+    const unit = WF_CONTRACT_UNITS[code] || (prev && prev.unit) || null;
+    if (prev && prev.value_state === 'answered') {
+      if (iso) prev.measuredAt = iso;
+      else delete prev.measuredAt;
+      if (unit && !prev.unit) prev.unit = unit;
+      wf.fieldValues[code] = prev;
+      wf.dirtyFields[code] = clone(prev);
+      t.classList.toggle('input--error', !iso);
+    } else if (iso) {
+      const next = { value_state: 'unknown', value: null, measuredAt: iso };
+      if (unit) next.unit = unit;
+      wf.fieldValues[code] = next;
+      wf.dirtyFields[code] = clone(next);
+      t.classList.remove('input--error');
+    }
+    delete wf.fieldErrors[code];
+    wfSyncSaveButtonEnabled();
+  }
+
+  /* ------------------------------------------------------------------------
      Global Event Delegation (Clicks, Inputs, Changes, Submits, Shortcuts)
      ------------------------------------------------------------------------ */
   document.addEventListener('submit', async function (ev) {
@@ -5139,6 +8334,443 @@
     if (navHash) {
       ev.preventDefault();
       navigate(navHash);
+      return;
+    }
+
+    // ---- Form v1.2 9-Field Widget Click Handlers ----
+    const v12Scope = target.getAttribute('data-v12-scope');
+    const v12Code = target.getAttribute('data-v12-code');
+    if (v12Scope && v12Code) {
+      function applyV12Compact(code, compact, doRender) {
+        if (v12Scope === 'wf') {
+          const wf = state.workflow;
+          if (!compact) {
+            wfApplyClearOrUnknown(wf, code, null);
+          } else {
+            wf.fieldValues[code] = compact;
+            wf.dirtyFields[code] = clone(compact);
+          }
+          delete wf.fieldErrors[code];
+          if (doRender) render();
+          return;
+        }
+        const ft = getFormTarget(v12Scope === 'prev');
+        const fd = Object.values(ft.defById).find(function (d) { return d.code === code; });
+        // F1: Persist workflow_value fields in state.encounter.workflowFields/workflowDirtyFields (never valuesByDefId)
+        if (v12Scope === 'enc' && isWorkflowStorageField(fd || code)) {
+          encApplyWorkflowCompact(code, compact);
+          if (doRender) render();
+          return;
+        }
+        if (!fd) return;
+        if (!compact) {
+          delete ft.valuesByDefId[fd.id];
+        } else {
+          ft.valuesByDefId[fd.id] = compactToVisitValue(ft.visitId, fd, compact);
+        }
+        if (v12Scope === 'enc') delete state.encounter.fieldErrors[code];
+        ft.markDirty();
+        if (doRender) render();
+      }
+      function readV12Compact(code) {
+        if (v12Scope === 'wf') return state.workflow.fieldValues[code] || null;
+        const ft = getFormTarget(v12Scope === 'prev');
+        const fd = Object.values(ft.defById).find(function (d) { return d.code === code; });
+        if (v12Scope === 'enc' && isWorkflowStorageField(fd || code)) {
+          return state.encounter.workflowFields[code] || null;
+        }
+        return fd ? visitValueToCompact(code, ft.valuesByDefId[fd.id], fd) : null;
+      }
+
+      if (target.hasAttribute('data-v12-scale-opt')) {
+        const valNum = Number(target.getAttribute('data-v12-scale-opt'));
+        applyV12Compact(v12Code, { value_state: 'answered', value: valNum }, true);
+        return;
+      }
+      if (target.hasAttribute('data-v12-clear')) {
+        applyV12Compact(v12Code, null, true);
+        return;
+      }
+      if (target.hasAttribute('data-v12-unknown')) {
+        const cur = readV12Compact(v12Code);
+        if (cur && cur.value_state === 'unknown') {
+          applyV12Compact(v12Code, null, true);
+        } else {
+          const unit = v12Code === 'bien_thien_can_nang_7ngay' ? 'kg' : (v12Code === 'e_over_a_ratio' ? 'ratio' : (v12Code === 'egfr_ckd_epi' ? 'mL/min/1.73m2' : null));
+          const unk = { value_state: 'unknown', value: null };
+          if (unit) unk.unit = unit;
+          applyV12Compact(v12Code, unk, true);
+        }
+        return;
+      }
+      if (target.hasAttribute('data-v12-ea-af')) {
+        const cur = readV12Compact('e_over_a_ratio');
+        if (cur && cur.value_state === 'answered' && cur.value === 'not_measurable_af') {
+          applyV12Compact('e_over_a_ratio', null, true);
+        } else {
+          applyV12Compact('e_over_a_ratio', { value_state: 'answered', value: 'not_measurable_af', unit: 'ratio' }, true);
+        }
+        return;
+      }
+      if (target.hasAttribute('data-v12-apply-wdelta')) {
+        const delta = Number(target.getAttribute('data-v12-apply-wdelta'));
+        if (isFinite(delta)) {
+          applyV12Compact('bien_thien_can_nang_7ngay', { value_state: 'answered', value: delta, unit: 'kg' }, true);
+        }
+        return;
+      }
+      if (target.hasAttribute('data-v12-apply-egfr')) {
+        const egfrNum = Number(target.getAttribute('data-v12-apply-egfr'));
+        if (isFinite(egfrNum)) {
+          applyV12Compact('egfr_ckd_epi', { value_state: 'answered', value: egfrNum, unit: 'mL/min/1.73m2' }, false);
+          applyV12Compact('egfr_formula', { value_state: 'answered', value: 'CKD-EPI 2021' }, true);
+        }
+        return;
+      }
+      if (target.hasAttribute('data-v12-struct-subunk')) {
+        const subKey = target.getAttribute('data-v12-struct-subunk');
+        const maker = v12Code === 'ecg_12_chuyen_dao' ? makeDefaultEcgValue : makeDefaultXrayValue;
+        const cur = readV12Compact(v12Code);
+        const obj = (cur && cur.value_state === 'answered' && cur.value && typeof cur.value === 'object') ? clone(cur.value) : maker();
+        obj[subKey] = null;
+        applyV12Compact(v12Code, { value_state: 'answered', value: obj }, true);
+        return;
+      }
+      if (target.hasAttribute('data-v12-struct-tri')) {
+        const parts = target.getAttribute('data-v12-struct-tri').split(':');
+        const subKey = parts[0];
+        const triVal = parts[1];
+        const maker = v12Code === 'ecg_12_chuyen_dao' ? makeDefaultEcgValue : makeDefaultXrayValue;
+        const cur = readV12Compact(v12Code);
+        const obj = (cur && cur.value_state === 'answered' && cur.value && typeof cur.value === 'object') ? clone(cur.value) : maker();
+        obj[subKey] = triVal === 'yes' ? true : (triVal === 'no' ? false : null);
+        applyV12Compact(v12Code, { value_state: 'answered', value: obj }, true);
+        return;
+      }
+    }
+
+    const wCalcScope = target.getAttribute('data-v12-toggle-wcalc');
+    if (wCalcScope) {
+      state.workflow.weightCalcOpen[wCalcScope] = !state.workflow.weightCalcOpen[wCalcScope];
+      render();
+      return;
+    }
+
+    // ---- Workflow 4-Module Click Handlers ----
+    const wfSelMod = target.getAttribute('data-wf-select-module');
+    if (wfSelMod) {
+      const wf = state.workflow;
+      if (!wf.runningModule && !wf.isPharmacistView && wf.data && wf.data.modules && wf.data.modules[wfSelMod] && wf.data.modules[wfSelMod].state !== 'locked') {
+        wf.activeModule = wfSelMod;
+        wf.manualModeModule = null;
+        wf.bannerError = '';
+        wf.bannerErrorFields = [];
+        render();
+      }
+      return;
+    }
+
+    const wfAction = target.getAttribute('data-wf-action');
+    if (wfAction) {
+      const mod = target.getAttribute('data-wf-module') || state.workflow.activeModule;
+      if (wfAction === 'run' || wfAction === 'rerun') { await wfRunModule(mod); return; }
+      if (wfAction === 'edit') { wfRequestEdit(mod); return; }
+      if (wfAction === 'continue_next') { await wfSubmitDecisionAi(mod, 'accept'); return; }
+      if (wfAction === 'accept_ai') { await wfSubmitDecisionAi(mod, 'accept'); return; }
+      if (wfAction === 'manual_override') { wfOpenManualOverride(mod); return; }
+      if (wfAction === 'complete') { await wfFinishWorkflow(); return; }
+      return;
+    }
+
+    const wfEditMod = target.getAttribute('data-wf-edit-module');
+    if (wfEditMod) {
+      wfRequestEdit(wfEditMod);
+      return;
+    }
+    const wfConfirmEdit = target.getAttribute('data-wf-confirm-edit');
+    if (wfConfirmEdit) {
+      const pendingJump = state.workflow.pendingJumpField || null;
+      state.workflow.pendingJumpField = null;
+      closeModal();
+      state.workflow.activeModule = wfConfirmEdit;
+      state.workflow.editingModule = wfConfirmEdit;
+      state.workflow.manualModeModule = null;
+      render();
+      if (pendingJump) wfJumpToField(pendingJump);
+      return;
+    }
+    if (target.hasAttribute('data-wf-cancel-edit')) {
+      state.workflow.editingModule = null;
+      state.workflow.dirtyFields = {};
+      state.workflow.recentTestEvidenceDirty = false;
+      state.workflow.fieldErrors = {};
+      wfHydrateFieldValuesFromVisit(state.workflow);
+      render();
+      return;
+    }
+    // BUG-07 (D2): Jump to owner module to edit cross-owner read-only field
+    const wfJumpOwner = target.getAttribute('data-wf-jump-owner');
+    if (wfJumpOwner) {
+      const parts = wfJumpOwner.split(':');
+      const ownerMod = parts[0];
+      const fieldCode = parts[1];
+      const wf = state.workflow;
+      const ms = wf.data && wf.data.modules && wf.data.modules[ownerMod];
+      if (!ms || ms.state === 'locked') {
+        toast('Bước ' + wfFormatModuleTitle(ownerMod) + ' hiện đang bị khóa.', 'warn');
+        return;
+      }
+      if (ms.state === 'accepted' || ms.state === 'ran' || ms.state === 'stale') {
+        wf.pendingJumpField = fieldCode;
+        wfRequestEdit(ownerMod);
+        if (!state.modal || state.modal.type !== 'wf-edit-confirm') {
+          wf.pendingJumpField = null;
+          if (fieldCode) wfJumpToField(fieldCode);
+        }
+      } else {
+        wf.activeModule = ownerMod;
+        wf.manualModeModule = null;
+        render();
+        if (fieldCode) wfJumpToField(fieldCode);
+      }
+      return;
+    }
+    const wfSaveMod = target.getAttribute('data-wf-save-fields');
+    if (wfSaveMod) {
+      await wfSaveFields(wfSaveMod);
+      return;
+    }
+    const wfOptMod = target.getAttribute('data-wf-toggle-optional');
+    if (wfOptMod) {
+      state.workflow.optionalOpen[wfOptMod] = !state.workflow.optionalOpen[wfOptMod];
+      render();
+      return;
+    }
+    const wfUpMod = target.getAttribute('data-wf-toggle-upstream');
+    if (wfUpMod) {
+      state.workflow.expandedUpstream[wfUpMod] = !state.workflow.expandedUpstream[wfUpMod];
+      render();
+      return;
+    }
+    const wfHistMod = target.getAttribute('data-wf-toggle-history');
+    if (wfHistMod) {
+      const wf = state.workflow;
+      wf.historyOpen[wfHistMod] = !wf.historyOpen[wfHistMod];
+      render();
+      if (wf.historyOpen[wfHistMod]) {
+        try {
+          const res = await api.listWorkflowRuns(wf.visitId, wfHistMod);
+          const list = Array.isArray(res) ? res : ((res && Array.isArray(res.items)) ? res.items : ((res && Array.isArray(res.runs)) ? res.runs : null));
+          if (list) {
+            list.forEach(function (r) { if (r && r.id) wf.runCache[r.id] = r; });
+            wf.historyRuns[wfHistMod] = list.slice().sort(function (a, b) { return (b.attempt || 0) - (a.attempt || 0); });
+            render();
+          }
+        } catch (_ignored) {}
+      }
+      return;
+    }
+    const wfViewRun = target.getAttribute('data-wf-view-run');
+    if (wfViewRun) {
+      const parts = wfViewRun.split(':');
+      const mod = parts[0];
+      const runId = parts[1];
+      const wf = state.workflow;
+      if (!wf.runCache[runId]) {
+        try {
+          const fullRun = await api.getWorkflowRun(wf.visitId, mod, runId);
+          if (fullRun && fullRun.id) wf.runCache[fullRun.id] = fullRun;
+        } catch (_e) {}
+      }
+      wf.historySelectedRun[mod] = runId;
+      render();
+      return;
+    }
+    const wfJumpCode = target.getAttribute('data-wf-jump-field');
+    if (wfJumpCode) {
+      wfJumpToField(wfJumpCode);
+      return;
+    }
+    if (target.hasAttribute('data-wf-reload')) {
+      await loadWorkflow(state.workflow.visitId, { keepModule: true });
+      return;
+    }
+    const wfPrefillMod = target.getAttribute('data-wf-prefill-manual');
+    if (wfPrefillMod) {
+      wfPrefillManualFromAi(wfPrefillMod);
+      return;
+    }
+    if (target.hasAttribute('data-wf-cancel-manual')) {
+      state.workflow.manualModeModule = null;
+      state.workflow.manualReasonError = '';
+      render();
+      return;
+    }
+    const wfSubmitManMod = target.getAttribute('data-wf-submit-manual');
+    if (wfSubmitManMod) {
+      await wfSubmitDecisionManual(wfSubmitManMod);
+      return;
+    }
+    const wfM4Choice = target.getAttribute('data-wf-m4-choice');
+    if (wfM4Choice) {
+      const idxColon = wfM4Choice.indexOf(':');
+      const alertId = wfM4Choice.slice(0, idxColon);
+      const choice = wfM4Choice.slice(idxColon + 1);
+      const wf = state.workflow;
+      const cur = wf.m4Decisions[alertId] || { quyet_dinh: '', ly_do: '', error: '' };
+      cur.quyet_dinh = choice;
+      cur.error = '';
+      wf.m4Decisions[alertId] = cur;
+      render();
+      return;
+    }
+    if (target.hasAttribute('data-wf-save-m4-confirmations')) {
+      await wfSaveM4Confirmations();
+      return;
+    }
+    const wfTri = target.getAttribute('data-wf-tri');
+    if (wfTri) {
+      const parts = wfTri.split(':');
+      const code = parts[0];
+      const val = parts[1];
+      const entry = val === 'unknown' ? { value_state: 'unknown', value: null } : { value_state: 'answered', value: val === 'yes' };
+      state.workflow.fieldValues[code] = entry;
+      state.workflow.dirtyFields[code] = clone(entry);
+      delete state.workflow.fieldErrors[code];
+      render();
+      return;
+    }
+    const wfUnkCode = target.getAttribute('data-wf-unknown');
+    if (wfUnkCode) {
+      const wf = state.workflow;
+      const unit = WF_CONTRACT_UNITS[wfUnkCode] || target.getAttribute('data-wf-unit') || null;
+      const cur = wf.fieldValues[wfUnkCode];
+      if (cur && cur.value_state === 'unknown') {
+        wfApplyClearOrUnknown(wf, wfUnkCode, unit);
+      } else {
+        const entry = { value_state: 'unknown', value: null };
+        if (unit) entry.unit = unit;
+        wf.fieldValues[wfUnkCode] = entry;
+        wf.dirtyFields[wfUnkCode] = clone(entry);
+      }
+      delete wf.fieldErrors[wfUnkCode];
+      render();
+      return;
+    }
+    const wfListSt = target.getAttribute('data-wf-list-state');
+    if (wfListSt) {
+      const parts = wfListSt.split(':');
+      const code = parts[0];
+      const st = parts[1];
+      const entry = st === 'none' ? { value_state: 'answered', value: [] } : { value_state: 'unknown', value: null };
+      state.workflow.fieldValues[code] = entry;
+      state.workflow.dirtyFields[code] = clone(entry);
+      delete state.workflow.fieldErrors[code];
+      render();
+      return;
+    }
+    // BUG-06 (D3): Structured list add / remove row for diagnoses, medications, allergies
+    const wfListAdd = target.getAttribute('data-wf-list-add');
+    if (wfListAdd) {
+      const wf = state.workflow;
+      const cur = wf.fieldValues[wfListAdd];
+      const items = (cur && cur.value_state === 'answered' && Array.isArray(cur.value)) ? clone(cur.value) : [];
+      if (wfListAdd === 'diagnoses') {
+        items.push('');
+      } else if (wfListAdd === 'medications') {
+        items.push({ id: 'med-' + Date.now().toString(36) + '-' + items.length, ingredient: '', class: null, dose: null, unit: null, route: null, frequency: null });
+      } else if (wfListAdd === 'allergies') {
+        items.push({ id: 'alg-' + Date.now().toString(36) + '-' + items.length, ingredient: '' });
+      }
+      const entry = { value_state: 'answered', value: items };
+      wf.fieldValues[wfListAdd] = entry;
+      wf.dirtyFields[wfListAdd] = clone(entry);
+      delete wf.fieldErrors[wfListAdd];
+      render();
+      return;
+    }
+    const wfListRm = target.getAttribute('data-wf-list-remove');
+    if (wfListRm) {
+      const parts = wfListRm.split(':');
+      const code = parts[0];
+      const idx = Number(parts[1]);
+      const wf = state.workflow;
+      const cur = wf.fieldValues[code];
+      const items = (cur && cur.value_state === 'answered' && Array.isArray(cur.value)) ? clone(cur.value) : [];
+      if (idx >= 0 && idx < items.length) items.splice(idx, 1);
+      const entry = { value_state: 'answered', value: items };
+      wf.fieldValues[code] = entry;
+      wf.dirtyFields[code] = clone(entry);
+      delete wf.fieldErrors[code];
+      render();
+      return;
+    }
+    // F4: Manual override dynamic row actions (M3 followups & M4 alerts)
+    if (target.hasAttribute('data-wf-man-add-followup') && state.workflow.manualDraft) {
+      if (!Array.isArray(state.workflow.manualDraft.ke_hoach_theo_doi)) state.workflow.manualDraft.ke_hoach_theo_doi = [];
+      state.workflow.manualDraft.ke_hoach_theo_doi.push({ hang_muc: '', thoi_diem: '', ly_do: '' });
+      render();
+      return;
+    }
+    if (target.hasAttribute('data-wf-man-rm-followup') && state.workflow.manualDraft) {
+      const idx = Number(target.getAttribute('data-wf-man-rm-followup'));
+      if (Array.isArray(state.workflow.manualDraft.ke_hoach_theo_doi)) {
+        state.workflow.manualDraft.ke_hoach_theo_doi.splice(idx, 1);
+      }
+      render();
+      return;
+    }
+    if (target.hasAttribute('data-wf-man-m4-add-alert') && state.workflow.manualDraft) {
+      if (!Array.isArray(state.workflow.manualDraft.canh_bao)) state.workflow.manualDraft.canh_bao = [];
+      const idx = state.workflow.manualDraft.canh_bao.length;
+      state.workflow.manualDraft.canh_bao.push({
+        id: 'manual-al-' + Date.now().toString(36) + '-' + idx,
+        ddCode: 204,
+        muc_do: 'Quan trọng',
+        loai: 'Cảnh báo an toàn thuốc',
+        noi_dung: '',
+        hanh_dong_de_xuat: 'Bác sĩ rà soát và theo dõi',
+        thuoc_lien_quan: ['manual-drug'],
+        auto_change_medication: false
+      });
+      render();
+      return;
+    }
+    if (target.hasAttribute('data-wf-man-m4-rm-alert') && state.workflow.manualDraft) {
+      const idx = Number(target.getAttribute('data-wf-man-m4-rm-alert'));
+      if (Array.isArray(state.workflow.manualDraft.canh_bao)) {
+        const removed = state.workflow.manualDraft.canh_bao.splice(idx, 1)[0];
+        if (removed && removed.id) delete state.workflow.m4Decisions[removed.id];
+      }
+      render();
+      return;
+    }
+    const wfRxMode = target.getAttribute('data-wf-rx-mode');
+    if (wfRxMode) {
+      const wf = state.workflow;
+      if (wfRxMode === 'none') {
+        wf.selectedPrescription = { value_state: 'answered', listState: 'none', items: [] };
+      } else {
+        const items = (wf.selectedPrescription && Array.isArray(wf.selectedPrescription.items) && wf.selectedPrescription.items.length > 0)
+          ? wf.selectedPrescription.items
+          : [{ id: 'rx-' + Date.now().toString(36), ingredientCode: '', atcCode: null, display: '', detailState: 'unknown', dose: null, doseUnit: null, timesPerDay: null, route: null, action: 'start', replacesMedicationId: null, therapeuticGroup: 'other' }];
+        wf.selectedPrescription = { value_state: 'answered', listState: 'known', items: items };
+      }
+      render();
+      return;
+    }
+    if (target.hasAttribute('data-wf-rx-add')) {
+      const wf = state.workflow;
+      wf.selectedPrescription.listState = 'known';
+      wf.selectedPrescription.items.push({ id: 'rx-' + Date.now().toString(36) + '-' + wf.selectedPrescription.items.length, ingredientCode: '', atcCode: null, display: '', detailState: 'unknown', dose: null, doseUnit: null, timesPerDay: null, route: null, action: 'start', replacesMedicationId: null, therapeuticGroup: 'other' });
+      render();
+      return;
+    }
+    if (target.hasAttribute('data-wf-rx-remove')) {
+      const idx = Number(target.getAttribute('data-wf-rx-remove'));
+      state.workflow.selectedPrescription.items.splice(idx, 1);
+      if (state.workflow.selectedPrescription.items.length === 0) state.workflow.selectedPrescription.listState = 'none';
+      render();
       return;
     }
 
@@ -5254,6 +8886,15 @@
       const fd = ft.defById[encTri];
       const val = target.getAttribute('data-val');
       if (fd) {
+        // F1: workflow_value boolean fields (e.g. bat_thuong_cau_truc_tim) save via workflow fields API
+        if (!isPrev && isWorkflowStorageField(fd)) {
+          const compact = val === 'clear'
+            ? null
+            : (val === 'unknown' ? { value_state: 'unknown', value: null } : { value_state: 'answered', value: (val === 'yes') });
+          encApplyWorkflowCompact(fd.code, compact);
+          render();
+          return;
+        }
         if (val === 'clear') {
           delete ft.valuesByDefId[fd.id];
         } else if (val === 'unknown') {
@@ -6266,6 +9907,256 @@
     if (t.id === 'confirm-note-input') { state.review.confirmNote = t.value; return; }
     if (t.id === 'publish-note-input') { state.adminForms.publishNote = t.value; return; }
 
+    // ---- Form v1.2 & Workflow Live Inputs (never re-render numeric inputs while typing!) ----
+    const v12NumCode = t.getAttribute('data-v12-num');
+    if (v12NumCode) {
+      const scope = t.getAttribute('data-v12-scope') || 'enc';
+      const unit = v12NumCode === 'bien_thien_can_nang_7ngay' ? 'kg' : (v12NumCode === 'e_over_a_ratio' ? 'ratio' : (v12NumCode === 'egfr_ckd_epi' ? 'mL/min/1.73m2' : null));
+      const compact = t.value === '' ? null : { value_state: 'answered', value: Number(t.value) };
+      if (compact && unit) compact.unit = unit;
+      const errMsg = compact ? validateV12CompactField(v12NumCode, compact) : '';
+      if (scope === 'wf') {
+        if (!compact) { wfApplyClearOrUnknown(state.workflow, v12NumCode, unit); }
+        else { state.workflow.fieldValues[v12NumCode] = compact; state.workflow.dirtyFields[v12NumCode] = clone(compact); }
+        if (errMsg) state.workflow.fieldErrors[v12NumCode] = errMsg; else delete state.workflow.fieldErrors[v12NumCode];
+        wfSyncSaveButtonEnabled();
+      } else {
+        const ft = getFormTarget(scope === 'prev');
+        const fd = Object.values(ft.defById).find(function (d) { return d.code === v12NumCode; });
+        if (scope === 'enc' && isWorkflowStorageField(fd || v12NumCode)) {
+          encApplyWorkflowCompact(v12NumCode, compact);
+          if (errMsg) state.encounter.fieldErrors[v12NumCode] = errMsg;
+        } else if (fd) {
+          if (!compact) delete ft.valuesByDefId[fd.id];
+          else ft.valuesByDefId[fd.id] = compactToVisitValue(ft.visitId, fd, compact);
+          ft.markDirty();
+        }
+      }
+      refreshNumericInput(t);
+      t.classList.toggle('input--error', Boolean(errMsg));
+      const fBox = t.closest('.field');
+      if (fBox) {
+        let errEl = fBox.querySelector('.field__error');
+        if (errMsg) {
+          if (!errEl) { errEl = document.createElement('p'); errEl.className = 'field__error'; fBox.appendChild(errEl); }
+          errEl.innerHTML = ICONS.alert + ' ' + esc(errMsg);
+        } else if (errEl) {
+          errEl.remove();
+        }
+      }
+      return;
+    }
+
+    const v12StructNum = t.getAttribute('data-v12-struct-num');
+    if (v12StructNum) {
+      const scope = t.getAttribute('data-v12-scope') || 'enc';
+      const code = t.getAttribute('data-v12-code');
+      const maker = code === 'ecg_12_chuyen_dao' ? makeDefaultEcgValue : makeDefaultXrayValue;
+      let cur = null;
+      if (scope === 'wf') cur = state.workflow.fieldValues[code] || null;
+      else if (scope === 'enc' && isWorkflowStorageField(code)) cur = state.encounter.workflowFields[code] || null;
+      else {
+        const ft = getFormTarget(scope === 'prev');
+        const fd = Object.values(ft.defById).find(function (d) { return d.code === code; });
+        cur = fd ? visitValueToCompact(code, ft.valuesByDefId[fd.id], fd) : null;
+      }
+      const obj = (cur && cur.value_state === 'answered' && cur.value && typeof cur.value === 'object') ? clone(cur.value) : maker();
+      obj[v12StructNum] = t.value === '' ? null : Number(t.value);
+      const compact = { value_state: 'answered', value: obj };
+      const errMsg = validateV12CompactField(code, compact);
+      if (scope === 'wf') {
+        state.workflow.fieldValues[code] = compact;
+        state.workflow.dirtyFields[code] = clone(compact);
+        if (errMsg) state.workflow.fieldErrors[code] = errMsg; else delete state.workflow.fieldErrors[code];
+        wfSyncSaveButtonEnabled();
+      } else if (scope === 'enc' && isWorkflowStorageField(code)) {
+        encApplyWorkflowCompact(code, compact);
+        if (errMsg) state.encounter.fieldErrors[code] = errMsg;
+      } else {
+        const ft = getFormTarget(scope === 'prev');
+        const fd = Object.values(ft.defById).find(function (d) { return d.code === code; });
+        if (fd) { ft.valuesByDefId[fd.id] = compactToVisitValue(ft.visitId, fd, compact); ft.markDirty(); }
+      }
+      t.classList.remove('input--unknown');
+      t.classList.toggle('input--error', Boolean(errMsg));
+      const fBox = t.closest('.v12-field');
+      if (fBox) {
+        let errEl = fBox.querySelector('.field__error');
+        if (errMsg) {
+          if (!errEl) { errEl = document.createElement('p'); errEl.className = 'field__error'; fBox.appendChild(errEl); }
+          errEl.innerHTML = ICONS.alert + ' ' + esc(errMsg);
+        } else if (errEl) {
+          errEl.remove();
+        }
+      }
+      return;
+    }
+
+    const v12WPrevScope = t.getAttribute('data-v12-wprev');
+    if (v12WPrevScope) {
+      state.workflow.weightPrev7d[v12WPrevScope] = t.value;
+      const box = t.closest('.v12-calc-box');
+      if (box) {
+        const curW = v12WPrevScope === 'wf'
+          ? (state.workflow.fieldValues.can_nang_kg && state.workflow.fieldValues.can_nang_kg.value_state === 'answered' ? Number(state.workflow.fieldValues.can_nang_kg.value) : null)
+          : getEncounterCurrentWeight({ defByCode: state.encounter.defByCode, valuesByDefId: state.encounter.valuesByDefId });
+        const prevW = t.value !== '' && isFinite(Number(t.value)) ? Number(t.value) : null;
+        let preview = box.querySelector('.v12-calc-box__preview');
+        if (curW !== null && prevW !== null) {
+          const delta = Math.round((curW - prevW) * 10) / 10;
+          const signed = (delta > 0 ? '+' : '') + delta.toFixed(1);
+          if (!preview) {
+            preview = document.createElement('div');
+            preview.className = 'v12-calc-box__preview';
+            box.appendChild(preview);
+          }
+          preview.innerHTML = '<span>Hiện tại ' + esc(curW) + ' − 7 ngày trước ' + esc(prevW) + ' = <strong>' + esc(signed) + ' kg</strong></span>' +
+            '<button type="button" class="btn btn--secondary btn--xs" data-v12-apply-wdelta="' + esc(delta) + '" data-v12-scope="' + esc(v12WPrevScope) + '" data-v12-code="bien_thien_can_nang_7ngay">Áp dụng (' + esc(signed) + ' kg)</button>';
+        }
+      }
+      return;
+    }
+
+    const v12AtypScope = t.getAttribute('data-v12-atypical-note');
+    if (v12AtypScope) {
+      state.workflow.atypicalNote[v12AtypScope] = t.value;
+      return;
+    }
+
+    const wfNumCode = t.getAttribute('data-wf-num');
+    if (wfNumCode) {
+      const unit = WF_CONTRACT_UNITS[wfNumCode] || t.getAttribute('data-wf-unit') || null;
+      const prev = state.workflow.fieldValues[wfNumCode];
+      if (t.value === '') {
+        wfApplyClearOrUnknown(state.workflow, wfNumCode, unit);
+      } else {
+        const entry = { value_state: 'answered', value: Number(t.value) };
+        if (unit) entry.unit = unit;
+        // F2 / BUG-02: Preserve existing measuredAt when editing numeric value (never substitute visitDate)
+        if (prev && prev.measuredAt) entry.measuredAt = prev.measuredAt;
+        state.workflow.fieldValues[wfNumCode] = entry;
+        state.workflow.dirtyFields[wfNumCode] = clone(entry);
+      }
+      delete state.workflow.fieldErrors[wfNumCode];
+      refreshNumericInput(t);
+      wfSyncSaveButtonEnabled();
+      return;
+    }
+
+    if (t.hasAttribute('data-wf-measured-at')) {
+      wfApplyMeasuredAtUpdate(t);
+      return;
+    }
+
+    const wfTxtCode = t.getAttribute('data-wf-text');
+    if (wfTxtCode) {
+      if (t.value === '') {
+        wfApplyClearOrUnknown(state.workflow, wfTxtCode, null);
+      } else {
+        const entry = { value_state: 'answered', value: t.value };
+        state.workflow.fieldValues[wfTxtCode] = entry;
+        state.workflow.dirtyFields[wfTxtCode] = clone(entry);
+      }
+      wfSyncSaveButtonEnabled();
+      return;
+    }
+
+    // BUG-06 (D3): Live structured list item edits (never re-render while typing)
+    const wfListItemAttr = t.getAttribute('data-wf-list-item');
+    if (wfListItemAttr) {
+      const parts = wfListItemAttr.split(':');
+      const code = parts[0];
+      const idx = Number(parts[1]);
+      const prop = parts[2];
+      const wf = state.workflow;
+      const cur = wf.fieldValues[code];
+      const items = (cur && cur.value_state === 'answered' && Array.isArray(cur.value)) ? clone(cur.value) : [];
+      if (code === 'diagnoses') {
+        items[idx] = String(t.value || '').toUpperCase();
+      } else if (code === 'medications') {
+        const row = (items[idx] && typeof items[idx] === 'object') ? items[idx] : { id: 'med-' + (idx + 1), ingredient: '', class: null, dose: null, unit: null, route: null, frequency: null };
+        if (prop === 'dose') row.dose = t.value === '' ? null : Number(t.value);
+        else if (prop === 'ingredient') row.ingredient = t.value;
+        else row[prop] = t.value === '' ? null : t.value;
+        items[idx] = row;
+      } else if (code === 'allergies') {
+        const row = (items[idx] && typeof items[idx] === 'object') ? items[idx] : { id: 'alg-' + (idx + 1), ingredient: '' };
+        row.ingredient = t.value;
+        items[idx] = row;
+      }
+      const entry = { value_state: 'answered', value: items };
+      wf.fieldValues[code] = entry;
+      wf.dirtyFields[code] = clone(entry);
+      delete wf.fieldErrors[code];
+      wfSyncSaveButtonEnabled();
+      return;
+    }
+
+    const wfM4ReasonId = t.getAttribute('data-wf-m4-reason');
+    if (wfM4ReasonId) {
+      const cur = state.workflow.m4Decisions[wfM4ReasonId] || { quyet_dinh: '', ly_do: '', error: '' };
+      cur.ly_do = t.value;
+      cur.error = '';
+      state.workflow.m4Decisions[wfM4ReasonId] = cur;
+      t.classList.remove('input--error');
+      return;
+    }
+
+    if (t.hasAttribute('data-wf-manual-reason')) {
+      state.workflow.manualReason = t.value;
+      if (t.value.trim().length > 0) {
+        state.workflow.manualReasonError = '';
+        t.classList.remove('input--error');
+      }
+      return;
+    }
+
+    const wfManPath = t.getAttribute('data-wf-man');
+    if (wfManPath && state.workflow.manualDraft) {
+      const segs = wfManPath.split('.');
+      let obj = state.workflow.manualDraft;
+      for (let i = 0; i < segs.length - 1; i++) {
+        if (!obj[segs[i]] || typeof obj[segs[i]] !== 'object') obj[segs[i]] = {};
+        obj = obj[segs[i]];
+      }
+      const last = segs[segs.length - 1];
+      obj[last] = t.value === '' ? null : t.value;
+      return;
+    }
+
+    // F4: Manual override multiline arrays, M3 followups, and M4 alert editors
+    const wfManLines = t.getAttribute('data-wf-man-lines');
+    if (wfManLines && state.workflow.manualDraft) {
+      state.workflow.manualDraft[wfManLines] = String(t.value || '').split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean);
+      return;
+    }
+    const wfManFollow = t.getAttribute('data-wf-man-followup');
+    if (wfManFollow && state.workflow.manualDraft && Array.isArray(state.workflow.manualDraft.ke_hoach_theo_doi)) {
+      const parts = wfManFollow.split(':');
+      const row = state.workflow.manualDraft.ke_hoach_theo_doi[Number(parts[0])];
+      if (row) row[parts[1]] = t.value;
+      return;
+    }
+    const wfManM4Al = t.getAttribute('data-wf-man-m4-alert');
+    if (wfManM4Al && state.workflow.manualDraft && Array.isArray(state.workflow.manualDraft.canh_bao)) {
+      const parts = wfManM4Al.split(':');
+      const row = state.workflow.manualDraft.canh_bao[Number(parts[0])];
+      if (row) row[parts[1]] = t.value;
+      return;
+    }
+
+    const wfRxField = t.getAttribute('data-wf-rx-field');
+    if (wfRxField && state.workflow.selectedPrescription) {
+      const parts = wfRxField.split(':');
+      const row = state.workflow.selectedPrescription.items[Number(parts[0])];
+      if (row) {
+        const k = parts[1];
+        row[k] = (k === 'dose' || k === 'timesPerDay') ? (t.value === '' ? null : Number(t.value)) : t.value;
+        if (k === 'display' && !row.ingredientCode) row.ingredientCode = String(t.value || '').trim().toLowerCase().replace(/\s+/g, '_');
+      }
+      return;
+    }
+
     if (t.id === 'admin-user-search') { state.adminUsers.q = t.value; scheduleLiveSearch('users', t); return; }
     if (t.id === 'admin-care-search') { state.adminCare.q = t.value; scheduleLiveSearch('adminCare', t); return; }
     if (t.id === 'audit-q') { state.adminAudit.q = t.value; scheduleLiveSearch('audit', t); return; }
@@ -6448,6 +10339,156 @@
       state.modal.data.externalPatientCode = (document.getElementById('mf-extcode') || {}).value || state.modal.data.externalPatientCode;
       state.modal.data.birthMode = t.value;
       renderModal();
+      return;
+    }
+
+    // Form v1.2 eGFR formula select & structured ECG rhythm select
+    if (t.hasAttribute('data-v12-egfr-formula')) {
+      const scope = t.getAttribute('data-v12-scope') || 'enc';
+      const compact = t.value ? { value_state: 'answered', value: t.value } : null;
+      if (scope === 'wf') {
+        if (!compact) wfApplyClearOrUnknown(state.workflow, 'egfr_formula', null);
+        else { state.workflow.fieldValues.egfr_formula = compact; state.workflow.dirtyFields.egfr_formula = clone(compact); }
+        render();
+      } else if (scope === 'enc' && isWorkflowStorageField('egfr_formula')) {
+        encApplyWorkflowCompact('egfr_formula', compact);
+      } else {
+        const ft = getFormTarget(scope === 'prev');
+        const fd = Object.values(ft.defById).find(function (d) { return d.code === 'egfr_formula'; });
+        if (fd) {
+          if (!compact) delete ft.valuesByDefId[fd.id];
+          else ft.valuesByDefId[fd.id] = compactToVisitValue(ft.visitId, fd, compact);
+          ft.markDirty();
+        }
+      }
+      return;
+    }
+
+    const v12StructSel = t.getAttribute('data-v12-struct-sel');
+    if (v12StructSel) {
+      const scope = t.getAttribute('data-v12-scope') || 'enc';
+      const code = t.getAttribute('data-v12-code');
+      const maker = code === 'ecg_12_chuyen_dao' ? makeDefaultEcgValue : makeDefaultXrayValue;
+      let cur = null;
+      if (scope === 'wf') cur = state.workflow.fieldValues[code] || null;
+      else if (scope === 'enc' && isWorkflowStorageField(code)) cur = state.encounter.workflowFields[code] || null;
+      else {
+        const ft = getFormTarget(scope === 'prev');
+        const fd = Object.values(ft.defById).find(function (d) { return d.code === code; });
+        cur = fd ? visitValueToCompact(code, ft.valuesByDefId[fd.id], fd) : null;
+      }
+      const obj = (cur && cur.value_state === 'answered' && cur.value && typeof cur.value === 'object') ? clone(cur.value) : maker();
+      obj[v12StructSel] = t.value || 'unknown';
+      const compact = { value_state: 'answered', value: obj };
+      if (scope === 'wf') {
+        state.workflow.fieldValues[code] = compact;
+        state.workflow.dirtyFields[code] = clone(compact);
+        render();
+      } else if (scope === 'enc' && isWorkflowStorageField(code)) {
+        encApplyWorkflowCompact(code, compact);
+      } else {
+        const ft = getFormTarget(scope === 'prev');
+        const fd = Object.values(ft.defById).find(function (d) { return d.code === code; });
+        if (fd) { ft.valuesByDefId[fd.id] = compactToVisitValue(ft.visitId, fd, compact); ft.markDirty(); }
+      }
+      return;
+    }
+
+    // F2: measuredAt datetime-local change event
+    if (t.hasAttribute('data-wf-measured-at')) {
+      wfApplyMeasuredAtUpdate(t);
+      return;
+    }
+
+    // BUG-06 (D3): Structured list <select> and trimmed text change events
+    const wfListChg = t.getAttribute('data-wf-list-item');
+    if (wfListChg) {
+      const parts = wfListChg.split(':');
+      const code = parts[0];
+      const idx = Number(parts[1]);
+      const prop = parts[2];
+      const wf = state.workflow;
+      const cur = wf.fieldValues[code];
+      const items = (cur && cur.value_state === 'answered' && Array.isArray(cur.value)) ? clone(cur.value) : [];
+      if (code === 'diagnoses') {
+        items[idx] = String(t.value || '').trim().toUpperCase();
+      } else if (code === 'medications') {
+        const row = (items[idx] && typeof items[idx] === 'object') ? items[idx] : { id: 'med-' + (idx + 1), ingredient: '', class: null, dose: null, unit: null, route: null, frequency: null };
+        if (prop === 'dose') row.dose = t.value === '' ? null : Number(t.value);
+        else if (prop === 'ingredient') row.ingredient = String(t.value || '').trim();
+        else row[prop] = t.value === '' ? null : t.value;
+        items[idx] = row;
+      } else if (code === 'allergies') {
+        const row = (items[idx] && typeof items[idx] === 'object') ? items[idx] : { id: 'alg-' + (idx + 1), ingredient: '' };
+        row.ingredient = String(t.value || '').trim();
+        items[idx] = row;
+      }
+      const entry = { value_state: 'answered', value: items };
+      wf.fieldValues[code] = entry;
+      wf.dirtyFields[code] = clone(entry);
+      delete wf.fieldErrors[code];
+      wfSyncSaveButtonEnabled();
+      return;
+    }
+
+    // BUG-08: M2 recentTestEvidence doctorConfirmedReuse checkbox
+    const wfReuseKey = t.getAttribute('data-wf-reuse-test');
+    if (wfReuseKey) {
+      const wf = state.workflow;
+      if (!wf.recentTestEvidence || typeof wf.recentTestEvidence !== 'object') wf.recentTestEvidence = {};
+      if (t.checked) {
+        wf.recentTestEvidence[wfReuseKey] = {
+          id: t.getAttribute('data-wf-reuse-obs') || '',
+          fieldCode: t.getAttribute('data-wf-reuse-field') || '',
+          measuredAt: t.getAttribute('data-wf-reuse-time') || '',
+          doctorConfirmedReuse: true
+        };
+      } else {
+        delete wf.recentTestEvidence[wfReuseKey];
+      }
+      wf.recentTestEvidenceDirty = true;
+      wfSyncSaveButtonEnabled();
+      return;
+    }
+
+    const wfManM4Chg = t.getAttribute('data-wf-man-m4-alert');
+    if (wfManM4Chg && state.workflow.manualDraft && Array.isArray(state.workflow.manualDraft.canh_bao)) {
+      const parts = wfManM4Chg.split(':');
+      const row = state.workflow.manualDraft.canh_bao[Number(parts[0])];
+      if (row) {
+        row[parts[1]] = t.value;
+        if (parts[1] === 'muc_do') render();
+      }
+      return;
+    }
+
+    const wfManSelPath = t.getAttribute('data-wf-man');
+    if (wfManSelPath && state.workflow.manualDraft) {
+      const segs = wfManSelPath.split('.');
+      let obj = state.workflow.manualDraft;
+      for (let i = 0; i < segs.length - 1; i++) {
+        if (!obj[segs[i]] || typeof obj[segs[i]] !== 'object') obj[segs[i]] = {};
+        obj = obj[segs[i]];
+      }
+      const last = segs[segs.length - 1];
+      obj[last] = t.value === '' ? null : t.value;
+      if (wfManSelPath === 'xac_suat_suy_tim.muc') {
+        const found = WF_M1_PROB_LEVELS.find(function (p) { return p.value === t.value; });
+        if (found) state.workflow.manualDraft.stage = found.stage;
+        render();
+      }
+      return;
+    }
+
+    // BUG-04: Coerce dose and timesPerDay to numbers on change as well as input
+    const wfRxSel = t.getAttribute('data-wf-rx-field');
+    if (wfRxSel && state.workflow.selectedPrescription) {
+      const parts = wfRxSel.split(':');
+      const row = state.workflow.selectedPrescription.items[Number(parts[0])];
+      if (row) {
+        const k = parts[1];
+        row[k] = (k === 'dose' || k === 'timesPerDay') ? (t.value === '' ? null : Number(t.value)) : t.value;
+      }
       return;
     }
 
