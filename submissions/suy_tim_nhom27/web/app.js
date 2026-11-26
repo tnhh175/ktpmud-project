@@ -540,7 +540,26 @@
     { key: 'SGLT2i', label: 'Ức chế SGLT2 (SGLT2i)' },
     { key: 'loop_diuretic', label: 'Lợi tiểu quai' }
   ];
-  const WF_M3_REC_LEVELS = ['Khuyến nghị', 'Cân nhắc', 'Không khuyến nghị', 'Chống chỉ định'];
+  const WF_RX_GROUP_OPTIONS = [['raas', 'ARNI / ACEI / ARB'], ['beta_blocker', 'Chẹn beta giao cảm'], ['mra', 'Kháng Aldosterone (MRA)'], ['sglt2i', 'Ức chế SGLT2'], ['loop_diuretic', 'Lợi tiểu quai'], ['other', 'Nhóm khác']];
+  const WF_RX_UNIT_OPTIONS = [['mg', 'mg'], ['g', 'g'], ['mcg', 'mcg'], ['mL', 'mL'], ['IU', 'IU'], ['tablet', 'viên']];
+  const WF_RX_ROUTE_OPTIONS = [['oral', 'Uống'], ['iv', 'Tiêm tĩnh mạch'], ['sc', 'Tiêm dưới da'], ['im', 'Tiêm bắp'], ['inhaled', 'Hít'], ['topical', 'Dùng ngoài'], ['other', 'Khác']];
+  const WF_RX_ACTION_OPTIONS = [['start', 'Bắt đầu'], ['continue', 'Tiếp tục'], ['change', 'Đổi liều/thuốc'], ['stop', 'Ngừng']];
+
+  // A prescription row counts as fully specified only when dose, unit,
+  // frequency and route are all present (schema: detailState=answered).
+  function wfSetRxField(row, key, raw) {
+    if (key === 'dose' || key === 'timesPerDay') {
+      const num = raw === '' ? null : Number(raw);
+      row[key] = (num != null && Number.isFinite(num) && num > 0) ? num : null;
+    } else if (key === 'doseUnit' || key === 'route') {
+      row[key] = raw === '' ? null : raw;
+    } else {
+      row[key] = raw;
+    }
+    if (key === 'display' && !row.ingredientCode) row.ingredientCode = String(raw || '').trim().toLowerCase().replace(/\s+/g, '_');
+    row.detailState = (row.dose != null && row.doseUnit && row.timesPerDay != null && row.route) ? 'answered' : 'unknown';
+  }
+  const WF_M3_REC_LEVELS =['Khuyến nghị', 'Cân nhắc', 'Không khuyến nghị', 'Chống chỉ định'];
   const WF_M3_KHUYEN_NGHI_KEYS = [
     { key: 'dieu_tri_stage_a', label: 'Điều trị Stage A (DD #173)' },
     { key: 'dieu_tri_stage_b', label: 'Điều trị Stage B (DD #174)' },
@@ -4818,7 +4837,7 @@
       return (
         '<button type="button" class="rail-btn' + (sec.sectionCode === enc.activeSectionCode ? ' is-active' : '') + '" data-enc-section="' + esc(sec.sectionCode) + '">' +
           '<span><span class="rail-btn__num">' + String(sec.displayOrder).padStart(2, '0') + '</span>' + esc(sec.titleVi) + '</span>' +
-          '<span class="rail-btn__counts">' + (p.hasErr ? '<span class="err-dot" title="Có lỗi trường"></span>' : '') + p.filled + '/' + p.total + '</span>' +
+          '<span class="rail-btn__counts">' + (p.hasErr ? '<span class="err-dot" title="Có lỗi trường"></span>' : '') + (p.total > 0 ? (p.filled + '/' + p.total) : 'Tự động') + '</span>' +
         '</button>'
       );
     }).join('');
@@ -6629,17 +6648,29 @@
         (listState === 'known' ? (
           '<div class="wf-rx-list">' +
             items.map(function (it, idx) {
+              const dis = isReadonly ? ' disabled' : '';
+              const cell = function (label, control) {
+                return '<label class="wf-rx-cell"><span class="wf-rx-cell__label">' + esc(label) + '</span>' + control + '</label>';
+              };
+              const select = function (key, options, current, emptyLabel) {
+                return '<select class="select input--sm" data-wf-rx-field="' + idx + ':' + key + '"' + dis + '>' +
+                  (emptyLabel ? '<option value=""' + (current == null || current === '' ? ' selected' : '') + '>' + esc(emptyLabel) + '</option>' : '') +
+                  options.map(function (o) {
+                    return '<option value="' + esc(o[0]) + '"' + (current === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>';
+                  }).join('') +
+                '</select>';
+              };
               return (
-                '<div class="wf-rx-row">' +
-                  '<input type="text" class="input input--sm" data-wf-rx-field="' + idx + ':display" placeholder="Tên thuốc / hoạt chất" value="' + esc(it.display || '') + '"' + (isReadonly ? ' disabled' : '') + '>' +
-                  '<input type="text" class="input input--sm" data-wf-rx-field="' + idx + ':ingredientCode" placeholder="Mã hoạt chất (VD: amiodarone)" value="' + esc(it.ingredientCode || '') + '"' + (isReadonly ? ' disabled' : '') + '>' +
-                  '<input type="number" step="any" class="input input--sm" data-wf-rx-field="' + idx + ':dose" placeholder="Liều" value="' + esc(it.dose != null ? it.dose : '') + '"' + (isReadonly ? ' disabled' : '') + '>' +
-                  '<select class="select input--sm" data-wf-rx-field="' + idx + ':therapeuticGroup"' + (isReadonly ? ' disabled' : '') + '>' +
-                    ['raas', 'beta_blocker', 'mra', 'sglt2i', 'loop_diuretic', 'other'].map(function (g) {
-                      return '<option value="' + g + '"' + (it.therapeuticGroup === g ? ' selected' : '') + '>' + g + '</option>';
-                    }).join('') +
-                  '</select>' +
-                  (!isReadonly ? '<button type="button" class="btn btn--ghost btn--xs" data-wf-rx-remove="' + idx + '" aria-label="Xóa dòng thuốc">' + ICONS.trash + '</button>' : '') +
+                '<div class="wf-rx-row wf-rx-row--grid">' +
+                  cell('Tên thuốc', '<input type="text" class="input input--sm" data-wf-rx-field="' + idx + ':display" placeholder="VD: Furosemide" value="' + esc(it.display || '') + '"' + dis + '>') +
+                  cell('Mã hoạt chất', '<input type="text" class="input input--sm" data-wf-rx-field="' + idx + ':ingredientCode" placeholder="VD: furosemide" value="' + esc(it.ingredientCode || '') + '"' + dis + '>') +
+                  cell('Nhóm thuốc', select('therapeuticGroup', WF_RX_GROUP_OPTIONS, it.therapeuticGroup || 'other')) +
+                  cell('Liều mỗi lần', '<input type="number" step="any" min="0" class="input input--sm" data-wf-rx-field="' + idx + ':dose" placeholder="VD: 40" value="' + esc(it.dose != null ? it.dose : '') + '"' + dis + '>') +
+                  cell('Đơn vị', select('doseUnit', WF_RX_UNIT_OPTIONS, it.doseUnit, '-- Chọn --')) +
+                  cell('Số lần/ngày', '<input type="number" step="1" min="1" max="24" class="input input--sm" data-wf-rx-field="' + idx + ':timesPerDay" placeholder="VD: 1" value="' + esc(it.timesPerDay != null ? it.timesPerDay : '') + '"' + dis + '>') +
+                  cell('Đường dùng', select('route', WF_RX_ROUTE_OPTIONS, it.route, '-- Chọn --')) +
+                  cell('Hành động', select('action', WF_RX_ACTION_OPTIONS, it.action || 'start')) +
+                  (!isReadonly ? '<button type="button" class="btn btn--ghost btn--xs wf-rx-row__remove" data-wf-rx-remove="' + idx + '" aria-label="Xóa dòng thuốc">' + ICONS.trash + ' Xóa</button>' : '') +
                 '</div>'
               );
             }).join('') +
@@ -7306,6 +7337,8 @@
         if (mod === 'm4') {
           if (hasAction('complete')) {
             btns.push('<button type="button" class="btn btn--primary" data-wf-action="complete" data-wf-module="m4">' + ICONS.checkCircle + ' Hoàn tất workflow</button>');
+          } else if (wf.submittingAction && actions.indexOf('complete') >= 0) {
+            btns.push('<button type="button" class="btn btn--primary is-loading" disabled>Đang hoàn tất workflow...</button>');
           } else if (ms.state === 'ran' || (ms.state === 'accepted' && !wf.data.completed)) {
             const pendingCount = (wf.data.pendingSeriousAlertIds || []).length;
             const cTip = 'Chưa thể hoàn tất workflow: còn ' + (pendingCount || 1) + ' cảnh báo mức Nghiêm trọng chưa có quyết định hoặc thiếu lý do.';
@@ -10831,11 +10864,7 @@
     if (wfRxField && state.workflow.selectedPrescription) {
       const parts = wfRxField.split(':');
       const row = state.workflow.selectedPrescription.items[Number(parts[0])];
-      if (row) {
-        const k = parts[1];
-        row[k] = (k === 'dose' || k === 'timesPerDay') ? (t.value === '' ? null : Number(t.value)) : t.value;
-        if (k === 'display' && !row.ingredientCode) row.ingredientCode = String(t.value || '').trim().toLowerCase().replace(/\s+/g, '_');
-      }
+      if (row) wfSetRxField(row, parts[1], t.value);
       return;
     }
 
@@ -11141,10 +11170,7 @@
     if (wfRxSel && state.workflow.selectedPrescription) {
       const parts = wfRxSel.split(':');
       const row = state.workflow.selectedPrescription.items[Number(parts[0])];
-      if (row) {
-        const k = parts[1];
-        row[k] = (k === 'dose' || k === 'timesPerDay') ? (t.value === '' ? null : Number(t.value)) : t.value;
-      }
+      if (row) wfSetRxField(row, parts[1], t.value);
       return;
     }
 
