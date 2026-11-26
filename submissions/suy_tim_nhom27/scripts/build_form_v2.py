@@ -85,6 +85,9 @@ def build():
       'fields':[dict(fieldCode=f['code'],entryRole=f['entryRole'],unit=f['canonicalUnit'],rules=f['rules'],
         payloadPath=None if f['dataType'] in ('text','date') else 'workflowFields.'+aliases.get(f['code'],f['code']),
         freeTextWithheld=f['dataType'] in ('text','date')) for f in definitions]}
+    ea=next(f for f in mapping['fields'] if f['fieldCode']=='e_over_a_ratio')
+    ea.update(notMeasurableValue='not_measurable_af',
+        notMeasurableMeaning='Không đo được do rung nhĩ; value_state=answered, không thay bằng số hoặc unknown; đã xử lý cho M3.')
     dump(ROOT/'api/hf-map-2.0.json',mapping)
     base=json.loads((ROOT/'api/schemas/hf-ai-input-1.1.schema.json').read_text(encoding='utf8'))
     base['$id']='urn:hfcare:ai-input:2.0'

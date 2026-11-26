@@ -1910,7 +1910,8 @@
                 "Nghi ngờ suy tim",
                 "Suy tim có triệu chứng – Stage C",
                 "Suy tim tiến triển – Stage D",
-                "Chưa đủ dữ liệu để kết luận"
+                "Chưa đủ dữ liệu để kết luận",
+                "Chưa ước tính xác suất (mock)"
               ]
             },
             "xac_suat": {

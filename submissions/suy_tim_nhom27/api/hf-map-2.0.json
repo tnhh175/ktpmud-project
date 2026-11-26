@@ -411,7 +411,9 @@
       "unit": "ratio",
       "rules": "1.2–1.8; 2.1–2.4; 4.2",
       "payloadPath": "workflowFields.e_over_a_ratio",
-      "freeTextWithheld": false
+      "freeTextWithheld": false,
+      "notMeasurableValue": "not_measurable_af",
+      "notMeasurableMeaning": "Không đo được do rung nhĩ; value_state=answered, không thay bằng số hoặc unknown; đã xử lý cho M3."
     },
     {
       "fieldCode": "ecg_12_chuyen_dao",

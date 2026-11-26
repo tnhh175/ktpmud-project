@@ -75,6 +75,40 @@ def recent_evidence(fields, observations, visit_time, requested):
     return valid
 
 
+def recent_v2_evidence(observations, visit_time):
+    """Use snapshot observations, never client flags or invented numeric values."""
+    from .workflow_schema import SCHEMA, matches
+    at = datetime.fromisoformat(visit_time.replace('Z', '+00:00'))
+    if at.tzinfo is None:
+        return {}
+    valid = {}
+    for obs in observations:
+        code, obj = obs.get('fieldCode'), obs.get('answer', {})
+        schema = SCHEMA['$defs']['fields']['properties'].get(code)
+        if not schema or obj.get('value_state') != 'answered' or not matches(obj, schema):
+            continue
+        try:
+            when = datetime.fromisoformat(obj['measuredAt'].replace('Z', '+00:00'))
+            if when.tzinfo is None or not timedelta(0) <= at - when <= timedelta(days=30):
+                continue
+        except (KeyError, ValueError, TypeError, AttributeError):
+            continue
+        if code not in valid or when > valid[code][0]:
+            valid[code] = (when, obs)
+    groups = {'bnp_ntprobnp': [('cls_bnp', 'cls_nt_probnp')], 'sieu_am_tim': [('cls_lvef',)],
+        'ecg': [('ecg_12_chuyen_dao',)], 'xquang': [('xquang_nguc_thang',)],
+        'ure_creatinin_egfr': [('cls_creatinin', 'egfr_ckd_epi')],
+        'kali_natri': [('cls_kali',), ('cls_natri',)]}
+    result = {}
+    for key, required in groups.items():
+        sources = [next((valid[c][1] for c in alternatives if c in valid), None) for alternatives in required]
+        if all(sources):
+            result[key] = {'id': sources[0]['id'], 'fieldCode': sources[0]['fieldCode'],
+                'measuredAt': sources[0]['answer']['measuredAt'],
+                'observationIds': [o['id'] for o in sources]}
+    return result
+
+
 def run_module(module, snapshot, *, rules=None):
     rules = rules or load_rules()
     module = module.upper()
@@ -87,9 +121,10 @@ def run_module(module, snapshot, *, rules=None):
     drugs = [row for key in rules['outputProjection']['medicationFields']
              for row in (fields.get(key, {}).get('value') or [])]
     data['medicationClasses'] = sorted({medication_class(row) for row in drugs if medication_class(row)})
-    # The API derives recentTests using stored observation IDs and a doctor reuse flag.
+    # v1.2 requires doctor-confirmed reuse; v2 derives reuse from dated observations.
     if 'observations' in data:
-        evidence = recent_evidence(fields, data['observations'], data['visitTime'], data.get('recentTestEvidence', {}))
+        evidence = (recent_v2_evidence(data['observations'], data['visitTime']) if snapshot.get('formVersionLabel')=='v2.0'
+                    else recent_evidence(fields, data['observations'], data['visitTime'], data.get('recentTestEvidence', {})))
         data['recentTestEvidence'], data['recentTests'] = evidence, list(evidence)
     output = deepcopy(rules['outputDefaults'][module])
     data['output'] = output

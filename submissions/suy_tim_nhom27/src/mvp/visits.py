@@ -781,7 +781,10 @@ def _validate_and_normalize_draft(
             if fd.get('isCalculated') or fd['storageLevel'] in ('computed','patient','visit'):
                 invalid = True
             if state=='answered':
-                if dtype in ('number','integer'):
+                if fd['code']=='e_over_a_ratio' and value=='not_measurable_af':
+                    from .his_v2.runtime import valid_source_answer
+                    invalid |= not valid_source_answer(fd['code'], obj)
+                elif dtype in ('number','integer'):
                     invalid |= (type(value) not in (int,float) or abs(value)>1e12 or not math.isfinite(value) or
                         (dtype=='integer' and int(value)!=value) or
                         (fd.get('minValue') is not None and value<fd['minValue']) or

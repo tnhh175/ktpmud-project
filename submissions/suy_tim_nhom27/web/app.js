@@ -8268,6 +8268,7 @@
   }
 
   function renderM2RecentTestEvidenceBox(wf, isReadonly) {
+    const automaticReuse = isFormV2(wf.formRes && wf.formRes.formVersion, wf.formRes && wf.formRes.sections);
     const obsList = Array.isArray(wf.observations) ? wf.observations : [];
     const rows = [];
     WF_RECENT_TEST_FIELDS.forEach(function (spec) {
@@ -8282,16 +8283,16 @@
         : (String(match.answer.value) + (match.answer.unit ? (' ' + match.answer.unit) : ''));
       rows.push(
         '<label class="choice-row wf-reuse-row">' +
-          '<input type="checkbox" data-wf-reuse-test="' + esc(spec.testKey) + '" data-wf-reuse-obs="' + esc(match.id) + '" data-wf-reuse-field="' + esc(match.fieldCode) + '" data-wf-reuse-time="' + esc(match.answer.measuredAt) + '"' + (checked ? ' checked' : '') + (isReadonly ? ' disabled' : '') + '>' +
-          '<span><strong>' + esc(spec.label) + '</strong> (' + esc(valSummary) + ' · đo lúc <span class="tabular">' + esc(formatDateTime(match.answer.measuredAt)) + '</span>) — Bác sĩ xác nhận dùng lại kết quả gần đây</span>' +
+          (automaticReuse ? '' : '<input type="checkbox" data-wf-reuse-test="' + esc(spec.testKey) + '" data-wf-reuse-obs="' + esc(match.id) + '" data-wf-reuse-field="' + esc(match.fieldCode) + '" data-wf-reuse-time="' + esc(match.answer.measuredAt) + '"' + (checked ? ' checked' : '') + (isReadonly ? ' disabled' : '') + '>') +
+          '<span><strong>' + esc(spec.label) + '</strong> (' + esc(valSummary) + ' · đo lúc <span class="tabular">' + esc(formatDateTime(match.answer.measuredAt)) + '</span>)' + (automaticReuse ? '' : ' — Bác sĩ xác nhận dùng lại kết quả gần đây') + '</span>' +
         '</label>'
       );
     });
     return (
       '<div class="wf-reuse-box" data-wf-recent-evidence="1">' +
         '<div class="wf-reuse-box__head">' +
-          '<h4>Xác nhận dùng lại xét nghiệm gần đây (cửa sổ 30 ngày)</h4>' +
-          (!isReadonly && wf.recentTestEvidenceDirty
+          '<h4>' + (automaticReuse ? 'Kết quả đã ghi nhận — tự khóa trùng lặp nếu hợp lệ trong 30 ngày' : 'Xác nhận dùng lại xét nghiệm gần đây (cửa sổ 30 ngày)') + '</h4>' +
+          (!automaticReuse && !isReadonly && wf.recentTestEvidenceDirty
             ? '<button type="button" class="btn btn--secondary btn--xs' + (wf.savingFields ? ' is-loading' : '') + '" data-wf-save-evidence="1"' + (wf.savingFields ? ' disabled' : '') + '>' + (wf.savingFields ? 'Đang lưu...' : 'Lưu xác nhận dùng lại') + '</button>'
             : '') +
         '</div>' +
@@ -8441,7 +8442,7 @@
         ) : '') +
         '<div class="wf-kpi-3">' +
           '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Xác suất / Giai đoạn suy tim</div><div class="wf-kpi-card__val">' + esc(prob.muc || '—') + '</div><div class="wf-kpi-card__sub">Xác suất mô phỏng: <strong>' + esc(pctText) + '</strong>' + (output.stage ? (' · Stage ' + esc(output.stage)) : '') + '</div></div>' +
-          '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Kiểu hình EF nghi ngờ</div><div class="wf-kpi-card__val">' + esc(output.kieu_hinh_ef || '—') + '</div><div class="wf-kpi-card__sub">Không tự suy kiểu hình khi thiếu EF</div></div>' +
+          '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Kiểu hình EF nghi ngờ</div><div class="wf-kpi-card__val">' + esc(output.kieu_hinh_ef || '—') + '</div>' + (!output.kieu_hinh_ef || output.kieu_hinh_ef === 'Chưa phân loại do thiếu EF' ? '<div class="wf-kpi-card__sub">Không tự suy kiểu hình khi thiếu EF</div>' : '') + '</div>' +
           '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Bệnh cảnh lâm sàng</div><div class="wf-kpi-card__val">' + esc(output.benh_canh || 'Chưa xác định') + '</div><div class="wf-kpi-card__sub">Frailty/dung nạp: ' + esc(output.frailty_dung_nap || '—') + '</div></div>' +
         '</div>' +
         (Array.isArray(output.canh_bao_gia_suy_tim) && output.canh_bao_gia_suy_tim.length > 0 ? (

@@ -12,10 +12,11 @@ M3_FIELDS={'age','sex','diagnoses','cls_lvef','cls_bnp','cls_nt_probnp','cls_cre
  'ran_am_phoi','phu_hai_chi_duoi','tinh_mach_co_noi','dang_dung_loi_tieu_quai_uong','lieu_loi_tieu_quai_ngay','natri_nieu_2gio','nuoc_tieu_6gio'}
 M4_FIELDS={'age','sex','allergies','medications','selected_medications','cls_creatinin','cls_kali','egfr_ckd_epi',
  'giam_ha_tu_the','huyet_ap_tam_thu','ha_tam_thu_dung','danh_gia_suy_yeu_frailty','suy_giam_nhan_thuc','so_luong_thuoc_dong_thoi'}
+M2_LAB_FIELDS={'cls_creatinin','egfr_ckd_epi','cls_kali','cls_natri'}
 
 def profile(rules):
     rules=deepcopy(rules);rules['rulesVersion']='mock-2.0'
-    for module,fields in [('M1',M1_FIELDS),('M2',M1_FIELDS|{'dau_nguc','ecg_12_chuyen_dao'}),('M3',M3_FIELDS),('M4',M4_FIELDS)]:
+    for module,fields in [('M1',M1_FIELDS),('M2',M1_FIELDS|M2_LAB_FIELDS|{'dau_nguc','ecg_12_chuyen_dao'}),('M3',M3_FIELDS),('M4',M4_FIELDS)]:
         rules['outputProjection']['gapFields'][module]=sorted(fields)
         # Explicit unknown is allowed, preserving the workflow uncertainty contract.
         # Core resolved fields match v1.2; removed COPD/anemia are never required.
@@ -58,13 +59,13 @@ def run_v2(module,snapshot,rules,legacy_output):
                 if yes and label not in alerts:alerts.append(label)
             if alerts:matched.append('1.9')
         out.update(stage=stage,kieu_hinh_ef=phenotype,benh_canh='Decompensated HF' if acute else ('Suy tim cấp hoặc mạn tính' if stage in ('C','D') else None),
-                   canh_bao_cap_cuu=alerts,canh_bao_gia_suy_tim=[],xac_suat_suy_tim={'muc':'Chưa đủ dữ liệu để kết luận','xac_suat':None,'calibration':'synthetic_not_calibrated'})
+                   canh_bao_cap_cuu=alerts,canh_bao_gia_suy_tim=[],xac_suat_suy_tim={'muc':'Chưa ước tính xác suất (mock)' if stage or ef is not None else 'Chưa đủ dữ liệu để kết luận','xac_suat':None,'calibration':'synthetic_not_calibrated'})
         out['dataGaps']=['Luật dự án hỗ trợ bác sĩ; chưa có thẩm định lâm sàng. Không ước tính xác suất.']
         if numeric('spo2','lt',t['spo2Low']):out['dataGaps'].append('HIS/form chưa ghi tình trạng thở oxy; bác sĩ xác minh điều kiện SpO₂ sau oxy của Luật 1.9.')
         for key in sorted(M1_FIELDS):
             if val(key) is None:out['dataGaps'].append(key+': unknown')
     elif module=='M2':
-        # Preserve observation IDs and doctor-confirmed reuse from the old adapter.
+        # v2 deduplicates dated results automatically; v1.2 keeps reuse confirmation.
         suspected=(snapshot.get('effective_m1',{}).get('stage') in ('A','B','C','D') or
                    any(val(k) is True for k in SYMPTOMS+RISKS))
         if suspected:
@@ -73,6 +74,11 @@ def run_v2(module,snapshot,rules,legacy_output):
                         'kali_natri','chuc_nang_gan','duong_huyet_hba1c','tsh','ferritin_tsat'):
                 if out['goi_y_chi_dinh'][key]['trang_thai']!='Đã có kết quả gần đây':
                     out['goi_y_chi_dinh'][key]={'trang_thai':'Đề xuất','ly_do':'Luật 2.1–2.2; bác sĩ xác minh chỉ định, không tạo y lệnh tự động.'}
+        for key,evidence in snapshot.get('recentTestEvidence',{}).items():
+            out['goi_y_chi_dinh'][key]={'trang_thai':'Đã có kết quả gần đây',
+                'ly_do':'Kết quả hợp lệ trong cửa sổ 30 ngày của mock; bác sĩ rà soát nhu cầu đo lại.',
+                'evidenceObservationIds':evidence.get('observationIds',[evidence['id']])}
+            if key not in out['khoa_trung_lap']:out['khoa_trung_lap'].append(key)
         ecg=val('ecg_12_chuyen_dao') or {}
         if numeric('cls_lvef','lte',40) and (val('dau_nguc') is True or val('ts_benh_mach_vanh_nmct') is True or ecg.get('pathological_q') is True):
             matched.append('2.3')
