@@ -60,6 +60,17 @@ _require_admin_audit = require_role("admin", "audit_log")
 
 
 def _permission_matrix_for_role(role: str) -> dict[str, Any]:
+    if role == 'nurse':
+        return dict(role='nurse',clinicalDataAccessAllowed=False,
+            separationNoticeVi='NVYT chỉ nhập hành chính và sinh hiệu, gửi/rút lượt trước khi bác sĩ nhận.',
+            grantedPermissions=[dict(code=code,labelVi=label,category='clinical') for code,label in (
+                ('patients:read_write','Tìm, tạo và sửa hành chính bệnh nhân'),
+                ('visits:intake','Tạo lượt, nhập hành chính và sinh hiệu ở intake'),
+                ('visits:submit_withdraw','Gửi hàng chờ hoặc rút lượt của mình trước khi được nhận'))],
+            deniedPermissions=[dict(code=code,labelVi=label,category='clinical') for code,label in (
+                ('visits:clinical','Không đọc chẩn đoán, thuốc hay kết quả AI'),
+                ('visits:claim_confirm','Không nhận hoặc xác nhận lượt khám'),
+                ('admin_users:manage','Không quản trị tài khoản và biểu mẫu'))])
     if role == "doctor":
         return {
             "role": "doctor",
@@ -76,7 +87,7 @@ def _permission_matrix_for_role(role: str) -> dict[str, Any]:
                 },
                 {
                     "code": "visits:draft",
-                    "labelVi": "Tạo lượt khám, nhập dữ liệu 8 nhóm + 4 bảng lặp và lưu nháp",
+                    "labelVi": "Nhận lượt hàng chờ, nhập và lưu lượt mình đã nhận",
                     "category": "clinical",
                 },
                 {

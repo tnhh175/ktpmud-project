@@ -8,6 +8,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def upgrade(dsn, *, publish=False):
     with psycopg.connect(dsn, autocommit=True) as conn:
+        has_roles = conn.execute("SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='visit' AND column_name='assigned_doctor_id')").fetchone()[0]
+        has_v2 = conn.execute("SELECT EXISTS(SELECT 1 FROM form_version WHERE version_label='v2.0')").fetchone()[0]
         # Separate statements/transactions for PostgreSQL enum visibility.
         source = (ROOT/'database/migrations/006_workflow.sql').read_text(encoding='utf-8')
         enum, body = source.split('\nBEGIN;', 1)
@@ -17,6 +19,16 @@ def upgrade(dsn, *, publish=False):
         conn.execute('BEGIN;' + body)
         conn.execute((ROOT/'database/migrations/007_workflow_form_v12.sql').read_text(encoding='utf-8'))
         conn.execute((ROOT/'database/migrations/008_workflow_visit_inputs.sql').read_text(encoding='utf-8'))
+        # Replaying the legacy upgrade must retain guards installed by v2.
+        if has_roles:
+            source = (ROOT/'database/migrations/009_v2_roles_queue.sql').read_text(encoding='utf-8')
+            enum, body = source.split('\nBEGIN;', 1)
+            for statement in enum.splitlines():
+                if statement.startswith('ALTER TYPE '):
+                    conn.execute(statement)
+            conn.execute('BEGIN;' + body)
+        if has_v2:
+            conn.execute((ROOT/'database/migrations/010_form_v2.sql').read_text(encoding='utf-8'))
         if publish:
             with conn.transaction():
                 row = conn.execute("SELECT id,status,form_template_id FROM form_version WHERE version_label='v1.2' FOR UPDATE").fetchone()

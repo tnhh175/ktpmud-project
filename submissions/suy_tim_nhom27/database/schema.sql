@@ -9,16 +9,16 @@ BEGIN;
 -- -----------------------------------------------------------------------------
 -- 1. ENUM TYPES (CONTRACT.md Section 4.2)
 -- -----------------------------------------------------------------------------
-CREATE TYPE user_role AS ENUM ('doctor', 'admin');
-CREATE TYPE visit_status AS ENUM ('draft', 'confirmed');
+CREATE TYPE user_role AS ENUM ('doctor', 'admin', 'pharmacist', 'nurse');
+CREATE TYPE visit_status AS ENUM ('draft', 'confirmed', 'intake', 'waiting', 'in_progress');
 CREATE TYPE value_state AS ENUM ('answered', 'unknown');
 CREATE TYPE form_version_status AS ENUM ('draft', 'published', 'retired');
 CREATE TYPE field_scope_status AS ENUM ('mvp', 'can_xac_nhan');
 CREATE TYPE field_data_type AS ENUM ('number', 'integer', 'text', 'boolean', 'date', 'single_choice', 'multi_choice');
-CREATE TYPE section_code AS ENUM ('hanh_chinh', 'trieu_chung_dien_bien', 'sinh_ton_kham', 'benh_su_dong_mac', 'thuoc_di_ung', 'can_lam_sang', 'lao_khoa', 'ghi_chu');
+CREATE TYPE section_code AS ENUM ('sinh_ton', 'trieu_chung_kham', 'chan_doan_nguy_co', 'thuoc', 'hanh_chinh', 'trieu_chung_dien_bien', 'sinh_ton_kham', 'benh_su_dong_mac', 'thuoc_di_ung', 'can_lam_sang', 'lao_khoa', 'ghi_chu');
 CREATE TYPE readiness_tier AS ENUM ('patient_created', 'draft_saved', 'confirmed', 'ai_ready');
 CREATE TYPE bp_position AS ENUM ('supine', 'sitting', 'standing');
-CREATE TYPE audit_action AS ENUM ('login', 'logout', 'login_failed', 'user_create', 'user_update', 'form_version_create', 'form_version_update', 'form_version_publish', 'patient_create', 'visit_confirm', 'ai_input_export', 'care_assignment_add', 'care_assignment_revoke');
+CREATE TYPE audit_action AS ENUM ('login', 'logout', 'login_failed', 'user_create', 'user_update', 'form_version_create', 'form_version_update', 'form_version_publish', 'patient_create', 'visit_confirm', 'ai_input_export', 'care_assignment_add', 'care_assignment_revoke', 'visit_create', 'visit_submit', 'visit_claim', 'visit_withdraw', 'patient_update');
 
 -- -----------------------------------------------------------------------------
 -- 2. TABLES (21 tables including diagnosis and patient care assignments)
@@ -65,6 +65,7 @@ CREATE TABLE patient (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   patient_code varchar(16) NOT NULL,
   external_patient_code varchar(64),
+  cccd varchar(12),
   full_name varchar(120) NOT NULL,
   sex varchar(16) NOT NULL,
   birth_date date,
@@ -78,6 +79,7 @@ CREATE TABLE patient (
   CONSTRAINT pk_patient PRIMARY KEY (id),
   CONSTRAINT uq_patient_code UNIQUE (patient_code),
   FOREIGN KEY (created_by) REFERENCES app_user(id) ON DELETE RESTRICT,
+  CONSTRAINT chk_patient_cccd CHECK (cccd IS NULL OR cccd ~ '^[0-9]{12}$'),
   CONSTRAINT chk_patient_code_fmt CHECK (patient_code ~ '^BN-[0-9]{5}$'),
   CONSTRAINT chk_patient_full_name_len CHECK (length(trim(full_name)) >= 2),
   CONSTRAINT chk_patient_sex CHECK (sex IN ('male', 'female', 'unknown')),
@@ -87,6 +89,7 @@ CREATE TABLE patient (
   CONSTRAINT chk_patient_age_precision_mutex CHECK (num_nonnulls(birth_date, birth_year, declared_age) <= 1),
   CONSTRAINT chk_patient_row_version_pos CHECK (row_version > 0)
 );
+CREATE UNIQUE INDEX uq_patient_cccd ON patient(cccd) WHERE cccd IS NOT NULL;
 CREATE INDEX ix_patient_full_name ON patient (full_name);
 CREATE INDEX ix_patient_external_code ON patient (external_patient_code) WHERE external_patient_code IS NOT NULL;
 
@@ -237,7 +240,11 @@ CREATE TABLE visit (
   medication_list_state text NOT NULL DEFAULT 'unknown' CHECK (medication_list_state IN ('known', 'none', 'unknown')),
   allergy_list_state text NOT NULL DEFAULT 'unknown' CHECK (allergy_list_state IN ('known', 'none', 'unknown')),
   diagnosis_list_state text NOT NULL DEFAULT 'unknown' CHECK (diagnosis_list_state IN ('known', 'none', 'unknown')),
-  status visit_status NOT NULL DEFAULT 'draft',
+  status visit_status NOT NULL DEFAULT 'intake',
+  assigned_doctor_id uuid REFERENCES app_user(id),
+  claimed_at timestamptz,
+  submitted_by uuid REFERENCES app_user(id),
+  submitted_at timestamptz,
   current_revision_no integer NOT NULL DEFAULT 1,
   created_by uuid NOT NULL,
   updated_by uuid REFERENCES app_user(id),
@@ -255,17 +262,21 @@ CREATE TABLE visit (
   FOREIGN KEY (confirmed_by) REFERENCES app_user(id) ON DELETE RESTRICT,
   CONSTRAINT chk_visit_code_fmt CHECK (visit_code ~ '^LK-[A-Z0-9-]+$'),
   CONSTRAINT chk_visit_type CHECK (visit_type IN ('outpatient_new', 'follow_up', 'acute_inpatient')),
-  CONSTRAINT chk_visit_confirm_meta CHECK ((status = 'draft' AND confirmed_at IS NULL AND confirmed_by IS NULL) OR (status = 'confirmed' AND confirmed_at IS NOT NULL AND confirmed_by IS NOT NULL)),
+  CONSTRAINT chk_visit_confirm_meta CHECK ((status IN ('draft','intake','waiting','in_progress') AND confirmed_at IS NULL AND confirmed_by IS NULL) OR (status = 'confirmed' AND confirmed_at IS NOT NULL AND confirmed_by IS NOT NULL)),
   CONSTRAINT chk_visit_revision_pos CHECK (current_revision_no > 0),
   CONSTRAINT chk_visit_row_version_pos CHECK (row_version > 0)
 );
 CREATE INDEX ix_visit_patient_date ON visit (patient_id, visit_date DESC);
 CREATE INDEX ix_visit_form_version ON visit (form_version_id);
 CREATE INDEX ix_visit_status ON visit (status);
+CREATE INDEX ix_visit_waiting_submitted ON visit(submitted_at,id) WHERE status='waiting';
+CREATE INDEX ix_visit_assigned_doctor ON visit(assigned_doctor_id,patient_id,visit_date DESC) WHERE assigned_doctor_id IS NOT NULL;
 
 CREATE TABLE visit_value (
   visit_id uuid NOT NULL,
   field_definition_id uuid NOT NULL,
+  answer jsonb,
+  unknown_reason varchar(500),
   value_state value_state NOT NULL,
   value_num numeric,
   value_text text,
@@ -623,64 +634,50 @@ CREATE TRIGGER trg_form_field_immutable
   FOR EACH ROW EXECUTE FUNCTION fn_form_structure_immutable();
 
 CREATE OR REPLACE FUNCTION fn_visit_lifecycle_guard()
-RETURNS trigger
-LANGUAGE plpgsql
-AS $$
-DECLARE
-  v_form_status text;
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE v_form_status text;
 BEGIN
-  IF TG_OP = 'INSERT' THEN
-    SELECT status::text INTO v_form_status FROM form_version WHERE id = NEW.form_version_id;
+  IF TG_OP='INSERT' THEN
+    SELECT status::text INTO v_form_status FROM form_version WHERE id=NEW.form_version_id;
     IF v_form_status IS DISTINCT FROM 'published' THEN
-      RAISE EXCEPTION 'Visit must bind to a published form_version (got status=%)', v_form_status
-        USING ERRCODE = 'check_violation';
+      RAISE EXCEPTION 'Visit must bind to a published form_version' USING ERRCODE='check_violation';
     END IF;
     RETURN NEW;
-  END IF;
-
-  IF TG_OP = 'DELETE' THEN
-    IF OLD.status = 'confirmed' THEN
-      RAISE EXCEPTION 'Confirmed visit % cannot be deleted', OLD.id
-        USING ERRCODE = 'check_violation';
+  ELSIF TG_OP='DELETE' THEN
+    IF OLD.status='confirmed' THEN
+      RAISE EXCEPTION 'Confirmed visit cannot be deleted' USING ERRCODE='check_violation';
     END IF;
     RETURN OLD;
   END IF;
-
-  IF OLD.status = 'confirmed' THEN
-    IF NEW.status = 'draft'
-       AND current_setting('app.allow_visit_amendment', true) = '1'
-       AND NEW.confirmed_at IS NULL
-       AND NEW.confirmed_by IS NULL
-       AND NEW.confirm_note IS NULL
-       AND NEW.current_revision_no = OLD.current_revision_no + 1
-       AND NEW.row_version = OLD.row_version + 1
+  IF OLD.status='confirmed' THEN
+    -- Migration may fill ownership only; it may not alter the clinical record.
+    IF current_setting('app.v2_ownership_backfill',true)='1'
+       AND OLD.assigned_doctor_id IS NULL
+       AND (to_jsonb(NEW)-'assigned_doctor_id'-'claimed_at') =
+           (to_jsonb(OLD)-'assigned_doctor_id'-'claimed_at') THEN
+      RETURN NEW;
+    END IF;
+    IF NEW.status IN ('draft','in_progress')
+       AND current_setting('app.allow_visit_amendment',true)='1'
+       AND NEW.confirmed_at IS NULL AND NEW.confirmed_by IS NULL AND NEW.confirm_note IS NULL
+       AND NEW.current_revision_no=OLD.current_revision_no+1 AND NEW.row_version=OLD.row_version+1
        AND NEW.visit_date IS NOT DISTINCT FROM OLD.visit_date
        AND NEW.visit_type IS NOT DISTINCT FROM OLD.visit_type
        AND NEW.chief_complaint IS NOT DISTINCT FROM OLD.chief_complaint
        AND NEW.clinical_note IS NOT DISTINCT FROM OLD.clinical_note
        AND NEW.info_source IS NOT DISTINCT FROM OLD.info_source
-    THEN
-      NEW.updated_at := now();
-      RETURN NEW;
+       AND NEW.assigned_doctor_id IS NOT DISTINCT FROM OLD.assigned_doctor_id THEN
+      NEW.updated_at:=now(); RETURN NEW;
     END IF;
-    RAISE EXCEPTION 'Confirmed visit % is read-only; create a visit_revision instead of direct update', OLD.id
-      USING ERRCODE = 'check_violation';
+    RAISE EXCEPTION 'Confirmed visit is read-only; create a visit_revision' USING ERRCODE='check_violation';
   END IF;
-
-  IF NEW.patient_id IS DISTINCT FROM OLD.patient_id
-     OR NEW.form_version_id IS DISTINCT FROM OLD.form_version_id
-     OR NEW.visit_code IS DISTINCT FROM OLD.visit_code
-     OR NEW.created_by IS DISTINCT FROM OLD.created_by
-     OR NEW.created_at IS DISTINCT FROM OLD.created_at
-  THEN
-    RAISE EXCEPTION 'Immutable visit header columns cannot be altered'
-      USING ERRCODE = 'check_violation';
+  IF NEW.patient_id IS DISTINCT FROM OLD.patient_id OR NEW.form_version_id IS DISTINCT FROM OLD.form_version_id
+     OR NEW.visit_code IS DISTINCT FROM OLD.visit_code OR NEW.created_by IS DISTINCT FROM OLD.created_by
+     OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+    RAISE EXCEPTION 'Immutable visit header columns cannot be altered' USING ERRCODE='check_violation';
   END IF;
-
-  NEW.updated_at := now();
-  RETURN NEW;
-END;
-$$;
+  NEW.updated_at:=now(); RETURN NEW;
+END $$;
 
 CREATE TRIGGER trg_visit_lifecycle_guard
   BEFORE INSERT OR UPDATE OR DELETE ON visit

@@ -335,15 +335,17 @@ def get_current_principal(
     )
 
 
-def require_role(allowed_role: str, entity_type_for_audit: str) -> Callable[..., Principal]:
+def require_role(allowed_role: str | list[str] | tuple[str, ...], entity_type_for_audit: str) -> Callable[..., Principal]:
     """Dependency enforcing strict K8 separation between doctor and admin roles."""
+
+    allowed_roles = (allowed_role,) if isinstance(allowed_role, str) else tuple(allowed_role)
 
     def _dependency(
         request: Request,
         principal: Principal = Depends(get_current_principal),
     ) -> Principal:
-        if principal.role != allowed_role:
-            is_admin_clinical = principal.role == "admin" and allowed_role == "doctor"
+        if principal.role not in allowed_roles:
+            is_admin_clinical = principal.role == "admin" and "doctor" in allowed_roles
             err_code = (
                 "CLINICAL_DATA_SEPARATION_ENFORCED"
                 if is_admin_clinical

@@ -9,8 +9,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 
 from .audit import record_audit_log
-from .care import (ACTIVE_ASSIGNMENT_SQL, ACCESS_EXISTS_SQL, access_shape,
-                   create_creator_assignment, require_patient_access)
+from .care import ACCESS_EXISTS_SQL, require_patient_access
 from .auth import Principal, get_client_ip, get_request_id, require_role
 from .db import compute_pagination, num_to_json, parse_if_match, to_date_iso, to_iso
 from .models import (
@@ -28,8 +27,125 @@ from .models import (
 
 router = APIRouter(prefix="/api/v1", tags=["Patients"])
 
-_require_doctor_patient = require_role("doctor", "patient")
-_require_doctor_visit = require_role("doctor", "visit")
+_require_doctor_patient = require_role(["doctor", "nurse"], "patient")
+_require_doctor_visit = require_role(["doctor", "nurse"], "visit")
+
+
+# Display flags follow the supplied rule-base; no invented Na/HbA1c cutoff.
+SUMMARY_LABS = (
+    ('cls_nt_probnp','NT-proBNP','pg/mL',125,None,True),
+    ('cls_bnp','BNP','pg/mL',35,None,True),
+    ('cls_lvef','LVEF','%',None,50,False),
+    ('cls_creatinin','Creatinin','µmol/L',221,None,False),
+    ('egfr_ckd_epi','eGFR','mL/min/1.73m²',None,30,False),
+    ('cls_kali','K','mmol/L',5.0,None,False),
+    ('cls_natri','Na','mmol/L',None,None,False),
+    ('cls_hba1c','HbA1c','%',None,None,False),
+)
+
+
+def latest_visit_summary(conn, patient_id, principal):
+    ref = conn.execute("""SELECT v.*,fv.version_label AS form_version_label FROM visit v
+      JOIN form_version fv ON fv.id=v.form_version_id WHERE v.patient_id=%s
+      AND (v.status='confirmed' OR (v.status='in_progress' AND v.assigned_doctor_id=%s))
+      ORDER BY (v.status='confirmed') DESC,v.visit_date DESC,v.created_at DESC,v.id LIMIT 1""",
+      (str(patient_id),str(principal.user_id))).fetchone()
+    if not ref:
+        return None
+    values = conn.execute("""SELECT fd.code,vv.*,fo.option_code FROM visit_value vv
+      JOIN field_definition fd ON fd.id=vv.field_definition_id
+      LEFT JOIN field_option fo ON fo.id=vv.field_option_id WHERE vv.visit_id=%s""",(ref['id'],)).fetchall()
+    by_code = {r['code']:r for r in values}
+    projected = {}
+    if ref['form_version_label'] == 'v2.0':
+        from .workflow import source_fields
+        projected = source_fields(conn, ref)
+    def answer(code):
+        if code == 'egfr_ckd_epi' and code in projected:
+            obj = projected[code]
+            return obj.get('value') if obj.get('value_state') == 'answered' else None
+        row = by_code.get(code)
+        if not row or row['value_state']!='answered':
+            return None
+        obj = row.get('answer')
+        if obj is not None:
+            return obj.get('value') if obj.get('value_state')=='answered' else None
+        return next((row[k] for k in ('value_num','value_text','value_bool','value_date','option_code')
+                     if row.get(k) is not None),None)
+    decisions = {}
+    if conn.execute("SELECT to_regclass('public.ai_module_decision') AS r").fetchone()['r']:
+        decisions = {r['module']:r for r in conn.execute("""SELECT module,source,effective_output
+          FROM ai_module_decision WHERE visit_id=%s AND superseded_at IS NULL""",(ref['id'],)).fetchall()}
+    m1 = decisions.get('m1',{})
+    output = m1.get('effective_output') or {}
+    stage = output.get('stage')
+    if stage not in ('A','B','C','D'):
+        stage = None
+    phenotype = output.get('kieu_hinh_ef')
+    if phenotype not in ('HFrEF','HFmrEF','HFpEF'):
+        phenotype = None
+    # Explicit doctor classification is also valid on pinned pre-workflow forms.
+    if not stage:
+        raw = answer('chan_doan_stage_suy_tim') or answer('chan_doan_giai_doan_suy_tim')
+        stage = raw.upper().removeprefix('STAGE_') if isinstance(raw,str) else None
+        if stage not in ('A','B','C','D'): stage = None
+    if not phenotype:
+        raw = answer('chan_doan_kieu_hinh_ef')
+        phenotype = {'hfref':'HFrEF','hfmref':'HFmrEF','hfpef':'HFpEF'}.get(str(raw).lower())
+    labs = conn.execute('SELECT * FROM visit_lab_result WHERE visit_id=%s ORDER BY measured_at DESC,created_at DESC,id',
+                        (ref['id'],)).fetchall()
+    key_labs = []
+    for code,label,unit,high,low,inclusive in SUMMARY_LABS:
+        aliases = (code,'cls_egfr') if code=='egfr_ckd_epi' else (code,)
+        lab = next((r for r in labs if r['lab_code'] in aliases and r['value_num'] is not None),None)
+        if code == 'egfr_ckd_epi' and projected:
+            lab = None  # v2 eGFR always follows the current creatinine sources.
+        value = num_to_json(lab['value_num']) if lab else next((answer(c) for c in aliases if answer(c) is not None),None)
+        if not isinstance(value,(int,float)) and value is not None:
+            try: value = float(value)
+            except (TypeError,ValueError): value = None
+        if value is None:
+            continue
+        value = float(value)
+        flag = ('high' if high is not None and (value>=high if inclusive else value>high)
+                else 'low' if low is not None and value<low else None)
+        obj = projected.get(code) or (by_code.get(code) or {}).get('answer') or {}
+        measured = to_iso(lab['measured_at']) if lab else obj.get('measuredAt',obj.get('measured_at'))
+        key_labs.append(dict(code=code,label=label,value=value,unit=lab['unit'] if lab else obj.get('unit') or unit,
+                             measuredAt=measured,flag=flag))
+    group_labels = {'ACEI':'ACE-I','ARB':'ARB','ARNI':'ARNI','beta_blocker':'Chẹn beta','MRA':'MRA',
+                    'SGLT2i':'SGLT2','loop_diuretic':'Lợi tiểu quai','NSAID':'NSAIDs',
+                    'corticosteroid':'Corticoid','TZD':'TZD','class_I_antiarrhythmic':'Chống loạn nhịp nhóm I','other':'Khác'}
+    from .workflow import medication_class
+    meds = []
+    for row in conn.execute("SELECT * FROM visit_medication WHERE visit_id=%s AND status='active' ORDER BY created_at,id",
+                            (ref['id'],)).fetchall():
+        group = medication_class(row.get('active_ingredient'),row.get('medication_group'),row.get('atc_code'))
+        from .his_v2.medications import classify
+        group = group or classify(row['drug_name']).get('group')
+        meds.append(dict(name=row['drug_name'],group=group,groupLabel=group_labels.get(group),
+                         pillar=group in ('ACEI','ARB','ARNI','beta_blocker','MRA','SGLT2i'),
+                         caution=group in ('NSAID','corticosteroid','TZD','class_I_antiarrhythmic')))
+    # Structured workflow medications are canonical when present.
+    structured = answer('medications')
+    if isinstance(structured,list):
+        meds = []
+        for item in structured:
+            from .his_v2.medications import classify
+            group = (classify(item['name']).get('group') if item.get('name') else
+                     item.get('class') or medication_class(item.get('ingredientCode'),item.get('therapeuticGroup'),item.get('atcCode')))
+            group = group or classify(item.get('name') or item.get('drugName') or item.get('ingredient') or '').get('group')
+            meds.append(dict(name=item.get('name') or item.get('drugName') or item.get('ingredientCode') or item.get('ingredient'),
+                group=group,groupLabel=group_labels.get(group),pillar=group in ('ACEI','ARB','ARNI','beta_blocker','MRA','SGLT2i'),
+                caution=group in ('NSAID','corticosteroid','TZD','class_I_antiarrhythmic')))
+    alerts = (decisions.get('m4',{}).get('effective_output') or {}).get('canh_bao',[])
+    return dict(sourceVisitId=str(ref['id']),sourceVisitCode=ref['visit_code'],sourceVisitDate=to_iso(ref['visit_date']),
+        sourceVisitStatus=ref['status'],sourceFormVersionId=str(ref['form_version_id']),
+        sourceFormVersionLabel=ref['form_version_label'],sourceRowVersion=ref['row_version'],
+        hfStage=dict(code=stage,label='Giai đoạn '+stage if stage else 'Chưa phân loại',source=(m1.get('source') or 'manual') if stage else None),
+        efPhenotype=dict(code=phenotype,label=phenotype or 'Chưa phân loại'),keyLabs=key_labs,medications=meds,
+        openAlerts=[dict(ruleId=a.get('ruleId') or a.get('rule_id') or a.get('id'),
+                         severity=a.get('severity') or a.get('muc_do'),message=a.get('message') or a.get('noi_dung')) for a in alerts])
 
 
 def patient_row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
@@ -40,6 +156,7 @@ def patient_row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
         "updatedBy": str(row.get("updated_by") or row["created_by"]),
         "updatedByName": row.get("editor_name") or row.get("creator_name"),
         "externalPatientCode": row.get("external_patient_code"),
+        "cccd": row.get("cccd"),
         "fullName": row["full_name"],
         "sex": row["sex"],
         "birthDate": to_date_iso(row.get("birth_date")),
@@ -59,8 +176,9 @@ def visit_row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": str(row["id"]),
         "visitCode": row["visit_code"],
-        "performedBy": str(row["created_by"]),
-        "performedByName": row.get("creator_name"),
+        "performedBy": str(row.get("assigned_doctor_id") or row["created_by"]),
+        "performedByName": row.get("assigned_doctor_name") if row.get("assigned_doctor_id") else row.get("creator_name"),
+        "performedByRole": 'doctor' if row.get("assigned_doctor_id") else row.get("creator_role"),
         "updatedBy": str(row.get("updated_by") or row["created_by"]),
         "updatedByName": row.get("editor_name") or row.get("creator_name"),
         "externalVisitCode": row.get("external_visit_code"),
@@ -76,6 +194,10 @@ def visit_row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
         "allergyListState": row.get("allergy_list_state", "unknown"),
         "diagnosisListState": row.get("diagnosis_list_state", "unknown"),
         "status": row["status"],
+        "assignedDoctorId": str(row["assigned_doctor_id"]) if row.get("assigned_doctor_id") else None,
+        "claimedAt": to_iso(row.get("claimed_at")),
+        "submittedBy": str(row["submitted_by"]) if row.get("submitted_by") else None,
+        "submittedAt": to_iso(row.get("submitted_at")),
         "currentRevisionNo": rev_no,
         "createdBy": str(row["created_by"]),
         "createdAt": to_iso(row["created_at"]),
@@ -85,6 +207,15 @@ def visit_row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
         "confirmNote": row.get("confirm_note"),
         "rowVersion": int(row["row_version"]),
     }
+
+
+def nurse_visit_dict(row):
+    result = visit_row_to_dict(row)
+    for key in ('chiefComplaint','clinicalNote','infoSource','confirmNote'):
+        result[key] = None
+    for key in ('medicationListState','allergyListState','diagnosisListState'):
+        result[key] = 'unknown'
+    return result
 
 
 def bp_row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
@@ -213,21 +344,21 @@ def _validate_patient_fields(
 def list_patients(
     request: Request,
     q: str | None = Query(default=None, max_length=100),
-    latestVisitStatus: Literal["draft", "confirmed", "none"] | None = Query(default=None),
+    latestVisitStatus: Literal["draft", "intake", "waiting", "in_progress", "confirmed", "none"] | None = Query(default=None),
     page: int = Query(default=1, ge=1),
     pageSize: int = Query(default=20, ge=1, le=100),
     principal: Principal = Depends(_require_doctor_patient),
 ) -> dict[str, Any]:
     pool = request.app.state.pool
-    where_clauses: list[str] = [ACCESS_EXISTS_SQL]
-    params: list[Any] = [str(principal.user_id)]
+    where_clauses: list[str] = [ACCESS_EXISTS_SQL] if principal.role == "doctor" else []
+    params: list[Any] = [str(principal.user_id)] if principal.role == "doctor" else []
 
     if q and q.strip():
         like = f"%{q.strip()}%"
         where_clauses.append(
-            "(p.patient_code ILIKE %s OR p.full_name ILIKE %s OR COALESCE(p.external_patient_code, '') ILIKE %s)"
+            "(p.patient_code ILIKE %s OR p.full_name ILIKE %s OR COALESCE(p.external_patient_code, '') ILIKE %s OR COALESCE(p.cccd, '') ILIKE %s)"
         )
-        params.extend([like, like, like])
+        params.extend([like, like, like, like])
 
     if latestVisitStatus is not None:
         where_clauses.append("COALESCE(lv.status::text, 'none') = %s")
@@ -266,10 +397,7 @@ def list_patients(
             f"""
             SELECT
                 p.*, pc.full_name AS creator_name, pu.full_name AS editor_name,
-                (SELECT jsonb_build_object('assignmentId',ca.id,'assignedAt',ca.assigned_at,'assignedBy',ca.assigned_by)
-                 FROM patient_care_assignment ca WHERE ca.patient_id=p.id AND ca.doctor_user_id=%s
-                 AND {ACTIVE_ASSIGNMENT_SQL}
-                 LIMIT 1) AS access,
+                NULL AS access,
                 COALESCE(vc.visit_count, 0) AS visit_count,
                 lv.id AS latest_visit_id,
                 lv.visit_code AS latest_visit_code,
@@ -279,7 +407,7 @@ def list_patients(
             ORDER BY p.updated_at DESC, p.patient_code DESC
             LIMIT %s OFFSET %s
             """,
-            [str(principal.user_id), *params, pageSize, offset],
+            [*params, pageSize, offset],
         ).fetchall()
 
     items = [
@@ -315,8 +443,8 @@ def create_patient(
     _validate_patient_fields(
         full_name=full_name,
         birth_date=body.birthDate,
-        birth_year=body.birthYear,
-        declared_age=body.declaredAge,
+        birth_year=None,
+        declared_age=None,
     )
     ext_code = body.externalPatientCode.strip() if body.externalPatientCode else None
 
@@ -340,9 +468,9 @@ def create_patient(
             """
             INSERT INTO patient (
                 patient_code, external_patient_code, full_name, sex,
-                birth_date, birth_year, declared_age, created_by
+                birth_date, birth_year, declared_age, created_by, cccd
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING *
             """,
             (
@@ -351,14 +479,15 @@ def create_patient(
                 full_name,
                 body.sex,
                 body.birthDate,
-                body.birthYear,
-                body.declaredAge,
+                None,
+                None,
                 str(principal.user_id),
+                body.cccd,
             ),
         ).fetchone()
 
         row["creator_name"] = principal.full_name
-        row["access"] = access_shape(create_creator_assignment(conn, row["id"], principal))
+        row["access"] = None
         record_audit_log(
             conn,
             actor_user_id=principal.user_id,
@@ -404,83 +533,7 @@ def get_patient(
                 "Không tồn tại hồ sơ bệnh nhân với mã định danh yêu cầu.",
             )
 
-        ref_visit = conn.execute(
-            """
-            SELECT v.*, fv.version_label AS form_version_label
-            FROM visit v
-            JOIN form_version fv ON fv.id = v.form_version_id
-            WHERE v.patient_id = %s
-            ORDER BY (v.status = 'confirmed') DESC, v.visit_date DESC, v.created_at DESC
-            LIMIT 1
-            """,
-            (str(patientId),),
-        ).fetchone()
-
-        summary: dict[str, Any] | None = None
-        if ref_visit:
-            anthro = conn.execute(
-                """
-                SELECT fd.code, vv.value_num
-                FROM visit_value vv
-                JOIN field_definition fd ON fd.id = vv.field_definition_id
-                WHERE vv.visit_id = %s
-                  AND vv.value_state = 'answered'
-                  AND fd.code IN ('chieu_cao_cm', 'can_nang_kg')
-                """,
-                (str(ref_visit["id"]),),
-            ).fetchall()
-            anthro_map = {r["code"]: num_to_json(r["value_num"], "number") for r in anthro}
-            height_cm = anthro_map.get("chieu_cao_cm")
-            weight_kg = anthro_map.get("can_nang_kg")
-            bmi = None
-            if height_cm is not None and weight_kg is not None and height_cm > 0 and weight_kg > 0:
-                h_m = float(height_cm) / 100.0
-                bmi = round(float(weight_kg) / (h_m * h_m), 2)
-
-            bp_row = conn.execute(
-                """
-                SELECT *
-                FROM visit_orthostatic_bp
-                WHERE visit_id = %s
-                ORDER BY measured_at DESC, created_at DESC
-                LIMIT 1
-                """,
-                (str(ref_visit["id"]),),
-            ).fetchone()
-            med_rows = conn.execute(
-                """
-                SELECT *
-                FROM visit_medication
-                WHERE visit_id = %s
-                ORDER BY created_at ASC, id ASC
-                """,
-                (str(ref_visit["id"]),),
-            ).fetchall()
-            alg_rows = conn.execute(
-                """
-                SELECT *
-                FROM visit_allergy
-                WHERE visit_id = %s
-                ORDER BY created_at ASC, id ASC
-                """,
-                (str(ref_visit["id"]),),
-            ).fetchall()
-
-            summary = {
-                "sourceVisitId": str(ref_visit["id"]),
-                "sourceVisitCode": ref_visit["visit_code"],
-                "sourceVisitDate": to_iso(ref_visit["visit_date"]),
-                "sourceVisitStatus": ref_visit["status"],
-                "sourceFormVersionId": str(ref_visit["form_version_id"]),
-                "sourceFormVersionLabel": ref_visit["form_version_label"],
-                "sourceRowVersion": int(ref_visit["row_version"]),
-                "heightCm": height_cm,
-                "weightKg": weight_kg,
-                "bmi": bmi,
-                "latestBp": bp_row_to_dict(bp_row) if bp_row else None,
-                "recordedMedications": [med_row_to_dict(m) for m in med_rows],
-                "recordedAllergies": [allergy_row_to_dict(a) for a in alg_rows],
-            }
+        summary = latest_visit_summary(conn, patientId, principal) if principal.role == 'doctor' else None
 
         pt["access"] = access
 
@@ -519,23 +572,6 @@ def update_patient(
                 "Không tồn tại hồ sơ bệnh nhân với mã định danh yêu cầu.",
             )
 
-        extra = body.model_extra or {}
-        if "patientCode" in extra and extra["patientCode"] != pt["patient_code"]:
-            raise ProblemError(
-                422,
-                "IMMUTABLE_PATIENT_CODE",
-                "Mã bệnh nhân là bất biến",
-                "Không được phép chỉnh sửa mã hồ sơ BN-xxxxx sau khi cấp (chốt K10).",
-                errors=[
-                    {
-                        "fieldCode": "patientCode",
-                        "sectionCode": "hanh_chinh",
-                        "message": "patientCode không thể thay đổi.",
-                        "rejectedValue": extra["patientCode"],
-                    }
-                ],
-            )
-
         current_rv = int(pt["row_version"])
         expected_rv = parse_if_match(
             if_match, body.rowVersion, current_row_version=current_rv
@@ -560,36 +596,11 @@ def update_patient(
             else pt["external_patient_code"]
         )
 
-        # Precision mutex handling for partial PATCH updates
-        explicit_non_null = [
-            k
-            for k in ("birthDate", "birthYear", "declaredAge")
-            if k in fset and getattr(body, k) is not None
-        ]
-        if len(explicit_non_null) > 1:
-            _validate_patient_fields(
-                full_name=new_full_name,
-                birth_date=body.birthDate,
-                birth_year=body.birthYear,
-                declared_age=body.declaredAge,
-            )
-
-        if len(explicit_non_null) == 1:
-            chosen = explicit_non_null[0]
-            new_birth_date = body.birthDate if chosen == "birthDate" else None
-            new_birth_year = body.birthYear if chosen == "birthYear" else None
-            new_declared_age = body.declaredAge if chosen == "declaredAge" else None
-        else:
-            new_birth_date = body.birthDate if "birthDate" in fset else pt["birth_date"]
-            new_birth_year = body.birthYear if "birthYear" in fset else pt["birth_year"]
-            new_declared_age = body.declaredAge if "declaredAge" in fset else pt["declared_age"]
-
-        _validate_patient_fields(
-            full_name=new_full_name,
-            birth_date=new_birth_date,
-            birth_year=new_birth_year,
-            declared_age=new_declared_age,
-        )
+        new_birth_date = body.birthDate
+        new_birth_year = new_declared_age = None
+        new_cccd = body.cccd if 'cccd' in fset else pt.get('cccd')
+        _validate_patient_fields(full_name=new_full_name,birth_date=new_birth_date,
+                                 birth_year=None,declared_age=None)
 
         updated = conn.execute(
             """
@@ -601,6 +612,7 @@ def update_patient(
                 birth_year = %s,
                 declared_age = %s,
                 external_patient_code = %s,
+                cccd = %s,
                 row_version = row_version + 1
             WHERE id = %s AND row_version = %s
             RETURNING *
@@ -613,10 +625,13 @@ def update_patient(
                 new_birth_year,
                 new_declared_age,
                 new_ext_code,
+                new_cccd,
                 str(patientId),
                 current_rv,
             ),
         ).fetchone()
+        record_audit_log(conn,actor_user_id=principal.user_id,action='patient_update',entity_type='patient',
+                         entity_id=patientId,request_id=get_request_id(request),ip=get_client_ip(request))
         conn.commit()
 
     response.headers["ETag"] = f'"{int(updated["row_version"])}"'
@@ -633,7 +648,7 @@ def update_patient(
 def list_patient_visits(
     patientId: UUID,
     request: Request,
-    status: Literal["draft", "confirmed"] | None = Query(default=None),
+    status: Literal["draft", "intake", "waiting", "in_progress", "confirmed"] | None = Query(default=None),
     page: int = Query(default=1, ge=1),
     pageSize: int = Query(default=20, ge=1, le=100),
     principal: Principal = Depends(_require_doctor_visit),
@@ -655,6 +670,10 @@ def list_patient_visits(
 
         where = ["v.patient_id = %s"]
         params: list[Any] = [str(patientId)]
+        if principal.role == 'doctor':
+            where.append('v.assigned_doctor_id=%s'); params.append(str(principal.user_id))
+        else:
+            where.extend(["v.status IN ('intake','waiting')",'v.created_by=%s']); params.append(str(principal.user_id))
         if status is not None:
             where.append("v.status = %s::visit_status")
             params.append(status)
@@ -670,11 +689,13 @@ def list_patient_visits(
         rows = conn.execute(
             f"""
             SELECT
-                v.*, pc.full_name AS creator_name, pu.full_name AS editor_name,
+                v.*, pc.full_name AS creator_name, pc.role AS creator_role, pu.full_name AS editor_name,
+                pd.full_name AS assigned_doctor_name,
                 fv.version_label AS form_version_label,
                 (SELECT MAX(vr.revision_no) FROM visit_revision vr WHERE vr.visit_id = v.id) AS max_revision_no
             FROM visit v
             JOIN app_user pc ON pc.id=v.created_by
+            LEFT JOIN app_user pd ON pd.id=v.assigned_doctor_id
             JOIN app_user pu ON pu.id=COALESCE(v.updated_by,v.created_by)
             JOIN form_version fv ON fv.id = v.form_version_id
             WHERE {where_sql}
@@ -685,7 +706,7 @@ def list_patient_visits(
         ).fetchall()
 
     return {
-        "items": [visit_row_to_dict(r) for r in rows],
+        "items": [(nurse_visit_dict(r) if principal.role=='nurse' else visit_row_to_dict(r)) for r in rows],
         "pagination": compute_pagination(page, pageSize, total_items),
     }
 
@@ -701,8 +722,11 @@ def create_visit(
     body: CreateVisitRequest,
     request: Request,
     response: Response,
-    principal: Principal = Depends(_require_doctor_visit),
+    principal: Principal = Depends(require_role("nurse", "visit")),
 ) -> dict[str, Any]:
+    if body.chiefComplaint is not None:
+        raise ProblemError(403, 'FIELD_NOT_ALLOWED_FOR_ROLE', 'Trường ngoài quyền NVYT',
+                           'NVYT chỉ nhập hành chính và sinh hiệu; bác sĩ nhập lý do khám sau khi nhận lượt.')
     pool = request.app.state.pool
     visit_dt = body.visitDate
     if visit_dt.tzinfo is None:
@@ -763,7 +787,7 @@ def create_visit(
                 visit_date, visit_type, chief_complaint, status,
                 current_revision_no, created_by
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, 'draft', 1, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 'intake', 1, %s)
             RETURNING *
             """,
             (
@@ -777,10 +801,14 @@ def create_visit(
                 str(principal.user_id),
             ),
         ).fetchone()
+        record_audit_log(conn,actor_user_id=principal.user_id,action='visit_create',entity_type='visit',
+                         entity_id=row['id'],request_id=get_request_id(request),ip=get_client_ip(request),
+                         detail={'status':'intake'})
         conn.commit()
 
     row_dict = dict(row)
     row_dict["form_version_label"] = published["version_label"]
     row_dict["creator_name"] = principal.full_name
+    row_dict["creator_role"] = principal.role
     response.headers["ETag"] = f'"{int(row["row_version"])}"'
     return visit_row_to_dict(row_dict)

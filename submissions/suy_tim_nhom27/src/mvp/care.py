@@ -1,7 +1,7 @@
-"""Demo patient assignments: admin-managed, permanent until revoked.
+"""Visit ownership guards and retired patient-assignment routes.
 
-Clinical reads lock the patient shared; writes and assignment mutations lock it
-exclusively before checking access. Revocation cannot race a clinical write.
+Clinical reads and writes lock the visit before checking its doctor or intake owner.
+Legacy assignment records remain available in storage only.
 """
 from datetime import datetime
 from uuid import UUID
@@ -15,10 +15,31 @@ from .db import compute_pagination, to_iso
 from .models import ProblemError, PaginationMeta
 
 router = APIRouter(prefix='/api/v1', tags=['Care assignments'])
-admin = require_role('admin', 'care_assignment')
-ACTIVE_ASSIGNMENT_SQL = 'ca.revoked_at IS NULL'
-ACCESS_EXISTS_SQL = f'''EXISTS (SELECT 1 FROM patient_care_assignment ca
-WHERE ca.patient_id=p.id AND ca.doctor_user_id=%s AND {ACTIVE_ASSIGNMENT_SQL})'''
+def admin(principal: Principal = Depends(require_role('admin', 'care_assignment'))):
+    raise ProblemError(410, 'CARE_ASSIGNMENTS_RETIRED', 'Đã bỏ phân công bệnh nhân',
+                       'Bác sĩ nhận lượt khám từ hàng chờ; bảng phân công cũ chỉ được lưu giữ.')
+
+
+ACTIVE_ASSIGNMENT_SQL = 'ca.revoked_at IS NULL'  # retained legacy data, no access decisions
+ACCESS_EXISTS_SQL = """EXISTS (SELECT 1 FROM visit owned WHERE owned.patient_id=p.id
+ AND owned.assigned_doctor_id=%s AND owned.status IN ('in_progress','confirmed'))"""
+# Used only before form v2.0 is available; never grant all of sinh_ton_kham.
+NURSE_LEGACY_FIELD_CODES = frozenset({
+ 'bn_ma_ho_so','bn_ho_ten','bn_gioi_tinh','bn_ngay_sinh','luot_tuoi','so_vao_vien',
+ 'so_tiep_nhan','ngay_kham','phong_kham','chieu_cao_cm','can_nang_kg','bmi',
+ 'huyet_ap_tam_thu','huyet_ap_tam_truong','mach','tan_so_tim','nhip_tho','spo2',
+ 'huyet_ap_tam_thu_dung','muc_giam_ha_tu_the','tu_the_do_ha','thoi_diem_do_ha'})
+
+
+def nurse_field_codes(conn, form_version_id):
+    rows = conn.execute("""SELECT fd.code,fs.section_code::text AS section_code,fv.version_label
+      FROM form_field ff JOIN field_definition fd ON fd.id=ff.field_definition_id
+      JOIN form_section fs ON fs.id=ff.form_section_id
+      JOIN form_version fv ON fv.id=ff.form_version_id WHERE ff.form_version_id=%s""",
+      (str(form_version_id),)).fetchall()
+    return {r['code'] for r in rows if
+      (r['section_code'] in ('hanh_chinh','sinh_ton') if r['version_label']=='v2.0'
+       else r['code'] in NURSE_LEGACY_FIELD_CODES)}
 
 
 def missing():
@@ -34,19 +55,35 @@ def require_patient_access(conn, patient_id, principal, *, write=False):
                        (str(patient_id),)).fetchone()
     if not row:
         raise missing()
-    assignment = conn.execute(f'''SELECT ca.* FROM patient_care_assignment ca
-        WHERE ca.patient_id=%s AND ca.doctor_user_id=%s AND {ACTIVE_ASSIGNMENT_SQL}''',
-        (str(patient_id), str(principal.user_id))).fetchone()
-    if not assignment:
+    if principal.role == 'nurse':
+        return None
+    if principal.role != 'doctor' or not conn.execute("""SELECT 1 FROM visit WHERE patient_id=%s
+        AND assigned_doctor_id=%s AND status IN ('in_progress','confirmed') LIMIT 1""",
+        (str(patient_id),str(principal.user_id))).fetchone():
         raise missing()
-    return access_shape(assignment)
+    return None
 
 
-def require_visit_access(conn, visit_id, principal, *, write=False):
-    visit = conn.execute('SELECT patient_id FROM visit WHERE id=%s', (str(visit_id),)).fetchone()
+def require_visit_access(conn, visit_id, principal, *, write=False, allow_waiting=False):
+    """One row lock and one ownership check shared by every visit/workflow route."""
+    visit = conn.execute('SELECT * FROM visit WHERE id=%s FOR ' + ('UPDATE' if write else 'SHARE'),
+                         (str(visit_id),)).fetchone()
     if not visit:
         raise missing()
-    return require_patient_access(conn, visit['patient_id'], principal, write=write)
+    owner = visit.get('assigned_doctor_id')
+    if principal.role == 'doctor' and owner and str(owner)==str(principal.user_id):
+        return None
+    if principal.role == 'nurse' and visit['status'] in ('intake','waiting') and str(visit['created_by'])==str(principal.user_id):
+        if write and visit['status']=='waiting' and not allow_waiting:
+            raise ProblemError(409,'VISIT_NOT_INTAKE','Lượt đã gửi hàng chờ','Rút lượt về intake trước khi sửa.')
+        return None
+    # The existing pharmacist exception is read-only and restricted to M4 by workflow.check_role.
+    if principal.role == 'pharmacist' and not write and conn.execute("""SELECT 1 FROM workflow_pharmacist_assignment
+       WHERE patient_id=%s AND pharmacist_user_id=%s AND revoked_at IS NULL""",
+       (visit['patient_id'],str(principal.user_id))).fetchone():
+        return None
+    raise ProblemError(403,'VISIT_LOCKED_BY_OTHER_DOCTOR','Không có quyền mở lượt khám',
+                       'Lượt khám chỉ dành cho bác sĩ đã nhận hoặc NVYT đang tiếp nhận.')
 
 
 def audit_access(conn, request, principal, action, entity_type, entity_id, detail=None):

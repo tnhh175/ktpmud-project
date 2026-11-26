@@ -1,5 +1,6 @@
 """Versioned HF export adapter: only confirmed frozen sources, deterministic projection."""
 from datetime import datetime, timezone
+from copy import deepcopy
 import hashlib
 import hmac
 import json
@@ -206,6 +207,31 @@ def project_v11(snapshot, *, secret, key_version, module=None):
     return result
 
 
+def project_v20(snapshot, *, secret, key_version, module=None):
+    """Export frozen v2 sources only, keeping the existing privacy envelope."""
+    from .his_v2.rules import profile
+    from .workflow_mock import load_rules
+    from .workflow_schema import SCHEMA, matches
+    source=snapshot.get('hfSource') or {}
+    if source.get('form',{}).get('formVersion',{}).get('versionLabel')!='v2.0':
+        raise ValueError('2.0 requires a frozen v2.0 source')
+    result=project(snapshot,secret=secret,key_version=key_version,module=module)
+    fields=source.get('workflowFields') or {}
+    safe={k:v for k,v in fields.items() if k in SCHEMA['$defs']['fields']['properties']}
+    if not matches(safe,{'$ref':'#/$defs/fields'}):raise ValueError('Frozen v2 fields violate schema')
+    result['workflowFields']=deepcopy(safe)
+    policy=profile(load_rules());issues=[];modules=[]
+    for name in MODULES:
+        key={'ai_diagnosis':'M1','ai_lab_test':'M2','ai_treatment':'M3','ai_medsafety':'M4'}[name]
+        required=policy['workflowPolicy']['requiredResolved'][key]
+        missing=[k for k in required if safe.get(k,{}).get('value_state')!='answered']
+        for field in missing:issues.append(dict(issueCode='MISSING_VALUE',path='workflowFields.'+field,fieldCode=field,severity='error',module=name,messageVi='Chưa có giá trị đã xác minh.'))
+        modules.append({'module':name,'status':'blocked' if missing else 'ready','issueCount':len(missing)})
+    result['quality']={'requestedModule':module,'status':'blocked' if any(m['status']=='blocked' for m in modules if module is None or m['module']==module) else 'ready','issues':issues,'modules':modules}
+    result.update(contractVersion='hf-ai-input/2.0',mappingVersion='hf-map/2.0',jsonSchemaId='urn:hfcare:ai-input:2.0')
+    return result
+
+
 def export_hf_input(visit_id,request,principal,module,diagnostic,version='1.0'):
     from .audit import record_audit_log
     from .care import require_visit_access
@@ -223,7 +249,9 @@ def export_hf_input(visit_id,request,principal,module,diagnostic,version='1.0'):
             if not rev:pending=ProblemError(409,'VISIT_NOT_CONFIRMED','Thiếu snapshot','Không tìm thấy snapshot của bản xác nhận hiện tại.')
             else:
                 try:
-                    projector=project_v11 if version=='1.1' else project
+                    frozen_label=(rev['snapshot_data'].get('hfSource') or {}).get('form',{}).get('formVersion',{}).get('versionLabel')
+                    if frozen_label=='v2.0':version='2.0'
+                    projector=project_v20 if version=='2.0' else project_v11 if version=='1.1' else project
                     payload=projector(rev['snapshot_data'],secret=secret,key_version=key_version,module=module)
                     from .hf_schema import validate_export
                     validate_export(payload)
@@ -232,7 +260,7 @@ def export_hf_input(visit_id,request,principal,module,diagnostic,version='1.0'):
                     pending=ProblemError(422,'AI_SNAPSHOT_INCOMPATIBLE','Snapshot chưa tương thích','Snapshot không đáp ứng hợp đồng có phiên bản; không dùng dữ liệu hiện tại để bù.')
                 if payload is not None and payload['quality']['status']=='blocked' and not diagnostic:
                     pending=ProblemError(422,'AI_INPUT_NOT_READY','Dữ liệu chưa sẵn sàng cho AI','Xem quality theo module và field.');pending.quality=payload['quality']
-        audit_detail={'contractVersion':'hf-ai-input/'+version,'mappingVersion':'hf-map/1.1-test' if version=='1.1' else 'hf-map/1.0','privacyVersion':'ai-pseudonym-v1','keyVersion':key_version,'revisionNo':row['current_revision_no'],'module':module,'diagnostic':diagnostic,'code':pending.code if pending else 'OK'}
+        audit_detail={'contractVersion':'hf-ai-input/'+version,'mappingVersion':'hf-map/2.0' if version=='2.0' else 'hf-map/1.1-test' if version=='1.1' else 'hf-map/1.0','privacyVersion':'ai-pseudonym-v1','keyVersion':key_version,'revisionNo':row['current_revision_no'],'module':module,'diagnostic':diagnostic,'code':pending.code if pending else 'OK'}
         if payload:
             stable={k:v for k,v in payload.items() if k!='export'}
             audit_detail.update(contentHash=digest(stable),issueCount=len(payload['quality']['issues']),exportId=payload['export']['id'])

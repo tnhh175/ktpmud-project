@@ -157,7 +157,7 @@ CROSS JOIN LATERAL jsonb_each(w.fields) entry
 JOIN field_definition fd ON fd.code=CASE entry.key
  WHEN 'tang_huyet_ap' THEN 'ts_tang_huyet_ap' WHEN 'dai_thao_duong' THEN 'ts_dai_thao_duong'
  WHEN 'copd' THEN 'ts_copd' WHEN 'thieu_mau' THEN 'ts_thieu_mau' ELSE entry.key END
-WHERE (fd.code IN ('diagnoses','medications','allergies') OR EXISTS(SELECT 1 FROM form_field ff WHERE ff.form_version_id=v.form_version_id AND ff.field_definition_id=fd.id)) AND v.status='draft' AND fd.data_type<>'text' AND entry.key NOT IN ('age','sex','selected_medications')
+WHERE (fd.code IN ('diagnoses','medications','allergies') OR EXISTS(SELECT 1 FROM form_field ff WHERE ff.form_version_id=v.form_version_id AND ff.field_definition_id=fd.id)) AND v.status::text IN ('draft','in_progress') AND fd.data_type<>'text' AND entry.key NOT IN ('age','sex','selected_medications')
  AND entry.value->>'value_state' IN ('answered','unknown')
 ON CONFLICT(visit_id,field_definition_id) DO NOTHING RETURNING visit_id)
 UPDATE visit SET row_version=row_version+1 WHERE id IN (SELECT visit_id FROM copied);

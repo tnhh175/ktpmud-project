@@ -181,7 +181,7 @@ def create_app(
         if sqlstate == "23505":
             return problem_response(
                 status=409,
-                code="UNIQUE_CONSTRAINT_VIOLATION",
+                code="CCCD_ALREADY_EXISTS" if getattr(exc.diag,'constraint_name',None)=='uq_patient_cccd' else "UNIQUE_CONSTRAINT_VIOLATION",
                 title="Xung đột dữ liệu trùng lặp",
                 detail="Bản ghi đã tồn tại hoặc xung đột khóa duy nhất.",
                 instance=request.url.path,

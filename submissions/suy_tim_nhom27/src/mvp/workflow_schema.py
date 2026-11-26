@@ -9,6 +9,22 @@ from uuid import UUID
 
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = json.loads((ROOT / 'api/schemas/hf-workflow-1.0.schema.json').read_text(encoding='utf-8'))
+# Add v2 vocabulary at runtime; published v1.2 schema/artifacts stay pinned.
+_v2_path=ROOT/'api/schemas/hf-ai-input-2.0.schema.json'
+if _v2_path.exists():
+    _v2=json.loads(_v2_path.read_text(encoding='utf-8'))['$defs']
+    SCHEMA['$defs']['m1Output']['properties']['canh_bao_cap_cuu']=_v2['m1Output']['properties']['canh_bao_cap_cuu']
+    for _key,_contract in _v2['fields']['properties'].items():
+        if _key not in SCHEMA['$defs']['fields']['properties']:
+            SCHEMA['$defs']['fields']['properties'][_key]=_contract
+            SCHEMA['$defs']['fieldReadFields']['properties'][_key]={'$ref':'#/$defs/fieldReadObservation'}
+    SCHEMA['$defs']['inputSnapshot']['properties']['formVersionLabel']={'enum':['v1.2','v2.0']}
+    SCHEMA['$defs']['inputSnapshot']['properties']['mappingVersion']={'enum':['hf-map/1.1-test','hf-map/2.0']}
+    _class=SCHEMA['$defs']['compactMedication']['properties']['class']
+    # class is nullable in the compact contract.
+    for _branch in _class.get('anyOf',[_class]):
+        if 'enum' in _branch:
+            _branch['enum']+=['corticosteroid','TZD','class_I_antiarrhythmic']
 
 
 def matches(value, schema, root=SCHEMA):

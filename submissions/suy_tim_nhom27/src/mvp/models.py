@@ -9,8 +9,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
-UserRole = Literal["doctor", "admin", "pharmacist"]
-VisitStatus = Literal["draft", "confirmed"]
+UserRole = Literal["doctor", "admin", "pharmacist", "nurse"]
+VisitStatus = Literal["draft", "intake", "waiting", "in_progress", "confirmed"]
 ValueState = Literal["answered", "unknown"]
 FormVersionStatus = Literal["draft", "published", "retired"]
 FieldScopeStatus = Literal["mvp", "can_xac_nhan"]
@@ -18,6 +18,7 @@ FieldDataType = Literal[
     "number", "integer", "text", "boolean", "date", "single_choice", "multi_choice", "object"
 ]
 SectionCode = Literal[
+    "sinh_ton", "trieu_chung_kham", "chan_doan_nguy_co", "thuoc",
     "hanh_chinh",
     "trieu_chung_dien_bien",
     "sinh_ton_kham",
@@ -30,6 +31,7 @@ SectionCode = Literal[
 ReadinessTier = Literal["patient_created", "draft_saved", "confirmed", "ai_ready"]
 BpPosition = Literal["supine", "sitting", "standing"]
 AuditAction = Literal[
+    "visit_create", "visit_submit", "visit_claim", "visit_withdraw", "patient_update",
     "login",
     "logout",
     "login_failed",
@@ -287,6 +289,7 @@ class CareAccess(BaseModel):
 
 
 class Patient(BaseModel):
+    cccd: str | None = None
     updatedBy: UUID
     updatedByName: str | None = None
     access: CareAccess | None = None
@@ -305,13 +308,12 @@ class Patient(BaseModel):
 
 
 class CreatePatientRequest(BaseModel):
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     fullName: str = Field(min_length=2, max_length=120)
     sex: SexType
-    birthDate: date | None = None
-    birthYear: int | None = Field(default=None, ge=1900, le=2100)
-    declaredAge: int | None = Field(default=None, ge=0, le=120)
+    birthDate: date
+    cccd: str | None = Field(default=None, pattern=r"^[0-9]{12}$")
     externalPatientCode: str | None = Field(default=None, max_length=64)
 
     @field_validator("birthDate", "externalPatientCode", mode="before")
@@ -321,14 +323,13 @@ class CreatePatientRequest(BaseModel):
 
 
 class UpdatePatientRequest(BaseModel):
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
     rowVersion: int | None = Field(default=None, ge=1)
     fullName: str | None = Field(default=None, min_length=2, max_length=120)
     sex: SexType | None = None
-    birthDate: date | None = None
-    birthYear: int | None = Field(default=None, ge=1900, le=2100)
-    declaredAge: int | None = Field(default=None, ge=0, le=120)
+    birthDate: date
+    cccd: str | None = Field(default=None, pattern=r"^[0-9]{12}$")
     externalPatientCode: str | None = Field(default=None, max_length=64)
 
     @field_validator("birthDate", "externalPatientCode", mode="before")
@@ -343,7 +344,7 @@ class PatientListItem(BaseModel):
     latestVisitId: UUID | None = None
     latestVisitCode: str | None = None
     latestVisitDate: datetime | None = None
-    latestVisitStatus: Literal["draft", "confirmed", "none"]
+    latestVisitStatus: Literal["draft", "intake", "waiting", "in_progress", "confirmed", "none"]
 
 
 class PatientListResponse(BaseModel):
@@ -371,6 +372,7 @@ class FieldAiModule(BaseModel):
 
 
 class FieldDefinition(BaseModel):
+    entryRole: Literal['nurse', 'doctor', 'auto'] | None = None
     id: UUID
     code: str
     labelVi: str
@@ -515,8 +517,13 @@ class PublishFormVersionRequest(BaseModel):
 # Visit, Clinical Data, Review, Revision & AiInputPayload (M3, M4, M5)
 # ---------------------------------------------------------------------------
 class Visit(BaseModel):
+    assignedDoctorId: UUID | None = None
+    claimedAt: datetime | None = None
+    submittedBy: UUID | None = None
+    submittedAt: datetime | None = None
     performedBy: UUID
     performedByName: str | None = None
+    performedByRole: Literal['doctor', 'nurse', 'admin'] | None = None
     updatedBy: UUID
     updatedByName: str | None = None
     id: UUID
@@ -544,8 +551,16 @@ class Visit(BaseModel):
     rowVersion: int
 
 
+class VisitListItem(Visit):
+    patientCode: str | None = None
+    patientName: str | None = None
+    sex: str | None = None
+    age: int | None = None
+    vitals: dict[str, float | None] | None = None
+
+
 class VisitListResponse(BaseModel):
-    items: list[Visit]
+    items: list[VisitListItem]
     pagination: PaginationMeta
 
 
@@ -568,6 +583,7 @@ class VisitValueOption(BaseModel):
 
 
 class VisitValueInput(BaseModel):
+    unknownReason: str | None = Field(default=None, min_length=1, max_length=500)
     model_config = ConfigDict(extra="ignore")
 
     visitId: UUID | None = None
@@ -585,6 +601,7 @@ class VisitValueInput(BaseModel):
 
 
 class VisitValueOut(BaseModel):
+    unknownReason: str | None = None
     visitId: UUID
     fieldDefinitionId: UUID
     fieldCode: str
@@ -754,6 +771,69 @@ class VisitRevision(BaseModel):
     createdAt: datetime
 
 
+class HfStageSummary(BaseModel):
+    code: Literal['A','B','C','D'] | None
+    label: str
+    source: Literal['ai','manual'] | None
+
+
+class EfPhenotypeSummary(BaseModel):
+    code: Literal['HFrEF','HFmrEF','HFpEF'] | None
+    label: str
+
+
+class SummaryLab(BaseModel):
+    code: str
+    label: str
+    value: float
+    unit: str | None
+    measuredAt: datetime | None
+    flag: Literal['high','low'] | None
+
+
+class SummaryMedication(BaseModel):
+    name: str
+    group: str | None
+    groupLabel: str | None
+    pillar: bool
+    caution: bool
+
+
+class SummaryAlert(BaseModel):
+    ruleId: str
+    severity: str
+    message: str
+
+
+class QueueVitals(BaseModel):
+    sbp: float | None
+    dbp: float | None
+    hr: float | None
+    rr: float | None
+    spo2: float | None
+    weightKg: float | None
+    heightCm: float | None
+    bmi: float | None
+
+
+class VisitQueueItem(BaseModel):
+    visitId: UUID
+    visitCode: str
+    patientId: UUID
+    patientCode: str
+    patientName: str
+    sex: SexType
+    age: int | None
+    submittedAt: datetime | None
+    submittedByName: str | None
+    vitals: QueueVitals
+
+
+class VisitQueueResponse(BaseModel):
+    items: list[VisitQueueItem]
+    pagination: PaginationMeta
+
+
 class LatestVisitClinicalSummary(BaseModel):
     sourceVisitId: UUID
     sourceVisitCode: str
@@ -762,12 +842,11 @@ class LatestVisitClinicalSummary(BaseModel):
     sourceFormVersionId: UUID
     sourceFormVersionLabel: str | None = None
     sourceRowVersion: int
-    heightCm: float | None = None
-    weightKg: float | None = None
-    bmi: float | None = None
-    latestBp: OrthostaticBpMeasurement | None = None
-    recordedMedications: list[VisitMedication] = Field(default_factory=list)
-    recordedAllergies: list[VisitAllergy] = Field(default_factory=list)
+    hfStage: HfStageSummary
+    efPhenotype: EfPhenotypeSummary
+    keyLabs: list[SummaryLab] = Field(default_factory=list)
+    medications: list[SummaryMedication] = Field(default_factory=list)
+    openAlerts: list[SummaryAlert] = Field(default_factory=list)
 
 
 class PatientDetailResponse(BaseModel):
@@ -803,7 +882,7 @@ class VisitFormStructureResponse(BaseModel):
 
 
 class SaveVisitDraftRequest(BaseModel):
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     medicationListState: Literal["known", "none", "unknown"] | None = None
     allergyListState: Literal["known", "none", "unknown"] | None = None

@@ -6,6 +6,13 @@ def apply_definition_overrides(definitions, overrides):
     """Use the pinned version's storage/options in saved and unsaved bundles."""
     for definition in definitions:
         override = overrides.get(definition['code'], {})
+        if overrides.get('_workflow',{}).get('mappingVersion')=='hf-map/2.0':
+            for key in ('sectionCode','labelVi','dataType','canonicalUnit','storageLevel','isCalculated','scopeStatus','validationRule','entryRole','helpText','repeatGroup','memberPath'):
+                if key in override:definition[key]=override[key]
+            # Existing published v2 bundles are immutable. Correct the legacy
+            # renderer hint on read as well as in newly generated v2 metadata.
+            if definition['code'] in ('huyet_ap_tam_thu','huyet_ap_tam_truong'):
+                definition.update(repeatGroup=None, memberPath=None)
         if definition['code'] == 'di_ung_thuoc_can_quang' and override.get('storageLevel') == 'visit_value':
             definition.update(storageLevel='visit_value', repeatGroup=None, memberPath=None)
         extras = override.get('extraOptions', [])
@@ -62,7 +69,7 @@ def export_snapshot(conn,visit_id):
     fv,sections,definitions=load_form_version_bundle(conn,visit['formVersionId'])
     patient=conn.execute('SELECT * FROM patient WHERE id=%s',(visit['patientId'],)).fetchone()
     source={'sourceVersion':'hf-source/1.0','patientId':visit['patientId'],'visitId':visit['id'],'age':_compute_age(patient,_parse_iso_datetime(visit['visitDate'])),'agePrecision':'exact' if patient.get('birth_date') else ('year_only' if patient.get('birth_year') else 'declared'),'sex':patient['sex'],'form':{'formVersion':fv,'sections':sections,'fieldDefinitions':definitions},'detail':detail}
-    if fv['versionLabel']=='v1.2' and conn.execute("SELECT to_regclass('public.ai_workflow') AS relation").fetchone()['relation']:
+    if fv['versionLabel'] in ('v1.2','v2.0') and conn.execute("SELECT to_regclass('public.ai_workflow') AS relation").fetchone()['relation']:
         from .workflow import source_fields
         visit_row=conn.execute('SELECT * FROM visit WHERE id=%s',(str(visit_id),)).fetchone()
         source['workflowFields']=source_fields(conn,visit_row)

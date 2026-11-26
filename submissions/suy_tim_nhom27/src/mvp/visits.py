@@ -6,12 +6,12 @@ import math
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, Header, Request, Response
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 import psycopg
 from psycopg.types.json import Jsonb
 
 from .audit import record_audit_log
-from .care import require_visit_access, audit_access
+from .care import require_visit_access, audit_access, nurse_field_codes
 from .auth import Principal, get_client_ip, get_request_id, require_role
 from .db import num_to_json, parse_if_match, to_date_iso, to_iso
 from .models import (
@@ -19,6 +19,8 @@ from .models import (
     ProblemError,
     SaveVisitDraftRequest,
     Visit,
+    VisitListResponse,
+    VisitQueueResponse,
     VisitDetailResponse,
     VisitFormStructureResponse,
     VisitReviewResponse,
@@ -26,12 +28,183 @@ from .models import (
     ConfirmVisitRequest,
     CreateVisitRevisionRequest,
 )
-from .patients import allergy_row_to_dict, bp_row_to_dict, med_row_to_dict, visit_row_to_dict
+from .patients import allergy_row_to_dict, bp_row_to_dict, med_row_to_dict, visit_row_to_dict, nurse_visit_dict
 
 
 router = APIRouter(prefix="/api/v1", tags=["Visits"])
 
 _require_doctor_visit = require_role("doctor", "visit")
+_require_intake_visit = require_role(["doctor", "nurse"], "visit")
+
+
+def _nurse_detail(conn, detail):
+    allowed = nurse_field_codes(conn, detail['visit']['formVersionId'])
+    detail['values'] = [v for v in detail['values'] if v['fieldCode'] in allowed]
+    for key in ('medications','allergies','labResults','revisions','diagnoses'):
+        detail[key] = []
+    for key in ('clinicalNote','chiefComplaint','infoSource','confirmNote'):
+        detail['visit'][key] = None
+    for key in ('medicationListState','allergyListState','diagnosisListState'):
+        detail['visit'][key] = 'unknown'
+    detail['workflow'] = None
+    detail['fieldMetadata'] = {k:v for k,v in detail.get('fieldMetadata',{}).items() if k in allowed}
+    return detail
+
+
+def _validate_nurse_draft(conn, visit, body):
+    allowed = nurse_field_codes(conn, visit['form_version_id'])
+    forbidden = body.model_fields_set - {'rowVersion','values','orthostaticBp'}
+    for value in body.values:
+        row = conn.execute('SELECT code FROM field_definition WHERE id=%s',
+                           (str(value.fieldDefinitionId),)).fetchone() if value.fieldDefinitionId else None
+        resolved = row['code'] if row else value.fieldCode
+        if resolved not in allowed or (value.fieldCode is not None and value.fieldCode != resolved):
+            forbidden.add(value.fieldCode or resolved or 'values')
+    if forbidden:
+        raise ProblemError(403,'FIELD_NOT_ALLOWED_FOR_ROLE','Trường ngoài quyền NVYT',
+                           'NVYT chỉ nhập hành chính và sinh hiệu.',
+                           errors=[{'fieldCode':f,'message':'FIELD_NOT_ALLOWED_FOR_ROLE'} for f in sorted(forbidden)])
+
+
+def _queue_vitals(conn, visit_id):
+    rows = conn.execute('''SELECT fd.code,vv.* FROM visit_value vv JOIN field_definition fd
+                          ON fd.id=vv.field_definition_id WHERE vv.visit_id=%s''',(str(visit_id),)).fetchall()
+    by_code = {r['code']:r for r in rows}
+    def number(code):
+        row = by_code.get(code)
+        if not row or row['value_state']!='answered': return None
+        obj = row.get('answer')
+        return obj.get('value') if obj and obj.get('value_state')=='answered' else num_to_json(row.get('value_num'))
+    bp = conn.execute('''SELECT * FROM visit_orthostatic_bp WHERE visit_id=%s
+       ORDER BY (position='sitting') DESC,measured_at DESC,created_at DESC,id LIMIT 1''',(str(visit_id),)).fetchone()
+    result = dict(sbp=number('huyet_ap_tam_thu'),dbp=number('huyet_ap_tam_truong'),hr=number('mach'),
+                  rr=number('nhip_tho'),spo2=number('spo2'),weightKg=number('can_nang_kg'),heightCm=number('chieu_cao_cm'),bmi=None)
+    if bp:
+        v2 = conn.execute("SELECT fv.version_label='v2.0' AS v2 FROM visit v JOIN form_version fv ON fv.id=v.form_version_id WHERE v.id=%s", (str(visit_id),)).fetchone()['v2']
+        for key, code, column in [('sbp','huyet_ap_tam_thu','systolic'),('dbp','huyet_ap_tam_truong','diastolic'),('hr','mach','heart_rate')]:
+            if not v2 or code not in by_code:
+                result[key] = bp[column] if key != 'hr' else result[key] or bp[column]
+    if result['weightKg'] and result['heightCm']:
+        result['bmi'] = round(float(result['weightKg'])/(float(result['heightCm'])/100)**2,2)
+    return result,by_code
+
+
+def _transition_response(row, response, *, nurse=False):
+    response.headers['ETag'] = '"'+str(row['row_version'])+'"'
+    return nurse_visit_dict(row) if nurse else visit_row_to_dict(row)
+
+
+@router.post('/visits/{visitId}/submit',operation_id='submitVisit',response_model=Visit)
+def submit_visit(visitId: UUID, request: Request, response: Response,
+                 principal: Principal = Depends(require_role('nurse','visit'))):
+    with request.app.state.pool.connection() as conn:
+        require_visit_access(conn,visitId,principal,write=True)
+        visit = conn.execute('SELECT * FROM visit WHERE id=%s',(str(visitId),)).fetchone()
+        if visit['status']!='intake':
+            raise ProblemError(409,'VISIT_NOT_INTAKE','Lượt chưa ở intake','Chỉ gửi lượt đang tiếp nhận.')
+        vitals,values = _queue_vitals(conn,visitId)
+        missing = []
+        for key,code in [('heightCm','chieu_cao_cm'),('weightKg','can_nang_kg'),('sbp','huyet_ap_tam_thu'),
+                         ('dbp','huyet_ap_tam_truong'),('hr','mach')]:
+            row = values.get(code) or {}
+            obj = row.get('answer') or {}
+            unknown = row.get('value_state')=='unknown' or obj.get('value_state')=='unknown'
+            reason = row.get('unknown_reason') or obj.get('reason') or obj.get('unknown_reason')
+            if vitals[key] is None and not (unknown and isinstance(reason,str) and reason.strip()):
+                missing.append({'fieldCode':code,'message':'Bắt buộc nhập hoặc Chưa rõ kèm lý do.'})
+        if missing:
+            raise ProblemError(422,'INTAKE_REQUIREMENTS_UNMET','Thiếu sinh hiệu tiếp nhận',
+                               'Bổ sung sinh hiệu trước khi gửi hàng chờ.',errors=missing)
+        row = conn.execute('''UPDATE visit SET status='waiting',submitted_by=%s,submitted_at=now(),
+            updated_by=%s,row_version=row_version+1 WHERE id=%s AND status='intake' RETURNING *''',
+            (principal.user_id,principal.user_id,visitId)).fetchone()
+        audit_access(conn,request,principal,'visit_submit','visit',visitId,{'from':'intake','to':'waiting'})
+    row.update(creator_name=principal.full_name,creator_role=principal.role)
+    return _transition_response(row,response,nurse=True)
+
+
+@router.post('/visits/{visitId}/withdraw',operation_id='withdrawVisit',response_model=Visit)
+def withdraw_visit(visitId: UUID, request: Request, response: Response,
+                   principal: Principal = Depends(require_role('nurse','visit'))):
+    with request.app.state.pool.connection() as conn:
+        require_visit_access(conn,visitId,principal,write=True,allow_waiting=True)
+        row = conn.execute('''UPDATE visit SET status='intake',submitted_by=NULL,submitted_at=NULL,
+          updated_by=%s,row_version=row_version+1 WHERE id=%s AND status='waiting' AND created_by=%s RETURNING *''',
+          (principal.user_id,visitId,principal.user_id)).fetchone()
+        if not row:
+            raise ProblemError(409,'VISIT_NOT_WAITING','Lượt không còn ở hàng chờ','Không thể rút lượt đã được nhận.')
+        audit_access(conn,request,principal,'visit_withdraw','visit',visitId,{'from':'waiting','to':'intake'})
+    row.update(creator_name=principal.full_name,creator_role=principal.role)
+    return _transition_response(row,response,nurse=True)
+
+
+@router.post('/visits/{visitId}/claim',operation_id='claimVisit',response_model=Visit)
+def claim_visit(visitId: UUID, request: Request, response: Response,
+                principal: Principal = Depends(_require_doctor_visit)):
+    with request.app.state.pool.connection() as conn:
+        # A single conditional UPDATE determines the winner, including concurrent requests.
+        row = conn.execute('''UPDATE visit SET status='in_progress',assigned_doctor_id=%s,claimed_at=now(),
+           updated_by=%s,row_version=row_version+1 WHERE id=%s AND status='waiting' RETURNING *''',
+           (principal.user_id,principal.user_id,visitId)).fetchone()
+        if not row:
+            if not conn.execute('SELECT 1 FROM visit WHERE id=%s',(visitId,)).fetchone():
+                raise ProblemError(404,'RESOURCE_NOT_FOUND','Không tìm thấy lượt khám','Lượt khám không tồn tại.')
+            raise ProblemError(409,'VISIT_ALREADY_CLAIMED','Không thể nhận lượt','Lượt không còn ở hàng chờ.')
+        audit_access(conn,request,principal,'visit_claim','visit',visitId,{'from':'waiting','to':'in_progress'})
+    row.update(assigned_doctor_name=principal.full_name)
+    return _transition_response(row,response)
+
+
+@router.get('/visit-queue',operation_id='listVisitQueue',response_model=VisitQueueResponse)
+def visit_queue(request: Request, page: int = Query(1,ge=1),pageSize: int = Query(20,ge=1,le=100),
+                principal: Principal = Depends(_require_doctor_visit)):
+    from .db import compute_pagination
+    with request.app.state.pool.connection() as conn:
+        total = conn.execute("SELECT count(*) AS n FROM visit WHERE status='waiting'").fetchone()['n']
+        rows = conn.execute('''SELECT v.*,p.patient_code,p.full_name AS patient_name,p.sex,p.birth_date,
+           p.birth_year,p.declared_age,u.full_name AS submitter_name FROM visit v JOIN patient p ON p.id=v.patient_id
+           LEFT JOIN app_user u ON u.id=v.submitted_by WHERE v.status='waiting'
+           ORDER BY v.submitted_at ASC NULLS LAST,v.id LIMIT %s OFFSET %s''',(pageSize,(page-1)*pageSize)).fetchall()
+        items = [dict(visitId=str(r['id']),visitCode=r['visit_code'],patientId=str(r['patient_id']),
+            patientCode=r['patient_code'],patientName=r['patient_name'],sex=r['sex'],age=_compute_age(r,r['visit_date']),
+            submittedAt=to_iso(r['submitted_at']),submittedByName=r['submitter_name'],vitals=_queue_vitals(conn,r['id'])[0]) for r in rows]
+    return dict(items=items,pagination=compute_pagination(page,pageSize,total))
+
+
+def _personal_visits(request, principal, status, page, page_size):
+    from .db import compute_pagination
+    doctor = principal.role=='doctor'
+    where = "assigned_doctor_id=%s AND status IN ('in_progress','confirmed')" if doctor else "created_by=%s AND status IN ('intake','waiting')"
+    params = [principal.user_id]
+    if status:
+        where += ' AND status=%s'; params.append(status)
+    with request.app.state.pool.connection() as conn:
+        total = conn.execute('SELECT count(*) AS n FROM visit WHERE '+where,params).fetchone()['n']
+        rows = conn.execute('''SELECT v.*,p.patient_code,p.full_name AS patient_name,p.sex,p.birth_date,
+                            p.birth_year,p.declared_age,pc.full_name AS creator_name,pc.role AS creator_role,
+                            pd.full_name AS assigned_doctor_name FROM visit v JOIN patient p ON p.id=v.patient_id
+                            JOIN app_user pc ON pc.id=v.created_by
+                            LEFT JOIN app_user pd ON pd.id=v.assigned_doctor_id
+                            WHERE '''+where.replace('assigned_doctor_id','v.assigned_doctor_id').replace('created_by','v.created_by').replace('status','v.status')+' ORDER BY v.visit_date DESC,v.id LIMIT %s OFFSET %s',
+                            [*params,page_size,(page-1)*page_size]).fetchall()
+        items = [{**(visit_row_to_dict(r) if doctor else nurse_visit_dict(r)),
+                  'patientCode':r['patient_code'],'patientName':r['patient_name'],'sex':r['sex'],
+                  'age':_compute_age(r,r['visit_date']),'vitals':_queue_vitals(conn,r['id'])[0]} for r in rows]
+    return dict(items=items,pagination=compute_pagination(page,page_size,total))
+
+
+@router.get('/my-visits',operation_id='listMyVisits',response_model=VisitListResponse)
+def my_visits(request: Request,status: Literal['in_progress','confirmed'] | None = None,
+              page: int = Query(1,ge=1),pageSize: int = Query(20,ge=1,le=100),
+              principal: Principal = Depends(_require_doctor_visit)):
+    return _personal_visits(request,principal,status,page,pageSize)
+
+
+@router.get('/nurse/visits',operation_id='listNurseVisits',response_model=VisitListResponse)
+def nurse_visits(request: Request,status: Literal['intake','waiting'] | None = None,
+                 page: int = Query(1,ge=1),pageSize: int = Query(20,ge=1,le=100),
+                 principal: Principal = Depends(require_role('nurse','visit'))):
+    return _personal_visits(request,principal,status,page,pageSize)
 
 _CORE_AI_MODULE_BASELINE: dict[str, list[str]] = {
     "ai_diagnosis": [
@@ -343,11 +516,13 @@ def _load_visit_detail_dict(conn: psycopg.Connection[Any], visit_id: UUID | str)
     v_row = conn.execute(
         """
         SELECT
-            v.*,pc.full_name AS creator_name,pu.full_name AS editor_name,
+            v.*,pc.full_name AS creator_name,pc.role AS creator_role,pu.full_name AS editor_name,
+            pd.full_name AS assigned_doctor_name,
             fv.version_label AS form_version_label,
             (SELECT MAX(vr.revision_no) FROM visit_revision vr WHERE vr.visit_id = v.id) AS max_revision_no
         FROM visit v
         JOIN app_user pc ON pc.id=v.created_by
+        LEFT JOIN app_user pd ON pd.id=v.assigned_doctor_id
         JOIN app_user pu ON pu.id=COALESCE(v.updated_by,v.created_by)
         JOIN form_version fv ON fv.id = v.form_version_id
         WHERE v.id = %s
@@ -403,6 +578,7 @@ def _load_visit_detail_dict(conn: psycopg.Connection[Any], visit_id: UUID | str)
                 "fieldCode": vr["field_code"],
                 "valueState": vr["value_state"],
                 "answer": vr.get("answer"),
+                "unknownReason": vr.get("unknown_reason"),
                 "valueNum": num_to_json(vr.get("value_num"), vr["data_type"]),
                 "valueText": vr.get("value_text"),
                 "valueBool": vr.get("value_bool"),
@@ -532,6 +708,7 @@ def _validate_and_normalize_draft(
     ).fetchall()
     registered_def_ids = {str(r["field_definition_id"]) for r in ff_rows}
     registered_def_ids.update(d['id'] for d in all_defs if d['code'] in ('diagnoses','medications','allergies'))
+    version_label = conn.execute('SELECT version_label FROM form_version WHERE id=%s',(str(form_version_id),)).fetchone()['version_label']
 
     normalized_values: list[dict[str, Any]] = []
     seen_field_ids: set[str] = set()
@@ -565,7 +742,7 @@ def _validate_and_normalize_draft(
             )
             continue
 
-        if v.fieldDefinitionId is not None and v.fieldCode is not None and str(v.fieldDefinitionId) != fd["id"]:
+        if v.fieldDefinitionId is not None and v.fieldCode is not None and (str(v.fieldDefinitionId) != fd["id"] or v.fieldCode != fd['code']):
             errors.append(
                 {
                     "fieldCode": fd["code"],
@@ -587,6 +764,53 @@ def _validate_and_normalize_draft(
             )
             continue
 
+        if version_label == 'v2.0' and (fd.get('isCalculated') or fd['storageLevel'] in ('computed','patient','visit')):
+            errors.append({'fieldCode':fd['code'],'message':'Trường tự tính hoặc lấy từ hồ sơ không nhận giá trị nhập.'})
+            continue
+
+        if v.answer is not None and version_label=='v2.0':
+            from .his_v2.runtime import normalize_source_answer
+            obj = normalize_source_answer(fd['code'], v.answer)
+            value = obj.get('value')
+            state = obj.get('value_state')
+            dtype = fd['dataType']
+            invalid = (state not in ('answered','unknown') or 'value' not in obj or
+                (state=='unknown' and value is not None) or (state=='answered' and value is None) or
+                any(x is not None for x in (v.valueNum,v.valueText,v.valueBool,v.valueDate,v.fieldOptionId,v.unit)) or bool(v.selectedOptions) or
+                ('valueState' in v.model_fields_set and v.valueState!=state) or fd['id'] in seen_field_ids)
+            if fd.get('isCalculated') or fd['storageLevel'] in ('computed','patient','visit'):
+                invalid = True
+            if state=='answered':
+                if dtype in ('number','integer'):
+                    invalid |= (type(value) not in (int,float) or abs(value)>1e12 or not math.isfinite(value) or
+                        (dtype=='integer' and int(value)!=value) or
+                        (fd.get('minValue') is not None and value<fd['minValue']) or
+                        (fd.get('maxValue') is not None and value>fd['maxValue']))
+                elif dtype=='boolean': invalid |= type(value) is not bool
+                elif dtype=='text': invalid |= not isinstance(value,str) or not value.strip()
+                elif dtype=='single_choice': invalid |= value not in [o['optionCode'] for o in fd['options']]
+                elif dtype=='multi_choice': invalid |= not isinstance(value,list) or any(x not in [o['optionCode'] for o in fd['options']] for x in value)
+                elif dtype=='object': invalid |= not isinstance(value,(dict,list))
+                elif dtype=='date':
+                    try: invalid |= not isinstance(value,str) or _parse_iso_date(value) is None
+                    except (ValueError,TypeError): invalid=True
+                if obj.get('unit') and fd.get('canonicalUnit') and obj['unit']!=fd['canonicalUnit']: invalid=True
+                if fd.get('validationRule',{}).get('requiresMeasuredAt'):
+                    invalid |= not obj.get('measuredAt') or obj.get('unit') != fd.get('canonicalUnit')
+                if dtype == 'object':
+                    from .his_v2.runtime import valid_source_answer
+                    invalid |= not valid_source_answer(fd['code'], obj)
+            if obj.get('measuredAt'):
+                try: _parse_iso_datetime(obj['measuredAt'])
+                except (ValueError,TypeError): invalid=True
+            if invalid:
+                errors.append({'fieldCode':fd['code'],'message':'Đầu vào v2.0 không khớp kiểu, miền hoặc quyền ghi của trường.','rejectedValue':None})
+                continue
+            seen_field_ids.add(fd['id'])
+            normalized_values.append(dict(fieldDefinitionId=fd['id'],fieldCode=fd['code'],valueState=state,answer=obj,
+                valueNum=None,valueText=None,valueBool=None,valueDate=None,fieldOptionId=None,optionIds=[],unit=None))
+            continue
+
         if v.answer is not None:
             from .workflow import validate_fields, allowed_fields, canonical_code, SCHEMA
             visit = conn.execute('SELECT * FROM visit WHERE id=%s', (str(visit_id),)).fetchone()
@@ -601,6 +825,8 @@ def _validate_and_normalize_draft(
             if any(x is not None for x in (v.valueNum, v.valueText, v.valueBool, v.valueDate, v.fieldOptionId, v.unit)) or v.selectedOptions:
                 errors.append({'fieldCode': fd['code'], 'message': 'Chỉ gửi answer hoặc các cột giá trị cũ.', 'rejectedValue': None})
                 continue
+            if v.answer.get('value_state')=='answered' and fd['dataType']=='boolean' and type(v.answer.get('value')) is not bool:
+                raise ProblemError(422,'FIELD_ENUM_INVALID','Dữ liệu không hợp lệ','Trường Có/Không cần giá trị boolean.',errors=[{'fieldCode':fd['code'],'message':'Cần giá trị boolean.','rejectedValue':None}])
             validate_fields({canonical_code(fd['code']): v.answer}, allowed_fields(conn, visit))
             if 'valueState' in v.model_fields_set and v.valueState != v.answer['value_state']:
                 errors.append({'fieldCode': fd['code'], 'message': 'valueState không khớp answer.value_state.', 'rejectedValue': None})
@@ -617,7 +843,9 @@ def _validate_and_normalize_draft(
                 raise ProblemError(422,'UNIT_UNSUPPORTED','Dữ liệu không hợp lệ','Nhiệt độ dùng đơn vị °C.',errors=[{'fieldCode':fd['code'],'message':'Nhiệt độ dùng đơn vị °C.','rejectedValue':None}])
             if v.answer['value_state']=='answered' and fd['dataType']=='single_choice' and canonical_code(fd['code']) not in SCHEMA['$defs']['fields']['properties']:
                 raise ProblemError(422,'FIELD_ENUM_INVALID','Dữ liệu không hợp lệ','Lựa chọn cũ dùng fieldOptionId.',errors=[{'fieldCode':fd['code'],'message':'Lựa chọn cũ dùng fieldOptionId.','rejectedValue':None}])
-            if v.answer['value_state']=='answered' and fd['dataType'] in ('number','integer') and canonical_code(fd['code']) not in SCHEMA['$defs']['fields']['properties']:
+            # C1 permits this schema-validated E/A sentinel for atrial fibrillation.
+            non_numeric_ea = canonical_code(fd['code'])=='e_over_a_ratio' and v.answer.get('value')=='not_measurable_af'
+            if v.answer['value_state']=='answered' and fd['dataType'] in ('number','integer') and not non_numeric_ea:
                 value=v.answer['value']
                 if type(value) not in (int,float) or (type(value) is float and not math.isfinite(value)) or (fd.get('minValue') is not None and value<fd['minValue']) or (fd.get('maxValue') is not None and value>fd['maxValue']) or (fd['dataType']=='integer' and value!=int(value)):
                     raise ProblemError(422,'FIELD_OUT_OF_RANGE','Dữ liệu không hợp lệ','Giá trị ngoài miền của trường.',errors=[{'fieldCode':fd['code'],'message':'Giá trị ngoài miền của trường.','rejectedValue':None}])
@@ -629,6 +857,15 @@ def _validate_and_normalize_draft(
 
         if fd["code"] == "nhiet_do" and v.valueState == "answered" and v.unit not in (None,"°C"):
             errors.append({"fieldCode":"nhiet_do","sectionCode":"sinh_ton_kham","message":"Nhiệt độ dùng đơn vị °C.","rejectedValue":None})
+            continue
+
+        if v.valueState=='unknown' and v.unknownReason and fd['code'] in nurse_field_codes(conn,form_version_id):
+            if fd['id'] in seen_field_ids or any(x is not None for x in (v.valueNum,v.valueText,v.valueBool,v.valueDate,v.fieldOptionId,v.unit)) or v.selectedOptions:
+                errors.append({'fieldCode':fd['code'],'message':'Chưa rõ phải xóa giá trị cũ và không gửi lặp trường.'})
+                continue
+            seen_field_ids.add(fd['id'])
+            normalized_values.append(dict(fieldDefinitionId=fd['id'],fieldCode=fd['code'],valueState='unknown',
+                valueNum=None,valueText=None,valueBool=None,valueDate=None,fieldOptionId=None,optionIds=[],unit=None))
             continue
 
         if fd["storageLevel"] != "visit_value":
@@ -1736,7 +1973,7 @@ def get_visit(
     visitId: UUID,
     request: Request,
     response: Response,
-    principal: Principal = Depends(_require_doctor_visit),
+    principal: Principal = Depends(_require_intake_visit),
 ) -> dict[str, Any]:
     pool = request.app.state.pool
     with pool.connection() as conn:
@@ -1745,6 +1982,8 @@ def get_visit(
         detail["access"] = access
         from .workflow import attach_visit_workflow
         attach_visit_workflow(conn, visitId, detail, request, principal)
+        if principal.role=='nurse':
+            _nurse_detail(conn,detail)
     response.headers["ETag"] = f'"{detail["visit"]["rowVersion"]}"'
     return detail
 
@@ -1757,7 +1996,7 @@ def get_visit(
 def get_visit_form(
     visitId: UUID,
     request: Request,
-    principal: Principal = Depends(_require_doctor_visit),
+    principal: Principal = Depends(_require_intake_visit),
 ) -> dict[str, Any]:
     pool = request.app.state.pool
     with pool.connection() as conn:
@@ -1776,6 +2015,12 @@ def get_visit_form(
         fv_dict, sections, field_defs = load_form_version_bundle(
             conn, v_row["form_version_id"]
         )
+        if principal.role=='nurse':
+            allowed = nurse_field_codes(conn,v_row['form_version_id'])
+            field_defs = [f for f in field_defs if f['code'] in allowed]
+            sections = [{**sec,'fields':[f for f in sec['fields'] if f['fieldCode'] in allowed]} for sec in sections]
+            sections = [sec for sec in sections if sec['fields']]
+            fv_dict['definitionOverrides'] = {k:v for k,v in fv_dict.get('definitionOverrides',{}).items() if k in allowed}
     return {
         "visitId": str(v_row["id"]),
         "formVersion": fv_dict,
@@ -1795,7 +2040,7 @@ def save_visit_draft(
     request: Request,
     response: Response,
     if_match: str | None = Header(default=None, alias="If-Match"),
-    principal: Principal = Depends(_require_doctor_visit),
+    principal: Principal = Depends(_require_intake_visit),
 ) -> dict[str, Any]:
     pool = request.app.state.pool
     with pool.connection() as conn:
@@ -1811,6 +2056,8 @@ def save_visit_draft(
                 "Không tìm thấy lượt khám",
                 "Không tồn tại lượt khám với mã định danh yêu cầu.",
             )
+        if principal.role=='nurse':
+            _validate_nurse_draft(conn,v_row,body)
         current_rv = int(v_row["row_version"])
         if v_row["status"] == "confirmed":
             raise ProblemError(
@@ -1890,8 +2137,13 @@ def save_visit_draft(
                 "Lượt khám vừa được cập nhật đồng thời.",
             )
 
-        conn.execute("DELETE FROM visit_value_option WHERE visit_id = %s", (str(visitId),))
-        conn.execute("DELETE FROM visit_value WHERE visit_id = %s", (str(visitId),))
+        if principal.role=='nurse':
+            allowed = list(nurse_field_codes(conn,v_row['form_version_id']))
+            conn.execute('DELETE FROM visit_value_option WHERE visit_id=%s AND field_definition_id IN (SELECT id FROM field_definition WHERE code=ANY(%s))',(visitId,allowed))
+            conn.execute('DELETE FROM visit_value WHERE visit_id=%s AND field_definition_id IN (SELECT id FROM field_definition WHERE code=ANY(%s))',(visitId,allowed))
+        else:
+            conn.execute('DELETE FROM visit_value_option WHERE visit_id=%s',(visitId,))
+            conn.execute('DELETE FROM visit_value WHERE visit_id=%s',(visitId,))
 
         for val in norm_vals:
             if val.get('answer') is not None:
@@ -1903,9 +2155,9 @@ def save_visit_draft(
                 INSERT INTO visit_value (
                     visit_id, field_definition_id, value_state,
                     value_num, value_text, value_bool, value_date,
-                    field_option_id, unit
+                    field_option_id, unit, unknown_reason
                 )
-                VALUES (%s, %s, %s::value_state, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s::value_state, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     str(visitId),
@@ -1917,6 +2169,7 @@ def save_visit_draft(
                     val["valueDate"],
                     val["fieldOptionId"],
                     val["unit"],
+                    next((v.unknownReason for v in body.values if str(v.fieldDefinitionId)==val["fieldDefinitionId"] or v.fieldCode==val["fieldCode"]),None),
                 ),
             )
             for opt_id in val["optionIds"]:
@@ -1930,123 +2183,132 @@ def save_visit_draft(
 
         base_ts = datetime.now(timezone.utc)
 
-        conn.execute("DELETE FROM visit_orthostatic_bp WHERE visit_id = %s", (str(visitId),))
-        for idx, bp in enumerate(norm_bp):
-            conn.execute(
-                """
-                INSERT INTO visit_orthostatic_bp (
-                    id, visit_id, position, minute_after, systolic, diastolic,
-                    heart_rate, measured_at, note, created_at
+        if principal.role!='nurse' or 'orthostaticBp' in body.model_fields_set:
+            conn.execute("DELETE FROM visit_orthostatic_bp WHERE visit_id = %s", (str(visitId),))
+            for idx, bp in enumerate(norm_bp):
+                conn.execute(
+                    """
+                    INSERT INTO visit_orthostatic_bp (
+                        id, visit_id, position, minute_after, systolic, diastolic,
+                        heart_rate, measured_at, note, created_at
+                    )
+                    VALUES (%s, %s, %s::bp_position, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        bp["id"],
+                        str(visitId),
+                        bp["position"],
+                        bp["minuteAfter"],
+                        bp["systolic"],
+                        bp["diastolic"],
+                        bp["heartRate"],
+                        bp["measuredAt"],
+                        bp["note"],
+                        base_ts + timedelta(microseconds=idx),
+                    ),
                 )
-                VALUES (%s, %s, %s::bp_position, %s, %s, %s, %s, %s, %s, %s)
-                """,
-                (
-                    bp["id"],
-                    str(visitId),
-                    bp["position"],
-                    bp["minuteAfter"],
-                    bp["systolic"],
-                    bp["diastolic"],
-                    bp["heartRate"],
-                    bp["measuredAt"],
-                    bp["note"],
-                    base_ts + timedelta(microseconds=idx),
-                ),
-            )
 
-        conn.execute("DELETE FROM visit_medication WHERE visit_id = %s", (str(visitId),))
-        for idx, med in enumerate(norm_meds):
-            conn.execute(
-                """
-                INSERT INTO visit_medication (
-                    id, visit_id, medication_group, drug_name, active_ingredient,
-                    strength, dose, unit, frequency, route, status, started_at, note, created_at
+        if principal.role!='nurse':
+            conn.execute("DELETE FROM visit_medication WHERE visit_id = %s", (str(visitId),))
+            for idx, med in enumerate(norm_meds):
+                conn.execute(
+                    """
+                    INSERT INTO visit_medication (
+                        id, visit_id, medication_group, drug_name, active_ingredient,
+                        strength, dose, unit, frequency, route, status, started_at, note, created_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        med["id"],
+                        str(visitId),
+                        med["medicationGroup"],
+                        med["drugName"],
+                        med["activeIngredient"],
+                        med["strength"],
+                        med["dose"],
+                        med["unit"],
+                        med["frequency"],
+                        med["route"],
+                        med["status"],
+                        med["startedAt"],
+                        med["note"],
+                        base_ts + timedelta(microseconds=idx),
+                    ),
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """,
-                (
-                    med["id"],
-                    str(visitId),
-                    med["medicationGroup"],
-                    med["drugName"],
-                    med["activeIngredient"],
-                    med["strength"],
-                    med["dose"],
-                    med["unit"],
-                    med["frequency"],
-                    med["route"],
-                    med["status"],
-                    med["startedAt"],
-                    med["note"],
-                    base_ts + timedelta(microseconds=idx),
-                ),
-            )
 
-        conn.execute("DELETE FROM visit_allergy WHERE visit_id = %s", (str(visitId),))
-        for idx, alg in enumerate(norm_algs):
-            conn.execute(
-                """
-                INSERT INTO visit_allergy (
-                    id, visit_id, kind, agent_category, allergen,
-                    reaction, severity, recorded_at, note, created_at
+            conn.execute("DELETE FROM visit_allergy WHERE visit_id = %s", (str(visitId),))
+            for idx, alg in enumerate(norm_algs):
+                conn.execute(
+                    """
+                    INSERT INTO visit_allergy (
+                        id, visit_id, kind, agent_category, allergen,
+                        reaction, severity, recorded_at, note, created_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        alg["id"],
+                        str(visitId),
+                        alg["kind"],
+                        alg["agentCategory"],
+                        alg["allergen"],
+                        alg["reaction"],
+                        alg["severity"],
+                        alg["recordedAt"],
+                        alg["note"],
+                        base_ts + timedelta(microseconds=idx),
+                    ),
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """,
-                (
-                    alg["id"],
-                    str(visitId),
-                    alg["kind"],
-                    alg["agentCategory"],
-                    alg["allergen"],
-                    alg["reaction"],
-                    alg["severity"],
-                    alg["recordedAt"],
-                    alg["note"],
-                    base_ts + timedelta(microseconds=idx),
-                ),
-            )
 
-        conn.execute("DELETE FROM visit_lab_result WHERE visit_id = %s", (str(visitId),))
-        for idx, lab in enumerate(norm_labs):
-            conn.execute(
-                """
-                INSERT INTO visit_lab_result (
-                    id, visit_id, lab_code, lab_subtype, value_num,
-                    value_text, unit, measured_at, note, created_at
+            conn.execute("DELETE FROM visit_lab_result WHERE visit_id = %s", (str(visitId),))
+            for idx, lab in enumerate(norm_labs):
+                conn.execute(
+                    """
+                    INSERT INTO visit_lab_result (
+                        id, visit_id, lab_code, lab_subtype, value_num,
+                        value_text, unit, measured_at, note, created_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        lab["id"],
+                        str(visitId),
+                        lab["labCode"],
+                        lab["labSubtype"],
+                        lab["valueNum"],
+                        lab["valueText"],
+                        lab["unit"],
+                        lab["measuredAt"],
+                        lab["note"],
+                        base_ts + timedelta(microseconds=idx),
+                    ),
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """,
-                (
-                    lab["id"],
-                    str(visitId),
-                    lab["labCode"],
-                    lab["labSubtype"],
-                    lab["valueNum"],
-                    lab["valueText"],
-                    lab["unit"],
-                    lab["measuredAt"],
-                    lab["note"],
-                    base_ts + timedelta(microseconds=idx),
-                ),
-            )
 
-        if "diagnosis_list_state" in v_row:
-            conn.execute("UPDATE visit SET medication_list_state=%s,allergy_list_state=%s,diagnosis_list_state=%s WHERE id=%s",(*list_states,str(visitId)))
-            conn.execute("DELETE FROM visit_diagnosis WHERE visit_id=%s",(str(visitId),))
-            for med,norm in zip(body.medications,norm_meds):
-                if med.atcCode:
-                    conn.execute("UPDATE visit_medication SET atc_code=%s WHERE id=%s AND visit_id=%s",(med.atcCode,norm["id"],str(visitId)))
-            for alg,norm in zip(body.allergies,norm_algs):
-                if alg.atcCode:
-                    conn.execute("UPDATE visit_allergy SET atc_code=%s WHERE id=%s AND visit_id=%s",(alg.atcCode,norm["id"],str(visitId)))
-            for dx in body.diagnoses:
-                conn.execute("INSERT INTO visit_diagnosis(visit_id,code,display,role) VALUES(%s,%s,%s,%s)",(str(visitId),dx.code,dx.display.strip(),dx.role))
+            if "diagnosis_list_state" in v_row:
+                conn.execute("UPDATE visit SET medication_list_state=%s,allergy_list_state=%s,diagnosis_list_state=%s WHERE id=%s",(*list_states,str(visitId)))
+                conn.execute("DELETE FROM visit_diagnosis WHERE visit_id=%s",(str(visitId),))
+                for med,norm in zip(body.medications,norm_meds):
+                    if med.atcCode:
+                        conn.execute("UPDATE visit_medication SET atc_code=%s WHERE id=%s AND visit_id=%s",(med.atcCode,norm["id"],str(visitId)))
+                for alg,norm in zip(body.allergies,norm_algs):
+                    if alg.atcCode:
+                        conn.execute("UPDATE visit_allergy SET atc_code=%s WHERE id=%s AND visit_id=%s",(alg.atcCode,norm["id"],str(visitId)))
+                for dx in body.diagnoses:
+                    conn.execute("INSERT INTO visit_diagnosis(visit_id,code,display,role) VALUES(%s,%s,%s,%s)",(str(visitId),dx.code,dx.display.strip(),dx.role))
+        for value in body.values:
+            if value.unknownReason is not None:
+                conn.execute('''UPDATE visit_value SET unknown_reason=%s WHERE visit_id=%s AND field_definition_id IN
+                  (SELECT id FROM field_definition WHERE id=%s OR (%s::uuid IS NULL AND code=%s))''',
+                  (value.unknownReason.strip(),visitId,value.fieldDefinitionId,value.fieldDefinitionId,value.fieldCode))
         detail = _load_visit_detail_dict(conn, visitId)
         detail["access"] = access
         from .workflow import on_visit_saved
         on_visit_saved(conn, visitId, request, principal)
         from .workflow import attach_visit_workflow
         attach_visit_workflow(conn, visitId, detail, request, principal)
+        if principal.role=='nurse':
+            _nurse_detail(conn,detail)
         conn.commit()
 
     response.headers["ETag"] = f'"{detail["visit"]["rowVersion"]}"'
@@ -2164,6 +2426,7 @@ def confirm_visit(
         ).fetchone()
 
         updated_row["creator_name"] = conn.execute("SELECT full_name FROM app_user WHERE id=%s", (updated_row["created_by"],)).fetchone()["full_name"]
+        updated_row["assigned_doctor_name"] = conn.execute("SELECT full_name FROM app_user WHERE id=%s", (updated_row["assigned_doctor_id"],)).fetchone()["full_name"] if updated_row.get('assigned_doctor_id') else None
         updated_row["editor_name"] = principal.full_name
         _, ai_snapshot = _compute_review_and_ai_payload(conn, visitId)
         ai_snapshot = ai_snapshot or {}
@@ -2328,7 +2591,7 @@ def create_visit_revision(
             """
             UPDATE visit
             SET updated_by = %s,
-                status = 'draft',
+                status = 'in_progress',
                 confirmed_at = NULL,
                 confirmed_by = NULL,
                 confirm_note = NULL,
@@ -2420,3 +2683,13 @@ def get_visit_hf_ai_input_v11(visitId:UUID,request:Request,module:Literal['ai_di
                             diagnostic:bool=False,principal:Principal=Depends(_require_doctor_visit)):
     from .hf_ai import export_hf_input
     return export_hf_input(visitId,request,principal,module,diagnostic,version='1.1')
+
+
+@router.get('/visits/{visitId}/ai-input/hf/2.0',operation_id='getVisitHfAiInputV20',
+    responses={200:{'description':'Frozen v2 source, privacy envelope and required workflowFields.',
+        'content':{'application/json':{'schema':{'$ref':'./schemas/hf-ai-input-2.0.schema.json'}}}}})
+def get_visit_hf_ai_input_v20(visitId: UUID,request: Request,
+    module: Literal['ai_diagnosis','ai_lab_test','ai_treatment','ai_medsafety'] | None = None,
+    diagnostic: bool = False,principal: Principal = Depends(_require_doctor_visit)):
+    from .hf_ai import export_hf_input
+    return export_hf_input(visitId,request,principal,module,diagnostic,version='2.0')

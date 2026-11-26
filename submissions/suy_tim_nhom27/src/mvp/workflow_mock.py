@@ -133,5 +133,8 @@ def run_module(module, snapshot, *, rules=None):
         for alert in output['canh_bao']:
             classes = projection['relatedClassesByAlert'].get(alert['id'], [])
             alert['thuoc_lien_quan'] = sorted({r['id'] for r in drugs if medication_class(r) in classes})
+    if snapshot.get('formVersionLabel')=='v2.0':
+        from .his_v2.rules import run_v2
+        output,matched=run_v2(module,data,rules,output)
     validate(output, module.lower() + 'Output')
     return output, matched

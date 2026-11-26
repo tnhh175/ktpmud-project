@@ -2154,5 +2154,34 @@
       ]
     },
     "recentEvidence": "For each khoa_trung_lap key, copy recentTestEvidence[key].id to evidenceObservationIds; verify answered source, measuredAt <=30 days and doctorConfirmedReuse."
+  },
+  "v2Thresholds": {
+    "bnpOutpatient": 35,
+    "ntprobnpOutpatient": 125,
+    "bnpAcute": 100,
+    "ntprobnpAcute": 300,
+    "efReducedMax": 40,
+    "efMildMin": 41,
+    "efMildMax": 49,
+    "efPreservedMin": 50,
+    "sbpLow": 90,
+    "rrHigh": 25,
+    "hrLow": 40,
+    "hrHigh": 130,
+    "spo2Low": 90,
+    "potassiumHigh": 5.0,
+    "creatinineHigh": 221,
+    "egfrLow": 30,
+    "polypharmacyMin": 5,
+    "orthostaticDropMin": 20
+  },
+  "v2Policy": {
+    "formVersion": "v2.0",
+    "source": "docs/test-workflow/source/Rules-based_Suy_tim.md",
+    "clinicalValidation": "none; support for doctors only",
+    "legacyRules": "v1.2 retained without changing outputs",
+    "cfsThreshold": "No CFS cut-off supplied by the project rule-base; do not infer frailty from score. Explicit doctor-confirmed cognitive impairment satisfies the geriatric condition. Other frailty assessments require doctor review.",
+    "cfsReference": "https://www.dal.ca/sites/gmr/our-tools/clinical-frailty-scale.html",
+    "spo2Limit": "No oxygen treatment field in PLAN-v2; low SpO2 flags a need to verify the after-oxygen condition with a doctor."
   }
 }

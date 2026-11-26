@@ -1,9 +1,10 @@
 {
-  "schema_version": "1.1.0",
+  "schema_version": "2.0.0",
   "generated_from": "trace-table.xlsx",
   "contract_source": "CONTRACT.md",
   "contract_changes": [
-    "CR-W1-01.md"
+    "CR-W1-01.md",
+    "docs/test-workflow/PLAN-v2.md (C10)"
   ],
   "dialect": "PostgreSQL 16",
   "summary": {
@@ -19,11 +20,16 @@
   "enums": {
     "user_role": [
       "doctor",
-      "admin"
+      "admin",
+      "pharmacist",
+      "nurse"
     ],
     "visit_status": [
       "draft",
-      "confirmed"
+      "confirmed",
+      "intake",
+      "waiting",
+      "in_progress"
     ],
     "value_state": [
       "answered",
@@ -55,7 +61,11 @@
       "thuoc_di_ung",
       "can_lam_sang",
       "lao_khoa",
-      "ghi_chu"
+      "ghi_chu",
+      "sinh_ton",
+      "trieu_chung_kham",
+      "chan_doan_nguy_co",
+      "thuoc"
     ],
     "readiness_tier": [
       "patient_created",
@@ -81,7 +91,12 @@
       "visit_confirm",
       "ai_input_export",
       "care_assignment_add",
-      "care_assignment_revoke"
+      "care_assignment_revoke",
+      "visit_create",
+      "visit_submit",
+      "visit_claim",
+      "visit_withdraw",
+      "patient_update"
     ]
   },
   "ai_modules": {
@@ -482,7 +497,7 @@
           "primary_key": false,
           "unique": false,
           "check": "birth_date IS NULL OR (birth_date >= DATE '1900-01-01' AND birth_date <= CURRENT_DATE)",
-          "description": "Ngày sinh chính xác (NULL nếu chỉ biết năm sinh/tuổi)"
+          "description": "API tạo/sửa bắt buộc ngày sinh; backfill 01/01 từ năm sinh hoặc tuổi tại năm tạo hồ sơ. DB giữ NULL khi không suy được."
         },
         {
           "name": "birth_year",
@@ -550,6 +565,16 @@
           "primary_key": false,
           "unique": false,
           "description": "updated by"
+        },
+        {
+          "name": "cccd",
+          "type": "varchar(12)",
+          "nullable": true,
+          "default": null,
+          "primary_key": false,
+          "unique": false,
+          "description": "CCCD tùy chọn, đúng 12 chữ số; unique khi có giá trị.",
+          "check": "cccd IS NULL OR cccd ~ '^[0-9]{12}$'"
         }
       ],
       "primary_key": [
@@ -1779,7 +1804,7 @@
           "name": "status",
           "type": "visit_status",
           "nullable": false,
-          "default": "'draft'",
+          "default": "'intake'",
           "primary_key": false,
           "unique": false,
           "description": "Trạng thái lượt: draft hoặc confirmed"
@@ -1898,6 +1923,44 @@
           "primary_key": false,
           "unique": false,
           "description": "updated by"
+        },
+        {
+          "name": "assigned_doctor_id",
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "primary_key": false,
+          "unique": false,
+          "description": "Bác sĩ duy nhất được mở/sửa lượt đã nhận.",
+          "references": "app_user(id)"
+        },
+        {
+          "name": "claimed_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "primary_key": false,
+          "unique": false,
+          "description": "Thời điểm nhận lượt."
+        },
+        {
+          "name": "submitted_by",
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "primary_key": false,
+          "unique": false,
+          "description": "NVYT gửi lượt.",
+          "references": "app_user(id)"
+        },
+        {
+          "name": "submitted_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "primary_key": false,
+          "unique": false,
+          "description": "Thứ tự hàng chờ cũ nhất trước."
         }
       ],
       "primary_key": [
@@ -2127,6 +2190,24 @@
           "primary_key": false,
           "unique": false,
           "description": "Thời điểm cập nhật giá trị"
+        },
+        {
+          "name": "answer",
+          "type": "jsonb",
+          "nullable": true,
+          "default": null,
+          "primary_key": false,
+          "unique": false,
+          "description": "Câu trả lời có cấu trúc, giữ value_state và ngày đo theo 008."
+        },
+        {
+          "name": "unknown_reason",
+          "type": "varchar(500)",
+          "nullable": true,
+          "default": null,
+          "primary_key": false,
+          "unique": false,
+          "description": "Lý do Chưa rõ cho sinh hiệu bắt buộc khi gửi hàng chờ."
         }
       ],
       "primary_key": [
@@ -3468,7 +3549,7 @@
             "UPDATE",
             "DELETE"
           ],
-          "purpose": "Ch?n thay ??i ch?n ?o?n c?a l??t kh?m ?? x?c nh?n"
+          "purpose": "Chặn thay đổi chẩn đoán của lượt khám đã xác nhận"
         }
       ]
     },
@@ -8344,5 +8425,36 @@
         ]
       }
     ]
-  }
+  },
+  "v2_indexes": [
+    {
+      "table": "patient",
+      "name": "uq_patient_cccd",
+      "columns": [
+        "cccd"
+      ],
+      "unique": true,
+      "where": "cccd IS NOT NULL"
+    },
+    {
+      "table": "visit",
+      "name": "ix_visit_waiting_submitted",
+      "columns": [
+        "submitted_at",
+        "id"
+      ],
+      "where": "status='waiting'"
+    },
+    {
+      "table": "visit",
+      "name": "ix_visit_assigned_doctor",
+      "columns": [
+        "assigned_doctor_id",
+        "patient_id",
+        "visit_date DESC"
+      ],
+      "where": "assigned_doctor_id IS NOT NULL"
+    }
+  ],
+  "v2_visit_confirm_constraint": "status IN ('draft','intake','waiting','in_progress') requires confirmed_at/by NULL; confirmed requires both NOT NULL"
 }

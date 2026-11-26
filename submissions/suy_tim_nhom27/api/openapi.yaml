@@ -1,46 +1,49 @@
 openapi: 3.1.0
 info:
   title: Hệ thống Thu thập và Xác nhận Dữ liệu Lâm sàng Suy tim Trước AI (MVP API)
-  version: 1.0.0
-  summary: Đặc tả REST API Chặng C cho hai luồng Bác sĩ (M1-M5) và Quản trị viên (M6-M8)
-  description: 'Đặc tả OpenAPI 3.1.0 cho phạm vi MVP (Nhóm chức năng 1: Hồ sơ bệnh
-    án và lượt khám;
+  version: 2.0.0
+  summary: Tiếp nhận NVYT, hàng chờ và bác sĩ nhận lượt theo PLAN-v2
+  description: 'Đặc tả OpenAPI 3.1.0 cho phạm vi MVP (Nhóm chức năng 1: Hồ sơ bệnh án và lượt khám;
 
-    Nhóm chức năng 2: Tiếp nhận và tiền xử lý dữ liệu nhập tay; Nhóm chức năng 6:
-    Quản trị hệ thống và dữ liệu dùng chung).
+    Nhóm chức năng 2: Tiếp nhận và tiền xử lý dữ liệu nhập tay; Nhóm chức năng 6: Quản trị hệ thống và
+    dữ liệu dùng chung).
 
 
     Các nguyên tắc kiến trúc khóa cứng (K1-K10):
 
-    - K1: Tách bạch 4 tầng điều kiện (patient_created, draft_saved, confirmed, ai_ready).
-    Tầng 4 không chặn xác nhận lượt khám.
+    - K1: Tách bạch 4 tầng điều kiện (patient_created, draft_saved, confirmed, ai_ready). Tầng 4 không
+    chặn xác nhận lượt khám.
 
-    - K2: Ba trạng thái câu trả lời (chưa điền = không có bản ghi; valueState = unknown
-    là Chưa rõ; valueState = answered kèm giá trị kể cả 0 hoặc false).
+    - K2: Ba trạng thái câu trả lời (chưa điền = không có bản ghi; valueState = unknown là Chưa rõ; valueState
+    = answered kèm giá trị kể cả 0 hoặc false).
 
-    - K3: Biểu mẫu chạy theo metadata, mỗi lượt khám gắn cứng formVersionId lúc khởi
-    tạo.
+    - K3: Biểu mẫu chạy theo metadata, mỗi lượt khám gắn cứng formVersionId lúc khởi tạo.
 
-    - K4: Phiên bản biểu mẫu đã published hoặc đã có lượt khám sử dụng là bất biến
-    ở cả API (409) và DB trigger.
+    - K4: Phiên bản biểu mẫu đã published hoặc đã có lượt khám sử dụng là bất biến ở cả API (409) và DB
+    trigger.
 
-    - K5: Lượt khám đã confirmed chuyển sang chế độ chỉ đọc; sửa sau xác nhận phải
-    qua createVisitRevision kèm lý do và lưu bản chụp VisitRevision.
+    - K5: Lượt khám đã confirmed chuyển sang chế độ chỉ đọc; sửa sau xác nhận phải qua createVisitRevision
+    kèm lý do và lưu bản chụp VisitRevision.
 
-    - K6: Bảng lặp là thực thể tách biệt (OrthostaticBpMeasurement, VisitMedication,
-    VisitAllergy, VisitLabResult).
+    - K6: Bảng lặp là thực thể tách biệt (OrthostaticBpMeasurement, VisitMedication, VisitAllergy, VisitLabResult).
 
-    - K7: Tách riêng các mã cận lâm sàng (cls_bnp vs cls_nt_probnp, cls_creatinin
-    vs cls_egfr, cls_lvef vs cls_sieu_am_tim_ket_luan).
+    - K7: Tách riêng các mã cận lâm sàng (cls_bnp vs cls_nt_probnp, cls_creatinin vs cls_egfr, cls_lvef
+    vs cls_sieu_am_tim_ket_luan).
 
-    - K8: Tách quyền RBAC nghiêm ngặt — vai trò admin không có quyền đọc hay sửa hồ
-    sơ bệnh nhân và dữ liệu lâm sàng (trả 403).
+    - K8: Tách quyền RBAC nghiêm ngặt — vai trò admin không có quyền đọc hay sửa hồ sơ bệnh nhân và dữ
+    liệu lâm sàng (trả 403).
 
-    - K9: Loại bỏ hoàn toàn các đường dẫn ngoài phạm vi MVP; chỉ cung cấp hợp đồng
-    đầu ra chuẩn AiInputPayload cho lượt khám đã xác nhận.
+    - K9: Loại bỏ hoàn toàn các đường dẫn ngoài phạm vi MVP; chỉ cung cấp hợp đồng đầu ra chuẩn AiInputPayload
+    cho lượt khám đã xác nhận.
 
-    - K10: Mã bệnh nhân patientCode theo định dạng BN-\d{5} do máy chủ tự sinh, bất
-    biến; khóa nội bộ là UUID.
+    - K10: Mã bệnh nhân patientCode theo định dạng BN-\d{5} do máy chủ tự sinh, bất biến; khóa nội bộ
+    là UUID.
+
+
+    V2: nurse nhập hành chính/sinh hiệu, gửi/rút trước khi nhận; doctor chỉ mở lượt assignedDoctorId của
+    mình. Patient care assignments đã ngừng (410). birthDate bắt buộc khi tạo/sửa; birthYear/declaredAge
+    input trả 422. Không retry tự động claim/submit/withdraw khi chưa đọc lại trạng thái; timeout DB được
+    trả 503. Không có external AI trong các route này.
 
     '
   contact:
@@ -53,23 +56,20 @@ servers:
   description: Máy chủ REST API chính thức (Tiền tố chuẩn /api/v1)
 tags:
 - name: Auth
-  description: Màn 1 (M1) — Đăng nhập chung, làm mới phiên, đăng xuất và lấy thông
-    tin tài khoản hiện tại
+  description: Màn 1 (M1) — Đăng nhập chung, làm mới phiên, đăng xuất và lấy thông tin tài khoản hiện
+    tại
 - name: Patients
-  description: Màn 2 & Màn 3 (M2-M3) — Quản lý hồ sơ hành chính bệnh nhân (chỉ dành
-    cho vai trò doctor)
+  description: 'Hành chính: nurse/doctor; doctor xem theo lượt đã nhận.'
 - name: Visits
-  description: Màn 3, Màn 4 & Màn 5 (M3-M5) — Lượt khám, biểu mẫu gắn cứng, lưu nháp,
-    xem lại, xác nhận, tạo revision và xuất AiInputPayload (chỉ dành cho vai trò doctor)
+  description: Tiếp nhận và lượt khám; khóa theo bác sĩ nhận.
 - name: AdminUsers
-  description: Màn 6 (M6) — Quản trị tài khoản và xem trước phạm vi quyền (chỉ dành
-    cho vai trò admin)
+  description: Màn 6 (M6) — Quản trị tài khoản và xem trước phạm vi quyền (chỉ dành cho vai trò admin)
 - name: AdminForms
-  description: Màn 7 (M7) — Quản trị danh mục trường, biểu mẫu và vòng đời phiên bản
-    biểu mẫu (chỉ dành cho vai trò admin)
+  description: Màn 7 (M7) — Quản trị danh mục trường, biểu mẫu và vòng đời phiên bản biểu mẫu (chỉ dành
+    cho vai trò admin)
 - name: AdminAuditLogs
-  description: Màn 8 (M8) — Tra cứu nhật ký kiểm toán hệ thống không chứa dữ liệu
-    lâm sàng (chỉ dành cho vai trò admin)
+  description: Màn 8 (M8) — Tra cứu nhật ký kiểm toán hệ thống không chứa dữ liệu lâm sàng (chỉ dành cho
+    vai trò admin)
 security:
 - bearerAuth: []
 paths:
@@ -79,11 +79,10 @@ paths:
       - Auth
       operationId: login
       summary: M1 — Đăng nhập chung cho Bác sĩ và Quản trị viên
-      description: 'Xác thực bằng username và password qua một cổng đăng nhập duy
-        nhất.
+      description: 'Xác thực bằng username và password qua một cổng đăng nhập duy nhất.
 
-        Máy chủ tự xác định vai trò (`doctor` hoặc `admin`) từ hồ sơ tài khoản, không
-        nhận vai trò từ client.
+        Máy chủ tự xác định vai trò (`doctor` hoặc `admin`) từ hồ sơ tài khoản, không nhận vai trò từ
+        client.
 
         Ghi nhật ký `login` khi thành công hoặc `login_failed` khi thất bại.
 
@@ -124,8 +123,7 @@ paths:
       summary: M1 — Làm mới access token từ refresh token hợp lệ
       description: 'Đối chiếu mã băm refresh token trong bảng `user_session`.
 
-        Từ chối bằng `401` nếu phiên đã hết hạn (`expires_at`) hoặc đã bị thu hồi
-        (`revoked_at`).
+        Từ chối bằng `401` nếu phiên đã hết hạn (`expires_at`) hoặc đã bị thu hồi (`revoked_at`).
 
         '
       security: []
@@ -187,8 +185,7 @@ paths:
               $ref: '#/components/schemas/ChangePasswordRequest'
       responses:
         '200':
-          description: Thông tin tài khoản đã cập nhật, phiên hiện tại vẫn có hiệu
-            lực
+          description: Thông tin tài khoản đã cập nhật, phiên hiện tại vẫn có hiệu lực
           content:
             application/json:
               schema:
@@ -205,8 +202,7 @@ paths:
       - Auth
       operationId: logout
       summary: M1 — Đăng xuất và thu hồi phiên hiện tại
-      description: 'Cập nhật `revoked_at` cho bản ghi `user_session` hiện hành và
-        ghi nhật ký `logout`.
+      description: 'Cập nhật `revoked_at` cho bản ghi `user_session` hiện hành và ghi nhật ký `logout`.
 
         '
       x-screen: M1
@@ -238,8 +234,8 @@ paths:
       - Auth
       operationId: getCurrentUser
       summary: M1 — Lấy thông tin tài khoản và vai trò từ phiên xác thực hiện tại
-      description: 'Trả về thông tin `AppUser` của người dùng đang đăng nhập để giao
-        diện điều hướng đúng luồng `doctor` hoặc `admin`.
+      description: 'Trả về thông tin `AppUser` của người dùng đang đăng nhập để giao diện điều hướng đúng
+        luồng `doctor` hoặc `admin`.
 
         '
       x-screen: M1
@@ -267,77 +263,101 @@ paths:
     get:
       tags:
       - Patients
+      summary: List Patients
       operationId: listPatients
-      summary: M2 — Danh sách và tìm kiếm hồ sơ bệnh nhân
-      description: 'Chỉ cho phép vai trò `doctor`. Vai trò `admin` gọi đường dẫn này
-        sẽ bị chặn với mã `403 Forbidden` (chốt K8).
-
-        Hỗ trợ tìm kiếm theo mã `BN-xxxxx` hoặc tên hiển thị, lọc theo trạng thái
-        lượt khám gần nhất và phân trang chuẩn.
-
-
-
-        C4 access: Doctor only. GET filters assignments in SQL before count/pagination;
-        POST assigns the creator atomically.'
-      x-screen: M2
-      x-allowed-roles:
-      - doctor
+      security:
+      - HTTPBearer: []
       parameters:
       - name: q
         in: query
         required: false
-        description: Từ khóa tìm kiếm theo mã BN-xxxxx hoặc tên hiển thị
         schema:
-          type: string
-          maxLength: 100
+          anyOf:
+          - type: string
+            maxLength: 100
+          - type: 'null'
+          title: Q
       - name: latestVisitStatus
         in: query
         required: false
-        description: Lọc theo trạng thái lượt khám gần nhất (draft, confirmed, hoặc
-          none khi chưa có lượt)
         schema:
-          type: string
-          enum:
-          - draft
-          - confirmed
-          - none
-      - $ref: '#/components/parameters/PageParam'
-      - $ref: '#/components/parameters/PageSizeParam'
+          anyOf:
+          - enum:
+            - draft
+            - intake
+            - waiting
+            - in_progress
+            - confirmed
+            - none
+            type: string
+          - type: 'null'
+          title: Latestvisitstatus
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Pagesize
       responses:
         '200':
-          description: Danh sách hồ sơ bệnh nhân phân trang
+          description: Successful Response
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PatientListResponse'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-        '409':
-          $ref: '#/components/responses/ConflictError'
         '422':
-          $ref: '#/components/responses/UnprocessableEntityError'
+          description: FIELD_VALIDATION_FAILED / INTAKE_REQUIREMENTS_UNMET
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: AUTH_UNAUTHORIZED
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: RBAC_ROLE_FORBIDDEN / VISIT_LOCKED_BY_OTHER_DOCTOR / FIELD_NOT_ALLOWED_FOR_ROLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: CONCURRENCY_ROW_VERSION_MISMATCH / VISIT_ALREADY_CLAIMED / CCCD_ALREADY_EXISTS
+            / trạng thái không hợp lệ
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: DATABASE_UNAVAILABLE / WORKFLOW_PERSISTENCE_UNAVAILABLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      x-roles:
+      - nurse
+      - doctor
+      description: 'Vai trò: nurse, doctor. '
     post:
       tags:
       - Patients
+      summary: Create Patient
       operationId: createPatient
-      summary: M2 — Tạo mới hồ sơ hành chính bệnh nhân (Tầng điều kiện 1 - patient_created)
-      description: 'Chỉ dành cho vai trò `doctor` (`admin` bị từ chối `403`).
-
-        Máy chủ tự sinh `patientCode` duy nhất theo mẫu `BN-\d{5}` (chốt K10), lưu
-        đúng độ chính xác của ngày sinh/năm sinh/tuổi khai báo (không tự tạo ngày
-        giả 01/01) và ghi `AuditLog` (`action = patient_create`).
-
-
-
-        C4 access: Doctor only. GET filters assignments in SQL before count/pagination;
-        POST assigns the creator atomically.'
-      x-screen: M2
-      x-allowed-roles:
-      - doctor
+      security:
+      - HTTPBearer: []
       requestBody:
         required: true
         content:
@@ -346,83 +366,132 @@ paths:
               $ref: '#/components/schemas/CreatePatientRequest'
       responses:
         '201':
-          description: Tạo hồ sơ bệnh nhân thành công (đạt tầng readiness_tier = patient_created)
-          headers:
-            ETag:
-              $ref: '#/components/headers/ETagHeader'
+          description: Successful Response
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Patient'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-        '409':
-          $ref: '#/components/responses/ConflictError'
+          headers:
+            ETag:
+              description: rowVersion hiện tại, dạng quoted integer
+              schema:
+                type: string
         '422':
-          $ref: '#/components/responses/UnprocessableEntityError'
+          description: FIELD_VALIDATION_FAILED / INTAKE_REQUIREMENTS_UNMET
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: AUTH_UNAUTHORIZED
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: RBAC_ROLE_FORBIDDEN / VISIT_LOCKED_BY_OTHER_DOCTOR / FIELD_NOT_ALLOWED_FOR_ROLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: CONCURRENCY_ROW_VERSION_MISMATCH / VISIT_ALREADY_CLAIMED / CCCD_ALREADY_EXISTS
+            / trạng thái không hợp lệ
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: DATABASE_UNAVAILABLE / WORKFLOW_PERSISTENCE_UNAVAILABLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      x-roles:
+      - nurse
+      - doctor
+      description: 'Vai trò: nurse, doctor. '
   /patients/{patientId}:
-    parameters:
-    - $ref: '#/components/parameters/PatientIdParam'
     get:
       tags:
       - Patients
+      summary: Get Patient
       operationId: getPatient
-      summary: M3 — Xem chi tiết hồ sơ hành chính bệnh nhân và tóm tắt lượt gần nhất
-      description: 'Chỉ dành cho vai trò `doctor` (`admin` nhận `403`).
-
-        Trả về thông tin hành chính `Patient` và tóm tắt lâm sàng lượt gần nhất (chỉ
-        khi đã có ghi nhận thực tế, kèm nguồn `visitId`, `formVersionId`, `rowVersion`).
-
-
-
-        C4 access: Doctor assignment required for all clinical reads and writes; unauthorized
-        and missing objects both return 404. Only admin manages assignments.'
-      x-screen: M3
-      x-allowed-roles:
-      - doctor
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: patientId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Patientid
       responses:
         '200':
-          description: Chi tiết hồ sơ bệnh nhân
-          headers:
-            ETag:
-              $ref: '#/components/headers/ETagHeader'
+          description: Successful Response
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PatientDetailResponse'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-        '409':
-          $ref: '#/components/responses/ConflictError'
         '422':
-          $ref: '#/components/responses/UnprocessableEntityError'
+          description: FIELD_VALIDATION_FAILED / INTAKE_REQUIREMENTS_UNMET
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: AUTH_UNAUTHORIZED
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: RBAC_ROLE_FORBIDDEN / VISIT_LOCKED_BY_OTHER_DOCTOR / FIELD_NOT_ALLOWED_FOR_ROLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: CONCURRENCY_ROW_VERSION_MISMATCH / VISIT_ALREADY_CLAIMED / CCCD_ALREADY_EXISTS
+            / trạng thái không hợp lệ
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: DATABASE_UNAVAILABLE / WORKFLOW_PERSISTENCE_UNAVAILABLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      x-roles:
+      - nurse
+      - doctor
+      description: 'Vai trò: nurse, doctor. '
     patch:
       tags:
       - Patients
+      summary: Update Patient
       operationId: updatePatient
-      summary: M3 — Cập nhật thông tin hành chính hồ sơ bệnh nhân
-      description: 'Chỉ dành cho vai trò `doctor` (`admin` nhận `403`).
-
-        Bắt buộc kiểm soát đồng thời bằng `If-Match` / `rowVersion`. Mã `patientCode`
-        (`BN-xxxxx`) là bất biến, không cho phép sửa.
-
-
-
-        C4 access: Doctor assignment required for all clinical reads and writes; unauthorized
-        and missing objects both return 404. Only admin manages assignments.'
-      x-screen: M3
-      x-allowed-roles:
-      - doctor
+      security:
+      - HTTPBearer: []
       parameters:
-      - $ref: '#/components/parameters/IfMatchParam'
+      - name: patientId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Patientid
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: If-Match
       requestBody:
         required: true
         content:
@@ -431,90 +500,155 @@ paths:
               $ref: '#/components/schemas/UpdatePatientRequest'
       responses:
         '200':
-          description: Cập nhật hành chính bệnh nhân thành công
-          headers:
-            ETag:
-              $ref: '#/components/headers/ETagHeader'
+          description: Successful Response
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Patient'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-        '409':
-          $ref: '#/components/responses/ConflictError'
+          headers:
+            ETag:
+              description: rowVersion hiện tại, dạng quoted integer
+              schema:
+                type: string
         '422':
-          $ref: '#/components/responses/UnprocessableEntityError'
+          description: FIELD_VALIDATION_FAILED / INTAKE_REQUIREMENTS_UNMET
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: AUTH_UNAUTHORIZED
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: RBAC_ROLE_FORBIDDEN / VISIT_LOCKED_BY_OTHER_DOCTOR / FIELD_NOT_ALLOWED_FOR_ROLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: CONCURRENCY_ROW_VERSION_MISMATCH / VISIT_ALREADY_CLAIMED / CCCD_ALREADY_EXISTS
+            / trạng thái không hợp lệ
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: DATABASE_UNAVAILABLE / WORKFLOW_PERSISTENCE_UNAVAILABLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      x-roles:
+      - nurse
+      - doctor
+      description: 'Vai trò: nurse, doctor. '
   /patients/{patientId}/visits:
-    parameters:
-    - $ref: '#/components/parameters/PatientIdParam'
     get:
       tags:
-      - Visits
+      - Patients
+      summary: List Patient Visits
       operationId: listPatientVisits
-      summary: M3 — Lấy dòng thời gian (timeline) các lượt khám của bệnh nhân
-      description: 'Chỉ dành cho vai trò `doctor` (`admin` nhận `403`).
-
-        Trả về danh sách các lượt khám của bệnh nhân theo thứ tự thời gian mới nhất
-        lên đầu, kèm trạng thái `draft`/`confirmed`, `formVersionId` và `rowVersion`.
-
-
-
-        C4 access: Doctor assignment required for all clinical reads and writes; unauthorized
-        and missing objects both return 404. Only admin manages assignments.'
-      x-screen: M3
-      x-allowed-roles:
-      - doctor
+      security:
+      - HTTPBearer: []
       parameters:
+      - name: patientId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Patientid
       - name: status
         in: query
         required: false
-        description: Lọc theo trạng thái lượt khám
         schema:
-          $ref: '#/components/schemas/VisitStatus'
-      - $ref: '#/components/parameters/PageParam'
-      - $ref: '#/components/parameters/PageSizeParam'
+          anyOf:
+          - enum:
+            - draft
+            - intake
+            - waiting
+            - in_progress
+            - confirmed
+            type: string
+          - type: 'null'
+          title: Status
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Pagesize
       responses:
         '200':
-          description: Danh sách dòng thời gian lượt khám của bệnh nhân
+          description: Successful Response
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/VisitListResponse'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-        '409':
-          $ref: '#/components/responses/ConflictError'
         '422':
-          $ref: '#/components/responses/UnprocessableEntityError'
+          description: FIELD_VALIDATION_FAILED / INTAKE_REQUIREMENTS_UNMET
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: AUTH_UNAUTHORIZED
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: RBAC_ROLE_FORBIDDEN / VISIT_LOCKED_BY_OTHER_DOCTOR / FIELD_NOT_ALLOWED_FOR_ROLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: CONCURRENCY_ROW_VERSION_MISMATCH / VISIT_ALREADY_CLAIMED / CCCD_ALREADY_EXISTS
+            / trạng thái không hợp lệ
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: DATABASE_UNAVAILABLE / WORKFLOW_PERSISTENCE_UNAVAILABLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      x-roles:
+      - nurse
+      - doctor
+      description: 'Vai trò: nurse, doctor. '
     post:
       tags:
-      - Visits
+      - Patients
+      summary: Create Visit
       operationId: createVisit
-      summary: M4 — Tạo lượt khám mới gắn cứng phiên bản biểu mẫu published hiện hành
-      description: 'Chỉ dành cho vai trò `doctor` (`admin` nhận `403`).
-
-        Khởi tạo lượt khám mới ở trạng thái `draft`, tự động gắn cứng `formVersionId`
-        của phiên bản `published` đang hoạt động (chốt K3).
-
-        Biểu mẫu khởi tạo trắng, tuyệt đối không sao chép số đo sinh hiệu, xét nghiệm
-        hay đơn thuốc từ lượt khám cũ.
-
-
-
-        C4 access: Doctor assignment required for all clinical reads and writes; unauthorized
-        and missing objects both return 404. Only admin manages assignments.'
-      x-screen: M4
-      x-allowed-roles:
-      - doctor
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: patientId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Patientid
       requestBody:
         required: true
         content:
@@ -523,142 +657,193 @@ paths:
               $ref: '#/components/schemas/CreateVisitRequest'
       responses:
         '201':
-          description: Tạo lượt khám mới thành công
-          headers:
-            ETag:
-              $ref: '#/components/headers/ETagHeader'
+          description: Successful Response
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Visit'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-        '409':
-          $ref: '#/components/responses/ConflictError'
+          headers:
+            ETag:
+              description: rowVersion hiện tại, dạng quoted integer
+              schema:
+                type: string
         '422':
-          $ref: '#/components/responses/UnprocessableEntityError'
+          description: FIELD_VALIDATION_FAILED / INTAKE_REQUIREMENTS_UNMET
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: AUTH_UNAUTHORIZED
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: RBAC_ROLE_FORBIDDEN / VISIT_LOCKED_BY_OTHER_DOCTOR / FIELD_NOT_ALLOWED_FOR_ROLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: CONCURRENCY_ROW_VERSION_MISMATCH / VISIT_ALREADY_CLAIMED / CCCD_ALREADY_EXISTS
+            / trạng thái không hợp lệ
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: DATABASE_UNAVAILABLE / WORKFLOW_PERSISTENCE_UNAVAILABLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      x-roles:
+      - nurse
+      description: 'Vai trò: nurse. Tạo lượt intake với biểu mẫu published mới nhất. Gửi chiefComplaint
+        có nội dung trả 403 FIELD_NOT_ALLOWED_FOR_ROLE.'
   /visits/{visitId}:
-    parameters:
-    - $ref: '#/components/parameters/VisitIdParam'
     get:
       tags:
       - Visits
+      summary: Get Visit
       operationId: getVisit
-      summary: M4 — Lấy toàn bộ dữ liệu hiện tại của một lượt khám
-      description: 'Chỉ dành cho vai trò `doctor` (`admin` nhận `403`).
-
-        Trả về thông tin `Visit`, danh sách giá trị trường đơn `VisitValue`, 4 bảng
-        bản ghi lặp (`OrthostaticBpMeasurement`, `VisitMedication`, `VisitAllergy`,
-        `VisitLabResult`) và danh sách các bản chụp `VisitRevision`.
-
-
-
-        C4 access: Doctor assignment required for all clinical reads and writes; unauthorized
-        and missing objects both return 404. Only admin manages assignments.'
-      x-screen: M4
-      x-allowed-roles:
-      - doctor
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: visitId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Visitid
       responses:
         '200':
-          description: Dữ liệu chi tiết của lượt khám
-          headers:
-            ETag:
-              $ref: '#/components/headers/ETagHeader'
+          description: Successful Response
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/VisitDetailResponse'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-        '409':
-          $ref: '#/components/responses/ConflictError'
         '422':
-          $ref: '#/components/responses/UnprocessableEntityError'
+          description: FIELD_VALIDATION_FAILED / INTAKE_REQUIREMENTS_UNMET
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: AUTH_UNAUTHORIZED
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: RBAC_ROLE_FORBIDDEN / VISIT_LOCKED_BY_OTHER_DOCTOR / FIELD_NOT_ALLOWED_FOR_ROLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: CONCURRENCY_ROW_VERSION_MISMATCH / VISIT_ALREADY_CLAIMED / CCCD_ALREADY_EXISTS
+            / trạng thái không hợp lệ
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: DATABASE_UNAVAILABLE / WORKFLOW_PERSISTENCE_UNAVAILABLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      x-roles:
+      - nurse
+      - doctor
+      description: 'Vai trò: nurse, doctor. Lượt in_progress/confirmed chỉ assignedDoctorId truy cập;
+        người khác 403 VISIT_LOCKED_BY_OTHER_DOCTOR. '
   /visits/{visitId}/form:
-    parameters:
-    - $ref: '#/components/parameters/VisitIdParam'
     get:
       tags:
       - Visits
+      summary: Get Visit Form
       operationId: getVisitForm
-      summary: M4 — Lấy cấu trúc phiên bản biểu mẫu đã gắn cứng với lượt khám
-      description: 'Chỉ dành cho vai trò `doctor` (`admin` nhận `403`).
-
-        Trả về cấu trúc `FormVersion` gắn với `visit.formVersionId` gồm 8 `FormSection`,
-        danh sách `FormField`, định nghĩa `FieldDefinition` và các lựa chọn `FieldOption`.
-
-        Đảm bảo lượt khám cũ luôn hiển thị đúng phiên bản biểu mẫu tại thời điểm tạo
-        lượt khám.
-
-
-
-        C4 access: Doctor assignment required for all clinical reads and writes; unauthorized
-        and missing objects both return 404. Only admin manages assignments.'
-      x-screen: M4
-      x-allowed-roles:
-      - doctor
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: visitId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Visitid
       responses:
         '200':
-          description: Cấu trúc biểu mẫu gắn với lượt khám
+          description: Successful Response
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/VisitFormStructureResponse'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-        '409':
-          $ref: '#/components/responses/ConflictError'
         '422':
-          $ref: '#/components/responses/UnprocessableEntityError'
+          description: FIELD_VALIDATION_FAILED / INTAKE_REQUIREMENTS_UNMET
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: AUTH_UNAUTHORIZED
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: RBAC_ROLE_FORBIDDEN / VISIT_LOCKED_BY_OTHER_DOCTOR / FIELD_NOT_ALLOWED_FOR_ROLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: CONCURRENCY_ROW_VERSION_MISMATCH / VISIT_ALREADY_CLAIMED / CCCD_ALREADY_EXISTS
+            / trạng thái không hợp lệ
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: DATABASE_UNAVAILABLE / WORKFLOW_PERSISTENCE_UNAVAILABLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      x-roles:
+      - nurse
+      - doctor
+      description: 'Vai trò: nurse, doctor. Lượt in_progress/confirmed chỉ assignedDoctorId truy cập;
+        người khác 403 VISIT_LOCKED_BY_OTHER_DOCTOR. '
   /visits/{visitId}/draft:
-    parameters:
-    - $ref: '#/components/parameters/VisitIdParam'
-    - $ref: '#/components/parameters/IfMatchParam'
     put:
       tags:
       - Visits
+      summary: Save Visit Draft
       operationId: saveVisitDraft
-      summary: M4 — Lưu nháp dữ liệu lượt khám và các bảng bản ghi lặp (Tầng điều
-        kiện 2 - draft_saved)
-      description: 'Chỉ dành cho vai trò `doctor` (`admin` nhận `403`).
-
-        Bắt buộc gửi header `If-Match` khớp với `rowVersion` hiện tại của `Visit`.
-
-        - Tầng 2 (`draft_saved`): Cho phép lưu nháp khi còn thiếu các trường lâm sàng.
-
-        - Phân biệt rõ 3 trạng thái: trường không gửi trong `values` là **chưa điền**
-        (xóa dòng `visit_value` nếu có); `valueState = unknown` là **Chưa rõ** (mọi
-        cột giá trị bằng null); `valueState = answered` kèm đúng một giá trị khớp
-        `dataType` (bảo toàn số `0` hoặc `false`).
-
-        - Cập nhật đồng bộ các bảng lặp: `orthostaticBp`, `medications`, `allergies`,
-        `labResults`.
-
-        - Trả `409 Conflict` nếu `If-Match` lệch `rowVersion` hoặc nếu lượt khám đang
-        ở trạng thái `confirmed` (chốt K5).
-
-        - Trả `422 Unprocessable Entity` nếu có trường sai kiểu hoặc vượt miền kỹ
-        thuật (ví dụ `SpO2 > 100`, `LVEF < 0`, `diastolic >= systolic`).
-
-
-
-        C4 access: Doctor assignment required for all clinical reads and writes; unauthorized
-        and missing objects both return 404. Only admin manages assignments.'
-      x-screen: M4
-      x-allowed-roles:
-      - doctor
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: visitId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Visitid
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: If-Match
       requestBody:
         required: true
         content:
@@ -667,107 +852,135 @@ paths:
               $ref: '#/components/schemas/SaveVisitDraftRequest'
       responses:
         '200':
-          description: Lưu nháp thành công, trả về dữ liệu lượt khám kèm ETag và rowVersion
-            mới
-          headers:
-            ETag:
-              $ref: '#/components/headers/ETagHeader'
+          description: Successful Response
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/VisitDetailResponse'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-        '409':
-          $ref: '#/components/responses/ConflictError'
+          headers:
+            ETag:
+              description: rowVersion hiện tại, dạng quoted integer
+              schema:
+                type: string
         '422':
-          $ref: '#/components/responses/UnprocessableEntityError'
+          description: FIELD_VALIDATION_FAILED / INTAKE_REQUIREMENTS_UNMET
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: AUTH_UNAUTHORIZED
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: RBAC_ROLE_FORBIDDEN / VISIT_LOCKED_BY_OTHER_DOCTOR / FIELD_NOT_ALLOWED_FOR_ROLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: CONCURRENCY_ROW_VERSION_MISMATCH / VISIT_ALREADY_CLAIMED / CCCD_ALREADY_EXISTS
+            / trạng thái không hợp lệ
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: DATABASE_UNAVAILABLE / WORKFLOW_PERSISTENCE_UNAVAILABLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      x-roles:
+      - nurse
+      - doctor
+      description: 'Vai trò: nurse, doctor. Lượt in_progress/confirmed chỉ assignedDoctorId truy cập;
+        người khác 403 VISIT_LOCKED_BY_OTHER_DOCTOR. NVYT chỉ nhóm hanh_chinh/sinh_ton; trường khác 403
+        FIELD_NOT_ALLOWED_FOR_ROLE. If-Match hoặc rowVersion bắt buộc; stale trả 409.'
   /visits/{visitId}/review:
-    parameters:
-    - $ref: '#/components/parameters/VisitIdParam'
     get:
       tags:
       - Visits
+      summary: Get Visit Review
       operationId: getVisitReview
-      summary: M5 — Xem lại dữ liệu lượt khám, kiểm tra lỗi Tầng 3 và trạng thái sẵn
-        sàng Tầng 4
-      description: 'Chỉ dành cho vai trò `doctor` (`admin` nhận `403`).
-
-        Tổng hợp số lượng trường theo 4 trạng thái (`answered`, `unfilled`, `unknown`,
-        `validationError`) trên toàn biểu mẫu và theo từng nhóm trong 8 `SectionCode`.
-
-        Tách bạch rõ theo chốt K1:
-
-        - `tier3ConfirmErrors`: Các lỗi hoặc thiếu sót ở trường có `requiredForConfirm
-        = true` (Tầng 3) — sẽ chặn thao tác `confirmVisit` nếu còn lỗi.
-
-        - `tier4AiModules`: Trạng thái sẵn sàng (`ready`, `missingFieldCodes`) tính
-        riêng cho từng module AI (Tầng 4) — chỉ mang tính thông tin đối chiếu, không
-        chặn việc xác nhận lượt khám.
-
-
-
-        C4 access: Doctor assignment required for all clinical reads and writes; unauthorized
-        and missing objects both return 404. Only admin manages assignments.'
-      x-screen: M5
-      x-allowed-roles:
-      - doctor
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: visitId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Visitid
       responses:
         '200':
-          description: Kết quả rà soát lượt khám trước khi xác nhận
+          description: Successful Response
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/VisitReviewResponse'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-        '409':
-          $ref: '#/components/responses/ConflictError'
         '422':
-          $ref: '#/components/responses/UnprocessableEntityError'
+          description: FIELD_VALIDATION_FAILED / INTAKE_REQUIREMENTS_UNMET
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: AUTH_UNAUTHORIZED
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: RBAC_ROLE_FORBIDDEN / VISIT_LOCKED_BY_OTHER_DOCTOR / FIELD_NOT_ALLOWED_FOR_ROLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: CONCURRENCY_ROW_VERSION_MISMATCH / VISIT_ALREADY_CLAIMED / CCCD_ALREADY_EXISTS
+            / trạng thái không hợp lệ
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: DATABASE_UNAVAILABLE / WORKFLOW_PERSISTENCE_UNAVAILABLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      x-roles:
+      - doctor
+      description: 'Vai trò: doctor. Lượt in_progress/confirmed chỉ assignedDoctorId truy cập; người khác
+        403 VISIT_LOCKED_BY_OTHER_DOCTOR. '
   /visits/{visitId}/confirm:
-    parameters:
-    - $ref: '#/components/parameters/VisitIdParam'
-    - $ref: '#/components/parameters/IfMatchParam'
     post:
       tags:
       - Visits
+      summary: Confirm Visit
       operationId: confirmVisit
-      summary: M5 — Xác nhận dữ liệu lượt khám (Tầng điều kiện 3 - confirmed)
-      description: 'Chỉ dành cho vai trò `doctor` (`admin` nhận `403`). Bắt buộc gửi
-        `If-Match`.
-
-        Thực thi trong một giao dịch nguyên tử:
-
-        1. Kiểm tra toàn bộ điều kiện Tầng 3 (`requiredForConfirm` và tính hợp lệ
-        kỹ thuật). Nếu chưa đạt, trả `422`.
-
-        2. Chuyển `visit.status` sang `confirmed`, ghi `confirmedAt`, `confirmedBy`,
-        tăng `rowVersion`.
-
-        3. Lưu bản chụp bất biến vào bảng `visit_revision` (`VisitRevision`).
-
-        4. Ghi nhật ký hệ thống `AuditLog` (`action = visit_confirm`, không chứa nội
-        dung lâm sàng nhạy cảm).
-
-        Lưu ý pháp lý: Thao tác này xác nhận dữ liệu lượt khám đã được bác sĩ rà soát,
-        không phải xác nhận chẩn đoán hay y lệnh điều trị.
-
-
-
-        C4 access: Doctor assignment required for all clinical reads and writes; unauthorized
-        and missing objects both return 404. Only admin manages assignments.'
-      x-screen: M5
-      x-allowed-roles:
-      - doctor
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: visitId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Visitid
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: If-Match
       requestBody:
         required: true
         content:
@@ -776,53 +989,75 @@ paths:
               $ref: '#/components/schemas/ConfirmVisitRequest'
       responses:
         '200':
-          description: Xác nhận dữ liệu lượt khám thành công
-          headers:
-            ETag:
-              $ref: '#/components/headers/ETagHeader'
+          description: Successful Response
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Visit'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-        '409':
-          $ref: '#/components/responses/ConflictError'
+          headers:
+            ETag:
+              description: rowVersion hiện tại, dạng quoted integer
+              schema:
+                type: string
         '422':
-          $ref: '#/components/responses/UnprocessableEntityError'
+          description: FIELD_VALIDATION_FAILED / INTAKE_REQUIREMENTS_UNMET
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: AUTH_UNAUTHORIZED
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: RBAC_ROLE_FORBIDDEN / VISIT_LOCKED_BY_OTHER_DOCTOR / FIELD_NOT_ALLOWED_FOR_ROLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: CONCURRENCY_ROW_VERSION_MISMATCH / VISIT_ALREADY_CLAIMED / CCCD_ALREADY_EXISTS
+            / trạng thái không hợp lệ
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: DATABASE_UNAVAILABLE / WORKFLOW_PERSISTENCE_UNAVAILABLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      x-roles:
+      - doctor
+      description: 'Vai trò: doctor. Lượt in_progress/confirmed chỉ assignedDoctorId truy cập; người khác
+        403 VISIT_LOCKED_BY_OTHER_DOCTOR. '
   /visits/{visitId}/revisions:
-    parameters:
-    - $ref: '#/components/parameters/VisitIdParam'
-    - $ref: '#/components/parameters/IfMatchParam'
     post:
       tags:
       - Visits
+      summary: Create Visit Revision
       operationId: createVisitRevision
-      summary: M4/M5 — Tạo bản sửa mới (revision) sau khi lượt khám đã xác nhận kèm
-        lý do
-      description: 'Chỉ dành cho vai trò `doctor` (`admin` nhận `403`). Bắt buộc gửi
-        `If-Match` và `changeReason` (lý do chỉnh sửa/bổ sung kết quả sau xác nhận).
-
-        - Bảo toàn tuyệt đối bản chụp `VisitRevision` đã xác nhận trước đó (append-only,
-        không ghi đè, không làm mất bản đã dùng cho đầu ra chuẩn).
-
-        - Tạo revision mới với `revisionNo` tăng tiếp nối, mở lại trạng thái chỉnh
-        sửa có kiểm soát và ghi nhật ký kiểm toán.
-
-        - Nếu chính sách vận hành đang khóa cứng sửa sau xác nhận (theo cấu hình mặc
-        định K5/Q3), máy chủ trả `409 Conflict` với mã lỗi `VISIT_CONFIRMED_LOCKED`.
-
-
-
-        C4 access: Doctor assignment required for all clinical reads and writes; unauthorized
-        and missing objects both return 404. Only admin manages assignments.'
-      x-screen: M5
-      x-allowed-roles:
-      - doctor
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: visitId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Visitid
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: If-Match
       requestBody:
         required: true
         content:
@@ -831,87 +1066,118 @@ paths:
               $ref: '#/components/schemas/CreateVisitRevisionRequest'
       responses:
         '201':
-          description: Khởi tạo bản sửa mới (VisitRevision) thành công
-          headers:
-            ETag:
-              $ref: '#/components/headers/ETagHeader'
+          description: Successful Response
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/VisitRevision'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-        '409':
-          $ref: '#/components/responses/ConflictError'
+          headers:
+            ETag:
+              description: rowVersion hiện tại, dạng quoted integer
+              schema:
+                type: string
         '422':
-          $ref: '#/components/responses/UnprocessableEntityError'
+          description: FIELD_VALIDATION_FAILED / INTAKE_REQUIREMENTS_UNMET
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: AUTH_UNAUTHORIZED
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: RBAC_ROLE_FORBIDDEN / VISIT_LOCKED_BY_OTHER_DOCTOR / FIELD_NOT_ALLOWED_FOR_ROLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: CONCURRENCY_ROW_VERSION_MISMATCH / VISIT_ALREADY_CLAIMED / CCCD_ALREADY_EXISTS
+            / trạng thái không hợp lệ
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: DATABASE_UNAVAILABLE / WORKFLOW_PERSISTENCE_UNAVAILABLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      x-roles:
+      - doctor
+      description: 'Vai trò: doctor. Lượt in_progress/confirmed chỉ assignedDoctorId truy cập; người khác
+        403 VISIT_LOCKED_BY_OTHER_DOCTOR. '
   /visits/{visitId}/ai-input:
-    parameters:
-    - $ref: '#/components/parameters/VisitIdParam'
     get:
       tags:
       - Visits
+      summary: Get Visit Ai Input
       operationId: getVisitAiInput
-      summary: M5 — Xuất gói dữ liệu đầu vào chuẩn hóa AiInputPayload cho lượt khám
-        đã xác nhận
-      description: 'Chỉ dành cho vai trò `doctor` (`admin` nhận `403`).
-
-        Hợp đồng dữ liệu đầu ra chuẩn hóa để các module AI tích hợp ở giai đoạn sau:
-
-        - Chỉ trả dữ liệu khi lượt khám ở trạng thái `confirmed`. Gọi trên lượt khám
-        `draft` bắt buộc trả `409 Conflict` (theo mục 4.3 CONTRACT.md).
-
-        - Trường chưa điền không xuất hiện trong `values`.
-
-        - Trường bác sĩ chọn "Chưa rõ" xuất hiện trong `values` với `state: "unknown"`
-        và `value: null`.
-
-        - Trường đã trả lời xuất hiện với `state: "answered"`, kèm `value` có kiểu
-        và `unit` chuẩn.
-
-        - Đính kèm mảng `orthostaticBp[]`, `medications[]`, `allergies[]`, `labResults[]`
-        và đánh giá độ sẵn sàng Tầng 4 `modules[]`.
-
-
-
-        C4 access: Doctor assignment required for all clinical reads and writes; unauthorized
-        and missing objects both return 404. Only admin manages assignments.'
-      x-screen: M5
-      x-allowed-roles:
-      - doctor
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: visitId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Visitid
       responses:
         '200':
-          description: Gói dữ liệu đầu vào chuẩn AiInputPayload của lượt khám đã xác
-            nhận
+          description: Successful Response
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AiInputPayload'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-        '409':
-          $ref: '#/components/responses/ConflictError'
         '422':
-          $ref: '#/components/responses/UnprocessableEntityError'
+          description: FIELD_VALIDATION_FAILED / INTAKE_REQUIREMENTS_UNMET
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: AUTH_UNAUTHORIZED
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: RBAC_ROLE_FORBIDDEN / VISIT_LOCKED_BY_OTHER_DOCTOR / FIELD_NOT_ALLOWED_FOR_ROLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: CONCURRENCY_ROW_VERSION_MISMATCH / VISIT_ALREADY_CLAIMED / CCCD_ALREADY_EXISTS
+            / trạng thái không hợp lệ
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: DATABASE_UNAVAILABLE / WORKFLOW_PERSISTENCE_UNAVAILABLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      x-roles:
+      - doctor
+      description: 'Vai trò: doctor. Lượt in_progress/confirmed chỉ assignedDoctorId truy cập; người khác
+        403 VISIT_LOCKED_BY_OTHER_DOCTOR. '
   /admin/users:
     get:
       tags:
       - AdminUsers
       operationId: listUsers
       summary: M6 — Danh sách tài khoản hệ thống
-      description: 'Chỉ dành cho vai trò `admin` (vai trò `doctor` gọi trực tiếp trả
-        `403 Forbidden`).
+      description: 'Chỉ dành cho vai trò `admin` (vai trò `doctor` gọi trực tiếp trả `403 Forbidden`).
 
-        Tuyệt đối không bao giờ trả về `passwordHash` hoặc mật khẩu dưới mọi hình
-        thức.
+        Tuyệt đối không bao giờ trả về `passwordHash` hoặc mật khẩu dưới mọi hình thức.
 
         '
       x-screen: M6
@@ -963,9 +1229,9 @@ paths:
       summary: M6 — Tạo mới tài khoản Bác sĩ hoặc Quản trị viên
       description: 'Chỉ dành cho vai trò `admin` (`doctor` nhận `403`).
 
-        Thực hiện sau bước `previewUserPermissions`. Tạo tài khoản với `username`
-        duy nhất, sinh mã thiết lập mật khẩu một lần (hết hạn sau 24 giờ, chỉ trả
-        về đúng 1 lần khi tạo), và ghi `AuditLog` (`action = user_create`).
+        Thực hiện sau bước `previewUserPermissions`. Tạo tài khoản với `username` duy nhất, sinh mã thiết
+        lập mật khẩu một lần (hết hạn sau 24 giờ, chỉ trả về đúng 1 lần khi tạo), và ghi `AuditLog` (`action
+        = user_create`).
 
         Trả `409 Conflict` nếu `username` đã tồn tại.
 
@@ -1037,13 +1303,12 @@ paths:
       tags:
       - AdminUsers
       operationId: updateUser
-      summary: M6 — Cập nhật tài khoản, đổi vai trò, khóa/mở khóa hoặc đặt lại mật
-        khẩu
-      description: 'Chỉ dành cho vai trò `admin` (`doctor` nhận `403`). Bắt buộc gửi
-        `If-Match` và `reason` để ghi nhận vào `AuditLog` (`action = user_update`).
+      summary: M6 — Cập nhật tài khoản, đổi vai trò, khóa/mở khóa hoặc đặt lại mật khẩu
+      description: 'Chỉ dành cho vai trò `admin` (`doctor` nhận `403`). Bắt buộc gửi `If-Match` và `reason`
+        để ghi nhận vào `AuditLog` (`action = user_update`).
 
-        Trả `409 Conflict` nếu cố gắng tự khóa tài khoản `admin` cuối cùng đang hoạt
-        động hoặc khi `If-Match` không khớp.
+        Trả `409 Conflict` nếu cố gắng tự khóa tài khoản `admin` cuối cùng đang hoạt động hoặc khi `If-Match`
+        không khớp.
 
         '
       x-screen: M6
@@ -1082,14 +1347,12 @@ paths:
       tags:
       - AdminUsers
       operationId: previewUserPermissions
-      summary: M6 — Xem trước bảng đối chiếu quyền được cấp và quyền bị từ chối trước
-        khi lưu tài khoản
+      summary: M6 — Xem trước bảng đối chiếu quyền được cấp và quyền bị từ chối trước khi lưu tài khoản
       description: 'Chỉ dành cho vai trò `admin` (`doctor` nhận `403`).
 
         Phục vụ Bước 2 bắt buộc trên Modal Màn 6: trả về danh sách tường minh `grantedPermissions[]`,
-        `deniedPermissions[]` và cảnh báo ranh giới tách quyền lâm sàng (khẳng định
-        vai trò `admin` không được cấp quyền đọc/sửa hồ sơ bệnh án lâm sàng theo chốt
-        K8).
+        `deniedPermissions[]` và cảnh báo ranh giới tách quyền lâm sàng (khẳng định vai trò `admin` không
+        được cấp quyền đọc/sửa hồ sơ bệnh án lâm sàng theo chốt K8).
 
         '
       x-screen: M6
@@ -1123,12 +1386,11 @@ paths:
       tags:
       - AdminForms
       operationId: listFieldDefinitions
-      summary: M7 — Danh sách từ điển định nghĩa trường dữ liệu chuẩn (95 mã mvp +
-        26 mã can_xac_nhan)
+      summary: M7 — Danh sách từ điển định nghĩa trường dữ liệu chuẩn (95 mã mvp + 26 mã can_xac_nhan)
       description: 'Chỉ dành cho vai trò `admin` (`doctor` nhận `403`).
 
-        Trả về danh mục `FieldDefinition` kèm `FieldOption` và liên kết `FieldAiModule`,
-        phục vụ trình cấu hình biểu mẫu trên Màn 7.
+        Trả về danh mục `FieldDefinition` kèm `FieldOption` và liên kết `FieldAiModule`, phục vụ trình
+        cấu hình biểu mẫu trên Màn 7.
 
         '
       x-screen: M7
@@ -1185,8 +1447,7 @@ paths:
       summary: M7 — Danh sách mẫu biểu mẫu logic (FormTemplate)
       description: 'Chỉ dành cho vai trò `admin` (`doctor` nhận `403`).
 
-        Trong phạm vi MVP, hệ thống có biểu mẫu chuẩn cho thu thập dữ liệu lâm sàng
-        suy tim.
+        Trong phạm vi MVP, hệ thống có biểu mẫu chuẩn cho thu thập dữ liệu lâm sàng suy tim.
 
         '
       x-screen: M7
@@ -1219,8 +1480,7 @@ paths:
       summary: M7 — Danh sách các phiên bản của một biểu mẫu (draft, published, retired)
       description: 'Chỉ dành cho vai trò `admin` (`doctor` nhận `403`).
 
-        Trả về danh sách `FormVersion` kèm số lượng lượt khám đang gắn với từng phiên
-        bản.
+        Trả về danh sách `FormVersion` kèm số lượng lượt khám đang gắn với từng phiên bản.
 
         '
       x-screen: M7
@@ -1257,8 +1517,8 @@ paths:
       summary: M7 — Tạo bản nháp phiên bản biểu mẫu mới từ một phiên bản gốc
       description: 'Chỉ dành cho vai trò `admin` (`doctor` nhận `403`).
 
-        Sao chép cấu trúc `FormSection` và `FormField` từ phiên bản gốc (`basedOnVersionId`)
-        sang một phiên bản mới ở trạng thái `draft`, ghi `AuditLog` (`action = form_version_create`).
+        Sao chép cấu trúc `FormSection` và `FormField` từ phiên bản gốc (`basedOnVersionId`) sang một
+        phiên bản mới ở trạng thái `draft`, ghi `AuditLog` (`action = form_version_create`).
 
         Trả `409 Conflict` nếu biểu mẫu đang có sẵn một bản `draft` chưa phát hành.
 
@@ -1302,8 +1562,8 @@ paths:
       summary: M7 — Xem chi tiết cấu trúc của một phiên bản biểu mẫu
       description: 'Chỉ dành cho vai trò `admin` (`doctor` nhận `403`).
 
-        Trả về thông tin `FormVersion`, 8 nhóm `FormSection`, các vị trí trường `FormField`,
-        định nghĩa `FieldDefinition` và `FieldOption`.
+        Trả về thông tin `FormVersion`, 8 nhóm `FormSection`, các vị trí trường `FormField`, định nghĩa
+        `FieldDefinition` và `FieldOption`.
 
         '
       x-screen: M7
@@ -1333,16 +1593,13 @@ paths:
       tags:
       - AdminForms
       operationId: updateFormVersion
-      summary: M7 — Chỉnh sửa cấu trúc nhóm, trường và thuộc tính trên bản nháp biểu
-        mẫu
-      description: 'Chỉ dành cho vai trò `admin` (`doctor` nhận `403`). Bắt buộc gửi
-        `If-Match`.
+      summary: M7 — Chỉnh sửa cấu trúc nhóm, trường và thuộc tính trên bản nháp biểu mẫu
+      description: 'Chỉ dành cho vai trò `admin` (`doctor` nhận `403`). Bắt buộc gửi `If-Match`.
 
         - Chỉ cho phép chỉnh sửa khi phiên bản có `status = draft`.
 
-        - Nếu phiên bản đang ở trạng thái `published` hoặc `retired`, bắt buộc trả
-        `409 Conflict` (chốt K4: phiên bản đã phát hành là bất biến ở cả tầng API
-        và DB trigger).
+        - Nếu phiên bản đang ở trạng thái `published` hoặc `retired`, bắt buộc trả `409 Conflict` (chốt
+        K4: phiên bản đã phát hành là bất biến ở cả tầng API và DB trigger).
 
         - Ghi `AuditLog` (`action = form_version_update`).
 
@@ -1383,8 +1640,7 @@ paths:
       - AdminForms
       operationId: deleteFormVersionDraft
       summary: M7 — Xóa phiên bản biểu mẫu còn là bản nháp
-      description: 'Chỉ dành cho vai trò `admin` (`doctor` nhận `403`). Chỉ xóa phiên
-        bản
+      description: 'Chỉ dành cho vai trò `admin` (`doctor` nhận `403`). Chỉ xóa phiên bản
 
         có `status = draft` và chưa gắn với lượt khám; phiên bản đã phát hành,
 
@@ -1432,12 +1688,11 @@ paths:
       tags:
       - AdminForms
       operationId: previewFormVersion
-      summary: M7 — Xem trước phiên bản biểu mẫu dưới góc nhìn Bác sĩ (tính khi gọi,
-        không lưu bảng)
+      summary: M7 — Xem trước phiên bản biểu mẫu dưới góc nhìn Bác sĩ (tính khi gọi, không lưu bảng)
       description: 'Chỉ dành cho vai trò `admin` (`doctor` nhận `403`).
 
-        Trả về cấu trúc kết xuất giống 100% với `getVisitForm` trên Màn 4 kèm cờ `isPreviewOnly:
-        true` để Admin kiểm thử tương tác mà không lưu dữ liệu vào bệnh án.
+        Trả về cấu trúc kết xuất giống 100% với `getVisitForm` trên Màn 4 kèm cờ `isPreviewOnly: true`
+        để Admin kiểm thử tương tác mà không lưu dữ liệu vào bệnh án.
 
         '
       x-screen: M7
@@ -1502,13 +1757,12 @@ paths:
       tags:
       - AdminForms
       operationId: diffFormVersion
-      summary: M7 — So sánh thay đổi (Diff) giữa bản nháp và phiên bản đối chiếu (tính
-        khi gọi, không lưu bảng)
+      summary: M7 — So sánh thay đổi (Diff) giữa bản nháp và phiên bản đối chiếu (tính khi gọi, không
+        lưu bảng)
       description: 'Chỉ dành cho vai trò `admin` (`doctor` nhận `403`).
 
-        Tính toán trực tiếp các thay đổi giữa `versionId` và `baseVersionId` thành
-        3 nhóm: `+ Thêm mới` (`addedFields`), `~ Cập nhật` (`modifiedFields`), và
-        `- Ngừng dùng cho lượt mới` (`removedFields`).
+        Tính toán trực tiếp các thay đổi giữa `versionId` và `baseVersionId` thành 3 nhóm: `+ Thêm mới`
+        (`addedFields`), `~ Cập nhật` (`modifiedFields`), và `- Ngừng dùng cho lượt mới` (`removedFields`).
 
         '
       x-screen: M7
@@ -1518,8 +1772,8 @@ paths:
       - name: baseVersionId
         in: query
         required: true
-        description: Định danh UUID của phiên bản biểu mẫu gốc dùng để đối chiếu (thường
-          là bản published hiện hành)
+        description: Định danh UUID của phiên bản biểu mẫu gốc dùng để đối chiếu (thường là bản published
+          hiện hành)
         schema:
           type: string
           format: uuid
@@ -1549,18 +1803,15 @@ paths:
       - AdminForms
       operationId: publishFormVersion
       summary: M7 — Phát hành phiên bản biểu mẫu mới cho các lượt khám tạo về sau
-      description: 'Chỉ dành cho vai trò `admin` (`doctor` nhận `403`). Bắt buộc gửi
-        `If-Match`.
+      description: 'Chỉ dành cho vai trò `admin` (`doctor` nhận `403`). Bắt buộc gửi `If-Match`.
 
         Thực thi trong giao dịch nguyên tử:
 
-        1. Kiểm tra phiên bản đang ở trạng thái `draft` và toàn bộ cấu trúc nhóm/trường
-        hợp lệ.
+        1. Kiểm tra phiên bản đang ở trạng thái `draft` và toàn bộ cấu trúc nhóm/trường hợp lệ.
 
         2. Chuyển phiên bản `published` trước đó sang trạng thái `retired`.
 
-        3. Chuyển phiên bản hiện tại sang `published`, ghi `publishedAt`, `publishedBy`,
-        khóa bất biến.
+        3. Chuyển phiên bản hiện tại sang `published`, ghi `publishedAt`, `publishedBy`, khóa bất biến.
 
         4. Ghi `AuditLog` (`action = form_version_publish`).
 
@@ -1601,16 +1852,14 @@ paths:
       tags:
       - AdminAuditLogs
       operationId: listAuditLogs
-      summary: M8 — Tra cứu nhật ký kiểm toán hệ thống (chỉ siêu dữ liệu, không chứa
-        nội dung lâm sàng)
+      summary: M8 — Tra cứu nhật ký kiểm toán hệ thống (chỉ siêu dữ liệu, không chứa nội dung lâm sàng)
       description: 'Chỉ dành cho vai trò `admin` (`doctor` nhận `403`).
 
-        Hỗ trợ lọc theo người thực hiện (`actorUserId`), loại hành động (`action`),
-        loại thực thể (`entityType`), mã thực thể (`entityId`) và khoảng thời gian
-        (`fromDate`, `toDate`).
+        Hỗ trợ lọc theo người thực hiện (`actorUserId`), loại hành động (`action`), loại thực thể (`entityType`),
+        mã thực thể (`entityId`) và khoảng thời gian (`fromDate`, `toDate`).
 
-        Theo chốt K8, trường `detail` trong `AuditLog` tuyệt đối không chứa mật khẩu
-        hay dữ liệu bệnh án lâm sàng.
+        Theo chốt K8, trường `detail` trong `AuditLog` tuyệt đối không chứa mật khẩu hay dữ liệu bệnh
+        án lâm sàng.
 
         '
       x-screen: M8
@@ -1723,45 +1972,49 @@ paths:
           title: Diagnostic
       responses:
         '200':
-          description: Confirmed HF snapshot projection. diagnostic=true may return
-            quality blocked.
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: ./schemas/hf-ai-input-1.0.schema.json
+                oneOf:
+                - {}
+                - $ref: ./schemas/hf-ai-input-2.0.schema.json
         '409':
-          description: Visit not confirmed
+          description: CONCURRENCY_ROW_VERSION_MISMATCH / VISIT_ALREADY_CLAIMED / CCCD_ALREADY_EXISTS
+            / trạng thái không hợp lệ
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '422':
-          description: AI_INPUT_NOT_READY, ProblemDetails with field-level quality
+          description: FIELD_VALIDATION_FAILED / INTAKE_REQUIREMENTS_UNMET
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetailsModel'
+                $ref: '#/components/schemas/ProblemDetails'
         '503':
-          description: HMAC key unavailable
+          description: DATABASE_UNAVAILABLE / WORKFLOW_PERSISTENCE_UNAVAILABLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '401':
-          description: Authentication required
+          description: AUTH_UNAUTHORIZED
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetailsModel'
+                $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Role forbidden or primary assignment required
+          description: RBAC_ROLE_FORBIDDEN / VISIT_LOCKED_BY_OTHER_DOCTOR / FIELD_NOT_ALLOWED_FOR_ROLE
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetailsModel'
-        '404':
-          description: Resource not found or no patient access (same response)
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetailsModel'
-      description: '
-
-
-        C4 access: Doctor assignment required for all clinical reads and writes; unauthorized
-        and missing objects both return 404. Only admin manages assignments.'
+                $ref: '#/components/schemas/ProblemDetails'
+      x-roles:
+      - doctor
+      description: 'Vai trò: doctor. Lượt in_progress/confirmed chỉ assignedDoctorId truy cập; người khác
+        403 VISIT_LOCKED_BY_OTHER_DOCTOR.  Frozen form v2.0 sources automatically export hf-ai-input/2.0
+        with hf-map/2.0 and required workflowFields.'
   /visits/{visitId}/ai-input/hf/1.1:
     get:
       tags:
@@ -1800,40 +2053,49 @@ paths:
           title: Diagnostic
       responses:
         '200':
-          description: Frozen v1.2 projection; diagnostic mode preserves quality blockers.
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: ./schemas/hf-ai-input-1.1.schema.json
+                oneOf:
+                - {}
+                - $ref: ./schemas/hf-ai-input-2.0.schema.json
         '422':
-          description: Validation Error
+          description: FIELD_VALIDATION_FAILED / INTAKE_REQUIREMENTS_UNMET
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: '#/components/schemas/ProblemDetails'
         '401':
-          description: Authentication required
+          description: AUTH_UNAUTHORIZED
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetailsModel'
+                $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Role forbidden
+          description: RBAC_ROLE_FORBIDDEN / VISIT_LOCKED_BY_OTHER_DOCTOR / FIELD_NOT_ALLOWED_FOR_ROLE
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetailsModel'
-        '404':
-          description: Resource not found or no patient access (same response)
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: CONCURRENCY_ROW_VERSION_MISMATCH / VISIT_ALREADY_CLAIMED / CCCD_ALREADY_EXISTS
+            / trạng thái không hợp lệ
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetailsModel'
-      description: '
-
-
-        C4 access: Doctor assignment required for all clinical reads and writes; unauthorized
-        and missing objects both return 404. Only admin manages assignments.'
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: DATABASE_UNAVAILABLE / WORKFLOW_PERSISTENCE_UNAVAILABLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      x-roles:
+      - doctor
+      description: 'Vai trò: doctor. Lượt in_progress/confirmed chỉ assignedDoctorId truy cập; người khác
+        403 VISIT_LOCKED_BY_OTHER_DOCTOR.  Frozen form v2.0 sources automatically export hf-ai-input/2.0
+        with hf-map/2.0 and required workflowFields.'
   /visits/{visitId}/workflow:
     get:
       tags:
@@ -1891,17 +2153,15 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetailsModel'
-      description: 'Synthetic mock only; doctor assignment required. Pharmacists may
-        only GET workflow?module=m4 with explicit patient scope. Workflow writes require
-        body rowVersion; optional If-Match must agree. POST Idempotency-Key replays
-        the same payload; changed payload returns 409. No automatic downstream runs.
-        With module=m4, assigned doctors and scoped pharmacists receive the effective
-        M4 read projection, including saved confirmations. Omit module for the full
-        doctor workflow state.
+      description: 'Synthetic mock only; doctor assignment required. Pharmacists may only GET workflow?module=m4
+        with explicit patient scope. Workflow writes require body rowVersion; optional If-Match must agree.
+        POST Idempotency-Key replays the same payload; changed payload returns 409. No automatic downstream
+        runs. With module=m4, assigned doctors and scoped pharmacists receive the effective M4 read projection,
+        including saved confirmations. Omit module for the full doctor workflow state.
 
 
-        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4
-        returns only the M4 read view; no pharmacist writes or M1-M3 access.'
+        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4 returns only the M4
+        read view; no pharmacist writes or M1-M3 access.'
   /visits/{visitId}/workflow/{module}/fields:
     get:
       tags:
@@ -1977,18 +2237,17 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetailsModel'
-      description: 'Synthetic mock only; doctor assignment required. Pharmacists may
-        only GET workflow?module=m4 with explicit patient scope. Workflow writes require
-        body rowVersion; optional If-Match must agree. POST Idempotency-Key replays
-        the same payload; changed payload returns 409. No automatic downstream runs.
-        Each existing answer includes read-only ownerModule; fieldMetadata provides
-        ownerModule for all allowed fields, including absent answers. Remove answer
-        ownerModule before PUT. Only the owner path accepts writes (422 WORKFLOW_FIELD_OWNER_MISMATCH
-        otherwise); selected_medications is written only by M3 decision.
+      description: 'Synthetic mock only; doctor assignment required. Pharmacists may only GET workflow?module=m4
+        with explicit patient scope. Workflow writes require body rowVersion; optional If-Match must agree.
+        POST Idempotency-Key replays the same payload; changed payload returns 409. No automatic downstream
+        runs. Each existing answer includes read-only ownerModule; fieldMetadata provides ownerModule
+        for all allowed fields, including absent answers. Remove answer ownerModule before PUT. Only the
+        owner path accepts writes (422 WORKFLOW_FIELD_OWNER_MISMATCH otherwise); selected_medications
+        is written only by M3 decision.
 
 
-        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4
-        returns only the M4 read view; no pharmacist writes or M1-M3 access.'
+        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4 returns only the M4
+        read view; no pharmacist writes or M1-M3 access.'
     put:
       tags:
       - Test workflow
@@ -2089,14 +2348,14 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetailsModel'
-      description: 'Synthetic mock only; doctor assignment required. Pharmacists may
-        only GET workflow?module=m4 with explicit patient scope. Workflow writes require
-        body rowVersion; optional If-Match must agree. POST Idempotency-Key replays
-        the same payload; changed payload returns 409. No automatic downstream runs.
+      description: 'Synthetic mock only; doctor assignment required. Pharmacists may only GET workflow?module=m4
+        with explicit patient scope. Workflow writes require body rowVersion; optional If-Match must agree.
+        POST Idempotency-Key replays the same payload; changed payload returns 409. No automatic downstream
+        runs.
 
 
-        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4
-        returns only the M4 read view; no pharmacist writes or M1-M3 access.'
+        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4 returns only the M4
+        read view; no pharmacist writes or M1-M3 access.'
   /visits/{visitId}/workflow/{module}/runs:
     post:
       tags:
@@ -2215,14 +2474,14 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetailsModel'
-      description: 'Synthetic mock only; doctor assignment required. Pharmacists may
-        only GET workflow?module=m4 with explicit patient scope. Workflow writes require
-        body rowVersion; optional If-Match must agree. POST Idempotency-Key replays
-        the same payload; changed payload returns 409. No automatic downstream runs.
+      description: 'Synthetic mock only; doctor assignment required. Pharmacists may only GET workflow?module=m4
+        with explicit patient scope. Workflow writes require body rowVersion; optional If-Match must agree.
+        POST Idempotency-Key replays the same payload; changed payload returns 409. No automatic downstream
+        runs.
 
 
-        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4
-        returns only the M4 read view; no pharmacist writes or M1-M3 access.'
+        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4 returns only the M4
+        read view; no pharmacist writes or M1-M3 access.'
     get:
       tags:
       - Test workflow
@@ -2283,16 +2542,15 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetailsModel'
-      description: 'Synthetic mock only; doctor assignment required. Pharmacists may
-        only GET workflow?module=m4 with explicit patient scope. Workflow writes require
-        body rowVersion; optional If-Match must agree. POST Idempotency-Key replays
-        the same payload; changed payload returns 409. No automatic downstream runs.
-        Run resources preserve the original immutable engine output. Read workflow?module=m4
-        for saved M4 confirmations.
+      description: 'Synthetic mock only; doctor assignment required. Pharmacists may only GET workflow?module=m4
+        with explicit patient scope. Workflow writes require body rowVersion; optional If-Match must agree.
+        POST Idempotency-Key replays the same payload; changed payload returns 409. No automatic downstream
+        runs. Run resources preserve the original immutable engine output. Read workflow?module=m4 for
+        saved M4 confirmations.
 
 
-        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4
-        returns only the M4 read view; no pharmacist writes or M1-M3 access.'
+        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4 returns only the M4
+        read view; no pharmacist writes or M1-M3 access.'
   /visits/{visitId}/workflow/{module}/runs/{runId}:
     get:
       tags:
@@ -2353,16 +2611,15 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetailsModel'
-      description: 'Synthetic mock only; doctor assignment required. Pharmacists may
-        only GET workflow?module=m4 with explicit patient scope. Workflow writes require
-        body rowVersion; optional If-Match must agree. POST Idempotency-Key replays
-        the same payload; changed payload returns 409. No automatic downstream runs.
-        Run resources preserve the original immutable engine output. Read workflow?module=m4
-        for saved M4 confirmations.
+      description: 'Synthetic mock only; doctor assignment required. Pharmacists may only GET workflow?module=m4
+        with explicit patient scope. Workflow writes require body rowVersion; optional If-Match must agree.
+        POST Idempotency-Key replays the same payload; changed payload returns 409. No automatic downstream
+        runs. Run resources preserve the original immutable engine output. Read workflow?module=m4 for
+        saved M4 confirmations.
 
 
-        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4
-        returns only the M4 read view; no pharmacist writes or M1-M3 access.'
+        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4 returns only the M4
+        read view; no pharmacist writes or M1-M3 access.'
   /visits/{visitId}/workflow/{module}/decisions/{decisionId}:
     get:
       tags:
@@ -2423,14 +2680,14 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetailsModel'
-      description: 'Synthetic mock only; doctor assignment required. Pharmacists may
-        only GET workflow?module=m4 with explicit patient scope. Workflow writes require
-        body rowVersion; optional If-Match must agree. POST Idempotency-Key replays
-        the same payload; changed payload returns 409. No automatic downstream runs.
+      description: 'Synthetic mock only; doctor assignment required. Pharmacists may only GET workflow?module=m4
+        with explicit patient scope. Workflow writes require body rowVersion; optional If-Match must agree.
+        POST Idempotency-Key replays the same payload; changed payload returns 409. No automatic downstream
+        runs.
 
 
-        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4
-        returns only the M4 read view; no pharmacist writes or M1-M3 access.'
+        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4 returns only the M4
+        read view; no pharmacist writes or M1-M3 access.'
   /visits/{visitId}/workflow/m4/confirmations:
     post:
       tags:
@@ -2533,14 +2790,14 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetailsModel'
-      description: 'Synthetic mock only; doctor assignment required. Pharmacists may
-        only GET workflow?module=m4 with explicit patient scope. Workflow writes require
-        body rowVersion; optional If-Match must agree. POST Idempotency-Key replays
-        the same payload; changed payload returns 409. No automatic downstream runs.
+      description: 'Synthetic mock only; doctor assignment required. Pharmacists may only GET workflow?module=m4
+        with explicit patient scope. Workflow writes require body rowVersion; optional If-Match must agree.
+        POST Idempotency-Key replays the same payload; changed payload returns 409. No automatic downstream
+        runs.
 
 
-        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4
-        returns only the M4 read view; no pharmacist writes or M1-M3 access.'
+        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4 returns only the M4
+        read view; no pharmacist writes or M1-M3 access.'
   /visits/{visitId}/workflow/{module}/decision:
     post:
       tags:
@@ -2658,14 +2915,14 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetailsModel'
-      description: 'Synthetic mock only; doctor assignment required. Pharmacists may
-        only GET workflow?module=m4 with explicit patient scope. Workflow writes require
-        body rowVersion; optional If-Match must agree. POST Idempotency-Key replays
-        the same payload; changed payload returns 409. No automatic downstream runs.
+      description: 'Synthetic mock only; doctor assignment required. Pharmacists may only GET workflow?module=m4
+        with explicit patient scope. Workflow writes require body rowVersion; optional If-Match must agree.
+        POST Idempotency-Key replays the same payload; changed payload returns 409. No automatic downstream
+        runs.
 
 
-        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4
-        returns only the M4 read view; no pharmacist writes or M1-M3 access.'
+        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4 returns only the M4
+        read view; no pharmacist writes or M1-M3 access.'
   /visits/{visitId}/workflow/finish:
     post:
       tags:
@@ -2760,14 +3017,14 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetailsModel'
-      description: 'Synthetic mock only; doctor assignment required. Pharmacists may
-        only GET workflow?module=m4 with explicit patient scope. Workflow writes require
-        body rowVersion; optional If-Match must agree. POST Idempotency-Key replays
-        the same payload; changed payload returns 409. No automatic downstream runs.
+      description: 'Synthetic mock only; doctor assignment required. Pharmacists may only GET workflow?module=m4
+        with explicit patient scope. Workflow writes require body rowVersion; optional If-Match must agree.
+        POST Idempotency-Key replays the same payload; changed payload returns 409. No automatic downstream
+        runs.
 
 
-        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4
-        returns only the M4 read view; no pharmacist writes or M1-M3 access.'
+        C4 access: Assigned doctor only; scoped pharmacist GET workflow?module=m4 returns only the M4
+        read view; no pharmacist writes or M1-M3 access.'
   /admin/care/doctors:
     get:
       tags:
@@ -2775,31 +3032,17 @@ paths:
       summary: Doctors
       operationId: adminListCareDoctors
       responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CareDoctors'
-        '401':
-          description: Authentication required
+        '410':
+          description: CARE_ASSIGNMENTS_RETIRED
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetailsModel'
-        '403':
-          description: Role forbidden
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetailsModel'
+                $ref: '#/components/schemas/ProblemDetails'
       security:
       - HTTPBearer: []
-      description: '
-
-
-        C4 access: Admin coordination only: patient identifiers, doctor names and
-        assignment metadata; no clinical data.'
+      description: Đã bỏ phân công bệnh nhân theo V3; admin được xác thực nhận 410 CARE_ASSIGNMENTS_RETIRED.
+        Dữ liệu bảng cũ được giữ.
+      deprecated: true
   /admin/patients/{patientId}/care-assignments:
     get:
       tags:
@@ -2817,41 +3060,15 @@ paths:
           format: uuid
           title: Patientid
       responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AssignmentList'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-        '401':
-          description: Authentication required
+        '410':
+          description: CARE_ASSIGNMENTS_RETIRED
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetailsModel'
-        '403':
-          description: Role forbidden
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetailsModel'
-        '404':
-          description: Resource not found or no patient access (same response)
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetailsModel'
-      description: '
-
-
-        C4 access: Admin coordination only: patient identifiers, doctor names and
-        assignment metadata; no clinical data.'
+                $ref: '#/components/schemas/ProblemDetails'
+      description: Đã bỏ phân công bệnh nhân theo V3; admin được xác thực nhận 410 CARE_ASSIGNMENTS_RETIRED.
+        Dữ liệu bảng cũ được giữ.
+      deprecated: true
     post:
       tags:
       - Care assignments
@@ -2874,47 +3091,15 @@ paths:
             schema:
               $ref: '#/components/schemas/AddAssignment'
       responses:
-        '201':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Assignment'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-        '401':
-          description: Authentication required
+        '410':
+          description: CARE_ASSIGNMENTS_RETIRED
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetailsModel'
-        '403':
-          description: Role forbidden
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetailsModel'
-        '404':
-          description: Resource not found or no patient access (same response)
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetailsModel'
-        '409':
-          description: 'CARE_ASSIGNMENT_CONFLICT: doctor already assigned'
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetailsModel'
-      description: '
-
-
-        C4 access: Admin coordination only: patient identifiers, doctor names and
-        assignment metadata; no clinical data.'
+                $ref: '#/components/schemas/ProblemDetails'
+      description: Đã bỏ phân công bệnh nhân theo V3; admin được xác thực nhận 410 CARE_ASSIGNMENTS_RETIRED.
+        Dữ liệu bảng cũ được giữ.
+      deprecated: true
     put:
       tags:
       - Care assignments
@@ -2937,41 +3122,15 @@ paths:
             schema:
               $ref: '#/components/schemas/ReplaceAssignments'
       responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AssignmentList'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-        '401':
-          description: Authentication required
+        '410':
+          description: CARE_ASSIGNMENTS_RETIRED
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetailsModel'
-        '403':
-          description: Role forbidden
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetailsModel'
-        '404':
-          description: Resource not found or no patient access (same response)
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetailsModel'
-      description: '
-
-
-        C4 access: Admin coordination only: patient identifiers, doctor names and
-        assignment metadata; no clinical data.'
+                $ref: '#/components/schemas/ProblemDetails'
+      description: Đã bỏ phân công bệnh nhân theo V3; admin được xác thực nhận 410 CARE_ASSIGNMENTS_RETIRED.
+        Dữ liệu bảng cũ được giữ.
+      deprecated: true
   /admin/patients/{patientId}/care-assignments/{assignmentId}:
     delete:
       tags:
@@ -2996,37 +3155,15 @@ paths:
           format: uuid
           title: Assignmentid
       responses:
-        '204':
-          description: Successful Response
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-        '401':
-          description: Authentication required
+        '410':
+          description: CARE_ASSIGNMENTS_RETIRED
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetailsModel'
-        '403':
-          description: Role forbidden
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetailsModel'
-        '404':
-          description: Resource not found or no patient access (same response)
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetailsModel'
-      description: '
-
-
-        C4 access: Admin coordination only: patient identifiers, doctor names and
-        assignment metadata; no clinical data.'
+                $ref: '#/components/schemas/ProblemDetails'
+      description: Đã bỏ phân công bệnh nhân theo V3; admin được xác thực nhận 410 CARE_ASSIGNMENTS_RETIRED.
+        Dữ liệu bảng cũ được giữ.
+      deprecated: true
   /admin/care/patients:
     get:
       tags:
@@ -3062,35 +3199,506 @@ paths:
           default: 20
           title: Pagesize
       responses:
+        '410':
+          description: CARE_ASSIGNMENTS_RETIRED
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      description: Đã bỏ phân công bệnh nhân theo V3; admin được xác thực nhận 410 CARE_ASSIGNMENTS_RETIRED.
+        Dữ liệu bảng cũ được giữ.
+      deprecated: true
+  /visits/{visitId}/submit:
+    post:
+      tags:
+      - Visits
+      summary: Submit Visit
+      operationId: submitVisit
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: visitId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Visitid
+      responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CarePatients'
+                $ref: '#/components/schemas/Visit'
+          headers:
+            ETag:
+              description: rowVersion hiện tại, dạng quoted integer
+              schema:
+                type: string
         '422':
-          description: Validation Error
+          description: FIELD_VALIDATION_FAILED / INTAKE_REQUIREMENTS_UNMET
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: AUTH_UNAUTHORIZED
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: RBAC_ROLE_FORBIDDEN / VISIT_LOCKED_BY_OTHER_DOCTOR / FIELD_NOT_ALLOWED_FOR_ROLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: CONCURRENCY_ROW_VERSION_MISMATCH / VISIT_ALREADY_CLAIMED / CCCD_ALREADY_EXISTS
+            / trạng thái không hợp lệ
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: DATABASE_UNAVAILABLE / WORKFLOW_PERSISTENCE_UNAVAILABLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      x-roles:
+      - nurse
+      description: 'Vai trò: nurse. Lượt in_progress/confirmed chỉ assignedDoctorId truy cập; người khác
+        403 VISIT_LOCKED_BY_OTHER_DOCTOR. Thiếu 5 sinh hiệu bắt buộc hoặc Chưa rõ không có lý do: 422
+        INTAKE_REQUIREMENTS_UNMET.'
+  /visits/{visitId}/withdraw:
+    post:
+      tags:
+      - Visits
+      summary: Withdraw Visit
+      operationId: withdrawVisit
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: visitId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Visitid
+      responses:
+        '200':
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: '#/components/schemas/Visit'
+          headers:
+            ETag:
+              description: rowVersion hiện tại, dạng quoted integer
+              schema:
+                type: string
+        '422':
+          description: FIELD_VALIDATION_FAILED / INTAKE_REQUIREMENTS_UNMET
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '401':
-          description: Authentication required
+          description: AUTH_UNAUTHORIZED
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetailsModel'
+                $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Role forbidden
+          description: RBAC_ROLE_FORBIDDEN / VISIT_LOCKED_BY_OTHER_DOCTOR / FIELD_NOT_ALLOWED_FOR_ROLE
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetailsModel'
-      description: '
-
-
-        C4 access: Admin coordination only: patient identifiers, doctor names and
-        assignment metadata; no clinical data.'
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: CONCURRENCY_ROW_VERSION_MISMATCH / VISIT_ALREADY_CLAIMED / CCCD_ALREADY_EXISTS
+            / trạng thái không hợp lệ
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: DATABASE_UNAVAILABLE / WORKFLOW_PERSISTENCE_UNAVAILABLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      x-roles:
+      - nurse
+      description: 'Vai trò: nurse. Lượt in_progress/confirmed chỉ assignedDoctorId truy cập; người khác
+        403 VISIT_LOCKED_BY_OTHER_DOCTOR. '
+  /visits/{visitId}/claim:
+    post:
+      tags:
+      - Visits
+      summary: Claim Visit
+      operationId: claimVisit
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: visitId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Visitid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Visit'
+          headers:
+            ETag:
+              description: rowVersion hiện tại, dạng quoted integer
+              schema:
+                type: string
+        '422':
+          description: FIELD_VALIDATION_FAILED / INTAKE_REQUIREMENTS_UNMET
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: AUTH_UNAUTHORIZED
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: RBAC_ROLE_FORBIDDEN / VISIT_LOCKED_BY_OTHER_DOCTOR / FIELD_NOT_ALLOWED_FOR_ROLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: CONCURRENCY_ROW_VERSION_MISMATCH / VISIT_ALREADY_CLAIMED / CCCD_ALREADY_EXISTS
+            / trạng thái không hợp lệ
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: DATABASE_UNAVAILABLE / WORKFLOW_PERSISTENCE_UNAVAILABLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      x-roles:
+      - doctor
+      description: 'Vai trò: doctor. Lượt in_progress/confirmed chỉ assignedDoctorId truy cập; người khác
+        403 VISIT_LOCKED_BY_OTHER_DOCTOR. Atomic UPDATE; người thua hoặc lượt không còn waiting: 409 VISIT_ALREADY_CLAIMED.'
+  /visit-queue:
+    get:
+      tags:
+      - Visits
+      summary: Visit Queue
+      operationId: listVisitQueue
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Pagesize
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisitQueueResponse'
+        '422':
+          description: FIELD_VALIDATION_FAILED / INTAKE_REQUIREMENTS_UNMET
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: AUTH_UNAUTHORIZED
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: RBAC_ROLE_FORBIDDEN / VISIT_LOCKED_BY_OTHER_DOCTOR / FIELD_NOT_ALLOWED_FOR_ROLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: CONCURRENCY_ROW_VERSION_MISMATCH / VISIT_ALREADY_CLAIMED / CCCD_ALREADY_EXISTS
+            / trạng thái không hợp lệ
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: DATABASE_UNAVAILABLE / WORKFLOW_PERSISTENCE_UNAVAILABLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      x-roles:
+      - doctor
+      description: 'Vai trò: doctor. '
+  /my-visits:
+    get:
+      tags:
+      - Visits
+      summary: My Visits
+      operationId: listMyVisits
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - enum:
+            - in_progress
+            - confirmed
+            type: string
+          - type: 'null'
+          title: Status
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Pagesize
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisitListResponse'
+        '422':
+          description: FIELD_VALIDATION_FAILED / INTAKE_REQUIREMENTS_UNMET
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: AUTH_UNAUTHORIZED
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: RBAC_ROLE_FORBIDDEN / VISIT_LOCKED_BY_OTHER_DOCTOR / FIELD_NOT_ALLOWED_FOR_ROLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: CONCURRENCY_ROW_VERSION_MISMATCH / VISIT_ALREADY_CLAIMED / CCCD_ALREADY_EXISTS
+            / trạng thái không hợp lệ
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: DATABASE_UNAVAILABLE / WORKFLOW_PERSISTENCE_UNAVAILABLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      x-roles:
+      - doctor
+      description: 'Vai trò: doctor. '
+  /nurse/visits:
+    get:
+      tags:
+      - Visits
+      summary: Nurse Visits
+      operationId: listNurseVisits
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - enum:
+            - intake
+            - waiting
+            type: string
+          - type: 'null'
+          title: Status
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Pagesize
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisitListResponse'
+        '422':
+          description: FIELD_VALIDATION_FAILED / INTAKE_REQUIREMENTS_UNMET
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: AUTH_UNAUTHORIZED
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: RBAC_ROLE_FORBIDDEN / VISIT_LOCKED_BY_OTHER_DOCTOR / FIELD_NOT_ALLOWED_FOR_ROLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: CONCURRENCY_ROW_VERSION_MISMATCH / VISIT_ALREADY_CLAIMED / CCCD_ALREADY_EXISTS
+            / trạng thái không hợp lệ
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: DATABASE_UNAVAILABLE / WORKFLOW_PERSISTENCE_UNAVAILABLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      x-roles:
+      - nurse
+      description: 'Vai trò: nurse. '
+  /visits/{visitId}/ai-input/hf/2.0:
+    get:
+      tags:
+      - Visits
+      summary: Get Visit Hf Ai Input V20
+      operationId: getVisitHfAiInputV20
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: visitId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Visitid
+      - name: module
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - enum:
+            - ai_diagnosis
+            - ai_lab_test
+            - ai_treatment
+            - ai_medsafety
+            type: string
+          - type: 'null'
+          title: Module
+      - name: diagnostic
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          title: Diagnostic
+      responses:
+        '200':
+          description: Frozen v2 source, privacy envelope and required workflowFields.
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/hf-ai-input-2.0.schema.json
+        '422':
+          description: FIELD_VALIDATION_FAILED / INTAKE_REQUIREMENTS_UNMET
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: AUTH_UNAUTHORIZED
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: RBAC_ROLE_FORBIDDEN / VISIT_LOCKED_BY_OTHER_DOCTOR / FIELD_NOT_ALLOWED_FOR_ROLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: CONCURRENCY_ROW_VERSION_MISMATCH / VISIT_ALREADY_CLAIMED / CCCD_ALREADY_EXISTS
+            / trạng thái không hợp lệ
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: DATABASE_UNAVAILABLE / WORKFLOW_PERSISTENCE_UNAVAILABLE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      x-roles:
+      - doctor
+      description: 'Vai trò: doctor. Lượt in_progress/confirmed chỉ assignedDoctorId truy cập; người khác
+        403 VISIT_LOCKED_BY_OTHER_DOCTOR. '
 components:
   securitySchemes:
     bearerAuth:
@@ -3102,6 +3710,9 @@ components:
         Chứa `sub` (UUID của `AppUser`), `role` (`doctor` hoặc `admin`) và `sid` (`UserSession.id`).
 
         '
+    HTTPBearer:
+      type: http
+      scheme: bearer
   parameters:
     PatientIdParam:
       name: patientId
@@ -3147,11 +3758,10 @@ components:
       name: If-Match
       in: header
       required: true
-      description: 'Giá trị ETag đại diện cho `rowVersion` hiện tại của bản ghi (ví
-        dụ `"1"`, `"2"` hoặc `W/"2"`).
+      description: 'Giá trị ETag đại diện cho `rowVersion` hiện tại của bản ghi (ví dụ `"1"`, `"2"` hoặc
+        `W/"2"`).
 
-        Nếu không khớp với `rowVersion` trên máy chủ, thao tác ghi bị từ chối với
-        mã `409 Conflict`.
+        Nếu không khớp với `rowVersion` trên máy chủ, thao tác ghi bị từ chối với mã `409 Conflict`.
 
         '
       schema:
@@ -3184,37 +3794,35 @@ components:
         example: '"2"'
   responses:
     UnauthorizedError:
-      description: 401 Unauthorized — Chưa đăng nhập, thông tin đăng nhập không đúng
-        hoặc token đã hết hạn/bị thu hồi
+      description: 401 Unauthorized — Chưa đăng nhập, thông tin đăng nhập không đúng hoặc token đã hết
+        hạn/bị thu hồi
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/ProblemDetails'
     ForbiddenError:
-      description: 403 Forbidden — Không đủ quyền truy cập theo ranh giới RBAC (doctor
-        vs admin) hoặc tài khoản đã bị khóa
+      description: 403 Forbidden — Không đủ quyền truy cập theo ranh giới RBAC (doctor vs admin) hoặc
+        tài khoản đã bị khóa
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/ProblemDetails'
     NotFoundError:
-      description: 404 Not Found — Không tìm thấy tài nguyên theo định danh UUID yêu
-        cầu
+      description: 404 Not Found — Không tìm thấy tài nguyên theo định danh UUID yêu cầu
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/ProblemDetails'
     ConflictError:
-      description: 409 Conflict — Xung đột sửa đồng thời (lệch ETag/rowVersion), vi
-        phạm tính bất biến (form_version đã published, visit đã confirmed) hoặc trùng
-        khóa duy nhất
+      description: 409 Conflict — Xung đột sửa đồng thời (lệch ETag/rowVersion), vi phạm tính bất biến
+        (form_version đã published, visit đã confirmed) hoặc trùng khóa duy nhất
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/ProblemDetails'
     UnprocessableEntityError:
-      description: 422 Unprocessable Entity — Dữ liệu đầu vào sai kiểu, vượt miền
-        giá trị kỹ thuật hoặc chưa đạt điều kiện Tầng 3 khi xác nhận
+      description: 422 Unprocessable Entity — Dữ liệu đầu vào sai kiểu, vượt miền giá trị kỹ thuật hoặc
+        chưa đạt điều kiện Tầng 3 khi xác nhận
       content:
         application/problem+json:
           schema:
@@ -3227,18 +3835,23 @@ components:
       enum:
       - doctor
       - admin
+      - pharmacist
+      - nurse
     VisitStatus:
       type: string
       x-db-enum: visit_status
       description: Trạng thái của lượt khám (visit_status)
       enum:
       - draft
+      - intake
+      - waiting
+      - in_progress
       - confirmed
     ValueState:
       type: string
       x-db-enum: value_state
-      description: Trạng thái câu trả lời của trường đã lưu (value_state). Trường
-        chưa điền không tạo dòng trong visit_value.
+      description: Trạng thái câu trả lời của trường đã lưu (value_state). Trường chưa điền không tạo
+        dòng trong visit_value.
       enum:
       - answered
       - unknown
@@ -3275,13 +3888,17 @@ components:
       description: Mã 8 nhóm biểu mẫu chuẩn tiếng Việt không dấu (section_code)
       enum:
       - hanh_chinh
+      - sinh_ton
+      - trieu_chung_kham
+      - chan_doan_nguy_co
+      - can_lam_sang
+      - thuoc
+      - lao_khoa
+      - ghi_chu
       - trieu_chung_dien_bien
       - sinh_ton_kham
       - benh_su_dong_mac
       - thuoc_di_ung
-      - can_lam_sang
-      - lao_khoa
-      - ghi_chu
     ReadinessTier:
       type: string
       x-db-enum: readiness_tier
@@ -3314,6 +3931,11 @@ components:
       - form_version_publish
       - patient_create
       - visit_confirm
+      - visit_create
+      - visit_submit
+      - visit_claim
+      - visit_withdraw
+      - patient_update
     AppUser:
       properties:
         id:
@@ -3332,6 +3954,7 @@ components:
           - doctor
           - admin
           - pharmacist
+          - nurse
           title: Role
         isActive:
           type: boolean
@@ -3369,8 +3992,8 @@ components:
       x-db-table: user_session
       x-db-excluded-columns:
       - refresh_token_hash
-      description: Phiên đăng nhập của người dùng (bảng user_session). Mã băm refresh_token_hash
-        chỉ lưu ở tầng CSDL.
+      description: Phiên đăng nhập của người dùng (bảng user_session). Mã băm refresh_token_hash chỉ lưu
+        ở tầng CSDL.
       required:
       - id
       - userId
@@ -3405,6 +4028,11 @@ components:
           format: date-time
     Patient:
       properties:
+        cccd:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Cccd
         updatedBy:
           type: string
           format: uuid
@@ -3485,6 +4113,17 @@ components:
       title: Patient
     FieldDefinition:
       properties:
+        entryRole:
+          anyOf:
+          - type: string
+            enum:
+            - nurse
+            - doctor
+            - auto
+          - type: 'null'
+          title: Entryrole
+          description: 'Pinned v2 role: nurse, doctor or auto; validationRule.entryRole mirrors this.
+            Auto fields are read projections.'
         id:
           type: string
           format: uuid
@@ -3498,6 +4137,10 @@ components:
         sectionCode:
           type: string
           enum:
+          - sinh_ton
+          - trieu_chung_kham
+          - chan_doan_nguy_co
+          - thuoc
           - hanh_chinh
           - trieu_chung_dien_bien
           - sinh_ton_kham
@@ -3536,6 +4179,8 @@ components:
         isCalculated:
           type: boolean
           title: Iscalculated
+          description: True for automatic projections; clients must not write these values. FormField.isReadonly
+            also marks them.
         system:
           type: boolean
           title: System
@@ -3794,6 +4439,10 @@ components:
         sectionCode:
           type: string
           enum:
+          - sinh_ton
+          - trieu_chung_kham
+          - chan_doan_nguy_co
+          - thuoc
           - hanh_chinh
           - trieu_chung_dien_bien
           - sinh_ton_kham
@@ -3891,6 +4540,30 @@ components:
       title: FormField
     Visit:
       properties:
+        assignedDoctorId:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Assigneddoctorid
+        claimedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Claimedat
+        submittedBy:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Submittedby
+        submittedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Submittedat
         performedBy:
           type: string
           format: uuid
@@ -3900,6 +4573,12 @@ components:
           - type: string
           - type: 'null'
           title: Performedbyname
+        performedByRole:
+          anyOf:
+          - type: string
+            enum: [doctor, nurse, admin]
+          - type: 'null'
+          description: Assigned doctor role after claim; creator role before claim.
         updatedBy:
           type: string
           format: uuid
@@ -3989,6 +4668,9 @@ components:
           type: string
           enum:
           - draft
+          - intake
+          - waiting
+          - in_progress
           - confirmed
           title: Status
         currentRevisionNo:
@@ -4045,16 +4727,16 @@ components:
     VisitValue:
       type: object
       x-db-table: visit_value
-      description: 'Giá trị của một trường đơn trong lượt khám (bảng `visit_value`,
-        khóa chính `(visit_id, field_definition_id)`).
+      description: 'Giá trị của một trường đơn trong lượt khám (bảng `visit_value`, khóa chính `(visit_id,
+        field_definition_id)`).
 
         Ràng buộc CHECK theo chốt K2:
 
-        - Khi `valueState = ''unknown''`, toàn bộ cột giá trị (`valueNum`, `valueText`,
-        `valueBool`, `valueDate`, `fieldOptionId`, `unit`) phải bằng `null`.
+        - Khi `valueState = ''unknown''`, toàn bộ cột giá trị (`valueNum`, `valueText`, `valueBool`, `valueDate`,
+        `fieldOptionId`, `unit`) phải bằng `null`.
 
-        - Khi `valueState = ''answered''`, đúng một cột giá trị khác `null` và khớp
-        với `dataType` của `FieldDefinition` (số `0` hoặc `false` là giá trị hợp lệ).
+        - Khi `valueState = ''answered''`, đúng một cột giá trị khác `null` và khớp với `dataType` của
+        `FieldDefinition` (số `0` hoặc `false` là giá trị hợp lệ).
 
         '
       required:
@@ -4098,8 +4780,7 @@ components:
           format: uuid
         selectedOptions:
           type: array
-          description: Danh sách lựa chọn khi trường có dataType = multi_choice (bảng
-            con visit_value_option)
+          description: Danh sách lựa chọn khi trường có dataType = multi_choice (bảng con visit_value_option)
           items:
             $ref: '#/components/schemas/VisitValueOption'
         unit:
@@ -4480,11 +5161,17 @@ components:
             - doctor
             - admin
             - pharmacist
+            - nurse
           - type: 'null'
           title: Actorrole
         action:
           type: string
           enum:
+          - visit_create
+          - visit_submit
+          - visit_claim
+          - visit_withdraw
+          - patient_update
           - login
           - logout
           - login_failed
@@ -4675,8 +5362,8 @@ components:
       title: AiModuleReadiness
     ProblemDetails:
       type: object
-      description: Định dạng phản hồi lỗi chuẩn RFC 9457 (application/problem+json)
-        cho các mã 401, 403, 404, 409, 422
+      description: Định dạng phản hồi lỗi chuẩn RFC 9457 (application/problem+json) cho các mã 401, 403,
+        404, 409, 422
       required:
       - type
       - title
@@ -4709,12 +5396,10 @@ components:
           type:
           - integer
           - 'null'
-          description: Phiên bản rowVersion hiện có trên máy chủ khi xảy ra xung đột
-            409 Conflict
+          description: Phiên bản rowVersion hiện có trên máy chủ khi xảy ra xung đột 409 Conflict
         errors:
           type: array
-          description: Danh sách lỗi chi tiết tại từng trường khi mã trạng thái là
-            422
+          description: Danh sách lỗi chi tiết tại từng trường khi mã trạng thái là 422
           items:
             $ref: '#/components/schemas/FieldValidationError'
     FieldValidationError:
@@ -4865,6 +5550,9 @@ components:
           type: string
           enum:
           - draft
+          - intake
+          - waiting
+          - in_progress
           - confirmed
           - none
           title: Latestvisitstatus
@@ -4903,35 +5591,27 @@ components:
           - unknown
           title: Sex
         birthDate:
+          type: string
+          format: date
+          title: Birthdate
+        cccd:
           anyOf:
           - type: string
-            format: date
+            pattern: ^[0-9]{12}$
           - type: 'null'
-          title: Birthdate
-        birthYear:
-          anyOf:
-          - type: integer
-            maximum: 2100.0
-            minimum: 1900.0
-          - type: 'null'
-          title: Birthyear
-        declaredAge:
-          anyOf:
-          - type: integer
-            maximum: 120.0
-            minimum: 0.0
-          - type: 'null'
-          title: Declaredage
+          title: Cccd
         externalPatientCode:
           anyOf:
           - type: string
             maxLength: 64
           - type: 'null'
           title: Externalpatientcode
+      additionalProperties: false
       type: object
       required:
       - fullName
       - sex
+      - birthDate
       title: CreatePatientRequest
     UpdatePatientRequest:
       properties:
@@ -4958,33 +5638,25 @@ components:
           - type: 'null'
           title: Sex
         birthDate:
+          type: string
+          format: date
+          title: Birthdate
+        cccd:
           anyOf:
           - type: string
-            format: date
+            pattern: ^[0-9]{12}$
           - type: 'null'
-          title: Birthdate
-        birthYear:
-          anyOf:
-          - type: integer
-            maximum: 2100.0
-            minimum: 1900.0
-          - type: 'null'
-          title: Birthyear
-        declaredAge:
-          anyOf:
-          - type: integer
-            maximum: 120.0
-            minimum: 0.0
-          - type: 'null'
-          title: Declaredage
+          title: Cccd
         externalPatientCode:
           anyOf:
           - type: string
             maxLength: 64
           - type: 'null'
           title: Externalpatientcode
-      additionalProperties: true
+      additionalProperties: false
       type: object
+      required:
+      - birthDate
       title: UpdatePatientRequest
     LatestVisitClinicalSummary:
       properties:
@@ -5003,6 +5675,9 @@ components:
           type: string
           enum:
           - draft
+          - intake
+          - waiting
+          - in_progress
           - confirmed
           title: Sourcevisitstatus
         sourceFormVersionId:
@@ -5017,35 +5692,25 @@ components:
         sourceRowVersion:
           type: integer
           title: Sourcerowversion
-        heightCm:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Heightcm
-        weightKg:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Weightkg
-        bmi:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Bmi
-        latestBp:
-          anyOf:
-          - $ref: '#/components/schemas/OrthostaticBpMeasurement'
-          - type: 'null'
-        recordedMedications:
+        hfStage:
+          $ref: '#/components/schemas/HfStageSummary'
+        efPhenotype:
+          $ref: '#/components/schemas/EfPhenotypeSummary'
+        keyLabs:
           items:
-            $ref: '#/components/schemas/VisitMedication'
+            $ref: '#/components/schemas/SummaryLab'
           type: array
-          title: Recordedmedications
-        recordedAllergies:
+          title: Keylabs
+        medications:
           items:
-            $ref: '#/components/schemas/VisitAllergy'
+            $ref: '#/components/schemas/SummaryMedication'
           type: array
-          title: Recordedallergies
+          title: Medications
+        openAlerts:
+          items:
+            $ref: '#/components/schemas/SummaryAlert'
+          type: array
+          title: Openalerts
       type: object
       required:
       - sourceVisitId
@@ -5054,6 +5719,8 @@ components:
       - sourceVisitStatus
       - sourceFormVersionId
       - sourceRowVersion
+      - hfStage
+      - efPhenotype
       title: LatestVisitClinicalSummary
     PatientDetailResponse:
       properties:
@@ -5071,7 +5738,7 @@ components:
       properties:
         items:
           items:
-            $ref: '#/components/schemas/Visit'
+            $ref: '#/components/schemas/VisitListItem'
           type: array
           title: Items
         pagination:
@@ -5115,12 +5782,14 @@ components:
       properties:
         workflow:
           anyOf:
-          - $ref: ./schemas/hf-workflow-1.0.schema.json#/$defs/visitWorkflowSummary
+          - additionalProperties: true
+            type: object
           - type: 'null'
+          title: Workflow
         fieldMetadata:
+          additionalProperties: true
           type: object
-          additionalProperties:
-            $ref: ./schemas/hf-workflow-1.0.schema.json#/$defs/fieldMetadata
+          title: Fieldmetadata
         access:
           anyOf:
           - $ref: '#/components/schemas/CareAccess'
@@ -5272,6 +5941,7 @@ components:
             $ref: '#/components/schemas/VisitLabResultInput'
           type: array
           title: Labresults
+      additionalProperties: false
       type: object
       title: SaveVisitDraftRequest
     SectionReviewSummary:
@@ -5279,6 +5949,10 @@ components:
         sectionCode:
           type: string
           enum:
+          - sinh_ton
+          - trieu_chung_kham
+          - chan_doan_nguy_co
+          - thuoc
           - hanh_chinh
           - trieu_chung_dien_bien
           - sinh_ton_kham
@@ -5444,6 +6118,7 @@ components:
           - doctor
           - admin
           - pharmacist
+          - nurse
           title: Role
         isActive:
           type: boolean
@@ -5500,6 +6175,7 @@ components:
             - doctor
             - admin
             - pharmacist
+            - nurse
           - type: 'null'
           title: Role
         isActive:
@@ -5541,6 +6217,7 @@ components:
           - doctor
           - admin
           - pharmacist
+          - nurse
           title: Role
         targetUserId:
           anyOf:
@@ -5581,6 +6258,7 @@ components:
           - doctor
           - admin
           - pharmacist
+          - nurse
           title: Role
         clinicalDataAccessAllowed:
           type: boolean
@@ -5764,6 +6442,10 @@ components:
         sectionCode:
           type: string
           enum:
+          - sinh_ton
+          - trieu_chung_kham
+          - chan_doan_nguy_co
+          - thuoc
           - hanh_chinh
           - trieu_chung_dien_bien
           - sinh_ton_kham
@@ -5884,11 +6566,16 @@ components:
     FieldValidationErrorItem:
       properties:
         fieldCode:
-          title: Fieldcode
           type: string
+          title: Fieldcode
         sectionCode:
           anyOf:
-          - enum:
+          - type: string
+            enum:
+            - sinh_ton
+            - trieu_chung_kham
+            - chan_doan_nguy_co
+            - thuoc
             - hanh_chinh
             - trieu_chung_dien_bien
             - sinh_ton_kham
@@ -5897,21 +6584,18 @@ components:
             - can_lam_sang
             - lao_khoa
             - ghi_chu
-            type: string
           - type: 'null'
-          default: null
           title: Sectioncode
         message:
-          title: Message
           type: string
+          title: Message
         rejectedValue:
-          default: null
           title: Rejectedvalue
+      type: object
       required:
       - fieldCode
       - message
       title: FieldValidationErrorItem
-      type: object
     HTTPValidationError:
       properties:
         detail:
@@ -6192,6 +6876,13 @@ components:
       title: VisitMedicationInput
     VisitValueInput:
       properties:
+        unknownReason:
+          anyOf:
+          - type: string
+            maxLength: 500
+            minLength: 1
+          - type: 'null'
+          title: Unknownreason
         visitId:
           anyOf:
           - type: string
@@ -6219,8 +6910,10 @@ components:
             type: object
           - type: 'null'
           title: Answer
-          description: 'v1.2 canonical answer: value_state, value, unit and measuredAt;
-            see hf-workflow fields schemas. Use instead of legacy scalar columns.'
+          description: Pinned v2 structured answer with value_state/value; answered labs require canonical
+            unit and measuredAt. Unknown keeps null. V2 ordinal choices accept integers or strings
+            and store string option codes. HIS medications accept name/schedule/scheduleText;
+            server classifies names. Legacy v1.2 structured lists retain their C8 contract.
         valueNum:
           anyOf:
           - type: number
@@ -6262,6 +6955,11 @@ components:
       title: VisitValueInput
     VisitValueOut:
       properties:
+        unknownReason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Unknownreason
         visitId:
           type: string
           format: uuid
@@ -6589,9 +7287,9 @@ components:
           - m4
           title: Module
         fields:
+          additionalProperties: true
           type: object
-          maxProperties: 0
-          description: Inputs moved to visit draft values[].answer (G2).
+          title: Fields
         editing:
           type: boolean
           title: Editing
@@ -6607,7 +7305,6 @@ components:
       required:
       - module
       - fields
-      - rowVersion
       title: WorkflowFieldsRequest
     WorkflowFinishRequest:
       properties:
@@ -6620,8 +7317,6 @@ components:
       additionalProperties: false
       type: object
       title: WorkflowFinishRequest
-      required:
-      - rowVersion
     WorkflowRunRequest:
       properties:
         rowVersion:
@@ -6642,7 +7337,6 @@ components:
       type: object
       required:
       - module
-      - rowVersion
       title: WorkflowRunRequest
     Assignment:
       properties:
@@ -6786,3 +7480,484 @@ components:
       - items
       - pagination
       title: CarePatients
+    EfPhenotypeSummary:
+      properties:
+        code:
+          anyOf:
+          - type: string
+            enum:
+            - HFrEF
+            - HFmrEF
+            - HFpEF
+          - type: 'null'
+          title: Code
+        label:
+          type: string
+          title: Label
+      type: object
+      required:
+      - code
+      - label
+      title: EfPhenotypeSummary
+    HfStageSummary:
+      properties:
+        code:
+          anyOf:
+          - type: string
+            enum:
+            - A
+            - B
+            - C
+            - D
+          - type: 'null'
+          title: Code
+        label:
+          type: string
+          title: Label
+        source:
+          anyOf:
+          - type: string
+            enum:
+            - ai
+            - manual
+          - type: 'null'
+          title: Source
+      type: object
+      required:
+      - code
+      - label
+      - source
+      title: HfStageSummary
+    QueueVitals:
+      properties:
+        sbp:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Sbp
+        dbp:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Dbp
+        hr:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Hr
+        rr:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Rr
+        spo2:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Spo2
+        weightKg:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Weightkg
+        heightCm:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Heightcm
+        bmi:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Bmi
+      type: object
+      required:
+      - sbp
+      - dbp
+      - hr
+      - rr
+      - spo2
+      - weightKg
+      - heightCm
+      - bmi
+      title: QueueVitals
+    SummaryAlert:
+      properties:
+        ruleId:
+          type: string
+          title: Ruleid
+        severity:
+          type: string
+          title: Severity
+        message:
+          type: string
+          title: Message
+      type: object
+      required:
+      - ruleId
+      - severity
+      - message
+      title: SummaryAlert
+    SummaryLab:
+      properties:
+        code:
+          type: string
+          title: Code
+        label:
+          type: string
+          title: Label
+        value:
+          type: number
+          title: Value
+        unit:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Unit
+        measuredAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Measuredat
+        flag:
+          anyOf:
+          - type: string
+            enum:
+            - high
+            - low
+          - type: 'null'
+          title: Flag
+      type: object
+      required:
+      - code
+      - label
+      - value
+      - unit
+      - measuredAt
+      - flag
+      title: SummaryLab
+    SummaryMedication:
+      properties:
+        name:
+          type: string
+          title: Name
+        group:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Group
+        groupLabel:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Grouplabel
+        pillar:
+          type: boolean
+          title: Pillar
+        caution:
+          type: boolean
+          title: Caution
+      type: object
+      required:
+      - name
+      - group
+      - groupLabel
+      - pillar
+      - caution
+      title: SummaryMedication
+    VisitQueueItem:
+      properties:
+        visitId:
+          type: string
+          format: uuid
+          title: Visitid
+        visitCode:
+          type: string
+          title: Visitcode
+        patientId:
+          type: string
+          format: uuid
+          title: Patientid
+        patientCode:
+          type: string
+          title: Patientcode
+        patientName:
+          type: string
+          title: Patientname
+        sex:
+          type: string
+          enum:
+          - male
+          - female
+          - unknown
+          title: Sex
+        age:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Age
+        submittedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Submittedat
+        submittedByName:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Submittedbyname
+        vitals:
+          $ref: '#/components/schemas/QueueVitals'
+      type: object
+      required:
+      - visitId
+      - visitCode
+      - patientId
+      - patientCode
+      - patientName
+      - sex
+      - age
+      - submittedAt
+      - submittedByName
+      - vitals
+      title: VisitQueueItem
+    VisitQueueResponse:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/VisitQueueItem'
+          type: array
+          title: Items
+        pagination:
+          $ref: '#/components/schemas/PaginationMeta'
+      type: object
+      required:
+      - items
+      - pagination
+      title: VisitQueueResponse
+    VisitListItem:
+      properties:
+        assignedDoctorId:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Assigneddoctorid
+        claimedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Claimedat
+        submittedBy:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Submittedby
+        submittedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Submittedat
+        performedBy:
+          type: string
+          format: uuid
+          title: Performedby
+        performedByName:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Performedbyname
+        performedByRole:
+          anyOf:
+          - type: string
+            enum: [doctor, nurse, admin]
+          - type: 'null'
+          description: Assigned doctor role after claim; creator role before claim.
+        updatedBy:
+          type: string
+          format: uuid
+          title: Updatedby
+        updatedByName:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Updatedbyname
+        id:
+          type: string
+          format: uuid
+          title: Id
+        visitCode:
+          type: string
+          title: Visitcode
+        externalVisitCode:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Externalvisitcode
+        patientId:
+          type: string
+          format: uuid
+          title: Patientid
+        formVersionId:
+          type: string
+          format: uuid
+          title: Formversionid
+        formVersionLabel:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Formversionlabel
+        visitDate:
+          type: string
+          format: date-time
+          title: Visitdate
+        visitType:
+          type: string
+          enum:
+          - outpatient_new
+          - follow_up
+          - acute_inpatient
+          title: Visittype
+          default: outpatient_new
+        chiefComplaint:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Chiefcomplaint
+        clinicalNote:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Clinicalnote
+        infoSource:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Infosource
+        medicationListState:
+          type: string
+          enum:
+          - known
+          - none
+          - unknown
+          title: Medicationliststate
+          default: unknown
+        allergyListState:
+          type: string
+          enum:
+          - known
+          - none
+          - unknown
+          title: Allergyliststate
+          default: unknown
+        diagnosisListState:
+          type: string
+          enum:
+          - known
+          - none
+          - unknown
+          title: Diagnosisliststate
+          default: unknown
+        status:
+          type: string
+          enum:
+          - draft
+          - intake
+          - waiting
+          - in_progress
+          - confirmed
+          title: Status
+        currentRevisionNo:
+          type: integer
+          title: Currentrevisionno
+        createdBy:
+          type: string
+          format: uuid
+          title: Createdby
+        createdAt:
+          type: string
+          format: date-time
+          title: Createdat
+        updatedAt:
+          type: string
+          format: date-time
+          title: Updatedat
+        confirmedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Confirmedat
+        confirmedBy:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Confirmedby
+        confirmNote:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Confirmnote
+        rowVersion:
+          type: integer
+          title: Rowversion
+        patientCode:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Patientcode
+        patientName:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Patientname
+        sex:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sex
+        age:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Age
+        vitals:
+          anyOf:
+          - additionalProperties:
+              anyOf:
+              - type: number
+              - type: 'null'
+            type: object
+          - type: 'null'
+          title: Vitals
+      type: object
+      required:
+      - performedBy
+      - updatedBy
+      - id
+      - visitCode
+      - patientId
+      - formVersionId
+      - visitDate
+      - status
+      - currentRevisionNo
+      - createdBy
+      - createdAt
+      - updatedAt
+      - rowVersion
+      title: VisitListItem
+x-v2-summary-lab-flags:
+  cls_nt_probnp: '>=125'
+  cls_bnp: '>=35'
+  cls_lvef: <50
+  cls_creatinin: '>221'
+  egfr_ckd_epi: <30
+  cls_kali: '>5.0'
+  cls_natri: null
+  cls_hba1c: null

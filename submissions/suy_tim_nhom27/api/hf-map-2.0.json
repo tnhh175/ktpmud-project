@@ -1,0 +1,649 @@
+{
+  "mappingVersion": "hf-map/2.0",
+  "contractVersion": "hf-ai-input/2.0",
+  "formVersionLabel": "v2.0",
+  "clinicalUse": false,
+  "source": "docs/test-workflow/source/Rules-based_Suy_tim.md",
+  "fields": [
+    {
+      "fieldCode": "bn_ma",
+      "entryRole": "nurse",
+      "unit": null,
+      "rules": "HIS",
+      "payloadPath": null,
+      "freeTextWithheld": true
+    },
+    {
+      "fieldCode": "bn_ho_ten",
+      "entryRole": "nurse",
+      "unit": null,
+      "rules": "HIS",
+      "payloadPath": null,
+      "freeTextWithheld": true
+    },
+    {
+      "fieldCode": "bn_gioi_tinh",
+      "entryRole": "nurse",
+      "unit": null,
+      "rules": "HIS",
+      "payloadPath": "workflowFields.sex",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "ma_benh_nhan_his",
+      "entryRole": "nurse",
+      "unit": null,
+      "rules": "HIS",
+      "payloadPath": null,
+      "freeTextWithheld": true
+    },
+    {
+      "fieldCode": "ma_luot_kham_his",
+      "entryRole": "nurse",
+      "unit": null,
+      "rules": "HIS",
+      "payloadPath": null,
+      "freeTextWithheld": true
+    },
+    {
+      "fieldCode": "ngay_kham",
+      "entryRole": "nurse",
+      "unit": null,
+      "rules": "HIS",
+      "payloadPath": null,
+      "freeTextWithheld": true
+    },
+    {
+      "fieldCode": "phong_kham",
+      "entryRole": "nurse",
+      "unit": null,
+      "rules": "HIS",
+      "payloadPath": null,
+      "freeTextWithheld": true
+    },
+    {
+      "fieldCode": "luot_tuoi",
+      "entryRole": "auto",
+      "unit": "years",
+      "rules": "HIS; 4.4",
+      "payloadPath": "workflowFields.age",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "chieu_cao_cm",
+      "entryRole": "nurse",
+      "unit": "cm",
+      "rules": "1.9; 4.4",
+      "payloadPath": "workflowFields.chieu_cao_cm",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "can_nang_kg",
+      "entryRole": "nurse",
+      "unit": "kg",
+      "rules": "1.9; 4.4",
+      "payloadPath": "workflowFields.can_nang_kg",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "huyet_ap_tam_thu",
+      "entryRole": "nurse",
+      "unit": "mmHg",
+      "rules": "1.9; 4.4",
+      "payloadPath": "workflowFields.huyet_ap_tam_thu",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "huyet_ap_tam_truong",
+      "entryRole": "nurse",
+      "unit": "mmHg",
+      "rules": "1.9; 4.4",
+      "payloadPath": "workflowFields.huyet_ap_tam_truong",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "mach",
+      "entryRole": "nurse",
+      "unit": "/min",
+      "rules": "1.9; 4.4",
+      "payloadPath": "workflowFields.mach",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "nhip_tho",
+      "entryRole": "nurse",
+      "unit": "/min",
+      "rules": "1.9; 4.4",
+      "payloadPath": "workflowFields.nhip_tho",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "spo2",
+      "entryRole": "nurse",
+      "unit": "%",
+      "rules": "1.9; 4.4",
+      "payloadPath": "workflowFields.spo2",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "ha_tam_thu_dung",
+      "entryRole": "nurse",
+      "unit": "mmHg",
+      "rules": "1.9; 4.4",
+      "payloadPath": "workflowFields.ha_tam_thu_dung",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "bmi",
+      "entryRole": "auto",
+      "unit": "kg/m2",
+      "rules": "1.1; 4.4",
+      "payloadPath": "workflowFields.bmi",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "giam_ha_tu_the",
+      "entryRole": "auto",
+      "unit": "mmHg",
+      "rules": "1.1; 4.4",
+      "payloadPath": "workflowFields.giam_ha_tu_the",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "kho_tho_khi_gang_suc",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.1–1.9",
+      "payloadPath": "workflowFields.kho_tho_khi_gang_suc",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "kho_tho_khi_nam",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.1–1.9",
+      "payloadPath": "workflowFields.kho_tho_khi_nam",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "kho_tho_kich_phat_ve_dem",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.1–1.9",
+      "payloadPath": "workflowFields.kho_tho_kich_phat_ve_dem",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "met_moi",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.1–1.9",
+      "payloadPath": "workflowFields.met_moi",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "phu_hai_chi_duoi",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.1–1.9",
+      "payloadPath": "workflowFields.phu_hai_chi_duoi",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "tinh_mach_co_noi",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.1–1.9",
+      "payloadPath": "workflowFields.tinh_mach_co_noi",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "ran_am_phoi",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.1–1.9",
+      "payloadPath": "workflowFields.ran_am_phoi",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "dau_nguc",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.1–1.9",
+      "payloadPath": "workflowFields.dau_nguc",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "nyha_hien_tai",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.1–1.9",
+      "payloadPath": "workflowFields.nyha_hien_tai",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "trieu_chung_khang_tri_khi_nghi",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.1–1.9",
+      "payloadPath": "workflowFields.trieu_chung_khang_tri_khi_nghi",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "dien_bien_cap",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.1–1.9",
+      "payloadPath": "workflowFields.dien_bien_cap",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "co_keo_co_ho_hap",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.1–1.9",
+      "payloadPath": "workflowFields.co_keo_co_ho_hap",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "kho_tho_nang",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.1–1.9",
+      "payloadPath": "workflowFields.kho_tho_nang",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "phu_chi_duoi_muc_do",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.1–1.9",
+      "payloadPath": "workflowFields.phu_chi_duoi_muc_do",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "bien_thien_can_nang_7ngay",
+      "entryRole": "doctor",
+      "unit": "kg",
+      "rules": "1.1–1.9",
+      "payloadPath": "workflowFields.bien_thien_can_nang_7ngay",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "trieu_chung_khong_dien_hinh",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.1–1.9",
+      "payloadPath": "workflowFields.trieu_chung_khong_dien_hinh",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "icd_chinh",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.1; 2.3; HIS",
+      "payloadPath": null,
+      "freeTextWithheld": true
+    },
+    {
+      "fieldCode": "icd_phu",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.1; 2.3; HIS",
+      "payloadPath": null,
+      "freeTextWithheld": true
+    },
+    {
+      "fieldCode": "diagnoses",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.1; 2.3; HIS",
+      "payloadPath": "workflowFields.diagnoses",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "ts_tang_huyet_ap",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.1; 2.3; HIS",
+      "payloadPath": "workflowFields.tang_huyet_ap",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "ts_dai_thao_duong",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.1; 2.3; HIS",
+      "payloadPath": "workflowFields.dai_thao_duong",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "ts_beo_phi",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.1; 2.3; HIS",
+      "payloadPath": "workflowFields.ts_beo_phi",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "ts_benh_mach_vanh_nmct",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.1; 2.3; HIS",
+      "payloadPath": "workflowFields.ts_benh_mach_vanh_nmct",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "ts_benh_than_man",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.1; 2.3; HIS",
+      "payloadPath": "workflowFields.ts_benh_than_man",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "ts_hoa_tri_thuoc_doc_tim",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.1; 2.3; HIS",
+      "payloadPath": "workflowFields.ts_hoa_tri_thuoc_doc_tim",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "ts_rung_nhi_roi_loan_nhip",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.1; 2.3; HIS",
+      "payloadPath": "workflowFields.ts_rung_nhi_roi_loan_nhip",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "goi_y_nguy_co_icd",
+      "entryRole": "auto",
+      "unit": null,
+      "rules": "1.1; HIS",
+      "payloadPath": "workflowFields.goi_y_nguy_co_icd",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "goi_y_beo_phi",
+      "entryRole": "auto",
+      "unit": null,
+      "rules": "1.1; HIS",
+      "payloadPath": "workflowFields.goi_y_beo_phi",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "cls_lvef",
+      "entryRole": "doctor",
+      "unit": "%",
+      "rules": "1.2–1.8; 2.1–2.4; 4.2",
+      "payloadPath": "workflowFields.cls_lvef",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "bat_thuong_cau_truc_tim",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.2–1.8; 2.1–2.4; 4.2",
+      "payloadPath": "workflowFields.bat_thuong_cau_truc_tim",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "bat_thuong_cau_truc_chi_tiet",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.2–1.8; 2.1–2.4; 4.2",
+      "payloadPath": "workflowFields.bat_thuong_cau_truc_chi_tiet",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "roi_loan_tam_truong",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.2–1.8; 2.1–2.4; 4.2",
+      "payloadPath": "workflowFields.roi_loan_tam_truong",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "e_over_a_ratio",
+      "entryRole": "doctor",
+      "unit": "ratio",
+      "rules": "1.2–1.8; 2.1–2.4; 4.2",
+      "payloadPath": "workflowFields.e_over_a_ratio",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "ecg_12_chuyen_dao",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.2–1.8; 2.1–2.4; 4.2",
+      "payloadPath": "workflowFields.ecg_12_chuyen_dao",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "xquang_nguc_thang",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "1.2–1.8; 2.1–2.4; 4.2",
+      "payloadPath": "workflowFields.xquang_nguc_thang",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "cls_nt_probnp",
+      "entryRole": "doctor",
+      "unit": "pg/mL",
+      "rules": "1.2–1.8; 2.1–2.4; 4.2",
+      "payloadPath": "workflowFields.cls_nt_probnp",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "cls_bnp",
+      "entryRole": "doctor",
+      "unit": "pg/mL",
+      "rules": "1.2–1.8; 2.1–2.4; 4.2",
+      "payloadPath": "workflowFields.cls_bnp",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "cls_creatinin",
+      "entryRole": "doctor",
+      "unit": "umol/L",
+      "rules": "1.2–1.8; 2.1–2.4; 4.2",
+      "payloadPath": "workflowFields.cls_creatinin",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "cls_natri",
+      "entryRole": "doctor",
+      "unit": "mmol/L",
+      "rules": "1.2–1.8; 2.1–2.4; 4.2",
+      "payloadPath": "workflowFields.cls_natri",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "cls_kali",
+      "entryRole": "doctor",
+      "unit": "mmol/L",
+      "rules": "1.2–1.8; 2.1–2.4; 4.2",
+      "payloadPath": "workflowFields.cls_kali",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "cls_clo",
+      "entryRole": "doctor",
+      "unit": "mmol/L",
+      "rules": "1.2–1.8; 2.1–2.4; 4.2",
+      "payloadPath": "workflowFields.cls_clo",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "cls_hba1c",
+      "entryRole": "doctor",
+      "unit": "%",
+      "rules": "1.2–1.8; 2.1–2.4; 4.2",
+      "payloadPath": "workflowFields.cls_hba1c",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "cls_hdl",
+      "entryRole": "doctor",
+      "unit": "mmol/L",
+      "rules": "1.2–1.8; 2.1–2.4; 4.2",
+      "payloadPath": "workflowFields.cls_hdl",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "cls_ldl",
+      "entryRole": "doctor",
+      "unit": "mmol/L",
+      "rules": "1.2–1.8; 2.1–2.4; 4.2",
+      "payloadPath": "workflowFields.cls_ldl",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "cls_cholesterol",
+      "entryRole": "doctor",
+      "unit": "mmol/L",
+      "rules": "1.2–1.8; 2.1–2.4; 4.2",
+      "payloadPath": "workflowFields.cls_cholesterol",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "cls_triglycerid",
+      "entryRole": "doctor",
+      "unit": "mmol/L",
+      "rules": "1.2–1.8; 2.1–2.4; 4.2",
+      "payloadPath": "workflowFields.cls_triglycerid",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "cls_creatinin_nieu",
+      "entryRole": "doctor",
+      "unit": "mmol/L",
+      "rules": "1.2–1.8; 2.1–2.4; 4.2",
+      "payloadPath": "workflowFields.cls_creatinin_nieu",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "cls_albumin_nieu",
+      "entryRole": "doctor",
+      "unit": "mg/L",
+      "rules": "1.2–1.8; 2.1–2.4; 4.2",
+      "payloadPath": "workflowFields.cls_albumin_nieu",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "natri_nieu_2gio",
+      "entryRole": "doctor",
+      "unit": "mEq/L",
+      "rules": "1.2–1.8; 2.1–2.4; 4.2",
+      "payloadPath": "workflowFields.natri_nieu_2gio",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "nuoc_tieu_6gio",
+      "entryRole": "doctor",
+      "unit": "mL",
+      "rules": "1.2–1.8; 2.1–2.4; 4.2",
+      "payloadPath": "workflowFields.nuoc_tieu_6gio",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "egfr_ckd_epi",
+      "entryRole": "auto",
+      "unit": "mL/min/1.73m2",
+      "rules": "4.2; CKD-EPI 2021",
+      "payloadPath": "workflowFields.egfr_ckd_epi",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "egfr_formula",
+      "entryRole": "auto",
+      "unit": null,
+      "rules": "4.2; CKD-EPI 2021",
+      "payloadPath": "workflowFields.egfr_formula",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "medications",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "3.1–3.6; 4.1–4.4",
+      "payloadPath": "workflowFields.medications",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "allergies",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "3.1–3.6; 4.1–4.4",
+      "payloadPath": "workflowFields.allergies",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "dang_dung_loi_tieu_quai_uong",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "3.1–3.6; 4.1–4.4",
+      "payloadPath": "workflowFields.dang_dung_loi_tieu_quai_uong",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "lieu_loi_tieu_quai_ngay",
+      "entryRole": "doctor",
+      "unit": "mg/day",
+      "rules": "3.1–3.6; 4.1–4.4",
+      "payloadPath": "workflowFields.lieu_loi_tieu_quai_ngay",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "so_luong_thuoc_dong_thoi",
+      "entryRole": "auto",
+      "unit": null,
+      "rules": "4.4",
+      "payloadPath": "workflowFields.so_luong_thuoc_dong_thoi",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "co_da_thuoc",
+      "entryRole": "auto",
+      "unit": null,
+      "rules": "4.4",
+      "payloadPath": "workflowFields.co_da_thuoc",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "nhom_thuoc_tu_dong",
+      "entryRole": "auto",
+      "unit": null,
+      "rules": "4.4",
+      "payloadPath": "workflowFields.nhom_thuoc_tu_dong",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "danh_gia_suy_yeu_frailty",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "4.4",
+      "payloadPath": "workflowFields.danh_gia_suy_yeu_frailty",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "suy_giam_nhan_thuc",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "4.4",
+      "payloadPath": "workflowFields.suy_giam_nhan_thuc",
+      "freeTextWithheld": false
+    },
+    {
+      "fieldCode": "ghi_chu_lam_sang",
+      "entryRole": "doctor",
+      "unit": null,
+      "rules": "Ghi chú",
+      "payloadPath": null,
+      "freeTextWithheld": true
+    }
+  ]
+}

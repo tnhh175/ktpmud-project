@@ -53,7 +53,7 @@ M3_FIELDS = {'e_over_a_ratio','cls_creatinin','egfr_ckd_epi','egfr_formula',
              'cls_kali','ecg_12_chuyen_dao','xquang_nguc_thang','selected_medications'}
 M2_OBSERVATION_FIELDS = {'cls_bnp','cls_nt_probnp','cls_lvef','ecg_12_chuyen_dao','xquang_nguc_thang'}
 DRUG_CLASSES = {'MRA','ACEI','ARB','ARNI','NSAID','digoxin','amiodarone',
-                'loop_diuretic','beta_blocker','SGLT2i','other'}
+                'loop_diuretic','beta_blocker','SGLT2i','other','corticosteroid','TZD','class_I_antiarrhythmic'}
 GROUP_CLASSES = {'mra':'MRA','sglt2i':'SGLT2i',
                  'beta_blocker':'beta_blocker','loop_diuretic':'loop_diuretic','other':'other'}
 # Exact structured ingredient/ATC codes only; never parse drug names or notes.
@@ -107,6 +107,8 @@ def check_role(principal, *, write=False, module=None):
 
 
 def access(conn, visit_id, principal, *, write=False):
+    if principal.role != 'doctor':
+        require_visit_access(conn, visit_id, principal, write=write)
     if principal.role == 'doctor':
         try:
             require_visit_access(conn, visit_id, principal, write=write)
@@ -125,7 +127,7 @@ def access(conn, visit_id, principal, *, write=False):
     if write and row['status']=='confirmed':
         raise problem('VISIT_ALREADY_CONFIRMED')
     version=conn.execute('SELECT version_label FROM form_version WHERE id=%s',(row['form_version_id'],)).fetchone()
-    if version['version_label']!='v1.2':
+    if version['version_label'] not in ('v1.2','v2.0'):
         raise problem('FORM_VERSION_NOT_WORKFLOW_CAPABLE')
     return row
 
@@ -189,7 +191,21 @@ def source_fields(conn, visit):
     for code in ('age','sex'):
         if fields.get(code,{}).get('value_state')=='answered':canonical.pop(code,None)
     fields.update(canonical)
+    label=conn.execute('SELECT version_label FROM form_version WHERE id=%s',(visit['form_version_id'],)).fetchone()['version_label']
+    if label=='v2.0':
+        from .his_v2.runtime import project_fields
+        options={str(r['id']):r['option_code'] for r in conn.execute('SELECT id,option_code FROM field_option')}
+        fields=project_fields(fields,detail,patient,visit,options)
     return fields
+
+
+def rules_for_visit(conn,visit):
+    rules=mock.load_rules()
+    label=conn.execute('SELECT version_label FROM form_version WHERE id=%s',(visit['form_version_id'],)).fetchone()['version_label']
+    if label=='v2.0':
+        from .his_v2.rules import profile
+        rules=profile(rules)
+    return rules
 
 
 def blank(visit, fields):
@@ -266,7 +282,7 @@ def check_confirmations(output, confirmations, *, finish=False):
 
 
 def state(conn, visit, workflow, rules=None):
-    rules=rules or mock.load_rules()
+    rules=rules or rules_for_visit(conn,visit)
     latest,decisions=rows(conn,visit['id'])
     fields=deepcopy(workflow['fields'])
     prescription=decisions.get('m3',{}).get('selected_prescription')
@@ -480,8 +496,9 @@ def make_snapshot(conn, visit, workflow, module, rules):
     observation_codes=dependencies|(M2_OBSERVATION_FIELDS if module=='m2' else set())
     fields={k:v for k,v in fields.items() if k in dependencies}
     # Snapshot is a private allowlisted workflow projection, separate from the legacy AI export.
-    snap=dict(formVersionId=str(visit['form_version_id']),formVersionLabel='v1.2',visitRevisionNo=visit['current_revision_no'],
-              mappingVersion='hf-map/1.1-test',fields=fields,upstreamDecisionIds=ids,selectedPrescription=prescription,
+    label=conn.execute('SELECT version_label FROM form_version WHERE id=%s',(visit['form_version_id'],)).fetchone()['version_label']
+    snap=dict(formVersionId=str(visit['form_version_id']),formVersionLabel=label,visitRevisionNo=visit['current_revision_no'],
+              mappingVersion='hf-map/2.0' if label=='v2.0' else 'hf-map/1.1-test',fields=fields,upstreamDecisionIds=ids,selectedPrescription=prescription,
               observations=[deepcopy(o) for o in workflow['observations'] if o['fieldCode'] in observation_codes],lists={k:fields.get(k,{'value_state':'unknown','value':None}) for k in LISTS})
     validate(snap,'inputSnapshot')
     engine={**snap,'fields':normalize_lists(fields),'visitTime':to_iso(visit['visit_date']),
@@ -548,6 +565,7 @@ def put_fields(visitId:UUID,module:str,body:WorkflowFieldsRequest,request:Reques
     rules=mock.load_rules()
     with request.app.state.pool.connection() as conn:
         visit=access(conn,visitId,principal,write=True);workflow=load(conn,visit,write=True,request=request,principal=principal)
+        rules=rules_for_visit(conn,visit)
         compare_version(workflow,body,if_match)
         if body.fields:
             raise problem('WORKFLOW_INPUTS_MOVED_TO_DRAFT',422,fields=[form_code(k) for k in body.fields],
@@ -607,6 +625,7 @@ def post_run(visitId:UUID,module:str,body:WorkflowRunRequest,request:Request,res
     rules=mock.load_rules();endpoint=str(request.url.path);payload=body.model_dump(mode='json')
     with request.app.state.pool.connection() as conn:
         visit=access(conn,visitId,principal,write=True);workflow=load(conn,visit,write=True,request=request,principal=principal)
+        rules=rules_for_visit(conn,visit)
         receipt=replay(conn,principal,endpoint,idempotency_key,payload)
         if receipt:
             response.headers['Location']=endpoint+'/'+receipt['runId'];response.headers['ETag']='"'+str(receipt['rowVersion'])+'"'
@@ -773,7 +792,7 @@ def post_decision(visitId:UUID,module:str,body:WorkflowDecisionRequest,request:R
         elif body.intent=='finish_workflow':
             raise problem('WORKFLOW_MODULE_MISMATCH',422)
         # Hash/lineage must still correspond to the succeeded current run.
-        _,_,current_hash=make_snapshot(conn,visit,workflow,module,mock.load_rules())
+        _,_,current_hash=make_snapshot(conn,visit,workflow,module,rules_for_visit(conn,visit))
         if current_hash!=run['input_hash']:
             raise problem('WORKFLOW_RESULT_STALE')
         decision_id=uuid4()
@@ -826,7 +845,7 @@ def on_visit_saved(conn, visit_id, request=None, principal=None):
     if not workflow:
         visit=conn.execute('SELECT * FROM visit WHERE id=%s',(visit_id,)).fetchone()
         label=conn.execute('SELECT version_label FROM form_version WHERE id=%s',(visit['form_version_id'],)).fetchone()
-        if label['version_label']=='v1.2' and visit['status']=='draft':load(conn,visit,write=True,request=request,principal=principal)
+        if label['version_label'] in ('v1.2','v2.0') and visit['status'] in ('draft','intake','waiting','in_progress'):load(conn,visit,write=True,request=request,principal=principal)
         return
     visit=conn.execute('SELECT * FROM visit WHERE id=%s',(visit_id,)).fetchone()
     synchronize_source(conn,visit,workflow,request,principal)
@@ -865,7 +884,7 @@ def field_metadata(conn, visit):
     from .visits import load_form_version_bundle
     _,_,definitions=load_form_version_bundle(conn,visit['form_version_id'])
     definitions=[{'code':d['code'],'data_type':d['dataType']} for d in definitions]
-    rules=mock.load_rules()
+    rules=rules_for_visit(conn,visit)
     result={}
     allowed=allowed_fields(conn,visit)
     for row in definitions:
@@ -881,10 +900,22 @@ def field_metadata(conn, visit):
 
 
 def attach_visit_workflow(conn, visit_id, detail, request=None, principal=None):
-    if detail['visit']['formVersionLabel']!='v1.2' or not conn.execute("SELECT to_regclass('ai_workflow') AS relation").fetchone()['relation']:
+    if detail['visit']['formVersionLabel'] not in ('v1.2','v2.0') or not conn.execute("SELECT to_regclass('ai_workflow') AS relation").fetchone()['relation']:
         return
     visit=conn.execute('SELECT * FROM visit WHERE id=%s',(visit_id,)).fetchone()
     workflow=load(conn,visit,request=request,principal=principal)
+    if detail['visit']['formVersionLabel']=='v2.0':
+        from .his_v2.catalog import FIELDS
+        auto={f['code'] for f in FIELDS if f['entryRole']=='auto'}
+        if principal is not None and principal.role=='nurse':auto &= {'luot_tuoi','bmi','giam_ha_tu_the'}
+        definitions={r['code']:r['id'] for r in conn.execute('SELECT fd.id,fd.code FROM form_field ff JOIN field_definition fd ON fd.id=ff.field_definition_id WHERE ff.form_version_id=%s',(visit['form_version_id'],))}
+        detail['values']=[v for v in detail['values'] if v['fieldCode'] not in auto]
+        for code in sorted(auto):
+            a=workflow['fields'].get(canonical_code(code),{'value_state':'unknown','value':None})
+            detail['values'].append(dict(visitId=str(visit_id),updatedAt=to_iso(visit['updated_at']),fieldDefinitionId=str(definitions[code]),fieldCode=code,valueState=a['value_state'],answer=deepcopy(a),
+                valueNum=a['value'] if type(a['value']) in (int,float) else None,valueBool=a['value'] if type(a['value']) is bool else None,
+                valueText=None,valueDate=None,fieldOptionId=None,selectedOptions=[],unit=a.get('unit')))
+    if principal is not None and principal.role=='nurse':return
     summary=state(conn,visit,workflow)
     # selected_medications belongs to the M3 decision, not an input to jump to.
     for module in summary['modules'].values():
