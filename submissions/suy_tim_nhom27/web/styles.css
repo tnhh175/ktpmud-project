@@ -2062,36 +2062,84 @@ button {
 /* ==========================================================================
    M7: Admin Form Versions & 3-Pane Scrollable Keyboard Editor
    ========================================================================== */
-.version-cards {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 18px;
-}
-
-.version-card {
-  text-align: left;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-lg);
-  padding: 14px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  transition: border-color var(--t-fast), box-shadow var(--t-fast);
-}
-.version-card:hover { border-color: var(--focus-ring); }
-.version-card.is-selected {
-  border: 2px solid var(--primary);
-  background: var(--primary-soft);
-}
-
-.version-card__top {
+.card-row-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+/* V8: Compact horizontal segmented/tab version selector (height <= 44px) */
+.version-bar-wrap {
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.version-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-height: 44px;
+  min-height: 38px;
+  padding: 3px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  scrollbar-width: thin;
+}
+
+.version-tab {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  max-height: 36px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+}
+
+.version-tab:hover {
+  background: var(--bg-subtle, #F1F5F9);
+  color: var(--ink-primary);
+}
+
+.version-tab.is-selected {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.version-tab__label {
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.version-bar__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 4px 10px;
+  font-size: 12.5px;
+  color: var(--ink-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
 }
 
 .tabs {
@@ -2664,7 +2712,6 @@ button {
   .encounter-footer__actions .btn { width: 100%; padding: 7px 10px; font-size: 13px; white-space: normal; }
 
   .stats-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .version-cards { grid-template-columns: 1fr; }
   .editor-3pane { grid-template-columns: 1fr; }
   .editor-pane { max-height: 340px; }
   .audit-filters { grid-template-columns: 1fr; }
@@ -4884,6 +4931,455 @@ button {
 @media (max-width: 520px) {
   .enc-wf-grid,
   .enc-wf-bar__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ==========================================================================
+   A6 v2.0 UI Components: Nurse Role, Queue, Vitals Summary, Form v2.0,
+   Latest Visit Card (V7), Horizontal Version Bar (V8)
+   ========================================================================== */
+.badge--teal {
+  background: #CCFBF1;
+  color: #115E59;
+  border: 1px solid #99F6E4;
+}
+
+.badge--pillar {
+  background: #DCFCE7;
+  color: #166534;
+  border: 1px solid #86EFAC;
+  font-weight: 700;
+}
+
+.badge--caution {
+  background: #FEE2E2;
+  color: #991B1B;
+  border: 1px solid #FCA5A5;
+  font-weight: 700;
+}
+
+.nav-item__badge {
+  margin-left: auto;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #FFFFFF;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.is-sidebar-collapsed .nav-item__badge {
+  display: none;
+}
+
+/* Queue vitals compact chips */
+.vital-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.vital-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  background: #F1F5F9;
+  color: #1E293B;
+  border: 1px solid #CBD5E1;
+  white-space: nowrap;
+}
+
+.vital-chip--alert {
+  background: #FEE2E2;
+  color: #991B1B;
+  border-color: #FCA5A5;
+}
+
+/* Read-only Nurse Vitals Summary Card at top of Doctor Encounter */
+.nurse-vitals-card {
+  background: #F8FAFC;
+  border: 1px solid #BFDBFE;
+  border-left: 4px solid var(--primary);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+
+.nurse-vitals-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.nurse-vitals-card__title {
+  font-size: 13.5px;
+  color: var(--ink-primary);
+}
+
+.nurse-vitals-card__grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.nv-metric {
+  background: #FFFFFF;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 6px 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nv-metric--alert {
+  background: #FEF2F2;
+  border-color: #FCA5A5;
+}
+
+.nv-metric__lbl {
+  font-size: 11px;
+  color: var(--ink-secondary);
+  font-weight: 600;
+}
+
+.nv-metric__val {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-primary);
+}
+
+.nv-metric--alert .nv-metric__val {
+  color: #991B1B;
+}
+
+/* Section role controls & collapsed nurse section */
+.section-role-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.clinical-section--collapsed .card__header {
+  border-bottom: none;
+}
+
+.clinical-section--readonly {
+  background: #FAFCFF;
+}
+
+/* Multi-ICD batch input bar & ICD -> Risk Factor suggestion box */
+.multi-icd-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.multi-icd-bar .input {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.icd-risk-suggest {
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: #EFF6FF;
+  border: 1px solid #93C5FD;
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.icd-risk-suggest__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: #1E3A8A;
+}
+
+.icd-risk-suggest__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.icd-risk-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 6px 10px;
+  background: #FFFFFF;
+  border: 1px solid #DBEAFE;
+  border-radius: var(--radius-sm);
+}
+
+.icd-risk-item.is-confirmed {
+  background: #F0FDF4;
+  border-color: #BBF7D0;
+}
+
+.icd-risk-item__text {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+
+/* V7: Latest Visit Summary Card v2 */
+.latest-visit-v2 {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.lv-class-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.lv-class-box {
+  background: #F8FAFC;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lv-class-box__lbl {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-secondary);
+}
+
+.lv-class-box__val {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.lv-class-box__text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-primary);
+}
+
+.lv-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lv-lab-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.lv-lab-cell {
+  background: #F8FAFC;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.lv-lab-cell--high {
+  background: #FEF2F2;
+  border-color: #FCA5A5;
+}
+
+.lv-lab-cell--low {
+  background: #FFFBEB;
+  border-color: #FCD34D;
+}
+
+.lv-lab-cell__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.lv-lab-cell__lbl {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lv-lab-cell__val {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink-primary);
+}
+
+.lv-lab-cell__unit {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-secondary);
+}
+
+.lv-lab-cell__date {
+  font-size: 11px;
+  color: var(--ink-muted, #64748B);
+}
+
+.lab-flag {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.lab-flag--high {
+  background: #FEE2E2;
+  color: #991B1B;
+}
+
+.lab-flag--low {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+.lv-med-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lv-med-group__title {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink-secondary);
+  margin-bottom: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.lv-med-group__title--pillar {
+  color: #166534;
+}
+
+.lv-med-group__title--caution {
+  color: #991B1B;
+}
+
+.lv-med-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.med-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  border: 1px solid var(--border-subtle);
+  background: #F8FAFC;
+  color: var(--ink-primary);
+}
+
+.med-pill--pillar {
+  background: #F0FDF4;
+  border-color: #86EFAC;
+  color: #14532D;
+}
+
+.med-pill--caution {
+  background: #FEF2F2;
+  border-color: #FCA5A5;
+  color: #7F1D1D;
+}
+
+.med-pill__grp {
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+.lv-alert-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lv-alert-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  border: 1px solid var(--border-subtle);
+  background: #F8FAFC;
+}
+
+.lv-alert-item--error {
+  background: #FEF2F2;
+  border-color: #FCA5A5;
+  color: #7F1D1D;
+}
+
+.lv-alert-item--warn {
+  background: #FFFBEB;
+  border-color: #FCD34D;
+  color: #78350F;
+}
+
+.med-auto-group-badge {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+@media (max-width: 1120px) {
+  .nurse-vitals-card__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .lv-lab-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .nurse-vitals-card__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .lv-class-row {
     grid-template-columns: 1fr;
   }
 }

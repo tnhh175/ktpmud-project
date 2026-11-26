@@ -105,13 +105,21 @@
   function formatBirthPrecision(pt) {
     if (!pt) return '—';
     if (pt.birthDate) {
-      const yr = Number(String(pt.birthDate).slice(0, 4));
-      const age = isFinite(yr) ? (new Date().getFullYear() - yr) : null;
+      const age = computeAge(pt);
       return formatDateOnly(pt.birthDate) + (age !== null ? ' (' + age + ' tuổi)' : '');
     }
-    if (pt.birthYear != null) return 'Năm sinh ' + pt.birthYear + ' (chỉ ghi năm)';
-    if (pt.declaredAge != null) return 'Tuổi ước lượng: ' + pt.declaredAge + ' (chưa rõ ngày sinh)';
+    if (pt.birthYear != null) return 'Năm sinh ' + pt.birthYear;
+    if (pt.declaredAge != null) return 'Tuổi ước lượng: ' + pt.declaredAge;
     return 'Chưa có thông tin ngày sinh';
+  }
+
+  function validateCccdValue(raw) {
+    const s = String(raw || '').trim();
+    if (!s) return '';
+    if (!/^[0-9]{12}$/.test(s)) {
+      return 'Số CCCD phải gồm đúng 12 chữ số (hiện có ' + s.length + '/12 số).';
+    }
+    return '';
   }
 
   function formatVisitType(vt) {
@@ -141,11 +149,96 @@
       form_version_publish: 'Phát hành phiên bản biểu mẫu',
       patient_create: 'Tạo hồ sơ bệnh nhân',
       visit_confirm: 'Xác nhận lượt khám / Bản sửa',
+      visit_submit: 'NVYT gửi lượt khám vào hàng chờ',
+      visit_claim: 'Bác sĩ nhận lượt khám',
+      visit_withdraw: 'NVYT rút lại lượt khám',
       ai_input_export: 'Xuất JSON đầu vào AI',
       care_assignment_add: 'Phân công bác sĩ phụ trách',
       care_assignment_revoke: 'Thu hồi phân công bác sĩ'
     };
     return map[act] || act;
+  }
+
+  function formatRoleLabel(role) {
+    if (role === 'admin') return 'Quản trị viên';
+    if (role === 'nurse') return 'Nhân viên y tế';
+    if (role === 'pharmacist') return 'Dược sĩ (chỉ xem M4)';
+    if (role === 'doctor') return 'Bác sĩ lâm sàng';
+    return role || '—';
+  }
+
+  function formatRoleShort(role) {
+    if (role === 'admin') return 'Quản trị viên';
+    if (role === 'nurse') return 'Nhân viên y tế';
+    if (role === 'pharmacist') return 'Dược sĩ';
+    if (role === 'doctor') return 'Bác sĩ';
+    return role || '—';
+  }
+
+  function getHomeHashForRole(role) {
+    if (role === 'admin') return '#/admin/users';
+    if (role === 'nurse') return '#/nurse/intake';
+    if (role === 'pharmacist') return state.workflow.visitId ? ('#/visits/' + state.workflow.visitId + '/workflow') : '#/login';
+    return '#/queue';
+  }
+
+  function formatVisitStatusBadge(status, visitId, clickable) {
+    if (status === 'confirmed') return '<span class="badge badge--success">Đã hoàn thành</span>';
+    if (status === 'waiting') return '<span class="badge badge--info">Chờ bác sĩ</span>';
+    if (status === 'intake') {
+      if (clickable && visitId) return '<button type="button" class="badge badge--warn badge--link" data-nav="#/visits/' + esc(visitId) + '">Đang tiếp nhận</button>';
+      return '<span class="badge badge--warn">Đang tiếp nhận</span>';
+    }
+    if (status === 'in_progress') {
+      if (clickable && visitId) return '<button type="button" class="badge badge--blue badge--link" data-nav="#/visits/' + esc(visitId) + '">Đang xử lý</button>';
+      return '<span class="badge badge--blue">Đang xử lý</span>';
+    }
+    if (status === 'draft') {
+      if (clickable && visitId) return '<button type="button" class="badge badge--warn badge--link" data-nav="#/visits/' + esc(visitId) + '">Có lượt nháp</button>';
+      return '<span class="badge badge--warn">Có lượt nháp</span>';
+    }
+    return '<span class="badge badge--neutral">Chưa có lượt</span>';
+  }
+
+  function isVisitLockedError(err) {
+    if (!err || err.status !== 403) return false;
+    const code = String(err.code || (err.problem && err.problem.code) || '');
+    return code === 'VISIT_LOCKED_BY_OTHER_DOCTOR';
+  }
+
+  function formatQueueVitalsSummary(v) {
+    if (!v || typeof v !== 'object') return '<span class="cell-sub">Chưa ghi nhận sinh hiệu</span>';
+    const parts = [];
+    if (v.sbp != null || v.dbp != null) {
+      const sbpNum = v.sbp != null ? Number(v.sbp) : null;
+      const warn = sbpNum !== null && sbpNum < 90;
+      parts.push('<span class="vital-chip' + (warn ? ' vital-chip--alert' : '') + '">HA ' + esc(v.sbp != null ? v.sbp : '?') + '/' + esc(v.dbp != null ? v.dbp : '?') + '</span>');
+    }
+    if (v.hr != null) {
+      const hrNum = Number(v.hr);
+      const warn = isFinite(hrNum) && (hrNum < 40 || hrNum > 130);
+      parts.push('<span class="vital-chip' + (warn ? ' vital-chip--alert' : '') + '">M ' + esc(v.hr) + '</span>');
+    }
+    if (v.rr != null) {
+      const rrNum = Number(v.rr);
+      const warn = isFinite(rrNum) && rrNum > 25;
+      parts.push('<span class="vital-chip' + (warn ? ' vital-chip--alert' : '') + '">NT ' + esc(v.rr) + '</span>');
+    }
+    if (v.spo2 != null) {
+      const spNum = Number(v.spo2);
+      const warn = isFinite(spNum) && spNum < 90;
+      parts.push('<span class="vital-chip' + (warn ? ' vital-chip--alert' : '') + '">SpO₂ ' + esc(v.spo2) + '%</span>');
+    }
+    if (v.bmi != null) {
+      parts.push('<span class="vital-chip">BMI ' + esc(v.bmi) + '</span>');
+    } else if (v.weightKg != null || v.heightCm != null) {
+      const hw = [];
+      if (v.heightCm != null) hw.push(v.heightCm + 'cm');
+      if (v.weightKg != null) hw.push(v.weightKg + 'kg');
+      parts.push('<span class="vital-chip">' + esc(hw.join(' / ')) + '</span>');
+    }
+    if (parts.length === 0) return '<span class="cell-sub">Chưa ghi nhận sinh hiệu</span>';
+    return '<div class="vital-chips">' + parts.join('') + '</div>';
   }
 
   function formatAuditEntity(ent) {
@@ -586,7 +679,7 @@
     e_over_a_ratio: 'ratio',
     egfr_ckd_epi: 'mL/min/1.73m2'
   };
-  const WF_MED_CLASSES = ['MRA', 'ACEI', 'ARB', 'ARNI', 'NSAID', 'digoxin', 'amiodarone', 'loop_diuretic', 'beta_blocker', 'SGLT2i', 'other'];
+  const WF_MED_CLASSES = ['MRA', 'ACEI', 'ARB', 'ARNI', 'NSAID', 'corticosteroid', 'TZD', 'class_I_antiarrhythmic', 'digoxin', 'amiodarone', 'loop_diuretic', 'beta_blocker', 'SGLT2i', 'other'];
   const WF_MED_UNITS = ['mg', 'g', 'mcg', 'mL', 'IU', 'tablet'];
   const WF_MED_ROUTES = ['oral', 'iv', 'im', 'sc', 'inhaled', 'topical', 'other'];
   const WF_MED_FREQS = [
@@ -615,12 +708,16 @@
     .concat(WF_TIMED_LAB_CODES)
     .concat(WF_LIST_CODES);
 
-  function isV12StructuredAnswerCode(code) {
-    return V12_STRUCTURED_ANSWER_CODES.indexOf(code) >= 0;
+  function isV12StructuredAnswerCode(code, fd) {
+    if (V12_STRUCTURED_ANSWER_CODES.indexOf(code) >= 0) return true;
+    if (fd && fd.validationRule && fd.validationRule.requiresMeasuredAt) return true;
+    return false;
   }
 
-  function isTimedLabCode(code) {
-    return WF_TIMED_LAB_CODES.indexOf(code) >= 0;
+  function isTimedLabCode(code, fd) {
+    if (WF_TIMED_LAB_CODES.indexOf(code) >= 0) return true;
+    if (fd && fd.validationRule && fd.validationRule.requiresMeasuredAt) return true;
+    return false;
   }
 
   function isStructuredListCode(code) {
@@ -651,12 +748,15 @@
     return { value_state: 'unknown', value: null };
   }
 
-  function cleanAnswerForDraft(code, rawAns) {
+  function cleanAnswerForDraft(code, rawAns, isV2) {
     if (!rawAns || typeof rawAns !== 'object') return null;
     if (rawAns.value_state === 'unknown') {
       return { value_state: 'unknown', value: null };
     }
     const ans = clone(rawAns);
+    if (isV2 && (V12_SCALE_SPECS[code] || code === 'danh_gia_suy_yeu_frailty')) {
+      ans.value = String(ans.value);
+    }
     delete ans.ownerModule;
     if (ans.measuredAt === null || ans.measuredAt === undefined || String(ans.measuredAt).trim() === '') {
       delete ans.measuredAt;
@@ -680,6 +780,17 @@
     } else if (code === 'medications' && Array.isArray(ans.value)) {
       ans.value = ans.value.map(function (m, idx) {
         if (!m || typeof m !== 'object') return null;
+        if (isV2) {
+          const his = {
+            id: String(m.id || ('med-' + (idx + 1))),
+            name: String(m.name || m.ingredient || m.drugName || m.ingredientCode || '').trim(),
+            schedule: clone(m.schedule || {})
+          };
+          ['dose', 'unit', 'route', 'frequency', 'scheduleText'].forEach(function (key) {
+            if (m[key] !== null && m[key] !== undefined && m[key] !== '') his[key] = m[key];
+          });
+          return his;
+        }
         if (m.ingredientCode) return clone(m);
         const row = {
           id: String(m.id || ('med-' + (idx + 1))),
@@ -705,15 +816,240 @@
     return ans;
   }
 
-  function isFormV12(formVersion, fieldDefs) {
+  const NURSE_SECTION_CODES = ['hanh_chinh', 'sinh_ton'];
+
+  function isFormV2(formVersion, sections) {
     if (formVersion) {
       const lbl = String(formVersion.versionLabel || '').toLowerCase();
-      if (lbl.indexOf('1.2') >= 0 || Number(formVersion.versionNo) >= 3) return true;
+      if (/^v?2\./.test(lbl) || lbl.indexOf('2.0') >= 0 || Number(formVersion.versionNo) >= 4) return true;
+    }
+    if (Array.isArray(sections)) {
+      return sections.some(function (s) {
+        return s && ['sinh_ton', 'trieu_chung_kham', 'chan_doan_nguy_co'].indexOf(s.sectionCode) >= 0;
+      });
+    }
+    return false;
+  }
+
+  function isFormV12(formVersion, fieldDefs, sections) {
+    if (isFormV2(formVersion, sections)) return true;
+    if (formVersion) {
+      const lbl = String(formVersion.versionLabel || '').toLowerCase();
+      if (lbl.indexOf('1.2') >= 0 || lbl.indexOf('2.') >= 0 || Number(formVersion.versionNo) >= 3) return true;
     }
     if (Array.isArray(fieldDefs)) {
       return fieldDefs.some(function (fd) { return fd && V12_NINE_FIELD_CODES.indexOf(fd.code) >= 0; });
     }
     return false;
+  }
+
+  function isNurseSection(sec) {
+    if (!sec) return false;
+    if (sec.entryRole === 'nurse') return true;
+    return NURSE_SECTION_CODES.indexOf(sec.sectionCode) >= 0;
+  }
+
+  function getFieldEntryRole(ff, fd, sectionCode, fieldMetaMap) {
+    if (ff && ff.entryRole) return ff.entryRole;
+    if (fd && fd.entryRole) return fd.entryRole;
+    if (fd && fd.validationRule && fd.validationRule.entryRole) return fd.validationRule.entryRole;
+    const meta = fd && fieldMetaMap ? getFieldMetaFromApi(fieldMetaMap, fd.code) : null;
+    if (meta && meta.entryRole) return meta.entryRole;
+    if (fd && (fd.isCalculated || fd.is_calculated || fd.storageLevel === 'computed')) return 'auto';
+    if (NURSE_SECTION_CODES.indexOf(sectionCode) >= 0) return 'nurse';
+    return 'doctor';
+  }
+
+  // Drug name / active ingredient -> pharmacological group classifier (PLAN-v2 V7 & mục 6)
+  const MED_GROUP_RULES = [
+    { group: 'ARNI', label: 'ARNI (Trụ cột)', pillar: true, caution: false, rx: /\b(sacubitril|entresto|uperio)\b/i },
+    { group: 'ACE-I', label: 'ACE-I (Trụ cột)', pillar: true, caution: false, rx: /\b(enalapril|perindopril|coversyl|lisinopril|ramipril|captopril|imidapril|benazepril|quinapril|fosinopril|zestril|renitec|tritace)\b/i },
+    { group: 'ARB', label: 'ARB (Trụ cột)', pillar: true, caution: false, rx: /\b(losartan|lorista|valsartan|candesartan|telmisartan|irbesartan|olmesartan|azilsartan|micardis|diovan|cozaar|aprovel|atacand|twynsta|exforge|co-diovan)\b/i },
+    { group: 'BB', label: 'Chẹn beta (Trụ cột)', pillar: true, caution: false, rx: /\b(bisoprolol|concor|carvedilol|metoprolol|betaloc|nebivolol|nebilet|atenolol|propranolol|dilatrend)\b/i },
+    { group: 'MRA', label: 'MRA (Trụ cột)', pillar: true, caution: false, rx: /\b(spironolactone|spironolacton|aldactone|verospiron|eplerenone|finerenone)\b/i },
+    { group: 'SGLT2i', label: 'SGLT2i (Trụ cột)', pillar: true, caution: false, rx: /\b(dapagliflozin|forxiga|empagliflozin|jardiance|canagliflozin|sotagliflozin|xigduo|synjardy)\b/i },
+    { group: 'LOOP', label: 'Lợi tiểu quai', pillar: false, caution: false, rx: /\b(furosemide|furosemid|lasix|torsemide|torasemide|bumetanide)\b/i },
+    { group: 'NSAIDs', label: 'NSAIDs (Cần tránh)', pillar: false, caution: true, rx: /\b(ibuprofen|diclofenac|voltaren|meloxicam|mobic|celecoxib|celebrex|etoricoxib|arcoxia|naproxen|indomethacin|piroxicam|ketorolac|ketoprofen|aceclofenac|tenoxicam)\b/i },
+    { group: 'Corticoid', label: 'Corticoid (Cần tránh)', pillar: false, caution: true, rx: /\b(prednisone|prednisolon|prednisolone|methylprednisolone|methylprednisolon|medrol|dexamethasone|dexamethason|hydrocortisone|betamethasone)\b/i },
+    { group: 'TZD', label: 'TZD (Cần tránh)', pillar: false, caution: true, rx: /\b(pioglitazone|rosiglitazone|actos)\b/i },
+    { group: 'CLASS_I_AA', label: 'Chống loạn nhịp nhóm I (Cần tránh)', pillar: false, caution: true, rx: /\b(flecainide|propafenone|disopyramide|quinidine|procainamide|mexiletine)\b/i }
+  ];
+
+  function classifyMedicationGroup(nameOrMed) {
+    if (nameOrMed && typeof nameOrMed === 'object') {
+      if (nameOrMed.groupLabel || nameOrMed.drugGroupLabel) {
+        const gCode = String(nameOrMed.group || nameOrMed.drugGroup || nameOrMed.class || '');
+        const isPil = nameOrMed.pillar !== undefined ? Boolean(nameOrMed.pillar) : /^(ARNI|ACEI|ACE-I|ARB|BB|BETA_BLOCKER|MRA|SGLT2I?|ARNI_ACEI_ARB)$/i.test(gCode);
+        const isCau = nameOrMed.caution !== undefined ? Boolean(nameOrMed.caution) : /^(NSAID|NSAIDS|CORTICOID|STEROID|TZD|CLASS_I_AA)$/i.test(gCode);
+        return { group: gCode || 'OTHER', label: nameOrMed.groupLabel || nameOrMed.drugGroupLabel, pillar: isPil, caution: isCau };
+      }
+      const clsStr = String(nameOrMed.class || nameOrMed.group || '').trim();
+      const clsMap = {
+        ARNI: { group: 'ARNI', label: 'ARNI (Trụ cột)', pillar: true, caution: false },
+        ACEI: { group: 'ACE-I', label: 'ACE-I (Trụ cột)', pillar: true, caution: false },
+        'ACE-I': { group: 'ACE-I', label: 'ACE-I (Trụ cột)', pillar: true, caution: false },
+        ARB: { group: 'ARB', label: 'ARB (Trụ cột)', pillar: true, caution: false },
+        BB: { group: 'BB', label: 'Chẹn beta (Trụ cột)', pillar: true, caution: false },
+        beta_blocker: { group: 'BB', label: 'Chẹn beta (Trụ cột)', pillar: true, caution: false },
+        MRA: { group: 'MRA', label: 'MRA (Trụ cột)', pillar: true, caution: false },
+        SGLT2i: { group: 'SGLT2i', label: 'SGLT2i (Trụ cột)', pillar: true, caution: false },
+        SGLT2: { group: 'SGLT2i', label: 'SGLT2i (Trụ cột)', pillar: true, caution: false },
+        LOOP: { group: 'LOOP', label: 'Lợi tiểu quai', pillar: false, caution: false },
+        loop_diuretic: { group: 'LOOP', label: 'Lợi tiểu quai', pillar: false, caution: false },
+        NSAID: { group: 'NSAIDs', label: 'NSAIDs (Cần tránh)', pillar: false, caution: true },
+        NSAIDs: { group: 'NSAIDs', label: 'NSAIDs (Cần tránh)', pillar: false, caution: true },
+        Corticoid: { group: 'Corticoid', label: 'Corticoid (Cần tránh)', pillar: false, caution: true },
+        TZD: { group: 'TZD', label: 'TZD (Cần tránh)', pillar: false, caution: true },
+        CLASS_I_AA: { group: 'CLASS_I_AA', label: 'Chống loạn nhịp nhóm I (Cần tránh)', pillar: false, caution: true }
+      };
+      if (clsStr && clsMap[clsStr]) return clsMap[clsStr];
+    }
+    const text = typeof nameOrMed === 'string'
+      ? nameOrMed
+      : [nameOrMed && nameOrMed.name, nameOrMed && nameOrMed.drugName, nameOrMed && nameOrMed.ingredient, nameOrMed && nameOrMed.activeIngredient].filter(Boolean).join(' ');
+    if (text && String(text).trim()) {
+      for (let i = 0; i < MED_GROUP_RULES.length; i++) {
+        if (MED_GROUP_RULES[i].rx.test(text)) {
+          return {
+            group: MED_GROUP_RULES[i].group,
+            label: MED_GROUP_RULES[i].label,
+            pillar: MED_GROUP_RULES[i].pillar,
+            caution: MED_GROUP_RULES[i].caution
+          };
+        }
+      }
+    }
+    return { group: 'OTHER', label: 'Khác', pillar: false, caution: false };
+  }
+
+  // ICD-10 -> Risk Factor auto-suggestions (PLAN-v2 mục 4 + C11 catalog codes)
+  const ICD_RISK_RULES = [
+    { key: 'tha', label: 'Tăng huyết áp (THA)', rx: /^I1[0-5]/i, fieldCodes: ['ts_tang_huyet_ap', 'ytnc_tha', 'tang_huyet_ap', 'tha'], optionCodes: ['tha', 'tang_huyet_ap'] },
+    { key: 'dtd', label: 'Đái tháo đường (ĐTĐ)', rx: /^E1[0-4]/i, fieldCodes: ['ts_dai_thao_duong', 'ytnc_dtd', 'dai_thao_duong', 'dtd'], optionCodes: ['dtd', 'dai_thao_duong'] },
+    { key: 'cad', label: 'Bệnh mạch vành / NMCT', rx: /^I2[0-5]/i, fieldCodes: ['ts_benh_mach_vanh_nmct', 'ytnc_benh_mach_vanh', 'ts_benh_mach_vanh', 'benh_mach_vanh', 'ts_nmct'], optionCodes: ['benh_mach_vanh', 'cad', 'nmct'] },
+    { key: 'ckd', label: 'Bệnh thận mạn (CKD)', rx: /^N18/i, fieldCodes: ['ts_benh_than_man', 'ytnc_benh_than_man', 'benh_than_man', 'ckd'], optionCodes: ['benh_than_man', 'ckd'] },
+    { key: 'af', label: 'Rung nhĩ', rx: /^I48/i, fieldCodes: ['ts_rung_nhi_roi_loan_nhip', 'ytnc_rung_nhi', 'ts_rung_nhi', 'rung_nhi'], optionCodes: ['rung_nhi', 'af'] },
+    { key: 'obesity', label: 'Béo phì', rx: /^E66/i, fieldCodes: ['ts_beo_phi', 'ytnc_beo_phi', 'beo_phi'], optionCodes: ['beo_phi', 'obesity'] }
+  ];
+
+  function extractVisitIcdCodes(ctx) {
+    const codes = [];
+    const seen = {};
+    function pushCode(raw) {
+      String(raw || '').split(/[+,\s;]+/).forEach(function (part) {
+        const c = part.trim().toUpperCase();
+        if (c && /^[A-Z]\d{2}/.test(c) && !seen[c]) {
+          seen[c] = true;
+          codes.push(c);
+        }
+      });
+    }
+    if (ctx.defByCode && ctx.defByCode.diagnoses) {
+      const dv = ctx.valuesByDefId[ctx.defByCode.diagnoses.id];
+      const ans = dv && dv.answer;
+      if (ans && ans.value_state === 'answered' && Array.isArray(ans.value)) {
+        ans.value.forEach(function (dx) { pushCode(typeof dx === 'string' ? dx : (dx && dx.code)); });
+      }
+    }
+    (ctx.diagnoses || []).forEach(function (d) { if (d && d.code) pushCode(d.code); });
+    ['icd_chinh', 'icd_phu', 'ma_benh_kem_theo', 'icd_kem_theo', 'chan_doan_icd_chinh', 'chan_doan_icd_phu'].forEach(function (fc) {
+      const fd = ctx.defByCode && ctx.defByCode[fc];
+      const v = fd && ctx.valuesByDefId[fd.id];
+      if (v && v.valueState === 'answered' && v.valueText) pushCode(v.valueText);
+    });
+    return codes;
+  }
+
+  function findRiskTargetInBundle(rule, ctx) {
+    const defByCode = ctx.defByCode || {};
+    for (let i = 0; i < rule.fieldCodes.length; i++) {
+      const fd = defByCode[rule.fieldCodes[i]];
+      if (fd && fd.dataType === 'boolean') return { kind: 'bool', fd: fd };
+    }
+    const multiFd = defByCode.yeu_to_nguy_co || defByCode.ytnc_nhom;
+    if (multiFd && multiFd.dataType === 'multi_choice' && Array.isArray(multiFd.options)) {
+      const opt = multiFd.options.find(function (o) {
+        const oc = String(o.optionCode || o.code || '').toLowerCase();
+        return rule.optionCodes.indexOf(oc) >= 0;
+      });
+      if (opt) return { kind: 'multi', fd: multiFd, optionId: opt.id };
+    }
+    return null;
+  }
+
+  function isRiskTargetConfirmed(target, ctx) {
+    if (!target || !target.fd) return false;
+    const v = ctx.valuesByDefId[target.fd.id];
+    if (!v) return false;
+    if (target.kind === 'bool') {
+      if (v.answer && typeof v.answer === 'object') {
+        return v.answer.value_state === 'answered' && Boolean(v.answer.value);
+      }
+      return v.valueState === 'answered' && Boolean(v.valueBool);
+    }
+    if (target.kind === 'multi') {
+      return v.valueState === 'answered' && Array.isArray(v.selectedOptions) && v.selectedOptions.some(function (so) {
+        return so.fieldOptionId === target.optionId;
+      });
+    }
+    return false;
+  }
+
+  function computeEncounterBmi(ctx) {
+    const hDef = ctx.defByCode && ctx.defByCode.chieu_cao_cm;
+    const wDef = ctx.defByCode && ctx.defByCode.can_nang_kg;
+    const hV = hDef && ctx.valuesByDefId[hDef.id];
+    const wV = wDef && ctx.valuesByDefId[wDef.id];
+    const hNum = hV && hV.valueState === 'answered' && hV.valueNum != null ? Number(hV.valueNum) : null;
+    const wNum = wV && wV.valueState === 'answered' && wV.valueNum != null ? Number(wV.valueNum) : null;
+    return computeBmi(hNum, wNum);
+  }
+
+  function computeOrthostaticBpDrop(ctx) {
+    let baseSbp = null;
+    let standSbp = null;
+    const sbpDef = ctx.defByCode && (ctx.defByCode.huyet_ap_tam_thu || ctx.defByCode.ha_tam_thu);
+    const standDef = ctx.defByCode && (ctx.defByCode.ha_tam_thu_dung || ctx.defByCode.huyet_ap_tam_thu_dung);
+    if (sbpDef && ctx.valuesByDefId[sbpDef.id] && ctx.valuesByDefId[sbpDef.id].valueState === 'answered') {
+      baseSbp = Number(ctx.valuesByDefId[sbpDef.id].valueNum);
+    }
+    if (standDef && ctx.valuesByDefId[standDef.id] && ctx.valuesByDefId[standDef.id].valueState === 'answered') {
+      standSbp = Number(ctx.valuesByDefId[standDef.id].valueNum);
+    }
+    if ((baseSbp === null || standSbp === null) && Array.isArray(ctx.orthostaticBp) && ctx.orthostaticBp.length > 0) {
+      ctx.orthostaticBp.forEach(function (bp) {
+        if (!bp || bp.systolic == null) return;
+        if ((bp.position === 'supine' || bp.position === 'sitting') && baseSbp === null) baseSbp = Number(bp.systolic);
+        if (bp.position === 'standing' && standSbp === null) standSbp = Number(bp.systolic);
+      });
+    }
+    if (baseSbp !== null && standSbp !== null && isFinite(baseSbp) && isFinite(standSbp)) {
+      return Math.round((baseSbp - standSbp) * 10) / 10;
+    }
+    return null;
+  }
+
+  function computeIcdRiskSuggestions(ctx) {
+    const icdCodes = extractVisitIcdCodes(ctx);
+    const bmi = computeEncounterBmi(ctx);
+    const suggestions = [];
+    ICD_RISK_RULES.forEach(function (rule) {
+      const matchedCodes = icdCodes.filter(function (c) { return rule.rx.test(c); });
+      const fromBmi = rule.key === 'obesity' && bmi !== null && bmi >= 25;
+      if (matchedCodes.length === 0 && !fromBmi) return;
+      const target = findRiskTargetInBundle(rule, ctx);
+      if (!target) return;
+      const confirmed = isRiskTargetConfirmed(target, ctx);
+      const sourceText = matchedCodes.concat(fromBmi ? ['BMI ' + bmi + ' ≥ 25'] : []).join(', ');
+      suggestions.push({
+        key: rule.key,
+        label: rule.label,
+        sourceText: sourceText,
+        confirmed: confirmed,
+        target: target
+      });
+    });
+    return suggestions;
   }
 
   function isV12NineField(code) {
@@ -777,9 +1113,11 @@
     return Math.abs(scaled - Math.round(scaled)) < 1e-6;
   }
 
-  function validateV12CompactField(code, entry) {
+  function validateV12CompactField(code, entry, fd, isV2) {
     if (!entry || entry.value_state === 'unknown') return '';
-    const v = entry.value;
+    const scoreCode = Boolean(V12_SCALE_SPECS[code] || code === 'danh_gia_suy_yeu_frailty');
+    const v = isV2 && scoreCode && typeof entry.value === 'string' && /^\d$/.test(entry.value)
+      ? Number(entry.value) : entry.value;
     if (code === 'kho_tho_nang') {
       if (!Number.isInteger(v) || v < 0 || v > 3) return 'Giá trị khó thở phải là số nguyên 0–3.';
     } else if (code === 'phu_chi_duoi_muc_do') {
@@ -823,7 +1161,7 @@
       }
       const allEmptyXr = Object.keys(v).every(function (k) { return v[k] === null || v[k] === undefined || v[k] === 'unknown'; });
       if (allEmptyXr) return 'Cần nhập ít nhất một chỉ số X-quang, hoặc bấm "Chưa rõ toàn bộ X-quang".';
-    } else if (isTimedLabCode(code)) {
+    } else if (isTimedLabCode(code, fd)) {
       if (typeof v !== 'number' || !isFinite(v)) return 'Giá trị xét nghiệm phải là số hợp lệ.';
       if (!entry.measuredAt) return 'Vui lòng nhập thời điểm đo (ngày giờ) cho xét nghiệm này.';
     }
@@ -1097,9 +1435,18 @@
     mobileMenuOpen: false,
     sidebarCollapsed: (function () { try { return global.localStorage.getItem('suytim_sidebar_collapsed') === '1'; } catch (_e) { return false; } })(),
     forbiddenReason: '',
+    visitLocked: { visitId: null, message: '' },
 
     // M1 Login
     login: { username: '', password: '', showPassword: false, error: '', submitting: false },
+
+    // V1 Nurse Intake & Submitted Visits
+    nurseIntake: { q: '', items: [], loading: false, error: '' },
+    nurseVisits: { status: '', items: [], loading: false, error: '', withdrawingId: null },
+
+    // V2 Doctor Queue & My Visits
+    queue: { items: [], loading: false, error: '', lastUpdatedAt: null, claimingId: null },
+    myVisits: { status: 'in_progress', items: [], loading: false, error: '' },
 
     // M2 Patients
     patients: { items: [], q: '', status: '', loading: false, error: '' },
@@ -1115,6 +1462,10 @@
       visit: null,
       formStructure: null,
       isV12: false,
+      isV2: false,
+      nurseSectionsUnlocked: false,
+      submittingQueue: false,
+      withdrawingQueue: false,
       defById: {},
       defByCode: {},
       valuesByDefId: {}, // { fieldDefinitionId: VisitValue (scalar or structured .answer) }
@@ -1311,10 +1662,30 @@
   // after every character. Debounce and ignore stale responses instead.
   const liveSearch = {
     patients: { timer: null, sequence: 0 },
+    nurseIntake: { timer: null, sequence: 0 },
     users: { timer: null, sequence: 0 },
     audit: { timer: null, sequence: 0 },
     adminCare: { timer: null, sequence: 0 }
   };
+
+  let queuePollTimer = null;
+  const QUEUE_POLL_MS = 15000;
+
+  function stopQueuePolling() {
+    if (queuePollTimer !== null) {
+      global.clearInterval(queuePollTimer);
+      queuePollTimer = null;
+    }
+  }
+
+  function startQueuePolling() {
+    stopQueuePolling();
+    queuePollTimer = global.setInterval(function () {
+      if (state.screen === 'queue' && state.user && state.user.role === 'doctor' && !state.queue.claimingId) {
+        loadVisitQueue({ silent: true });
+      }
+    }, QUEUE_POLL_MS);
+  }
 
   function captureInputFocus(input) {
     if (!input || !input.id) return null;
@@ -1340,6 +1711,7 @@
     tracker.timer = global.setTimeout(function () {
       const options = { liveSearchSequence: sequence, restoreFocus: focus };
       if (kind === 'patients') loadPatients(options);
+      else if (kind === 'nurseIntake') loadNurseIntake(options);
       else if (kind === 'users') loadAdminUsers(options);
       else if (kind === 'audit') loadAdminAudit(options);
       else if (kind === 'adminCare') loadAdminCare(options);
@@ -1485,7 +1857,10 @@
     const parts = raw.split('/').filter(Boolean);
     state.mobileMenuOpen = false;
 
+    if (parts[0] !== 'queue') stopQueuePolling();
+
     if (!state.user) {
+      stopQueuePolling();
       state.screen = 'login';
       render();
       return;
@@ -1495,8 +1870,9 @@
     const head = parts[0] || '';
 
     const isWorkflowRoute = head === 'visits' && parts.length === 3 && parts[2] === 'workflow';
+    const isReviewRoute = head === 'visits' && parts.length === 3 && parts[2] === 'review';
 
-    // Enforce K8 role separation on routes
+    // Enforce role separation on routes
     if (head === 'login' || head === '') {
       if (role === 'pharmacist') {
         state.screen = 'workflow';
@@ -1505,39 +1881,93 @@
         render();
         return;
       }
-      const target = role === 'admin' ? '#/admin/users' : '#/patients';
-      global.location.hash = target;
+      global.location.hash = getHomeHashForRole(role);
       return;
     }
 
-    if ((head === 'patients' || head === 'visits') && role !== 'doctor') {
-      if (role === 'pharmacist' && isWorkflowRoute) {
-        state.screen = 'workflow';
-        await loadWorkflow(parts[1]);
+    // Nurse routes (#/nurse/intake, #/nurse/visits)
+    if (head === 'nurse') {
+      if (role !== 'nurse') {
+        state.screen = 'forbidden';
+        state.forbiddenReason = 'Khu vực Tiếp nhận chỉ dành cho tài khoản Nhân viên y tế.';
+        render();
         return;
       }
-      state.screen = 'forbidden';
-      state.forbiddenReason = role === 'pharmacist'
-        ? 'Tài khoản Dược sĩ chỉ có quyền xem Module 4 (An toàn thuốc) trên tuyến #/visits/:visitId/workflow.'
-        : 'Tài khoản Quản trị viên (admin) không có quyền truy cập hồ sơ bệnh nhân hoặc dữ liệu lượt khám lâm sàng theo nguyên tắc tách quyền K8.';
-      if (role === 'admin') {
-        try { await api.listPatients({}); } catch (_ignored) {}
+      if (parts[1] === 'visits') {
+        state.screen = 'nurse-visits';
+        await loadNurseVisits();
+        return;
       }
-      render();
+      state.screen = 'nurse-intake';
+      await loadNurseIntake();
       return;
+    }
+
+    // Doctor queue & my-visits routes
+    if (head === 'queue' || head === 'my-visits') {
+      if (role !== 'doctor') {
+        state.screen = 'forbidden';
+        state.forbiddenReason = role === 'nurse'
+          ? 'Tài khoản Nhân viên y tế không có quyền truy cập Hàng chờ bác sĩ hoặc Lượt khám của bác sĩ.'
+          : 'Khu vực này chỉ dành cho tài khoản Bác sĩ lâm sàng.';
+        render();
+        return;
+      }
+      if (head === 'queue') {
+        state.screen = 'queue';
+        await loadVisitQueue();
+        startQueuePolling();
+        return;
+      }
+      state.screen = 'my-visits';
+      await loadMyVisits();
+      return;
+    }
+
+    if (head === 'patients' || head === 'visits') {
+      if (role === 'pharmacist') {
+        if (isWorkflowRoute) {
+          state.screen = 'workflow';
+          await loadWorkflow(parts[1]);
+          return;
+        }
+        state.screen = 'forbidden';
+        state.forbiddenReason = 'Tài khoản Dược sĩ chỉ có quyền xem Module 4 (An toàn thuốc) trên tuyến #/visits/:visitId/workflow.';
+        render();
+        return;
+      }
+      if (role === 'admin') {
+        state.screen = 'forbidden';
+        state.forbiddenReason = 'Tài khoản Quản trị viên (admin) không có quyền truy cập hồ sơ bệnh nhân hoặc dữ liệu lượt khám lâm sàng theo nguyên tắc tách quyền K8.';
+        try { await api.listPatients({}); } catch (_ignored) {}
+        render();
+        return;
+      }
+      if (role === 'nurse' && (isWorkflowRoute || isReviewRoute)) {
+        state.screen = 'forbidden';
+        state.forbiddenReason = 'Tài khoản Nhân viên y tế chỉ nhập Hành chính và Sinh hiệu, không xem kết quả AI, chẩn đoán hay thuốc.';
+        render();
+        return;
+      }
     }
 
     if (head === 'admin' && role !== 'admin') {
       state.screen = 'forbidden';
       state.forbiddenReason = role === 'pharmacist'
         ? 'Tài khoản Dược sĩ không có quyền truy cập phân hệ Quản trị.'
-        : 'Tài khoản Bác sĩ không có quyền truy cập phân hệ Quản trị tài khoản, Biểu mẫu hay Nhật ký hệ thống.';
+        : (role === 'nurse'
+            ? 'Tài khoản Nhân viên y tế không có quyền truy cập phân hệ Quản trị.'
+            : 'Tài khoản Bác sĩ không có quyền truy cập phân hệ Quản trị tài khoản, Biểu mẫu hay Nhật ký hệ thống.');
       try { await api.listUsers({}); } catch (_ignored) {}
       render();
       return;
     }
 
     if (head === 'patients' && parts.length === 1) {
+      if (role === 'nurse') {
+        global.location.hash = '#/nurse/intake';
+        return;
+      }
       state.screen = 'patients';
       await loadPatients();
       return;
@@ -1552,7 +1982,7 @@
       await loadEncounter(parts[1]);
       return;
     }
-    if (head === 'visits' && parts.length === 3 && parts[2] === 'review') {
+    if (isReviewRoute) {
       state.screen = 'review';
       await loadReview(parts[1]);
       return;
@@ -1578,24 +2008,59 @@
       return;
     }
     if (head === 'admin' && parts[1] === 'care') {
-      state.screen = 'admin-care';
-      await loadAdminCare();
+      // V3: Admin care assignment hidden/retired -> redirect to accounts
+      global.location.hash = '#/admin/users';
       return;
     }
 
-    global.location.hash = role === 'admin' ? '#/admin/users' : '#/patients';
+    global.location.hash = getHomeHashForRole(role);
   }
 
   /* ------------------------------------------------------------------------
      Data Loaders (All wired through ApiClient)
      ------------------------------------------------------------------------ */
+  function clearSensitiveVisitState() {
+    state.encounter.visit = null;
+    state.encounter.patient = null;
+    state.encounter.formStructure = null;
+    state.encounter.valuesByDefId = {};
+    state.encounter.orthostaticBp = [];
+    state.encounter.medications = [];
+    state.encounter.allergies = [];
+    state.encounter.labResults = [];
+    state.encounter.diagnoses = [];
+    state.encounter.workflowSummary = null;
+    state.encounter.dirty = false;
+    state.review.visit = null;
+    state.review.patient = null;
+    state.review.data = null;
+    state.workflow.visit = null;
+    state.workflow.patient = null;
+    state.workflow.data = null;
+    state.workflow.visitDetail = null;
+  }
+
+  function handleVisitLockedError(err, visitId) {
+    clearSensitiveVisitState();
+    state.visitLocked = {
+      visitId: visitId || null,
+      message: (err && err.detail) || 'Lượt khám này đã được bác sĩ khác nhận và khóa. Bạn không có quyền xem hoặc chỉnh sửa dữ liệu.'
+    };
+    state.screen = 'visit-locked';
+    render();
+  }
+
   function handleAuthOrError(err, fallbackMsg) {
     if (err && err.status === 401) {
+      stopQueuePolling();
       state.user = null;
       state.login.error = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
       state.screen = 'login';
       render();
       return;
+    }
+    if (isVisitLockedError(err)) {
+      return handleVisitLockedError(err);
     }
     if (err && err.status === 403) {
       state.screen = 'forbidden';
@@ -1604,6 +2069,89 @@
       return;
     }
     toast((err && err.detail) || fallbackMsg || 'Đã xảy ra lỗi khi tải dữ liệu.', 'error');
+  }
+
+  async function loadNurseIntake(options) {
+    const opts = options || null;
+    state.nurseIntake.loading = true;
+    state.nurseIntake.error = '';
+    if (!opts) render();
+    try {
+      const res = await api.listPatients({
+        q: state.nurseIntake.q,
+        pageSize: 50
+      });
+      if (!isCurrentLiveSearch('nurseIntake', opts)) return;
+      state.nurseIntake.items = (res && res.items) || [];
+    } catch (err) {
+      state.nurseIntake.error = (err && err.detail) || 'Không tải được danh sách bệnh nhân tiếp nhận.';
+      if (err && (err.status === 401 || err.status === 403)) return handleAuthOrError(err);
+    } finally {
+      if (!isCurrentLiveSearch('nurseIntake', opts)) return;
+      state.nurseIntake.loading = false;
+      render();
+      restoreInputFocus(opts && opts.restoreFocus);
+    }
+  }
+
+  async function loadNurseVisits() {
+    const nv = state.nurseVisits;
+    nv.loading = true;
+    nv.error = '';
+    render();
+    try {
+      const params = nv.status ? { status: nv.status } : {};
+      const res = await api.listNurseVisits(params);
+      nv.items = (res && (res.items || res.visits)) || (Array.isArray(res) ? res : []);
+    } catch (err) {
+      nv.error = (err && err.detail) || 'Không tải được danh sách lượt khám đã tạo / đã gửi.';
+      if (err && (err.status === 401 || err.status === 403)) return handleAuthOrError(err);
+    } finally {
+      nv.loading = false;
+      if (state.screen === 'nurse-visits') render();
+    }
+  }
+
+  async function loadVisitQueue(options) {
+    const opts = options || {};
+    const qState = state.queue;
+    if (!opts.silent) {
+      qState.loading = true;
+      qState.error = '';
+      render();
+    }
+    try {
+      const res = await api.listVisitQueue({});
+      qState.items = (res && (res.items || res.visits)) || (Array.isArray(res) ? res : []);
+      qState.lastUpdatedAt = new Date().toISOString();
+      qState.error = '';
+    } catch (err) {
+      if (!opts.silent) {
+        qState.error = (err && err.detail) || 'Không tải được hàng chờ lượt khám.';
+      }
+      if (err && (err.status === 401 || err.status === 403)) return handleAuthOrError(err);
+    } finally {
+      qState.loading = false;
+      if (state.screen === 'queue') render();
+    }
+  }
+
+  async function loadMyVisits() {
+    const mv = state.myVisits;
+    mv.loading = true;
+    mv.error = '';
+    render();
+    try {
+      const params = mv.status ? { status: mv.status } : {};
+      const res = await api.listMyVisits(params);
+      mv.items = (res && (res.items || res.visits)) || (Array.isArray(res) ? res : []);
+    } catch (err) {
+      mv.error = (err && err.detail) || 'Không tải được danh sách lượt khám của tôi.';
+      if (err && (err.status === 401 || err.status === 403)) return handleAuthOrError(err);
+    } finally {
+      mv.loading = false;
+      if (state.screen === 'my-visits') render();
+    }
   }
 
   async function loadPatients(options) {
@@ -1675,7 +2223,7 @@
         enc.valuesByDefId[v.fieldDefinitionId] = clone(v);
         return;
       }
-      if (enc.isV12 && isV12StructuredAnswerCode(fd.code)) {
+      if (enc.isV12 && isV12StructuredAnswerCode(fd.code, fd)) {
         const ans = (v.answer && typeof v.answer === 'object')
           ? clone(v.answer)
           : visitValueToCompact(fd.code, v, fd);
@@ -1825,7 +2373,11 @@
       enc.access = detail.access || (ptRes.patient && ptRes.patient.access) || null;
       enc.visit = detail.visit;
       enc.formStructure = formRes;
-      enc.isV12 = isFormV12(formRes.formVersion, formRes.fieldDefinitions);
+      enc.isV2 = isFormV2(formRes.formVersion, formRes.sections);
+      enc.isV12 = isFormV12(formRes.formVersion, formRes.fieldDefinitions, formRes.sections);
+      enc.nurseSectionsUnlocked = false;
+      enc.submittingQueue = false;
+      enc.withdrawingQueue = false;
       enc.defById = {};
       enc.defByCode = {};
       (formRes.fieldDefinitions || []).forEach(function (fd) {
@@ -1869,14 +2421,18 @@
       enc.dirty = false;
       enc.editVersion = 0;
       enc.lastSavedAt = detail.visit.updatedAt;
-      if (formRes.sections && formRes.sections.length > 0 && !formRes.sections.some(function (s) { return s.sectionCode === enc.activeSectionCode; })) {
-        enc.activeSectionCode = formRes.sections[0].sectionCode;
+      const visibleSectionsOnLoad = (state.user && state.user.role === 'nurse')
+        ? (formRes.sections || []).filter(isNurseSection)
+        : (formRes.sections || []);
+      if (visibleSectionsOnLoad.length > 0 && !visibleSectionsOnLoad.some(function (s) { return s.sectionCode === enc.activeSectionCode; })) {
+        enc.activeSectionCode = visibleSectionsOnLoad[0].sectionCode;
       }
     } catch (err) {
       if (generation !== enc.loadGeneration || enc.visitId !== visitId || state.screen !== 'encounter') return;
       enc.visit = null;
       enc.formStructure = null;
       enc.error = formatClinicalError(err, 'Không tải được biểu mẫu lượt khám.');
+      if (isVisitLockedError(err)) return handleVisitLockedError(err, visitId);
       if (err && (err.status === 401 || err.status === 403)) return handleAuthOrError(err);
     } finally {
       if (generation !== enc.loadGeneration || enc.visitId !== visitId || state.screen !== 'encounter') return;
@@ -1938,6 +2494,7 @@
       rev.visit = null;
       rev.data = null;
       rev.error = formatClinicalError(err, 'Không tải được kết quả rà soát lượt khám.');
+      if (isVisitLockedError(err)) return handleVisitLockedError(err, visitId);
       if (err && (err.status === 401 || err.status === 403)) return handleAuthOrError(err);
     } finally {
       rev.loading = false;
@@ -2201,11 +2758,12 @@
     const u = state.user;
     const isAdmin = u.role === 'admin';
     const isPharmacist = u.role === 'pharmacist';
+    const isNurse = u.role === 'nurse';
     const collapsed = Boolean(state.sidebarCollapsed);
+    const queueCount = state.queue && Array.isArray(state.queue.items) ? state.queue.items.length : 0;
     const navItems = isAdmin
       ? [
           { id: 'admin-accounts', hash: '#/admin/users', label: 'Tài khoản & Quyền', icon: ICONS.users },
-          { id: 'admin-care', hash: '#/admin/care', label: 'Phân công bác sĩ', icon: ICONS.shield },
           { id: 'admin-forms', hash: '#/admin/forms', label: 'Biểu mẫu & Phiên bản', icon: ICONS.layers },
           { id: 'admin-audit', hash: '#/admin/audit', label: 'Nhật ký hệ thống', icon: ICONS.list }
         ]
@@ -2213,16 +2771,31 @@
           ? [
               { id: 'workflow', hash: state.workflow.visitId ? ('#/visits/' + state.workflow.visitId + '/workflow') : '#/login', label: 'An toàn thuốc (M4)', icon: ICONS.shield }
             ]
-          : [
-              { id: 'patients', hash: '#/patients', label: 'Bệnh nhân của tôi', icon: ICONS.fileText }
-            ]);
+          : (isNurse
+              ? [
+                  { id: 'nurse-intake', hash: '#/nurse/intake', label: 'Tiếp nhận', icon: ICONS.userPlus },
+                  { id: 'nurse-visits', hash: '#/nurse/visits', label: 'Lượt đã gửi', icon: ICONS.clock }
+                ]
+              : [
+                  { id: 'queue', hash: '#/queue', label: 'Hàng chờ lượt khám', icon: ICONS.clock, count: queueCount },
+                  { id: 'my-visits', hash: '#/my-visits', label: 'Lượt khám của tôi', icon: ICONS.fileText },
+                  { id: 'patients', hash: '#/patients', label: 'Bệnh nhân của tôi', icon: ICONS.users }
+                ]));
 
     const navHtml = navItems.map(function (item) {
-      const active = state.screen === item.id || (!isAdmin && !isPharmacist && ['profile', 'encounter', 'review', 'workflow'].indexOf(state.screen) >= 0 && item.id === 'patients');
-      return '<button type="button" class="nav-item' + (active ? ' is-active' : '') + '" data-nav="' + item.hash + '" title="' + esc(item.label) + '">' + item.icon + '<span class="nav-item__label">' + esc(item.label) + '</span></button>';
+      let active = state.screen === item.id;
+      if (!active && isNurse && (state.screen === 'profile' || state.screen === 'encounter') && item.id === 'nurse-intake') {
+        active = true;
+      }
+      if (!active && !isAdmin && !isPharmacist && !isNurse) {
+        if (state.screen === 'profile' && item.id === 'patients') active = true;
+        if (['encounter', 'review', 'workflow'].indexOf(state.screen) >= 0 && item.id === 'my-visits') active = true;
+      }
+      const badgeHtml = item.count > 0 ? '<span class="nav-item__badge">' + esc(item.count) + '</span>' : '';
+      return '<button type="button" class="nav-item' + (active ? ' is-active' : '') + '" data-nav="' + item.hash + '" title="' + esc(item.label) + '">' + item.icon + '<span class="nav-item__label">' + esc(item.label) + '</span>' + badgeHtml + '</button>';
     }).join('');
 
-    const roleLabel = isAdmin ? 'Quản trị viên' : (isPharmacist ? 'Dược sĩ (chỉ xem M4)' : 'Bác sĩ lâm sàng');
+    const roleLabel = formatRoleLabel(u.role);
 
     return (
       '<div class="shell' + (collapsed ? ' is-sidebar-collapsed' : '') + '">' +
@@ -2335,7 +2908,7 @@
   }
 
   function renderForbidden() {
-    const homeHash = state.user && state.user.role === 'admin' ? '#/admin/users' : '#/patients';
+    const homeHash = state.user ? getHomeHashForRole(state.user.role) : '#/login';
     const content =
       '<div class="forbidden-box">' +
         '<span class="badge badge--error">HTTP 403 · Từ chối truy cập</span>' +
@@ -2349,24 +2922,358 @@
     return renderShell('<span class="breadcrumbs__current">Thiếu quyền truy cập (403)</span>', content);
   }
 
+  function renderVisitLocked() {
+    const vl = state.visitLocked || {};
+    const isDoctor = state.user && state.user.role === 'doctor';
+    const content =
+      '<div class="forbidden-box" data-visit-locked="true" role="alert">' +
+        '<span class="badge badge--error">HTTP 403 · Lượt khám đã bị khóa</span>' +
+        '<h1 class="page-head__title" style="margin-top:10px;">Lượt khám đang được bác sĩ khác phụ trách</h1>' +
+        '<p class="page-head__sub" style="margin-top:8px;">' + esc(vl.message || 'Lượt khám này đã được bác sĩ khác nhận và khóa. Dữ liệu lâm sàng không được hiển thị để bảo vệ quyền riêng tư và tránh ghi đè.') + '</p>' +
+        '<div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;">' +
+          (isDoctor
+            ? '<button type="button" class="btn btn--primary" data-nav="#/queue">' + ICONS.clock + ' Về Hàng chờ lượt khám</button>' +
+              '<button type="button" class="btn btn--secondary" data-nav="#/my-visits">' + ICONS.fileText + ' Lượt khám của tôi</button>'
+            : '<button type="button" class="btn btn--primary" data-nav="' + esc(getHomeHashForRole(state.user && state.user.role)) + '">' + ICONS.arrowLeft + ' Quay về trang chính</button>') +
+        '</div>' +
+      '</div>';
+    return renderShell('<span class="breadcrumbs__current">Lượt khám bị khóa (403)</span>', content);
+  }
+
+  /* ------------------------------------------------------------------------
+     V1: Nurse Intake (#/nurse/intake) & Submitted Visits (#/nurse/visits)
+     ------------------------------------------------------------------------ */
+  function renderNurseIntake() {
+    const ni = state.nurseIntake;
+    let listHtml = '';
+    if (ni.loading) {
+      listHtml = '<div class="skeleton-stack"><div class="skeleton-bar"></div><div class="skeleton-card"></div><div class="skeleton-card"></div></div>';
+    } else if (ni.error) {
+      listHtml = '<div class="banner banner--error"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__title">Không tải được danh sách bệnh nhân</p><p class="banner__desc">' + esc(ni.error) + '</p></div></div><button type="button" class="btn btn--secondary btn--sm" data-action="reload-nurse-intake">Thử lại</button></div>';
+    } else if (ni.items.length === 0) {
+      const hasQ = Boolean(ni.q && ni.q.trim());
+      listHtml =
+        '<div class="empty-state">' +
+          '<h3 class="empty-state__title">' + (hasQ ? 'Không tìm thấy hồ sơ bệnh nhân phù hợp' : 'Chưa có hồ sơ bệnh nhân nào') + '</h3>' +
+          '<p class="empty-state__desc">' + (hasQ ? 'Kiểm tra lại mã BN, họ tên, số CCCD hoặc tạo hồ sơ bệnh nhân mới.' : 'Bấm "Tạo hồ sơ bệnh nhân" để tiếp nhận người bệnh đầu tiên.') + '</p>' +
+          '<div class="empty-state__actions"><button type="button" class="btn btn--primary" data-action="open-create-patient">' + ICONS.plus + ' Tạo hồ sơ bệnh nhân</button></div>' +
+        '</div>';
+    } else {
+      const rows = ni.items.map(function (it) {
+        const pt = it.patient || it;
+        return (
+          '<tr>' +
+            '<td><div class="cell-primary mono">' + esc(pt.patientCode) + '</div><div class="cell-sub">' + esc(pt.fullName) + '</div></td>' +
+            '<td><div>' + esc(formatSex(pt.sex)) + '</div><div class="cell-sub">' + esc(formatBirthPrecision(pt)) + '</div></td>' +
+            '<td><div class="mono">' + esc(pt.cccd || '—') + '</div><div class="cell-sub mono">' + (pt.externalPatientCode ? ('HIS: ' + esc(pt.externalPatientCode)) : '') + '</div></td>' +
+            '<td style="text-align:right;white-space:nowrap;">' +
+              '<button type="button" class="btn btn--primary btn--sm" data-nurse-create-visit="' + esc(pt.id) + '">' + ICONS.plus + ' Tạo lượt khám</button> ' +
+              '<button type="button" class="btn btn--secondary btn--sm" data-nav="#/patients/' + esc(pt.id) + '">Hồ sơ</button>' +
+            '</td>' +
+          '</tr>'
+        );
+      }).join('');
+
+      const cards = ni.items.map(function (it) {
+        const pt = it.patient || it;
+        return (
+          '<article class="record-card">' +
+            '<div class="record-card__top">' +
+              '<div><div class="cell-primary mono">' + esc(pt.patientCode) + '</div><div class="cell-sub">' + esc(pt.fullName) + '</div></div>' +
+              '<span class="badge badge--neutral">' + esc(formatSex(pt.sex)) + '</span>' +
+            '</div>' +
+            '<div class="record-card__meta">' +
+              '<div><span class="record-card__label">Ngày sinh / Tuổi</span>' + esc(formatBirthPrecision(pt)) + '</div>' +
+              '<div><span class="record-card__label">CCCD / Mã HIS</span><span class="mono">' + esc(pt.cccd || '—') + (pt.externalPatientCode ? ' · ' + esc(pt.externalPatientCode) : '') + '</span></div>' +
+            '</div>' +
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+              '<button type="button" class="btn btn--primary btn--sm" style="flex:1;" data-nurse-create-visit="' + esc(pt.id) + '">' + ICONS.plus + ' Tạo lượt khám</button>' +
+              '<button type="button" class="btn btn--secondary btn--sm" data-nav="#/patients/' + esc(pt.id) + '">Hồ sơ</button>' +
+            '</div>' +
+          '</article>'
+        );
+      }).join('');
+
+      listHtml =
+        '<div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Mã BN &amp; Họ tên</th><th>Giới tính &amp; Ngày sinh</th><th>CCCD / Mã HIS</th><th style="text-align:right;">Tiếp nhận</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
+        '<div class="mobile-cards">' + cards + '</div>';
+    }
+
+    const body =
+      '<div class="page-head">' +
+        '<div><h1 class="page-head__title">Tiếp nhận bệnh nhân</h1><p class="page-head__sub">Tìm hoặc tạo hồ sơ bệnh nhân, tạo lượt khám mới, nhập Hành chính &amp; Sinh hiệu rồi gửi vào hàng chờ bác sĩ.</p></div>' +
+        '<div class="page-head__actions">' +
+          '<button type="button" class="btn btn--secondary" data-nav="#/nurse/visits">' + ICONS.clock + ' Lượt đã gửi</button>' +
+          '<button type="button" class="btn btn--primary" data-action="open-create-patient">' + ICONS.plus + ' Tạo hồ sơ bệnh nhân</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="toolbar">' +
+        '<div class="search-box"><span class="search-box__icon">' + ICONS.search + '</span><input type="search" class="input" id="nurse-intake-search" placeholder="Tìm bệnh nhân theo họ tên, mã BN, số CCCD hoặc mã HIS..." value="' + esc(ni.q) + '"></div>' +
+      '</div>' +
+      listHtml;
+
+    return renderShell('<span class="breadcrumbs__current">Tiếp nhận</span>', body);
+  }
+
+  function renderNurseVisits() {
+    const nv = state.nurseVisits;
+    const filterBtns = [
+      { v: '', label: 'Tất cả' },
+      { v: 'intake', label: 'Đang tiếp nhận' },
+      { v: 'waiting', label: 'Chờ bác sĩ' }
+    ].map(function (f) {
+      return '<button type="button" class="filter-pill' + (nv.status === f.v ? ' is-active' : '') + '" data-nurse-visits-status="' + f.v + '">' + esc(f.label) + '</button>';
+    }).join('');
+
+    let listHtml = '';
+    if (nv.loading) {
+      listHtml = '<div class="skeleton-stack"><div class="skeleton-bar"></div><div class="skeleton-card"></div></div>';
+    } else if (nv.error) {
+      listHtml = '<div class="banner banner--error"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(nv.error) + '</p></div></div><button type="button" class="btn btn--secondary btn--sm" data-action="reload-nurse-visits">Thử lại</button></div>';
+    } else if (nv.items.length === 0) {
+      listHtml =
+        '<div class="empty-state">' +
+          '<h3 class="empty-state__title">Chưa có lượt khám nào</h3>' +
+          '<p class="empty-state__desc">Chưa có lượt khám ở trạng thái đã chọn. Sang mục Tiếp nhận để tạo lượt khám mới và nhập sinh hiệu.</p>' +
+          '<div class="empty-state__actions"><button type="button" class="btn btn--primary" data-nav="#/nurse/intake">' + ICONS.userPlus + ' Về Tiếp nhận</button></div>' +
+        '</div>';
+    } else {
+      const rows = nv.items.map(function (item) {
+        const vid = item.visitId || item.id;
+        const vCode = item.visitCode || '';
+        const st = item.status || 'intake';
+        const isWaiting = st === 'waiting';
+        const isWithdrawing = nv.withdrawingId === vid;
+        return (
+          '<tr>' +
+            '<td class="mono cell-primary">' + esc(vCode) + '</td>' +
+            '<td><div class="cell-primary">' + esc(item.patientName || (item.patientCode || (item.patientId ? ('BN ' + String(item.patientId).slice(0, 8)) : '—'))) + '</div>' + (item.patientName && item.patientCode ? '<div class="cell-sub mono">' + esc(item.patientCode) + '</div>' : '') + '</td>' +
+            '<td>' + esc(item.age != null || item.sex ? ((item.age != null ? item.age + ' tuổi' : '—') + ' · ' + formatSex(item.sex)) : formatVisitType(item.visitType)) + '</td>' +
+            '<td class="tabular">' + esc(formatDateTime(item.submittedAt || item.visitDate || item.createdAt)) + '</td>' +
+            '<td>' + formatQueueVitalsSummary(item.vitals) + '</td>' +
+            '<td>' + formatVisitStatusBadge(st, vid, false) + '</td>' +
+            '<td style="text-align:right;white-space:nowrap;">' +
+              (st === 'intake'
+                ? '<button type="button" class="btn btn--primary btn--sm" data-nav="#/visits/' + esc(vid) + '">Tiếp tục nhập</button>'
+                : '<button type="button" class="btn btn--secondary btn--sm" data-nav="#/visits/' + esc(vid) + '">Xem</button> ' +
+                  (isWaiting ? '<button type="button" class="btn btn--danger-outline btn--sm' + (isWithdrawing ? ' is-loading' : '') + '" data-withdraw-visit="' + esc(vid) + '"' + (isWithdrawing ? ' disabled' : '') + '>' + (isWithdrawing ? 'Đang rút...' : 'Rút lại') + '</button>' : '')) +
+            '</td>' +
+          '</tr>'
+        );
+      }).join('');
+
+      const cards = nv.items.map(function (item) {
+        const vid = item.visitId || item.id;
+        const st = item.status || 'intake';
+        const isWaiting = st === 'waiting';
+        const isWithdrawing = nv.withdrawingId === vid;
+        return (
+          '<article class="record-card">' +
+            '<div class="record-card__top">' +
+              '<div><div class="cell-primary mono">' + esc(item.visitCode || '') + '</div><div class="cell-sub">' + esc(item.patientName || '') + ' (' + esc(item.patientCode || '') + ')</div></div>' +
+              formatVisitStatusBadge(st, vid, false) +
+            '</div>' +
+            '<div class="record-card__meta">' +
+              '<div><span class="record-card__label">Tuổi / Giới</span>' + esc((item.age != null ? item.age + ' tuổi' : '—') + ' · ' + formatSex(item.sex)) + '</div>' +
+              '<div><span class="record-card__label">Thời điểm</span>' + esc(formatDateTime(item.submittedAt || item.visitDate || item.createdAt)) + '</div>' +
+            '</div>' +
+            '<div style="margin-bottom:8px;">' + formatQueueVitalsSummary(item.vitals) + '</div>' +
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+              (st === 'intake'
+                ? '<button type="button" class="btn btn--primary btn--sm" style="flex:1;" data-nav="#/visits/' + esc(vid) + '">Tiếp tục nhập</button>'
+                : '<button type="button" class="btn btn--secondary btn--sm" style="flex:1;" data-nav="#/visits/' + esc(vid) + '">Xem</button>' +
+                  (isWaiting ? '<button type="button" class="btn btn--danger-outline btn--sm" data-withdraw-visit="' + esc(vid) + '"' + (isWithdrawing ? ' disabled' : '') + '>Rút lại</button>' : '')) +
+            '</div>' +
+          '</article>'
+        );
+      }).join('');
+
+      listHtml =
+        '<div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Mã lượt khám</th><th>Bệnh nhân</th><th>Tuổi / Giới</th><th>Thời điểm gửi / tạo</th><th>Sinh hiệu tóm tắt</th><th>Trạng thái</th><th style="text-align:right;">Thao tác</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
+        '<div class="mobile-cards">' + cards + '</div>';
+    }
+
+    const body =
+      '<div class="page-head">' +
+        '<div><h1 class="page-head__title">Lượt đã gửi &amp; Đang tiếp nhận</h1><p class="page-head__sub">Theo dõi các lượt khám đang nhập sinh hiệu hoặc đã gửi vào hàng chờ bác sĩ. Có thể rút lại lượt đang chờ nếu cần sửa.</p></div>' +
+        '<div class="page-head__actions">' +
+          '<button type="button" class="btn btn--secondary" data-action="reload-nurse-visits">' + ICONS.refresh + ' Làm mới</button>' +
+          '<button type="button" class="btn btn--primary" data-nav="#/nurse/intake">' + ICONS.plus + ' Tiếp nhận mới</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="toolbar"><div class="filter-pills" role="group" aria-label="Lọc trạng thái lượt tiếp nhận">' + filterBtns + '</div></div>' +
+      listHtml;
+
+    return renderShell('<span class="breadcrumbs__current">Lượt đã gửi</span>', body);
+  }
+
+  /* ------------------------------------------------------------------------
+     V2: Doctor Visit Queue (#/queue) & My Visits (#/my-visits)
+     ------------------------------------------------------------------------ */
+  function renderVisitQueue() {
+    const qs = state.queue;
+    let listHtml = '';
+    if (qs.loading && qs.items.length === 0) {
+      listHtml = '<div class="skeleton-stack"><div class="skeleton-bar"></div><div class="skeleton-card"></div><div class="skeleton-card"></div></div>';
+    } else if (qs.error) {
+      listHtml = '<div class="banner banner--error"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__title">Không tải được hàng chờ lượt khám</p><p class="banner__desc">' + esc(qs.error) + '</p></div></div><button type="button" class="btn btn--secondary btn--sm" data-action="reload-queue">Thử lại</button></div>';
+    } else if (qs.items.length === 0) {
+      listHtml =
+        '<div class="empty-state" data-empty-queue="true">' +
+          '<h3 class="empty-state__title">Hiện không có lượt khám nào đang chờ</h3>' +
+          '<p class="empty-state__desc">Hàng chờ tự động làm mới mỗi 15 giây khi Nhân viên y tế gửi lượt khám mới.</p>' +
+          '<div class="empty-state__actions"><button type="button" class="btn btn--secondary" data-action="reload-queue">' + ICONS.refresh + ' Kiểm tra lại ngay</button></div>' +
+        '</div>';
+    } else {
+      const rows = qs.items.map(function (it) {
+        const vid = it.visitId || it.id;
+        const claiming = qs.claimingId === vid;
+        return (
+          '<tr data-queue-visit-id="' + esc(vid) + '">' +
+            '<td class="mono cell-primary">' + esc(it.visitCode || '') + '</td>' +
+            '<td><div class="cell-primary">' + esc(it.patientName || (it.patientCode || (it.patientId ? ('BN ' + String(it.patientId).slice(0, 8)) : '—'))) + '</div>' + (it.patientName && it.patientCode ? '<div class="cell-sub mono">' + esc(it.patientCode) + '</div>' : '') + '</td>' +
+            '<td>' + esc(it.age != null || it.sex ? ((it.age != null ? it.age + ' tuổi' : '—') + ' · ' + formatSex(it.sex)) : formatVisitType(it.visitType)) + '</td>' +
+            '<td class="tabular">' + esc(formatDateTime(it.submittedAt)) + '</td>' +
+            '<td>' + esc(it.submittedByName || 'Nhân viên y tế') + '</td>' +
+            '<td>' + formatQueueVitalsSummary(it.vitals) + '</td>' +
+            '<td style="text-align:right;white-space:nowrap;">' +
+              '<button type="button" class="btn btn--primary btn--sm' + (claiming ? ' is-loading' : '') + '" data-claim-visit="' + esc(vid) + '"' + (claiming ? ' disabled' : '') + '>' + (claiming ? 'Đang nhận...' : 'Nhận') + '</button>' +
+            '</td>' +
+          '</tr>'
+        );
+      }).join('');
+
+      const cards = qs.items.map(function (it) {
+        const vid = it.visitId || it.id;
+        const claiming = qs.claimingId === vid;
+        return (
+          '<article class="record-card" data-queue-visit-id="' + esc(vid) + '">' +
+            '<div class="record-card__top">' +
+              '<div><div class="cell-primary mono">' + esc(it.visitCode || '') + '</div><div class="cell-sub">' + esc(it.patientName || '') + ' (' + esc(it.patientCode || '') + ')</div></div>' +
+              '<span class="badge badge--info">Chờ nhận</span>' +
+            '</div>' +
+            '<div class="record-card__meta">' +
+              '<div><span class="record-card__label">Tuổi / Giới</span>' + esc((it.age != null ? it.age + ' tuổi' : '—') + ' · ' + formatSex(it.sex)) + '</div>' +
+              '<div><span class="record-card__label">Gửi lúc</span>' + esc(formatDateTime(it.submittedAt)) + '</div>' +
+              '<div><span class="record-card__label">Người gửi</span>' + esc(it.submittedByName || 'Nhân viên y tế') + '</div>' +
+            '</div>' +
+            '<div style="margin-bottom:10px;">' + formatQueueVitalsSummary(it.vitals) + '</div>' +
+            '<button type="button" class="btn btn--primary btn--sm btn--full' + (claiming ? ' is-loading' : '') + '" data-claim-visit="' + esc(vid) + '"' + (claiming ? ' disabled' : '') + '>' + (claiming ? 'Đang nhận...' : 'Nhận lượt khám') + '</button>' +
+          '</article>'
+        );
+      }).join('');
+
+      listHtml =
+        '<div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Mã lượt khám</th><th>Bệnh nhân</th><th>Tuổi / Giới</th><th>Thời điểm gửi</th><th>Người gửi</th><th>Sinh hiệu tóm tắt</th><th style="text-align:right;">Thao tác</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
+        '<div class="mobile-cards">' + cards + '</div>';
+    }
+
+    const body =
+      '<div class="page-head">' +
+        '<div><h1 class="page-head__title">Hàng chờ lượt khám</h1><p class="page-head__sub">Lượt khám do Nhân viên y tế gửi lên (cũ nhất lên đầu). Bấm <strong>Nhận</strong> để khóa lượt khám về tài khoản của bạn và mở ngay biểu mẫu.</p></div>' +
+        '<div class="page-head__actions">' +
+          '<span class="badge badge--neutral" data-queue-refresh-meta="1">' + ICONS.clock + ' Tự làm mới 15 giây' + (qs.lastUpdatedAt ? ' · ' + esc(formatDateTime(qs.lastUpdatedAt)) : '') + '</span>' +
+          '<button type="button" class="btn btn--secondary btn--sm" data-action="reload-queue">' + ICONS.refresh + ' Làm mới</button>' +
+        '</div>' +
+      '</div>' +
+      listHtml;
+
+    return renderShell('<span class="breadcrumbs__current">Hàng chờ lượt khám</span>', body);
+  }
+
+  function renderMyVisits() {
+    const mv = state.myVisits;
+    const filterBtns = [
+      { v: 'in_progress', label: 'Đang xử lý' },
+      { v: 'confirmed', label: 'Đã hoàn thành' },
+      { v: '', label: 'Tất cả' }
+    ].map(function (f) {
+      return '<button type="button" class="filter-pill' + (mv.status === f.v ? ' is-active' : '') + '" data-my-visits-status="' + f.v + '">' + esc(f.label) + '</button>';
+    }).join('');
+
+    let listHtml = '';
+    if (mv.loading) {
+      listHtml = '<div class="skeleton-stack"><div class="skeleton-bar"></div><div class="skeleton-card"></div></div>';
+    } else if (mv.error) {
+      listHtml = '<div class="banner banner--error"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(mv.error) + '</p></div></div><button type="button" class="btn btn--secondary btn--sm" data-action="reload-my-visits">Thử lại</button></div>';
+    } else if (mv.items.length === 0) {
+      listHtml =
+        '<div class="empty-state">' +
+          '<h3 class="empty-state__title">Chưa có lượt khám nào trong mục này</h3>' +
+          '<p class="empty-state__desc">Chuyển sang <strong>Hàng chờ lượt khám</strong> để nhận lượt khám từ Nhân viên y tế.</p>' +
+          '<div class="empty-state__actions"><button type="button" class="btn btn--primary" data-nav="#/queue">' + ICONS.clock + ' Mở Hàng chờ lượt khám</button></div>' +
+        '</div>';
+    } else {
+      const rows = mv.items.map(function (it) {
+        const vid = it.visitId || it.id;
+        const st = it.status || 'in_progress';
+        const isConf = st === 'confirmed';
+        return (
+          '<tr>' +
+            '<td class="mono cell-primary">' + esc(it.visitCode || '') + '</td>' +
+            '<td><div class="cell-primary">' + esc(it.patientName || (it.patientCode || (it.patientId ? ('BN ' + String(it.patientId).slice(0, 8)) : '—'))) + '</div>' + (it.patientName && it.patientCode ? '<div class="cell-sub mono">' + esc(it.patientCode) + '</div>' : '') + '</td>' +
+            '<td>' + esc(it.age != null || it.sex ? ((it.age != null ? it.age + ' tuổi' : '—') + ' · ' + formatSex(it.sex)) : formatVisitType(it.visitType)) + '</td>' +
+            '<td class="tabular">' + esc(formatDateTime(it.claimedAt || it.visitDate)) + '</td>' +
+            '<td><span class="badge badge--blue">' + esc(it.formVersionLabel || 'v2.0') + '</span></td>' +
+            '<td>' + formatVisitStatusBadge(st, vid, false) + '</td>' +
+            '<td style="text-align:right;white-space:nowrap;">' +
+              '<button type="button" class="btn ' + (isConf ? 'btn--secondary' : 'btn--primary') + ' btn--sm" data-nav="#/visits/' + esc(vid) + '">' + (isConf ? 'Xem lượt khám' : 'Tiếp tục khám') + '</button> ' +
+              '<button type="button" class="btn btn--ghost btn--sm" data-nav="#/visits/' + esc(vid) + '/review">Xem lại</button>' +
+            '</td>' +
+          '</tr>'
+        );
+      }).join('');
+
+      const cards = mv.items.map(function (it) {
+        const vid = it.visitId || it.id;
+        const st = it.status || 'in_progress';
+        const isConf = st === 'confirmed';
+        return (
+          '<article class="record-card">' +
+            '<div class="record-card__top">' +
+              '<div><div class="cell-primary mono">' + esc(it.visitCode || '') + '</div><div class="cell-sub">' + esc(it.patientName || '') + ' (' + esc(it.patientCode || '') + ')</div></div>' +
+              formatVisitStatusBadge(st, vid, false) +
+            '</div>' +
+            '<div class="record-card__meta">' +
+              '<div><span class="record-card__label">Tuổi / Giới</span>' + esc((it.age != null ? it.age + ' tuổi' : '—') + ' · ' + formatSex(it.sex)) + '</div>' +
+              '<div><span class="record-card__label">Nhận lúc</span>' + esc(formatDateTime(it.claimedAt || it.visitDate)) + '</div>' +
+            '</div>' +
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+              '<button type="button" class="btn ' + (isConf ? 'btn--secondary' : 'btn--primary') + ' btn--sm" style="flex:1;" data-nav="#/visits/' + esc(vid) + '">' + (isConf ? 'Xem lượt khám' : 'Tiếp tục khám') + '</button>' +
+              '<button type="button" class="btn btn--ghost btn--sm" data-nav="#/visits/' + esc(vid) + '/review">Xem lại</button>' +
+            '</div>' +
+          '</article>'
+        );
+      }).join('');
+
+      listHtml =
+        '<div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Mã lượt khám</th><th>Bệnh nhân</th><th>Tuổi / Giới</th><th>Thời điểm nhận</th><th>Biểu mẫu</th><th>Trạng thái</th><th style="text-align:right;">Thao tác</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
+        '<div class="mobile-cards">' + cards + '</div>';
+    }
+
+    const body =
+      '<div class="page-head">' +
+        '<div><h1 class="page-head__title">Lượt khám của tôi</h1><p class="page-head__sub">Các lượt khám bạn đã nhận từ hàng chờ đang xử lý hoặc đã hoàn thành.</p></div>' +
+        '<div class="page-head__actions">' +
+          '<button type="button" class="btn btn--secondary" data-action="reload-my-visits">' + ICONS.refresh + ' Làm mới</button>' +
+          '<button type="button" class="btn btn--primary" data-nav="#/queue">' + ICONS.clock + ' Hàng chờ lượt khám</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="toolbar"><div class="filter-pills" role="group" aria-label="Lọc trạng thái lượt khám của tôi">' + filterBtns + '</div></div>' +
+      listHtml;
+
+    return renderShell('<span class="breadcrumbs__current">Lượt khám của tôi</span>', body);
+  }
+
   /* ------------------------------------------------------------------------
      M2: Patient List
      ------------------------------------------------------------------------ */
   function renderPatients() {
     const ps = state.patients;
-    const statusBadge = function (st, visitId) {
-      if (st === 'confirmed') return '<span class="badge badge--success">Đã xác nhận</span>';
-      if (st === 'draft') {
-        if (visitId) return '<button type="button" class="badge badge--warn badge--link" data-nav="#/visits/' + esc(visitId) + '">Có lượt nháp</button>';
-        return '<span class="badge badge--warn">Có lượt nháp</span>';
-      }
-      return '<span class="badge badge--neutral">Chưa có lượt</span>';
-    };
-
     const filterBtns = [
       { v: '', label: 'Tất cả' },
-      { v: 'draft', label: 'Có lượt nháp' },
-      { v: 'confirmed', label: 'Đã xác nhận' },
+      { v: 'in_progress', label: 'Đang xử lý' },
+      { v: 'confirmed', label: 'Đã hoàn thành' },
       { v: 'none', label: 'Chưa có lượt' }
     ].map(function (f) {
       return '<button type="button" class="filter-pill' + (ps.status === f.v ? ' is-active' : '') + '" data-patient-status="' + f.v + '">' + esc(f.label) + '</button>';
@@ -2381,25 +3288,25 @@
       const hasFilters = Boolean((ps.q && ps.q.trim()) || ps.status);
       listHtml =
         '<div class="empty-state" data-empty-patients="true">' +
-          '<h3 class="empty-state__title">' + (hasFilters ? 'Không có bệnh nhân nào khớp điều kiện lọc' : 'Chưa có bệnh nhân nào được phân công cho bạn') + '</h3>' +
+          '<h3 class="empty-state__title">' + (hasFilters ? 'Không có bệnh nhân nào khớp điều kiện lọc' : 'Chưa có bệnh nhân nào trong danh sách của bạn') + '</h3>' +
           '<p class="empty-state__desc">' + (hasFilters
-            ? 'Danh sách "Bệnh nhân của tôi" chỉ hiển thị các hồ sơ bạn được phân công phụ trách. Hãy thử xóa từ khóa tìm kiếm hoặc đổi bộ lọc.'
-            : 'Bạn chỉ nhìn thấy hồ sơ bệnh nhân được phân công phụ trách. Bạn có thể tạo hồ sơ mới (hệ thống tự phân công bạn phụ trách) hoặc liên hệ Quản trị viên để được phân công vào hồ sơ hiện có.') + '</p>' +
+            ? 'Hãy thử xóa từ khóa tìm kiếm hoặc đổi bộ lọc trạng thái.'
+            : 'Bệnh nhân sẽ xuất hiện tại đây sau khi bạn nhận ít nhất một lượt khám từ Hàng chờ lượt khám hoặc tạo hồ sơ mới.') + '</p>' +
           '<div class="empty-state__actions">' +
+            '<button type="button" class="btn btn--secondary" data-nav="#/queue">' + ICONS.clock + ' Mở Hàng chờ lượt khám</button>' +
             '<button type="button" class="btn btn--primary" data-action="open-create-patient">' + ICONS.plus + ' Tạo hồ sơ bệnh nhân</button>' +
           '</div>' +
         '</div>';
     } else {
       const rows = ps.items.map(function (it) {
         const pt = it.patient;
-        const doctors = pt.assignedDoctors || it.assignedDoctors || [];
         return (
           '<tr>' +
             '<td><div class="cell-primary mono">' + esc(pt.patientCode) + '</div><div class="cell-sub">' + esc(pt.fullName) + '</div></td>' +
-            '<td>' + renderAssignedDoctorsBadges(doctors, pt.access, state.user) + '</td>' +
+            '<td><div class="mono">' + esc(pt.cccd || '—') + '</div><div class="cell-sub mono">' + (pt.externalPatientCode ? ('HIS: ' + esc(pt.externalPatientCode)) : '') + '</div></td>' +
             '<td><div>' + esc(formatSex(pt.sex)) + '</div><div class="cell-sub">' + esc(formatBirthPrecision(pt)) + '</div></td>' +
             '<td>' + (it.visitCount > 0 ? ('<div class="tabular">' + esc(formatDateTime(it.latestVisitDate)) + '</div><div class="cell-sub">' + it.visitCount + ' lượt khám</div>') : '<span class="cell-sub">Chưa ghi nhận</span>') + '</td>' +
-            '<td>' + statusBadge(it.latestVisitStatus, it.latestVisitId) + '</td>' +
+            '<td>' + formatVisitStatusBadge(it.latestVisitStatus, it.latestVisitId, true) + '</td>' +
             '<td style="text-align:right;"><button type="button" class="btn btn--secondary btn--sm" data-nav="#/patients/' + esc(pt.id) + '">Mở hồ sơ ' + ICONS.arrowRight + '</button></td>' +
           '</tr>'
         );
@@ -2407,16 +3314,15 @@
 
       const cards = ps.items.map(function (it) {
         const pt = it.patient;
-        const doctors = pt.assignedDoctors || it.assignedDoctors || [];
         return (
           '<article class="record-card">' +
             '<div class="record-card__top">' +
               '<div><div class="cell-primary mono">' + esc(pt.patientCode) + '</div><div class="cell-sub">' + esc(pt.fullName) + '</div></div>' +
-              statusBadge(it.latestVisitStatus, it.latestVisitId) +
+              formatVisitStatusBadge(it.latestVisitStatus, it.latestVisitId, true) +
             '</div>' +
-            '<div style="margin-bottom:8px;"><span class="record-card__label">Bác sĩ phụ trách</span>' + renderAssignedDoctorsBadges(doctors, pt.access, state.user) + '</div>' +
             '<div class="record-card__meta">' +
-              '<div><span class="record-card__label">Giới tính &amp; Tuổi</span>' + esc(formatSex(pt.sex) + ' · ' + formatBirthPrecision(pt)) + '</div>' +
+              '<div><span class="record-card__label">Giới tính &amp; Ngày sinh</span>' + esc(formatSex(pt.sex) + ' · ' + formatBirthPrecision(pt)) + '</div>' +
+              '<div><span class="record-card__label">CCCD / Mã HIS</span><span class="mono">' + esc(pt.cccd || '—') + (pt.externalPatientCode ? ' · ' + esc(pt.externalPatientCode) : '') + '</span></div>' +
               '<div><span class="record-card__label">Lượt khám gần nhất</span>' + (it.visitCount > 0 ? esc(formatDateTime(it.latestVisitDate) + ' (' + it.visitCount + ' lượt)') : 'Chưa có lượt') + '</div>' +
             '</div>' +
             '<div><button type="button" class="btn btn--secondary btn--sm btn--full" data-nav="#/patients/' + esc(pt.id) + '">Mở hồ sơ ' + ICONS.arrowRight + '</button></div>' +
@@ -2426,20 +3332,20 @@
 
       listHtml =
         '<div class="card">' +
-          '<div class="table-wrap"><table class="data-table"><thead><tr><th>Mã hồ sơ &amp; Tên</th><th>Bác sĩ phụ trách</th><th>Giới tính &amp; Độ chính xác tuổi</th><th>Lượt khám gần nhất</th><th>Trạng thái</th><th style="text-align:right;">Thao tác</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+          '<div class="table-wrap"><table class="data-table"><thead><tr><th>Mã hồ sơ &amp; Tên</th><th>CCCD / Mã HIS</th><th>Giới tính &amp; Ngày sinh</th><th>Lượt khám gần nhất</th><th>Trạng thái</th><th style="text-align:right;">Thao tác</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
         '</div>' +
         '<div class="mobile-cards">' + cards + '</div>';
     }
 
     const body =
       '<div class="page-head">' +
-        '<div><h1 class="page-head__title">Bệnh nhân của tôi</h1><p class="page-head__sub">Danh sách hồ sơ bệnh nhân bạn được phân công phụ trách.</p></div>' +
+        '<div><h1 class="page-head__title">Bệnh nhân của tôi</h1><p class="page-head__sub">Danh sách hồ sơ bệnh nhân bạn đang hoặc đã xử lý lượt khám.</p></div>' +
         '<div class="page-head__actions">' +
           '<button type="button" class="btn btn--primary" data-action="open-create-patient">' + ICONS.plus + ' Tạo hồ sơ bệnh nhân</button>' +
         '</div>' +
       '</div>' +
       '<div class="toolbar">' +
-        '<div class="search-box"><span class="search-box__icon">' + ICONS.search + '</span><input type="search" class="input" id="patient-search" placeholder="Tìm theo mã BN-xxxxx hoặc tên hồ sơ..." value="' + esc(ps.q) + '"></div>' +
+        '<div class="search-box"><span class="search-box__icon">' + ICONS.search + '</span><input type="search" class="input" id="patient-search" placeholder="Tìm theo mã BN, họ tên, số CCCD hoặc mã HIS..." value="' + esc(ps.q) + '"></div>' +
         '<div class="filter-pills" role="group" aria-label="Lọc theo trạng thái lượt khám">' + filterBtns + '</div>' +
       '</div>' +
       listHtml;
@@ -2452,99 +3358,209 @@
      ------------------------------------------------------------------------ */
   function renderProfile() {
     const pr = state.profile;
+    const isNurse = Boolean(state.user && state.user.role === 'nurse');
+    const listHash = isNurse ? '#/nurse/intake' : '#/patients';
+    const listLabel = isNurse ? 'Tiếp nhận' : 'Hồ sơ bệnh nhân';
     if (pr.loading) {
-      return renderShell('<button type="button" class="breadcrumbs__link" data-nav="#/patients">Hồ sơ bệnh nhân</button><span>/</span><span class="breadcrumbs__current">Đang tải...</span>', '<div class="skeleton-stack"><div class="skeleton-bar"></div><div class="skeleton-card"></div><div class="skeleton-card"></div></div>');
+      return renderShell('<button type="button" class="breadcrumbs__link" data-nav="' + listHash + '">' + esc(listLabel) + '</button><span>/</span><span class="breadcrumbs__current">Đang tải...</span>', '<div class="skeleton-stack"><div class="skeleton-bar"></div><div class="skeleton-card"></div><div class="skeleton-card"></div></div>');
     }
     if (pr.error || !pr.patient) {
-      return renderShell('<button type="button" class="breadcrumbs__link" data-nav="#/patients">Hồ sơ bệnh nhân</button>', '<div class="banner banner--error" role="alert"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(pr.error || NOT_FOUND_OR_NO_ACCESS_MSG) + '</p></div></div><button type="button" class="btn btn--secondary btn--sm" data-nav="#/patients">Quay lại danh sách</button></div>');
+      return renderShell('<button type="button" class="breadcrumbs__link" data-nav="' + listHash + '">' + esc(listLabel) + '</button>', '<div class="banner banner--error" role="alert"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(pr.error || NOT_FOUND_OR_NO_ACCESS_MSG) + '</p></div></div><button type="button" class="btn btn--secondary btn--sm" data-nav="' + listHash + '">Quay lại danh sách</button></div>');
     }
 
     const pt = pr.patient;
-    const sum = pr.latestVisitSummary;
-    const assignedDocs = pt.assignedDoctors || [];
+    const sum = isNurse ? null : pr.latestVisitSummary;
     const lastEditorName = pt.updatedByName || pt.lastEditedByName || '';
 
-    const assignedBoxHtml =
-      '<section class="card" data-assigned-doctors-box="true">' +
-        '<div class="card__header">' +
-          '<div><h2 class="card__title">Bác sĩ phụ trách hồ sơ</h2><p class="card__subtitle">Hồ sơ được phân công phụ trách cho bác sĩ (do Quản trị viên điều phối).</p></div>' +
-        '</div>' +
-        '<div class="card__body">' +
-          renderAssignedDoctorsBadges(assignedDocs, pt.access, state.user) +
-        '</div>' +
-      '</section>';
+    let latestVisitCardHtml = '';
+    if (!isNurse) {
+      let summaryBody = '';
+      if (!sum) {
+        summaryBody =
+          '<div class="empty-state">' +
+            '<h4 class="empty-state__title">Bệnh nhân chưa có lượt khám nào</h4>' +
+            '<p class="empty-state__desc">Hệ thống không suy diễn hoặc điền sẵn dữ liệu nền. Nhận lượt khám từ hàng chờ hoặc chờ tiếp nhận mới.</p>' +
+          '</div>';
+      } else {
+        const stageObj = sum.hfStage || {};
+        const stageCode = stageObj.code || null;
+        const stageLabel = stageObj.label || (stageCode ? ('Giai đoạn ' + stageCode) : 'Chưa phân loại');
+        const stageSource = stageObj.source === 'manual' ? 'Bác sĩ tự chốt' : (stageObj.source === 'ai' ? 'AI (đã chốt)' : '');
+        const stageTone = stageCode === 'D' ? 'error' : (stageCode === 'C' ? 'warn' : (stageCode === 'B' ? 'teal' : (stageCode === 'A' ? 'blue' : 'neutral')));
 
-    let summaryBody = '';
-    if (!sum) {
-      summaryBody =
-        '<div class="empty-state">' +
-          '<h4 class="empty-state__title">Bệnh nhân chưa có lượt khám nào</h4>' +
-          '<p class="empty-state__desc">Hệ thống không suy diễn hoặc điền sẵn dữ liệu nền. Hãy tạo lượt khám đầu tiên để bắt đầu thu thập dữ liệu lâm sàng.</p>' +
-          '<button type="button" class="btn btn--primary btn--sm" data-action="open-create-visit">' + ICONS.plus + ' Tạo lượt khám đầu tiên</button>' +
-        '</div>';
-    } else {
-      const medsHtml = (sum.recordedMedications && sum.recordedMedications.length > 0)
-        ? sum.recordedMedications.map(function (m) {
-            return '<div class="cell-sub"><strong>' + esc(m.drugName) + '</strong>' + (m.dose ? ' · ' + esc(m.dose) + ' ' + esc(m.unit || '') : '') + (m.frequency ? ' · ' + esc(m.frequency) : '') + '</div>';
-          }).join('')
-        : '<div class="cell-sub">Chưa có ghi nhận thuốc từ lượt khám tham chiếu (không suy thành không dùng thuốc).</div>';
+        const efObj = sum.efPhenotype || {};
+        const efCode = efObj.code || null;
+        const efLabel = efObj.label || efCode || 'Chưa phân loại';
+        const efTone = efCode === 'HFrEF' ? 'error' : (efCode === 'HFmrEF' ? 'warn' : (efCode === 'HFpEF' ? 'blue' : 'neutral'));
 
-      const algHtml = (sum.recordedAllergies && sum.recordedAllergies.length > 0)
-        ? sum.recordedAllergies.map(function (a) {
-            return '<div class="cell-sub"><strong>' + esc(a.allergen) + '</strong>' + (a.reaction ? ' — ' + esc(a.reaction) : '') + '</div>';
-          }).join('')
-        : '<div class="cell-sub">Chưa có ghi nhận dị ứng/ADR từ lượt khám tham chiếu (không suy thành không dị ứng).</div>';
+        const keyLabs = Array.isArray(sum.keyLabs) ? sum.keyLabs : [];
+        const labsGridHtml = keyLabs.length > 0
+          ? '<div class="lv-lab-grid" data-latest-visit-labs="true">' + keyLabs.map(function (lab) {
+              const flag = lab.flag || null;
+              const flagBadge = flag === 'high'
+                ? '<span class="lab-flag lab-flag--high" title="Cao hơn ngưỡng">↑ Cao</span>'
+                : (flag === 'low' ? '<span class="lab-flag lab-flag--low" title="Thấp hơn ngưỡng">↓ Thấp</span>' : '');
+              const valStr = lab.value !== null && lab.value !== undefined && lab.value !== ''
+                ? (esc(lab.value) + (lab.unit ? ' <span class="lv-lab-cell__unit">' + esc(lab.unit) + '</span>' : ''))
+                : '—';
+              return (
+                '<div class="lv-lab-cell' + (flag ? (' lv-lab-cell--' + esc(flag)) : '') + '" data-lab-code="' + esc(lab.code || '') + '">' +
+                  '<div class="lv-lab-cell__top"><span class="lv-lab-cell__lbl">' + esc(lab.label || lab.code || '') + '</span>' + flagBadge + '</div>' +
+                  '<div class="lv-lab-cell__val tabular">' + valStr + '</div>' +
+                  '<div class="lv-lab-cell__date tabular">' + (lab.measuredAt ? esc(formatDateOnly(lab.measuredAt)) : 'Chưa có ngày') + '</div>' +
+                '</div>'
+              );
+            }).join('') + '</div>'
+          : '<div class="cell-sub" data-latest-visit-labs="true">Chưa có xét nghiệm trọng yếu (NT-proBNP, BNP, LVEF, Creatinin, eGFR, K⁺, Na⁺, HbA1c).</div>';
 
-      summaryBody =
-        '<div class="source-strip">' + ICONS.clock + '<span>Nguồn tham chiếu: <strong class="mono">' + esc(sum.sourceVisitCode || sum.sourceVisitId.slice(0, 8)) + '</strong> · ' + esc(formatDateTime(sum.sourceVisitDate)) + ' (' + (sum.sourceVisitStatus === 'confirmed' ? 'Đã xác nhận' : 'Bản nháp') + ' · Biểu mẫu ' + esc(sum.sourceFormVersionLabel || 'v1') + ')</span></div>' +
-        '<div class="metric-row">' +
-          '<div class="metric-box"><div class="metric-box__label">Chiều cao / Cân nặng</div><div class="metric-box__val">' + (sum.heightCm != null ? esc(sum.heightCm) + '<span class="metric-box__unit">cm</span>' : '—') + ' / ' + (sum.weightKg != null ? esc(sum.weightKg) + '<span class="metric-box__unit">kg</span>' : '—') + '</div></div>' +
-          '<div class="metric-box metric-box--blue"><div class="metric-box__label">BMI (cùng lượt)</div><div class="metric-box__val">' + (sum.bmi != null ? esc(sum.bmi) + '<span class="metric-box__unit">kg/m²</span>' : '—') + '</div></div>' +
-          '<div class="metric-box"><div class="metric-box__label">Huyết áp gần nhất</div><div class="metric-box__val">' + (sum.latestBp ? esc(sum.latestBp.systolic + '/' + sum.latestBp.diastolic) + '<span class="metric-box__unit">mmHg (' + esc(formatBpPosition(sum.latestBp.position)) + ')</span>' : '—') + '</div></div>' +
-        '</div>' +
-        '<div class="form-grid-2">' +
-          '<div><div class="kv-item__label">Thuốc đã ghi nhận ở lượt tham chiếu</div>' + medsHtml + '</div>' +
-          '<div><div class="kv-item__label">Dị ứng / ADR đã ghi nhận</div>' + algHtml + '</div>' +
-        '</div>';
+        const rawMeds = Array.isArray(sum.medications)
+          ? sum.medications
+          : (Array.isArray(sum.recordedMedications)
+              ? sum.recordedMedications.map(function (rm) {
+                  const g = classifyMedicationGroup(rm);
+                  return { name: rm.drugName || rm.name || '', group: g.group, groupLabel: g.label, pillar: g.pillar, caution: g.caution };
+                })
+              : []);
+        const normalizedMeds = rawMeds.map(function (m) {
+          const g = classifyMedicationGroup(m);
+          return {
+            name: m.name || m.drugName || m.ingredient || '',
+            group: m.group || g.group,
+            groupLabel: m.groupLabel || g.label,
+            pillar: m.pillar !== undefined ? Boolean(m.pillar) : g.pillar,
+            caution: m.caution !== undefined ? Boolean(m.caution) : g.caution
+          };
+        }).filter(function (m) { return Boolean(m.name); });
+
+        const pillarMeds = normalizedMeds.filter(function (m) { return m.pillar; });
+        const cautionMeds = normalizedMeds.filter(function (m) { return m.caution && !m.pillar; });
+        const otherMeds = normalizedMeds.filter(function (m) { return !m.pillar && !m.caution; });
+
+        let medsHtml = '';
+        if (normalizedMeds.length === 0) {
+          medsHtml = '<div class="cell-sub">Chưa ghi nhận thuốc ở lượt tham chiếu (không suy thành không dùng thuốc).</div>';
+        } else {
+          medsHtml = '<div class="lv-med-groups">';
+          if (pillarMeds.length > 0) {
+            medsHtml += '<div class="lv-med-group"><div class="lv-med-group__title lv-med-group__title--pillar">4 trụ cột suy tim (GDMT)</div><div class="lv-med-pills">' +
+              pillarMeds.map(function (m) {
+                return '<span class="med-pill med-pill--pillar"><strong>' + esc(m.name) + '</strong> <span class="med-pill__grp">' + esc(m.groupLabel) + '</span></span>';
+              }).join('') + '</div></div>';
+          }
+          if (cautionMeds.length > 0) {
+            medsHtml += '<div class="lv-med-group"><div class="lv-med-group__title lv-med-group__title--caution">' + ICONS.alert + ' Nhóm cần tránh / thận trọng</div><div class="lv-med-pills">' +
+              cautionMeds.map(function (m) {
+                return '<span class="med-pill med-pill--caution"><strong>' + esc(m.name) + '</strong> <span class="med-pill__grp">' + esc(m.groupLabel) + '</span></span>';
+              }).join('') + '</div></div>';
+          }
+          if (otherMeds.length > 0) {
+            medsHtml += '<div class="lv-med-group"><div class="lv-med-group__title">Thuốc khác</div><div class="lv-med-pills">' +
+              otherMeds.map(function (m) {
+                return '<span class="med-pill med-pill--other"><strong>' + esc(m.name) + '</strong>' + (m.groupLabel && m.groupLabel !== 'Khác' ? ' <span class="med-pill__grp">' + esc(m.groupLabel) + '</span>' : '') + '</span>';
+              }).join('') + '</div></div>';
+          }
+          medsHtml += '</div>';
+        }
+
+        const openAlerts = Array.isArray(sum.openAlerts) ? sum.openAlerts : [];
+        const alertsHtml = openAlerts.length > 0
+          ? '<div class="lv-alert-list" data-latest-visit-alerts="true">' + openAlerts.map(function (al) {
+              const sev = String(al.severity || '').toLowerCase();
+              const isHigh = /nghiêm trọng|high|critical|severe|error/i.test(sev);
+              const isMed = !isHigh && /quan trọng|medium|moderate|warn/i.test(sev);
+              const tone = isHigh ? 'error' : (isMed ? 'warn' : 'info');
+              return (
+                '<div class="lv-alert-item lv-alert-item--' + tone + '">' +
+                  '<span class="badge badge--' + tone + ' badge--xs">' + esc(al.severity || 'Cảnh báo') + '</span>' +
+                  '<span>' + esc(al.message || al.ruleId || '') + '</span>' +
+                '</div>'
+              );
+            }).join('') + '</div>'
+          : '<div class="cell-sub" data-latest-visit-alerts="true">Không có cảnh báo an toàn thuốc M4 còn hiệu lực.</div>';
+
+        const srcStatusVi = sum.sourceVisitStatus === 'confirmed'
+          ? 'Đã hoàn thành'
+          : (sum.sourceVisitStatus === 'in_progress' ? 'Đang xử lý' : 'Bản nháp');
+
+        summaryBody =
+          '<div class="latest-visit-v2" data-latest-visit-card="v2">' +
+            '<div class="source-strip">' + ICONS.clock + '<span>Nguồn tham chiếu: <strong class="mono">' + esc(sum.sourceVisitCode || (sum.sourceVisitId ? sum.sourceVisitId.slice(0, 8) : '')) + '</strong> · ' + esc(formatDateTime(sum.sourceVisitDate)) + ' (' + esc(srcStatusVi) + (sum.sourceFormVersionLabel ? ' · Biểu mẫu ' + esc(sum.sourceFormVersionLabel) : '') + ')</span></div>' +
+            '<div class="lv-class-row" data-latest-visit-classification="true">' +
+              '<div class="lv-class-box">' +
+                '<div class="lv-class-box__lbl">Giai đoạn suy tim (A–D)</div>' +
+                '<div class="lv-class-box__val">' +
+                  '<span class="badge badge--' + stageTone + '">' + esc(stageCode ? ('Stage ' + stageCode) : 'Chưa phân loại') + '</span>' +
+                  '<span class="lv-class-box__text">' + esc(stageLabel) + '</span>' +
+                  (stageSource ? '<span class="cell-sub">(' + esc(stageSource) + ')</span>' : '') +
+                '</div>' +
+              '</div>' +
+              '<div class="lv-class-box">' +
+                '<div class="lv-class-box__lbl">Kiểu hình EF</div>' +
+                '<div class="lv-class-box__val">' +
+                  '<span class="badge badge--' + efTone + '">' + esc(efCode || 'Chưa phân loại') + '</span>' +
+                  (efLabel && efLabel !== efCode ? '<span class="lv-class-box__text">' + esc(efLabel) + '</span>' : '') +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="lv-section">' +
+              '<div class="kv-item__label">Xét nghiệm trọng yếu (kèm ngày &amp; cờ cảnh báo)</div>' +
+              labsGridHtml +
+            '</div>' +
+            '<div class="lv-section" data-latest-visit-meds="true">' +
+              '<div class="kv-item__label">Thuốc đang dùng theo nhóm</div>' +
+              medsHtml +
+            '</div>' +
+            '<div class="lv-section">' +
+              '<div class="kv-item__label">Cảnh báo an toàn thuốc M4 còn hiệu lực</div>' +
+              alertsHtml +
+            '</div>' +
+          '</div>';
+      }
+
+      latestVisitCardHtml =
+        '<section class="card">' +
+          '<div class="card__header"><div><h2 class="card__title">Lượt khám gần nhất (chỉ tham chiếu)</h2><p class="card__subtitle">Giai đoạn, kiểu hình EF, xét nghiệm trọng yếu, thuốc theo nhóm và cảnh báo M4 — không tự sao chép sang lượt mới.</p></div></div>' +
+          '<div class="card__body">' + summaryBody + '</div>' +
+        '</section>';
     }
 
-      const timelineHtml = pr.visits.length === 0
+    const timelineHtml = pr.visits.length === 0
       ? '<p class="field__help">Chưa có lượt khám nào được tạo cho hồ sơ này.</p>'
       : '<div class="timeline">' + pr.visits.map(function (v) {
           const isConf = v.status === 'confirmed';
-          const perfDoc = v.performedByName || v.performingDoctorName || v.createdByName || '';
+          const perfDoc = v.performedByName || v.performingDoctorName || v.assignedDoctorName || v.createdByName || '';
           const lastEd = v.updatedByName || v.lastEditedByName || '';
           return (
             '<div class="timeline-item ' + (isConf ? 'timeline-item--confirmed' : 'timeline-item--draft') + '">' +
               '<div class="timeline-item__top">' +
                 '<div><div class="cell-primary mono">' + esc(v.visitCode) + '</div><div class="cell-sub tabular">' + esc(formatDateTime(v.visitDate)) + ' · ' + esc(formatVisitType(v.visitType)) + '</div></div>' +
-                (isConf ? '<span class="badge badge--success">Đã xác nhận</span>' : '<span class="badge badge--warn">Bản nháp</span>') +
+                formatVisitStatusBadge(v.status, v.id, false) +
               '</div>' +
-              (v.chiefComplaint ? '<div class="cell-sub">' + esc(v.chiefComplaint) + '</div>' : '') +
+              (!isNurse && v.chiefComplaint ? '<div class="cell-sub">' + esc(v.chiefComplaint) + '</div>' : '') +
               (perfDoc || lastEd ? (
                 '<div class="cell-sub" data-visit-actors="true">' +
-                  (perfDoc ? 'Bác sĩ thực hiện: <strong>' + esc(perfDoc) + '</strong>' : '') +
+                  (perfDoc ? 'Phụ trách: <strong>' + esc(perfDoc) + '</strong>' : '') +
                   (perfDoc && lastEd ? ' · ' : '') +
                   (lastEd ? 'Chỉnh sửa gần nhất: <strong>' + esc(lastEd) + '</strong>' : '') +
                 '</div>'
               ) : '') +
               '<div class="field__meta-row">' +
-                '<span class="badge badge--blue">Biểu mẫu ' + esc(v.formVersionLabel || 'v1') + (v.currentRevisionNo > 1 ? ' · Bản sửa #' + esc(v.currentRevisionNo) : '') + '</span>' +
+                '<span class="badge badge--blue">Biểu mẫu ' + esc(v.formVersionLabel || 'v2.0') + (v.currentRevisionNo > 1 ? ' · Bản sửa #' + esc(v.currentRevisionNo) : '') + '</span>' +
                 '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
-                  '<button type="button" class="btn ' + (isConf ? 'btn--secondary' : 'btn--primary') + ' btn--sm" data-nav="#/visits/' + esc(v.id) + '">' + (isConf ? 'Xem lượt khám' : 'Tiếp tục nhập') + '</button>' +
-                  '<button type="button" class="btn btn--ghost btn--sm" data-nav="#/visits/' + esc(v.id) + '/review">Xem lại</button>' +
+                  '<button type="button" class="btn ' + (isConf ? 'btn--secondary' : 'btn--primary') + ' btn--sm" data-nav="#/visits/' + esc(v.id) + '">' + (isConf ? 'Xem lượt khám' : (v.status === 'waiting' ? 'Xem tiếp nhận' : 'Tiếp tục nhập')) + '</button>' +
+                  (!isNurse ? '<button type="button" class="btn btn--ghost btn--sm" data-nav="#/visits/' + esc(v.id) + '/review">Xem lại</button>' : '') +
                 '</div>' +
               '</div>' +
             '</div>'
           );
         }).join('') + '</div>';
 
-      const body =
+    const body =
       '<div class="page-head">' +
-        '<div><h1 class="page-head__title"><span class="mono">' + esc(pt.patientCode) + '</span> · ' + esc(pt.fullName) + '</h1><p class="page-head__sub">Thông tin hành chính, bác sĩ phụ trách và danh sách các lượt khám theo thời gian.</p></div>' +
+        '<div><h1 class="page-head__title"><span class="mono">' + esc(pt.patientCode) + '</span> · ' + esc(pt.fullName) + '</h1><p class="page-head__sub">' + (isNurse ? 'Thông tin hành chính và các lượt tiếp nhận.' : 'Thông tin hành chính, tóm tắt lượt khám gần nhất và dòng thời gian lượt khám.') + '</p></div>' +
         '<div class="page-head__actions">' +
-          '<button type="button" class="btn btn--secondary" data-nav="#/patients">' + ICONS.arrowLeft + ' Về danh sách</button>' +
-          '<button type="button" class="btn btn--primary" data-action="open-create-visit">' + ICONS.plus + ' Tạo lượt khám mới</button>' +
+          '<button type="button" class="btn btn--secondary" data-nav="' + listHash + '">' + ICONS.arrowLeft + ' Về danh sách</button>' +
+          (isNurse ? '<button type="button" class="btn btn--primary" data-action="open-create-visit">' + ICONS.plus + ' Tạo lượt khám mới</button>' : '') +
         '</div>' +
       '</div>' +
       '<div class="profile-grid">' +
@@ -2556,15 +3572,12 @@
               '<div><div class="kv-item__label">Họ tên / Ký hiệu</div><div class="kv-item__value">' + esc(pt.fullName) + '</div></div>' +
               '<div><div class="kv-item__label">Giới tính</div><div class="kv-item__value">' + esc(formatSex(pt.sex)) + '</div></div>' +
               '<div><div class="kv-item__label">Ngày sinh / Tuổi</div><div class="kv-item__value">' + esc(formatBirthPrecision(pt)) + '</div></div>' +
-              '<div><div class="kv-item__label">Mã CCCD</div><div class="kv-item__value mono">' + esc(pt.externalPatientCode || 'Chưa ghi nhận') + '</div></div>' +
+              '<div data-profile-cccd="true"><div class="kv-item__label">Số CCCD</div><div class="kv-item__value mono">' + esc(pt.cccd || 'Chưa ghi nhận') + '</div></div>' +
+              '<div data-profile-his="true"><div class="kv-item__label">Mã HIS (Số vào viện)</div><div class="kv-item__value mono">' + esc(pt.externalPatientCode || 'Chưa ghi nhận') + '</div></div>' +
               '<div><div class="kv-item__label">Cập nhật gần nhất</div><div class="kv-item__value tabular">' + esc(formatDateTime(pt.updatedAt)) + (lastEditorName ? ' · ' + esc(lastEditorName) : '') + '</div></div>' +
             '</div></div>' +
           '</section>' +
-          assignedBoxHtml +
-          '<section class="card">' +
-            '<div class="card__header"><div><h2 class="card__title">Tóm tắt lượt đã xác nhận gần nhất (chỉ tham chiếu)</h2><p class="card__subtitle">Dữ liệu chỉ để đối chiếu, không tự sao chép sang lượt khám mới.</p></div></div>' +
-            '<div class="card__body">' + summaryBody + '</div>' +
-          '</section>' +
+          latestVisitCardHtml +
         '</div>' +
         '<div class="profile-col">' +
           '<section class="card">' +
@@ -2574,7 +3587,7 @@
         '</div>' +
       '</div>';
 
-    const crumbs = '<button type="button" class="breadcrumbs__link" data-nav="#/patients">Hồ sơ bệnh nhân</button><span>/</span><span class="breadcrumbs__current mono">' + esc(pt.patientCode) + '</span>';
+    const crumbs = '<button type="button" class="breadcrumbs__link" data-nav="' + listHash + '">' + esc(listLabel) + '</button><span>/</span><span class="breadcrumbs__current mono">' + esc(pt.patientCode) + '</span>';
     return renderShell(crumbs, body);
   }
 
@@ -2886,7 +3899,7 @@
 
   function compactToVisitValue(visitId, fd, compact) {
     if (!fd || !compact) return null;
-    if (isV12StructuredAnswerCode(fd.code)) {
+    if (isV12StructuredAnswerCode(fd.code, fd)) {
       const ans = clone(compact);
       if (ans && typeof ans === 'object') delete ans.ownerModule;
       return {
@@ -3297,10 +4310,14 @@
     const q = String(ctx.search || '').trim().toLowerCase();
     const filter = ctx.filter || 'all';
     const ro = Boolean(ctx.readonly);
+    const viewerRole = ctx.viewerRole || (state.user && state.user.role) || 'doctor';
+    const isNurseViewer = !ctx.mode || ctx.mode === 'encounter' ? viewerRole === 'nurse' : false;
+    const isV2Mode = Boolean(ctx.isV2 || isFormV2(ctx.formVersion, allSections));
+    const nurseUnlocked = Boolean(ctx.nurseSectionsUnlocked);
     const prefix = ctx.mode === 'preview' ? 'prev-' : 'enc-';
     const isPreview = ctx.mode === 'preview';
     const isV12Mode = Boolean(!isPreview && ctx.isV12);
-    const modFilter = isV12Mode ? (ctx.moduleFilter || 'all') : 'all';
+    const modFilter = isV12Mode && !isNurseViewer ? (ctx.moduleFilter || 'all') : 'all';
     const fieldMetaMap = isV12Mode ? (ctx.fieldMetadata || {}) : {};
     const unlockedUnknowns = isV12Mode ? (ctx.unlockedUnknownCodes || {}) : {};
     const showListStates = Boolean(ctx.supportsListStates || isV11Bundle(ctx.formVersion, allSections, ctx.defById));
@@ -3328,7 +4345,7 @@
     }
 
     function renderFieldModuleBadges(code) {
-      if (!isV12Mode) return '';
+      if (!isV12Mode || isNurseViewer) return '';
       const meta = getFieldMetaFromApi(fieldMetaMap, code);
       if (!meta || !meta.input || !Array.isArray(meta.modules) || meta.modules.length === 0) return '';
       const tags = meta.modules.map(function (m) {
@@ -3430,16 +4447,21 @@
         } else if (code === 'medications') {
           rowsHtml = '<div class="wf-list-editor">' + items.map(function (med, idx) {
             const m = (med && typeof med === 'object') ? med : { id: 'med-' + (idx + 1), ingredient: String(med || '') };
-            const ingVal = m.ingredient || m.ingredientCode || m.activeIngredient || '';
-            const clsVal = m.class || '';
+            const ingVal = m.name || m.ingredient || m.ingredientCode || m.activeIngredient || m.drugName || '';
             const doseVal = m.dose != null ? m.dose : '';
             const unitVal = m.unit || m.doseUnit || '';
             const routeVal = m.route || '';
             const freqVal = m.frequency || '';
+            const autoGrp = classifyMedicationGroup(isV2Mode ? ingVal : m);
+            const clsVal = isV2Mode
+              ? ({ 'ACE-I': 'ACEI', BB: 'beta_blocker', LOOP: 'loop_diuretic', NSAIDs: 'NSAID', Corticoid: 'corticosteroid', CLASS_I_AA: 'class_I_antiarrhythmic', OTHER: 'other' }[autoGrp.group] || autoGrp.group)
+              : (m.class || '');
+            const grpBadgeCls = autoGrp.pillar ? 'badge--pillar' : (autoGrp.caution ? 'badge--caution' : 'badge--neutral');
             return (
               '<div class="wf-list-row wf-list-row--med">' +
-                '<input type="text" class="input input--sm" data-enc-v12list-item="medications:' + idx + ':ingredient" value="' + esc(ingVal) + '" placeholder="Hoạt chất (VD: spironolactone)"' + (!canEditList ? ' disabled' : '') + '>' +
-                '<select class="select input--sm" data-enc-v12list-item="medications:' + idx + ':class"' + (!canEditList ? ' disabled' : '') + '>' +
+                '<input type="text" class="input input--sm" data-enc-v12list-item="medications:' + idx + ':ingredient" value="' + esc(ingVal) + '" placeholder="Tên thuốc / Hoạt chất (VD: bisoprolol, spironolactone)"' + (!canEditList ? ' disabled' : '') + '>' +
+                '<span class="badge badge--xs ' + grpBadgeCls + ' med-auto-group-badge" data-med-auto-group-idx="' + idx + '" title="Nhóm thuốc tự động phân loại">' + esc(autoGrp.label) + '</span>' +
+                '<select class="select input--sm" data-enc-v12list-item="medications:' + idx + ':class"' + (!canEditList || isV2Mode ? ' disabled' : '') + '>' +
                   '<option value="">-- Nhóm thuốc --</option>' +
                   WF_MED_CLASSES.map(function (c) { return '<option value="' + esc(c) + '"' + (clsVal === c ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('') +
                 '</select>' +
@@ -3478,6 +4500,12 @@
       } else {
         rowsHtml = '<p class="field__help">Thêm dòng có cấu trúc hoặc bấm "Xác nhận không có" / "Chưa rõ".</p>';
       }
+      const multiIcdBarHtml = (code === 'diagnoses' && canEditList)
+        ? '<div class="multi-icd-bar">' +
+            '<input type="text" class="input input--sm mono" id="enc-multi-icd-input" placeholder="Nhập nhiều mã ICD kèm theo cách nhau bằng + hoặc dấu phẩy (VD: I10+E11+I48)">' +
+            '<button type="button" class="btn btn--secondary btn--sm" data-add-multi-icd="v12">' + ICONS.plus + ' Thêm mã ICD</button>' +
+          '</div>'
+        : '';
       return (
         '<div class="field field--span-2 wf-list-summary-field' + modCls + (errMsg ? ' v12-field--error' : '') + '" data-field-code="' + esc(code) + '">' +
           '<div class="field__label-row">' +
@@ -3490,6 +4518,7 @@
               '</div>'
             ) : '') +
           '</div>' +
+          multiIcdBarHtml +
           rowsHtml +
           (helpText ? '<p class="field__help">' + esc(helpText) + '</p>' : '') +
           (errMsg ? '<p class="field__error">' + ICONS.alert + ' ' + esc(errMsg) + '</p>' : '') +
@@ -3519,7 +4548,7 @@
       );
     }
 
-    function renderSingleField(ff) {
+    function renderSingleField(ff, sectionRo) {
       const fd = ctx.defById[ff.fieldDefinitionId] || ff._virtualDef;
       if (!fd) return '';
       const label = getFieldLabel(ff, fd);
@@ -3528,11 +4557,16 @@
       const val = ctx.valuesByDefId[fd.id] || null;
       const errMsg = (ctx.fieldErrors && ctx.fieldErrors[fd.code]) || '';
       const flags = getFieldMetaFlags(ff, fd);
-      const isReadonly = ro || flags.readonlyInput;
+      const isReadonly = ro || Boolean(sectionRo) || flags.readonlyInput;
       const reqTag = ff.requiredForConfirm ? '<span class="badge badge--warn badge--xs">Bắt buộc</span>' : '';
       const modBadgesHtml = renderFieldModuleBadges(fd.code);
       const modCls = getModHighlightClass(fd.code);
       const isUnlocked = Boolean(unlockedUnknowns[fd.code]);
+
+      // Form v2.0 / v1.2: Timed labs (requiresMeasuredAt in v2.0 catalog or v1.2 timed lab codes)
+      if (isV12Mode && (isTimedLabCode(fd.code) || (fd.validationRule && fd.validationRule.requiresMeasuredAt))) {
+        return renderV12TimedLabField(ff, fd);
+      }
 
       // Form v1.2: Structured list widgets (diagnoses, medications, allergies)
       if (isV12Mode && isStructuredListCode(fd.code)) {
@@ -3622,18 +4656,101 @@
         );
       }
 
-      // Special computed / patient cards
+      // Special computed [T] / patient cards
       if (fd.code === 'bmi') {
-        const hDef = Object.values(ctx.defById).find(function (x) { return x.code === 'chieu_cao_cm'; });
-        const wDef = Object.values(ctx.defById).find(function (x) { return x.code === 'can_nang_kg'; });
-        const hVal = hDef && ctx.valuesByDefId[hDef.id] && ctx.valuesByDefId[hDef.id].valueState === 'answered' ? Number(ctx.valuesByDefId[hDef.id].valueNum) : null;
-        const wVal = wDef && ctx.valuesByDefId[wDef.id] && ctx.valuesByDefId[wDef.id].valueState === 'answered' ? Number(ctx.valuesByDefId[wDef.id].valueNum) : null;
-        const bmi = computeBmi(hVal, wVal);
+        const bmi = computeEncounterBmi(ctx);
+        const obeseHint = bmi !== null && bmi >= 25 ? ' · <span class="badge badge--warn badge--xs">BMI ≥ 25 (gợi ý béo phì)</span>' : '';
         return (
-          '<div class="bmi-card" data-field-code="bmi">' +
-            '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--blue badge--xs">Tự tính</span></div>' +
-            '<div class="bmi-card__value">' + (bmi !== null ? esc(bmi) + ' kg/m²' : 'Chưa đủ dữ liệu') + '</div>' +
-            '<div class="bmi-card__note">' + esc(customHelp || 'Tự tính từ chiều cao và cân nặng của lượt khám này.') + '</div>' +
+          '<div class="bmi-card" data-field-code="bmi" data-auto-calc="true">' +
+            '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--blue badge--xs">Tự động</span></div>' +
+            '<div class="bmi-card__value">' + (bmi !== null ? esc(bmi) + ' kg/m²' : 'Chưa đủ dữ liệu') + obeseHint + '</div>' +
+            '<div class="bmi-card__note">Công thức: Cân nặng (kg) / [Chiều cao (m)]²' + (customHelp ? ' · ' + esc(customHelp) : '') + '</div>' +
+          '</div>'
+        );
+      }
+
+      if (fd.code === 'beo_phi_goi_y' || fd.code === 'goi_y_beo_phi' || (fd.code === 'beo_phi' && (flags.computed || fd.isCalculated || fd.is_calculated))) {
+        const bmi = computeEncounterBmi(ctx);
+        const statusVal = bmi === null ? 'Chưa đủ dữ liệu' : (bmi >= 25 ? 'Có (BMI ' + bmi + ' ≥ 25)' : 'Không (BMI ' + bmi + ' < 25)');
+        return (
+          '<div class="bmi-card" data-field-code="' + esc(fd.code) + '" data-auto-calc="true">' +
+            '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--blue badge--xs">Tự động</span></div>' +
+            '<div class="bmi-card__value bmi-card__value--sm">' + esc(statusVal) + '</div>' +
+            '<div class="bmi-card__note">Công thức: BMI ≥ 25 kg/m² (chuẩn châu Á)</div>' +
+          '</div>'
+        );
+      }
+
+      if (fd.code === 'co_da_thuoc') {
+        let medCountNum = 0;
+        if (isV12Mode && ctx.defByCode && ctx.defByCode.medications && ctx.valuesByDefId[ctx.defByCode.medications.id]) {
+          const mv = ctx.valuesByDefId[ctx.defByCode.medications.id];
+          const mans = mv && mv.answer;
+          if (mans && mans.value_state === 'answered' && Array.isArray(mans.value)) medCountNum = mans.value.length;
+        } else {
+          medCountNum = (ctx.medications || []).filter(function (m) { return isValidMedRow(m) && m.status === 'active'; }).length;
+        }
+        const polyText = medCountNum >= 5 ? ('Có (' + medCountNum + ' thuốc ≥ 5)') : (medCountNum > 0 ? ('Không (' + medCountNum + ' thuốc)') : 'Chưa đủ dữ liệu');
+        return (
+          '<div class="bmi-card" data-field-code="co_da_thuoc" data-auto-calc="true">' +
+            '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--blue badge--xs">Tự động</span></div>' +
+            '<div class="bmi-card__value bmi-card__value--sm">' + esc(polyText) + '</div>' +
+            '<div class="bmi-card__note">Công thức: Số thuốc đồng thời ≥ 5 = Đa thuốc (Luật 4.4)</div>' +
+          '</div>'
+        );
+      }
+
+      if (fd.code === 'nhom_thuoc_tu_dong') {
+        let medRows = [];
+        if (isV12Mode && ctx.defByCode && ctx.defByCode.medications && ctx.valuesByDefId[ctx.defByCode.medications.id]) {
+          const mv = ctx.valuesByDefId[ctx.defByCode.medications.id];
+          const mans = mv && mv.answer;
+          if (mans && mans.value_state === 'answered' && Array.isArray(mans.value)) medRows = mans.value;
+        } else {
+          medRows = (ctx.medications || []).filter(isValidMedRow);
+        }
+        const badges = medRows.map(function (m) {
+          const g = classifyMedicationGroup(m);
+          const cls = g.pillar ? 'badge--pillar' : (g.caution ? 'badge--caution' : 'badge--neutral');
+          return '<span class="badge badge--xs ' + cls + '">' + esc((m.ingredient || m.drugName || m.name || '') + ': ' + g.label) + '</span>';
+        }).join(' ');
+        return (
+          '<div class="bmi-card field--span-2" data-field-code="nhom_thuoc_tu_dong" data-auto-calc="true">' +
+            '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--blue badge--xs">Tự động</span></div>' +
+            '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">' + (badges || '<span class="cell-sub">Chưa có thuốc để phân nhóm</span>') + '</div>' +
+            '<div class="bmi-card__note">Công thức: Tự gán nhóm theo tên thuốc / hoạt chất (4 trụ cột GDMT &amp; nhóm cần tránh)</div>' +
+          '</div>'
+        );
+      }
+
+      if (fd.code === 'goi_y_nguy_co_icd') {
+        return ''; // Rendered via interactive renderIcdRiskSuggestionsBox with doctor confirm buttons
+      }
+
+      if (fd.code === 'bn_ma' || fd.code === 'bn_ho_ten' || fd.code === 'ma_benh_nhan_his' || fd.code === 'ma_luot_kham_his' || fd.code === 'ngay_kham') {
+        const sysMap = {
+          bn_ma: ctx.patient ? ctx.patient.patientCode : '—',
+          bn_ho_ten: ctx.patient ? ctx.patient.fullName : '—',
+          ma_benh_nhan_his: (ctx.patient && ctx.patient.externalPatientCode) || 'Chưa ghi nhận',
+          ma_luot_kham_his: (ctx.visit && (ctx.visit.externalVisitCode || ctx.visit.visitCode)) || '—',
+          ngay_kham: (ctx.visit && ctx.visit.visitDate) ? formatDateOnly(ctx.visit.visitDate) : '—'
+        };
+        return (
+          '<div class="bmi-card" data-field-code="' + esc(fd.code) + '">' +
+            '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--info badge--xs">Trường hệ thống</span></div>' +
+            '<div class="bmi-card__value bmi-card__value--sm' + (fd.code === 'bn_ma' || fd.code === 'ma_benh_nhan_his' || fd.code === 'ma_luot_kham_his' ? ' mono' : '') + '">' + esc(isPreview ? 'Đồng bộ từ hồ sơ' : (sysMap[fd.code] || '—')) + '</div>' +
+          '</div>'
+        );
+      }
+
+      if (fd.code === 'muc_giam_ha_tu_the' || fd.code === 'ha_tu_the_giam' || fd.code === 'giam_ha_tu_the') {
+        const drop = computeOrthostaticBpDrop(ctx);
+        const dropAlert = drop !== null && drop >= 20 ? ' <span class="badge badge--error badge--xs">Hạ HA tư thế (≥ 20 mmHg)</span>' : '';
+        return (
+          '<div class="bmi-card" data-field-code="' + esc(fd.code) + '" data-auto-calc="true">' +
+            '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--blue badge--xs">Tự động</span></div>' +
+            '<div class="bmi-card__value bmi-card__value--sm">' + (drop !== null ? (esc(drop) + ' mmHg' + dropAlert) : 'Chưa đủ dữ liệu') + '</div>' +
+            '<div class="bmi-card__note">Công thức: HA tâm thu nằm/ngồi − HA tâm thu đứng (≥ 20 mmHg = Luật 4.4)</div>' +
           '</div>'
         );
       }
@@ -3642,18 +4759,18 @@
         const age = ctx.patient ? computeAge(ctx.patient, ctx.visit && ctx.visit.visitDate) : null;
         if (isPreview) {
           return (
-            '<div class="bmi-card" data-field-code="luot_tuoi">' +
-              '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--blue badge--xs">Tự tính</span></div>' +
+            '<div class="bmi-card" data-field-code="luot_tuoi" data-auto-calc="true">' +
+              '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--blue badge--xs">Tự động</span></div>' +
               '<div class="bmi-card__value bmi-card__value--muted">Chưa có dữ liệu</div>' +
-              '<div class="bmi-card__note">' + esc(customHelp || 'Lấy theo ngày sinh / năm sinh trong hồ sơ bệnh nhân khi mở lượt khám thật.') + '</div>' +
+              '<div class="bmi-card__note">Công thức: Ngày khám − Ngày sinh hồ sơ' + (customHelp ? ' · ' + esc(customHelp) : '') + '</div>' +
             '</div>'
           );
         }
         return (
-          '<div class="bmi-card' + modCls + '" data-field-code="luot_tuoi">' +
-            '<div class="bmi-card__label"><span>' + esc(label) + ' ' + modBadgesHtml + '</span><span class="badge badge--blue badge--xs">Tự tính</span></div>' +
+          '<div class="bmi-card' + modCls + '" data-field-code="luot_tuoi" data-auto-calc="true">' +
+            '<div class="bmi-card__label"><span>' + esc(label) + ' ' + modBadgesHtml + '</span><span class="badge badge--blue badge--xs">Tự động</span></div>' +
             '<div class="bmi-card__value">' + (age !== null ? esc(age) + ' tuổi' : 'Chưa ghi nhận') + '</div>' +
-            '<div class="bmi-card__note">' + esc(customHelp || (ctx.patient ? formatBirthPrecision(ctx.patient) : 'Lấy từ hồ sơ hành chính')) +
+            '<div class="bmi-card__note">Công thức: Ngày khám − Ngày sinh (' + esc(ctx.patient ? formatBirthPrecision(ctx.patient) : 'Hồ sơ hành chính') + ')' +
               (ctx.visit && ctx.visit.patientId ? ' · <button type="button" class="breadcrumbs__link" data-nav="#/patients/' + esc(ctx.visit.patientId) + '">Mở hồ sơ bệnh nhân ↗</button>' : '') +
             '</div>' +
           '</div>'
@@ -3683,37 +4800,44 @@
 
       if (fd.code === 'so_luong_thuoc_dong_thoi') {
         let valLabel = '';
+        let medCountNum = 0;
         if (isV12Mode && ctx.defByCode && ctx.defByCode.medications && ctx.valuesByDefId[ctx.defByCode.medications.id]) {
           const mv = ctx.valuesByDefId[ctx.defByCode.medications.id];
           const mans = mv && mv.answer;
           if (mans && mans.value_state === 'unknown') valLabel = 'Chưa rõ';
           else if (mans && mans.value_state === 'answered' && Array.isArray(mans.value)) {
-            valLabel = mans.value.length === 0 ? '0 thuốc (đã xác nhận không dùng)' : (mans.value.length + ' thuốc đang dùng');
+            medCountNum = mans.value.length;
+            valLabel = medCountNum === 0 ? '0 thuốc (đã xác nhận không dùng)' : (medCountNum + ' thuốc đang dùng');
           }
         }
         if (!valLabel) {
           const allMeds = ctx.medications || [];
           const validActiveCount = allMeds.filter(function (m) { return isValidMedRow(m) && m.status === 'active'; }).length;
           const validTotalCount = allMeds.filter(isValidMedRow).length;
+          medCountNum = validActiveCount;
           valLabel = validTotalCount === 0
             ? (ctx.medicationListState === 'none' ? '0 thuốc (đã xác nhận không dùng)' : 'Chưa ghi nhận thuốc')
             : (validActiveCount + ' thuốc đang dùng');
         }
+        const polyTag = medCountNum >= 5 ? ' <span class="badge badge--warn badge--xs">Đa thuốc (≥ 5)</span>' : '';
         return (
-          '<div class="bmi-card" data-field-code="so_luong_thuoc_dong_thoi">' +
-            '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--blue badge--xs">Tự tính</span></div>' +
-            '<div class="bmi-card__value bmi-card__value--sm">' + esc(valLabel) + '</div>' +
-            '<div class="bmi-card__note">' + esc(customHelp || 'Chỉ đếm bản ghi thuốc đã nhập tên và ở trạng thái Đang dùng.') + '</div>' +
+          '<div class="bmi-card" data-field-code="so_luong_thuoc_dong_thoi" data-auto-calc="true">' +
+            '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--blue badge--xs">Tự động</span></div>' +
+            '<div class="bmi-card__value bmi-card__value--sm">' + esc(valLabel) + polyTag + '</div>' +
+            '<div class="bmi-card__note">Công thức: Đếm số thuốc đang dùng (≥ 5 thuốc = Đa thuốc)' + (customHelp ? ' · ' + esc(customHelp) : '') + '</div>' +
           '</div>'
         );
       }
 
-      if (flags.computed) {
+      if (flags.computed || fd.isCalculated || fd.is_calculated) {
+        const autoValText = val && val.valueState === 'answered'
+          ? (val.valueNum != null ? (String(val.valueNum) + (fd.canonicalUnit ? ' ' + fd.canonicalUnit : '')) : (val.valueText || 'Đã tính'))
+          : 'Tự tính khi có đủ dữ liệu';
         return (
-          '<div class="bmi-card" data-field-code="' + esc(fd.code) + '">' +
-            '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--blue badge--xs">Tự tính</span></div>' +
-            '<div class="bmi-card__value bmi-card__value--muted">Tự tính khi có đủ dữ liệu</div>' +
-            (helpText ? '<div class="bmi-card__note">' + esc(helpText) + '</div>' : '') +
+          '<div class="bmi-card" data-field-code="' + esc(fd.code) + '" data-auto-calc="true">' +
+            '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--blue badge--xs">Tự động</span></div>' +
+            '<div class="bmi-card__value ' + (val && val.valueState === 'answered' ? 'bmi-card__value--sm' : 'bmi-card__value--muted') + '">' + esc(autoValText) + '</div>' +
+            '<div class="bmi-card__note">' + esc(fd.formulaVi || helpText || 'Tự động tính từ dữ liệu trong cùng lượt khám.') + '</div>' +
           '</div>'
         );
       }
@@ -4061,10 +5185,14 @@
           '<div class="repeat-list">' +
             (meds.length === 0 ? '<p class="field__help">' + esc(emptyMsg) + '</p>' : meds.map(function (m, idx) {
               const incomplete = !isValidMedRow(m) || !m.medicationGroup;
+              const autoGrp = classifyMedicationGroup(m);
+              const grpCls = autoGrp.pillar ? 'badge--pillar' : (autoGrp.caution ? 'badge--caution' : 'badge--neutral');
               return (
                 '<div class="repeat-card' + (incomplete ? ' repeat-card--incomplete' : '') + '">' +
                   '<div class="repeat-card__head">' +
-                    '<span class="repeat-card__title">Thuốc #' + (idx + 1) + (m.drugName ? ' — ' + esc(m.drugName) : '') + (incomplete ? ' <span class="badge badge--warn badge--xs">Chưa hoàn tất</span>' : '') + '</span>' +
+                    '<span class="repeat-card__title">Thuốc #' + (idx + 1) + (m.drugName ? ' — ' + esc(m.drugName) : '') +
+                      ' <span class="badge badge--xs ' + grpCls + ' med-auto-group-badge" data-legacy-med-group-idx="' + idx + '">' + esc(autoGrp.label) + '</span>' +
+                      (incomplete ? ' <span class="badge badge--warn badge--xs">Chưa hoàn tất</span>' : '') + '</span>' +
                     (canMutateRows ? '<button type="button" class="btn btn--danger-outline btn--sm" data-' + prefix + 'remove-med="' + idx + '">' + ICONS.trash + ' Xóa</button>' : '') +
                   '</div>' +
                   '<div class="form-grid-3">' +
@@ -4298,6 +5426,10 @@
               );
             }).join('')) +
             (canMutateRows && listState !== 'none' ? (
+              '<div class="multi-icd-bar">' +
+                '<input type="text" class="input input--sm mono" id="' + esc(prefix) + 'multi-icd-input" placeholder="Nhập nhanh nhiều mã ICD kèm theo (VD: I10+E11+I48)">' +
+                '<button type="button" class="btn btn--secondary btn--sm" data-add-multi-icd="' + (isPreview ? 'prev' : 'legacy') + '">' + ICONS.plus + ' Thêm nhiều ICD</button>' +
+              '</div>' +
               '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
                 (!hasPrimary ? '<button type="button" class="btn btn--secondary btn--sm" data-' + prefix + 'add-dx="primary">' + ICONS.plus + ' Thêm ICD chính</button>' : '') +
                 '<button type="button" class="btn btn--secondary btn--sm" data-' + prefix + 'add-dx="secondary">' + ICONS.plus + ' Thêm ICD phụ</button>' +
@@ -4418,11 +5550,53 @@
       );
     }
 
+    function renderIcdRiskSuggestionsBox(secRo) {
+      if (isNurseViewer || isPreview) return '';
+      const suggestions = computeIcdRiskSuggestions(ctx);
+      if (suggestions.length === 0) return '';
+      const unconfirmed = suggestions.filter(function (s) { return !s.confirmed; });
+      return (
+        '<div class="icd-risk-suggest" data-icd-risk-suggestions="true">' +
+          '<div class="icd-risk-suggest__head">' +
+            '<div><strong>Gợi ý yếu tố nguy cơ từ mã ICD / BMI</strong> <span class="cell-sub">(bác sĩ xem và bấm xác nhận)</span></div>' +
+            (!secRo && !ro && unconfirmed.length > 1
+              ? '<button type="button" class="btn btn--primary btn--xs" data-confirm-icd-risk-all="1">' + ICONS.checkCircle + ' Xác nhận tất cả (' + unconfirmed.length + ')</button>'
+              : '') +
+          '</div>' +
+          '<div class="icd-risk-suggest__list">' +
+            suggestions.map(function (s) {
+              return (
+                '<div class="icd-risk-item' + (s.confirmed ? ' is-confirmed' : '') + '" data-icd-risk-key="' + esc(s.key) + '">' +
+                  '<div class="icd-risk-item__text">' +
+                    '<span class="badge badge--blue badge--xs mono">' + esc(s.sourceText) + '</span>' +
+                    '<span>→ <strong>' + esc(s.label) + '</strong></span>' +
+                  '</div>' +
+                  (s.confirmed
+                    ? '<span class="badge badge--success badge--xs">Đã xác nhận</span>'
+                    : (!secRo && !ro
+                        ? '<button type="button" class="btn btn--secondary btn--xs" data-confirm-icd-risk="' + esc(s.key) + '">' + ICONS.checkCircle + ' Xác nhận</button>'
+                        : '<span class="badge badge--warn badge--xs">Chờ xác nhận</span>')) +
+                '</div>'
+              );
+            }).join('') +
+          '</div>' +
+        '</div>'
+      );
+    }
+
     function renderOneSection(section) {
+      const secIsNurse = isNurseSection(section);
+      if (isNurseViewer && !secIsNurse) return '';
+      const collapsedNurseForDoctor = Boolean(!isPreview && !isNurseViewer && isV2Mode && secIsNurse && !nurseUnlocked && !ro);
+      const sectionRo = collapsedNurseForDoctor;
+
       const sortedFields = sortByDisplayOrder(section.fields || []);
       const allEntries = sortedFields.map(function (ff) {
         const fd = ctx.defById[ff.fieldDefinitionId];
-        return fd ? { ff: ff, fd: fd, rep: getFieldRepeatInfo(fd) } : null;
+        if (!fd) return null;
+        const eRole = getFieldEntryRole(ff, fd, section.sectionCode, fieldMetaMap);
+        if (isNurseViewer && eRole === 'doctor') return null;
+        return { ff: ff, fd: fd, rep: getFieldRepeatInfo(fd), entryRole: eRole };
       }).filter(Boolean);
 
       // Collect visible repeating entries per group (preserving displayOrder)
@@ -4446,7 +5620,7 @@
 
       function flushScalars() {
         if (pendingScalars.length === 0) return;
-        const cardsHtml = pendingScalars.map(function (e) { return renderSingleField(e.ff); }).join('');
+        const cardsHtml = pendingScalars.map(function (e) { return renderSingleField(e.ff, sectionRo); }).join('');
         if (cardsHtml) {
           chunks.push('<div class="section-chunk"><div class="form-grid-2">' + cardsHtml + '</div></div>');
         }
@@ -4468,8 +5642,8 @@
 
           if (g === 'labResults' && isV12Mode) {
             const visLabs = visibleByGroup[g] || [];
-            const timedEntries = visLabs.filter(function (e) { return isTimedLabCode(e.fd.code); });
-            const otherEntries = visLabs.filter(function (e) { return !isTimedLabCode(e.fd.code); });
+            const timedEntries = visLabs.filter(function (e) { return isTimedLabCode(e.fd.code, e.fd); });
+            const otherEntries = visLabs.filter(function (e) { return !isTimedLabCode(e.fd.code, e.fd); });
             const timedCards = timedEntries.filter(function (e) {
               if (!fieldMatchesModuleFilter(e.fd.code)) return false;
               const lbl = getFieldLabel(e.ff, e.fd).toLowerCase();
@@ -4548,17 +5722,33 @@
 
       flushScalars();
 
+      if (section.sectionCode === 'chan_doan_nguy_co' || section.sectionCode === 'tien_su_benh_nen') {
+        const sugHtml = renderIcdRiskSuggestionsBox(sectionRo);
+        if (sugHtml) chunks.push(sugHtml);
+      }
+
       if ((q || filter !== 'all' || modFilter !== 'all') && chunks.length === 0) {
         return '';
       }
 
       const secDomId = prefix + 'sec-' + section.sectionCode;
+      const forceExpanded = Boolean(q || filter !== 'all' || modFilter !== 'all');
+      const isCollapsedBody = collapsedNurseForDoctor && !forceExpanded;
+      const nurseHeaderControls = (!isPreview && !isNurseViewer && isV2Mode && secIsNurse && !ro)
+        ? ('<div class="section-role-controls">' +
+            '<span class="badge ' + (nurseUnlocked ? 'badge--warn' : 'badge--info') + ' badge--xs">' + (nurseUnlocked ? 'Đang sửa phần NVYT' : 'NVYT nhập · Chỉ đọc') + '</span>' +
+            '<button type="button" class="btn btn--secondary btn--xs" data-action="toggle-edit-nurse-vitals">' + (nurseUnlocked ? (ICONS.lock + ' Khóa lại') : (ICONS.edit + ' Sửa')) + '</button>' +
+          '</div>')
+        : (isV2Mode && secIsNurse && isNurseViewer
+            ? '<span class="badge badge--teal badge--xs">NVYT nhập</span>'
+            : '');
       return (
-        '<section class="card clinical-section" id="' + esc(secDomId) + '" data-section-block="' + esc(section.sectionCode) + '">' +
+        '<section class="card clinical-section' + (isCollapsedBody ? ' clinical-section--collapsed' : '') + (sectionRo ? ' clinical-section--readonly' : '') + '" id="' + esc(secDomId) + '" data-section-block="' + esc(section.sectionCode) + '" data-section-entry-role="' + (secIsNurse ? 'nurse' : 'doctor') + '">' +
           '<div class="card__header">' +
             '<div><h2 class="card__title">' + String(section.displayOrder).padStart(2, '0') + '. ' + esc(section.titleVi) + '</h2></div>' +
+            nurseHeaderControls +
           '</div>' +
-          '<div class="card__body">' +
+          '<div class="card__body"' + (isCollapsedBody ? ' hidden' : '') + '>' +
             (chunks.length > 0 ? chunks.join('') : '<p class="field__help">Không có trường hiển thị nào trong nhóm này.</p>') +
           '</div>' +
         '</section>'
@@ -4818,21 +6008,91 @@
     }
   }
 
+  function renderNurseVitalsSummaryCard(enc) {
+    if (!enc || !enc.visit) return '';
+    const v = enc.visit;
+    const isConf = v.status === 'confirmed';
+    function readNumVal(codes) {
+      for (let i = 0; i < codes.length; i++) {
+        const fd = enc.defByCode && enc.defByCode[codes[i]];
+        const vv = fd && enc.valuesByDefId[fd.id];
+        if (vv && vv.valueState === 'answered' && vv.valueNum != null) return Number(vv.valueNum);
+        if (vv && vv.valueState === 'unknown') return 'Chưa rõ';
+      }
+      return null;
+    }
+    const h = readNumVal(['chieu_cao_cm']);
+    const w = readNumVal(['can_nang_kg']);
+    const bmi = (typeof h === 'number' && typeof w === 'number') ? computeBmi(h, w) : null;
+    let sbp = readNumVal(['huyet_ap_tam_thu', 'ha_tam_thu']);
+    let dbp = readNumVal(['huyet_ap_tam_truong', 'ha_tam_truong']);
+    if (sbp === null && dbp === null && Array.isArray(enc.orthostaticBp) && enc.orthostaticBp.length > 0) {
+      const bp0 = enc.orthostaticBp[0];
+      if (bp0) {
+        if (bp0.systolic != null) sbp = bp0.systolic;
+        if (bp0.diastolic != null) dbp = bp0.diastolic;
+      }
+    }
+    const hr = readNumVal(['mach', 'tan_so_tim']);
+    const rr = readNumVal(['nhip_tho']);
+    const spo2 = readNumVal(['spo2']);
+    const standSbp = readNumVal(['ha_tam_thu_dung', 'huyet_ap_tam_thu_dung']);
+    const hasAnyVital = [h, w, sbp, dbp, hr, rr, spo2, standSbp].some(function (x) { return x !== null; });
+    if (!enc.isV2 && !v.submittedByName && !hasAnyVital) return '';
+
+    const fmt = function (val, unit) {
+      if (val === null || val === undefined) return '—';
+      if (val === 'Chưa rõ') return 'Chưa rõ';
+      return String(val) + (unit ? ' ' + unit : '');
+    };
+    const bpText = (sbp !== null || dbp !== null)
+      ? ((sbp === 'Chưa rõ' || dbp === 'Chưa rõ') ? 'Chưa rõ' : ((sbp != null ? sbp : '?') + '/' + (dbp != null ? dbp : '?') + ' mmHg'))
+      : '—';
+
+    return (
+      '<section class="nurse-vitals-card" data-nurse-vitals-summary="true">' +
+        '<div class="nurse-vitals-card__head">' +
+          '<div class="nurse-vitals-card__title">' +
+            '<strong>Sinh hiệu tiếp nhận (NVYT nhập · Chỉ đọc)</strong>' +
+            (v.submittedByName ? '<span class="cell-sub"> · Người gửi: <strong>' + esc(v.submittedByName) + '</strong>' + (v.submittedAt ? ' (' + esc(formatDateTime(v.submittedAt)) + ')' : '') + '</span>' : '') +
+          '</div>' +
+          (!isConf
+            ? '<button type="button" class="btn btn--secondary btn--xs" data-action="toggle-edit-nurse-vitals">' + (enc.nurseSectionsUnlocked ? (ICONS.lock + ' Khóa phần NVYT') : (ICONS.edit + ' Sửa sinh hiệu')) + '</button>'
+            : '') +
+        '</div>' +
+        '<div class="nurse-vitals-card__grid">' +
+          '<div class="nv-metric"><span class="nv-metric__lbl">Chiều cao / Cân nặng</span><span class="nv-metric__val tabular">' + esc(fmt(h, 'cm')) + ' / ' + esc(fmt(w, 'kg')) + '</span></div>' +
+          '<div class="nv-metric"><span class="nv-metric__lbl">BMI (Tự động)</span><span class="nv-metric__val tabular">' + esc(bmi !== null ? (bmi + ' kg/m²') : '—') + '</span></div>' +
+          '<div class="nv-metric' + (typeof sbp === 'number' && sbp < 90 ? ' nv-metric--alert' : '') + '"><span class="nv-metric__lbl">Huyết áp</span><span class="nv-metric__val tabular">' + esc(bpText) + '</span></div>' +
+          '<div class="nv-metric' + (typeof hr === 'number' && (hr < 40 || hr > 130) ? ' nv-metric--alert' : '') + '"><span class="nv-metric__lbl">Mạch</span><span class="nv-metric__val tabular">' + esc(fmt(hr, 'lần/phút')) + '</span></div>' +
+          '<div class="nv-metric' + (typeof rr === 'number' && rr > 25 ? ' nv-metric--alert' : '') + '"><span class="nv-metric__lbl">Nhịp thở</span><span class="nv-metric__val tabular">' + esc(fmt(rr, 'lần/phút')) + '</span></div>' +
+          '<div class="nv-metric' + (typeof spo2 === 'number' && spo2 < 90 ? ' nv-metric--alert' : '') + '"><span class="nv-metric__lbl">SpO₂</span><span class="nv-metric__val tabular">' + esc(fmt(spo2, '%')) + '</span></div>' +
+        '</div>' +
+      '</section>'
+    );
+  }
+
   function renderEncounter() {
     const enc = state.encounter;
+    const isNurse = Boolean(state.user && state.user.role === 'nurse');
     if (enc.loading) {
       return renderShell('<span class="breadcrumbs__current">Đang tải lượt khám...</span>', '<div class="skeleton-stack"><div class="skeleton-bar"></div><div class="skeleton-card"></div><div class="skeleton-card"></div></div>');
     }
     if (enc.error || !enc.visit || !enc.formStructure) {
-      return renderShell('<button type="button" class="breadcrumbs__link" data-nav="#/patients">Hồ sơ bệnh nhân</button>', '<div class="banner banner--error" role="alert"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(enc.error || NOT_FOUND_OR_NO_ACCESS_MSG) + '</p></div></div><button type="button" class="btn btn--secondary btn--sm" data-nav="#/patients">Quay lại</button></div>');
+      const backHash = isNurse ? '#/nurse/visits' : '#/my-visits';
+      return renderShell('<button type="button" class="breadcrumbs__link" data-nav="' + backHash + '">' + (isNurse ? 'Lượt đã gửi' : 'Lượt khám của tôi') + '</button>', '<div class="banner banner--error" role="alert"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(enc.error || NOT_FOUND_OR_NO_ACCESS_MSG) + '</p></div></div><button type="button" class="btn btn--secondary btn--sm" data-nav="' + backHash + '">Quay lại</button></div>');
     }
 
     const v = enc.visit;
     const pt = enc.patient;
     const isConf = v.status === 'confirmed';
-    const sections = sortByDisplayOrder(enc.formStructure.sections || []);
+    const isWaiting = v.status === 'waiting';
+    const isNurseReadonly = isNurse && v.status !== 'intake';
+    const formReadonly = isConf || isNurseReadonly;
+    const allSections = sortByDisplayOrder(enc.formStructure.sections || []);
+    const visibleSections = isNurse ? allSections.filter(isNurseSection) : allSections;
 
-    const railHtml = sections.map(function (sec) {
+    const railHtml = visibleSections.map(function (sec) {
       const p = countSectionProgress(sec, enc.defById, enc.valuesByDefId, enc, enc.defByCode);
       return (
         '<button type="button" class="rail-btn' + (sec.sectionCode === enc.activeSectionCode ? ' is-active' : '') + '" data-enc-section="' + esc(sec.sectionCode) + '">' +
@@ -4842,7 +6102,19 @@
       );
     }).join('');
 
-    const confirmedBanner = isConf ? (
+    const waitingNurseBanner = (isNurse && isWaiting) ? (
+      '<div class="banner banner--info" data-nurse-waiting-banner="true">' +
+        '<div class="banner__main">' + ICONS.clock +
+          '<div><p class="banner__title">Lượt khám đã gửi vào hàng chờ bác sĩ (Chế độ chỉ đọc)</p>' +
+          '<p class="banner__desc">Nếu cần chỉnh sửa hành chính hoặc sinh hiệu trước khi bác sĩ nhận, bạn có thể bấm Rút lại.</p></div>' +
+        '</div>' +
+        '<div class="banner__actions">' +
+          '<button type="button" class="btn btn--danger-outline btn--sm' + (enc.withdrawingQueue ? ' is-loading' : '') + '" data-action="withdraw-visit-queue"' + (enc.withdrawingQueue ? ' disabled' : '') + '>' + (enc.withdrawingQueue ? 'Đang rút...' : 'Rút lại về tiếp nhận') + '</button>' +
+        '</div>' +
+      '</div>'
+    ) : '';
+
+    const confirmedBanner = (!isNurse && isConf) ? (
       '<div class="banner banner--success">' +
         '<div class="banner__main">' + ICONS.checkCircle +
           '<div><p class="banner__title">Lượt khám đã xác nhận (Chế độ chỉ đọc)</p>' +
@@ -4880,21 +6152,24 @@
 
     const sectionCard = renderClinicalSectionForm({
       mode: 'encounter',
-      readonly: isConf,
+      viewerRole: isNurse ? 'nurse' : 'doctor',
+      readonly: formReadonly,
       isV12: enc.isV12,
-      workflowSummary: enc.workflowSummary,
+      isV2: enc.isV2,
+      nurseSectionsUnlocked: enc.nurseSectionsUnlocked,
+      workflowSummary: isNurse ? null : enc.workflowSummary,
       fieldMetadata: enc.fieldMetadata,
-      moduleFilter: enc.moduleFilter,
+      moduleFilter: isNurse ? 'all' : enc.moduleFilter,
       unlockedUnknownCodes: enc.unlockedUnknownCodes,
-      sections: enc.formStructure.sections,
+      sections: visibleSections,
       defById: enc.defById,
       defByCode: enc.defByCode,
       valuesByDefId: enc.valuesByDefId,
       orthostaticBp: enc.orthostaticBp,
-      medications: enc.medications,
-      allergies: enc.allergies,
-      labResults: enc.labResults,
-      diagnoses: enc.diagnoses,
+      medications: isNurse ? [] : enc.medications,
+      allergies: isNurse ? [] : enc.allergies,
+      labResults: isNurse ? [] : enc.labResults,
+      diagnoses: isNurse ? [] : enc.diagnoses,
       medicationListState: enc.medicationListState,
       allergyListState: enc.allergyListState,
       diagnosisListState: enc.diagnosisListState,
@@ -4910,7 +6185,7 @@
       fieldErrors: enc.fieldErrors
     });
 
-    const footerBar = isConf ? '' : (
+    const footerBar = formReadonly ? '' : (
       '<div class="encounter-footer">' +
         '<div class="encounter-footer__status">' +
           (enc.dirty
@@ -4920,14 +6195,16 @@
         '</div>' +
         '<div class="encounter-footer__actions">' +
           '<button type="button" class="btn btn--secondary' + (enc.saving ? ' is-loading' : '') + '" data-action="save-draft"' + (enc.saving ? ' disabled' : '') + '>' + (enc.saving ? '' : ICONS.save) + (enc.saving ? 'Đang lưu...' : ' Lưu nháp') + '</button>' +
-          '<button type="button" class="btn btn--primary" data-action="go-review">Xem lại &amp; Xác nhận ' + ICONS.arrowRight + '</button>' +
+          (isNurse
+            ? '<button type="button" class="btn btn--primary' + (enc.submittingQueue ? ' is-loading' : '') + '" data-action="submit-visit-queue"' + (enc.submittingQueue ? ' disabled' : '') + '>' + (enc.submittingQueue ? 'Đang gửi...' : ('Gửi vào hàng chờ ' + ICONS.arrowRight)) + '</button>'
+            : '<button type="button" class="btn btn--primary" data-action="go-review">Xem lại &amp; Xác nhận ' + ICONS.arrowRight + '</button>') +
         '</div>' +
       '</div>'
     );
 
     const perfDoctorName = v.performedByName || v.performingDoctorName || v.createdByName || '';
     const lastEditorName = v.updatedByName || v.lastEditedByName || '';
-    const hasModMeta = enc.isV12 && enc.fieldMetadata && Object.keys(enc.fieldMetadata).length > 0;
+    const hasModMeta = !isNurse && enc.isV12 && enc.fieldMetadata && Object.keys(enc.fieldMetadata).length > 0;
     const modFilterBarHtml = hasModMeta ? (
       '<div class="enc-mod-filter-bar" role="group" aria-label="Hiện trường cần cho">' +
         '<span class="enc-mod-filter-bar__label">Hiện trường cần cho:</span>' +
@@ -4938,6 +6215,8 @@
       '</div>'
     ) : '';
 
+    const nurseVitalsCardHtml = !isNurse ? renderNurseVitalsSummaryCard(enc) : '';
+
     const body =
       '<div class="encounter-sticky-head">' +
         '<div>' +
@@ -4945,26 +6224,29 @@
             '<span class="mono">' + esc(pt ? pt.patientCode : '') + '</span>' +
             '<span>' + esc(pt ? pt.fullName : '') + '</span>' +
             '<span class="badge badge--blue mono">' + esc(v.visitCode) + '</span>' +
-            (isConf ? '<span class="badge badge--success">Đã xác nhận</span>' : '<span class="badge badge--warn">Bản nháp</span>') +
+            formatVisitStatusBadge(v.status, v.id, false) +
           '</div>' +
           '<div class="encounter-sticky-head__meta">' +
             '<span class="tabular">' + esc(formatDateTime(v.visitDate)) + ' · ' + esc(formatVisitType(v.visitType)) + '</span>' +
-            (perfDoctorName ? ' · <span data-visit-performer="true">Bác sĩ thực hiện: <strong>' + esc(perfDoctorName) + '</strong></span>' : '') +
+            (perfDoctorName ? ' · <span data-visit-performer="true">' + (v.performedByRole === 'nurse' ? 'Người tiếp nhận (NVYT)' : 'Bác sĩ thực hiện') + ': <strong>' + esc(perfDoctorName) + '</strong></span>' : '') +
             (lastEditorName ? ' · <span data-visit-last-editor="true">Chỉnh sửa gần nhất: <strong>' + esc(lastEditorName) + '</strong></span>' : '') +
           '</div>' +
         '</div>' +
         '<div class="encounter-sticky-head__right">' +
-          (enc.isV12
-            ? '<button type="button" class="btn btn--navy btn--sm" data-nav="#/visits/' + esc(v.id) + '/workflow">Luồng 4 Module AI ' + ICONS.arrowRight + '</button>'
-            : '<span class="badge badge--neutral" title="Biểu mẫu cũ — chỉ hỗ trợ luồng AI ở v1.2">Biểu mẫu cũ — chỉ hỗ trợ luồng AI ở v1.2</span>') +
-          '<button type="button" class="btn btn--secondary btn--sm" data-nav="#/patients/' + esc(v.patientId) + '">' + ICONS.arrowLeft + ' Về hồ sơ</button>' +
+          (!isNurse
+            ? (enc.isV12
+                ? '<button type="button" class="btn btn--navy btn--sm" data-nav="#/visits/' + esc(v.id) + '/workflow">Luồng 4 Module AI ' + ICONS.arrowRight + '</button>'
+                : '<span class="badge badge--neutral" title="Biểu mẫu cũ — chỉ hỗ trợ luồng AI ở v1.2 / v2.0">Biểu mẫu cũ — chỉ hỗ trợ luồng AI ở v1.2 / v2.0</span>')
+            : '') +
+          '<button type="button" class="btn btn--secondary btn--sm" data-nav="' + (isNurse ? '#/nurse/visits' : ('#/patients/' + esc(v.patientId))) + '">' + ICONS.arrowLeft + (isNurse ? ' Lượt đã gửi' : ' Về hồ sơ') + '</button>' +
         '</div>' +
       '</div>' +
-      renderEncounterWorkflowBar(enc) +
-      confirmedBanner + conflictBanner + errBanner +
+      (!isNurse ? renderEncounterWorkflowBar(enc) : '') +
+      nurseVitalsCardHtml +
+      waitingNurseBanner + confirmedBanner + conflictBanner + errBanner +
       '<div class="encounter-layout">' +
-        '<aside class="group-rail" aria-label="Mục lục 8 nhóm biểu mẫu">' +
-          '<div class="group-rail__title">Mục lục 8 nhóm</div>' +
+        '<aside class="group-rail" aria-label="Mục lục ' + visibleSections.length + ' nhóm biểu mẫu">' +
+          '<div class="group-rail__title">Mục lục ' + visibleSections.length + ' nhóm</div>' +
           railHtml +
         '</aside>' +
         '<div class="form-canvas">' +
@@ -4982,10 +6264,13 @@
         '</div>' +
       '</div>';
 
-    const crumbs =
-      '<button type="button" class="breadcrumbs__link" data-nav="#/patients">Hồ sơ bệnh nhân</button><span>/</span>' +
-      '<button type="button" class="breadcrumbs__link mono" data-nav="#/patients/' + esc(v.patientId) + '">' + esc(pt ? pt.patientCode : 'BN') + '</button><span>/</span>' +
-      '<span class="breadcrumbs__current mono">' + esc(v.visitCode) + '</span>';
+    const crumbs = isNurse
+      ? ('<button type="button" class="breadcrumbs__link" data-nav="#/nurse/intake">Tiếp nhận</button><span>/</span>' +
+         '<button type="button" class="breadcrumbs__link mono" data-nav="#/patients/' + esc(v.patientId) + '">' + esc(pt ? pt.patientCode : 'BN') + '</button><span>/</span>' +
+         '<span class="breadcrumbs__current mono">' + esc(v.visitCode) + '</span>')
+      : ('<button type="button" class="breadcrumbs__link" data-nav="#/my-visits">Lượt khám của tôi</button><span>/</span>' +
+         '<button type="button" class="breadcrumbs__link mono" data-nav="#/patients/' + esc(v.patientId) + '">' + esc(pt ? pt.patientCode : 'BN') + '</button><span>/</span>' +
+         '<span class="breadcrumbs__current mono">' + esc(v.visitCode) + '</span>');
     return renderShell(crumbs, body);
   }
 
@@ -5215,7 +6500,7 @@
       return (
         '<div class="card ai-module-card ' + (isReady ? 'ai-module-card--ready' : 'ai-module-card--missing') + '" data-ai-readiness-module="' + esc(m.aiModuleCode) + '">' +
           '<div class="ai-module-card__body">' +
-            '<div class="version-card__top">' +
+            '<div class="card-row-head">' +
               '<strong>' + esc(formatAiModuleLabel(m.aiModuleCode)) + '</strong>' +
               (isReady ? '<span class="badge badge--success">Đủ biến dự kiến</span>' : '<span class="badge badge--info">' + (missingCodes.length ? 'Thiếu ' + missingCodes.length + ' trường' : 'Chưa sẵn sàng') + '</span>') +
             '</div>' +
@@ -5280,7 +6565,7 @@
           const count = Number(m.issueCount || 0);
           return (
             '<div class="ai-quality-card ' + (mReady ? 'ai-quality-card--ready' : 'ai-quality-card--blocked') + '" data-ai-module-status="' + esc(m.status || 'blocked') + '">' +
-              '<div class="version-card__top">' +
+              '<div class="card-row-head">' +
                 '<strong>' + esc(formatAiModuleLabel(m.module)) + '</strong>' +
                 (mReady
                   ? '<span class="badge badge--success">Sẵn sàng (ready)</span>'
@@ -5873,6 +7158,7 @@
     } catch (err) {
       wf.errorStatus = (err && err.status) || 0;
       wf.errorCode = (err && err.code) || '';
+      if (isVisitLockedError(err)) return handleVisitLockedError(err, visitId);
       if (err && err.status === 401) return handleAuthOrError(err);
       if (err && err.status === 403) {
         wf.error = 'Bạn không có quyền thực hiện thao tác này trên luồng 4 Module AI.';
@@ -7427,12 +8713,24 @@
     } else {
       const rows = au.items.map(function (u) {
         const isAdm = u.role === 'admin';
+        const isNurse = u.role === 'nurse';
+        const isPharm = u.role === 'pharmacist';
+        const roleBadge = isAdm
+          ? '<span class="badge badge--blue">Quản trị viên</span>'
+          : (isNurse ? '<span class="badge badge--teal">Nhân viên y tế</span>' : (isPharm ? '<span class="badge badge--neutral">Dược sĩ</span>' : '<span class="badge badge--info">Bác sĩ</span>'));
+        const scopeDesc = isAdm
+          ? 'Quản lý tài khoản, biểu mẫu, nhật ký (không xem hồ sơ bệnh án)'
+          : (isNurse
+              ? 'Tiếp nhận bệnh nhân, nhập hành chính & sinh hiệu, gửi vào hàng chờ'
+              : (isPharm
+                  ? 'Chỉ xem kết quả Module 4: An toàn thuốc'
+                  : 'Nhận lượt từ hàng chờ, khám lâm sàng, chạy AI M1–M4 và xác nhận'));
         return (
           '<tr>' +
             '<td class="mono cell-primary">' + esc(u.username) + '</td>' +
             '<td>' + esc(u.fullName) + '</td>' +
-            '<td>' + (isAdm ? '<span class="badge badge--blue">Quản trị viên</span>' : '<span class="badge badge--info">Bác sĩ</span>') + '</td>' +
-            '<td><span class="cell-sub">' + (isAdm ? 'Quản lý tài khoản, biểu mẫu, nhật ký (không xem hồ sơ bệnh án)' : 'Xem/tạo hồ sơ bệnh nhân, nhập và xác nhận lượt khám') + '</span></td>' +
+            '<td>' + roleBadge + '</td>' +
+            '<td><span class="cell-sub">' + esc(scopeDesc) + '</span></td>' +
             '<td>' + (u.isActive ? '<span class="badge badge--success">Đang hoạt động</span>' : '<span class="badge badge--error">Đã khóa</span>') + '</td>' +
             '<td class="tabular cell-sub">' + esc(formatDateTime(u.lastLoginAt)) + '</td>' +
             '<td style="text-align:right;white-space:nowrap;">' +
@@ -7445,7 +8743,6 @@
       }).join('');
 
       const cards = au.items.map(function (u) {
-        const isAdm = u.role === 'admin';
         return (
           '<article class="record-card">' +
             '<div class="record-card__top">' +
@@ -7453,7 +8750,7 @@
               (u.isActive ? '<span class="badge badge--success">Đang hoạt động</span>' : '<span class="badge badge--error">Đã khóa</span>') +
             '</div>' +
             '<div class="record-card__meta">' +
-              '<div><span class="record-card__label">Vai trò</span>' + (isAdm ? 'Quản trị viên' : 'Bác sĩ') + '</div>' +
+              '<div><span class="record-card__label">Vai trò</span>' + esc(formatRoleShort(u.role)) + '</div>' +
               '<div><span class="record-card__label">Đăng nhập gần nhất</span>' + esc(formatDateTime(u.lastLoginAt)) + '</div>' +
             '</div>' +
             '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
@@ -7472,7 +8769,7 @@
 
     const body =
       '<div class="page-head">' +
-        '<div><h1 class="page-head__title">Quản lý tài khoản &amp; Phạm vi quyền</h1><p class="page-head__sub">Quản lý tài khoản bác sĩ, quản trị viên và phạm vi quyền tương ứng.</p></div>' +
+        '<div><h1 class="page-head__title">Quản lý tài khoản &amp; Phạm vi quyền</h1><p class="page-head__sub">Quản lý tài khoản bác sĩ, nhân viên y tế, dược sĩ, quản trị viên và phạm vi quyền tương ứng.</p></div>' +
         '<div class="page-head__actions"><button type="button" class="btn btn--primary" data-action="open-create-user">' + ICONS.userPlus + ' Tạo tài khoản mới</button></div>' +
       '</div>' +
       '<div class="toolbar">' +
@@ -7481,6 +8778,8 @@
           '<select class="select" id="admin-user-role-filter" style="width:auto;min-height:36px;">' +
             '<option value="">Tất cả vai trò</option>' +
             '<option value="doctor"' + (au.role === 'doctor' ? ' selected' : '') + '>Bác sĩ</option>' +
+            '<option value="nurse"' + (au.role === 'nurse' ? ' selected' : '') + '>Nhân viên y tế</option>' +
+            '<option value="pharmacist"' + (au.role === 'pharmacist' ? ' selected' : '') + '>Dược sĩ</option>' +
             '<option value="admin"' + (au.role === 'admin' ? ' selected' : '') + '>Quản trị viên</option>' +
           '</select>' +
           '<select class="select" id="admin-user-active-filter" style="width:auto;min-height:36px;">' +
@@ -7510,19 +8809,27 @@
       if (st === 'draft') return 'Bản nháp';
       return 'Đã lưu trữ';
     };
-    const verCards = af.versions.map(function (v) {
+    const selectedVer = af.versions.find(function (v) { return v.id === af.selectedVersionId; }) || af.versions[0] || null;
+    const verTabs = af.versions.map(function (v) {
       const sel = v.id === af.selectedVersionId;
       const badge = v.status === 'published'
-        ? '<span class="badge badge--success">Đang dùng</span>'
-        : (v.status === 'draft' ? '<span class="badge badge--warn">Bản nháp</span>' : '<span class="badge badge--info">Đã lưu trữ</span>');
+        ? '<span class="badge badge--success badge--xs">Đang dùng</span>'
+        : (v.status === 'draft' ? '<span class="badge badge--warn badge--xs">Bản nháp</span>' : '<span class="badge badge--info badge--xs">Đã lưu trữ</span>');
       return (
-        '<button type="button" class="version-card' + (sel ? ' is-selected' : '') + '" data-select-version="' + esc(v.id) + '">' +
-          '<div class="version-card__top"><strong class="mono" style="font-size:16px;">' + esc(v.versionLabel) + '</strong>' + badge + '</div>' +
-          '<div class="cell-sub">' + esc(v.changeNote || 'Phiên bản biểu mẫu lâm sàng') + '</div>' +
-          '<div class="cell-sub tabular">Gắn ' + esc(v.visitCount || 0) + ' lượt khám</div>' +
+        '<button type="button" role="tab" aria-selected="' + (sel ? 'true' : 'false') + '" class="version-tab' + (sel ? ' is-selected' : '') + '" data-select-version="' + esc(v.id) + '">' +
+          '<span class="version-tab__label mono">' + esc(v.versionLabel) + '</span>' +
+          badge +
         '</button>'
       );
     }).join('');
+    const verMetaHtml = selectedVer
+      ? '<div class="version-bar__meta" data-version-bar-meta="true">' +
+          '<strong class="mono">' + esc(selectedVer.versionLabel) + '</strong>' +
+          '<span>· ' + esc(selectedVer.changeNote || 'Phiên bản biểu mẫu lâm sàng') + '</span>' +
+          '<span class="tabular">· Gắn ' + esc(selectedVer.visitCount || 0) + ' lượt khám</span>' +
+          (selectedVer.publishedAt ? '<span class="tabular">· Phát hành ' + esc(formatDateTime(selectedVer.publishedAt)) + '</span>' : '') +
+        '</div>'
+      : '';
 
     let workspaceHtml = '';
     if (af.versionDetail) {
@@ -7790,7 +9097,10 @@
       '<div class="page-head">' +
         '<div><h1 class="page-head__title">Quản lý biểu mẫu &amp; Phiên bản</h1><p class="page-head__sub">' + esc(af.template ? af.template.name : 'Biểu mẫu lâm sàng suy tim') + ' · Danh mục chuẩn ' + af.allDefinitions.length + ' trường.</p></div>' +
       '</div>' +
-      '<div class="version-cards">' + verCards + '</div>' +
+      '<div class="version-bar-wrap" data-version-bar="true">' +
+        '<div class="version-bar" role="tablist" aria-label="Chọn phiên bản biểu mẫu">' + verTabs + '</div>' +
+        verMetaHtml +
+      '</div>' +
       workspaceHtml;
 
     return renderShell('<span class="breadcrumbs__current">Biểu mẫu &amp; Phiên bản</span>', body);
@@ -8037,10 +9347,13 @@
     if (m.type === 'patient-form') {
       const isEdit = Boolean(m.patientId);
       const d = m.data;
+      const calcAge = d.birthDate ? computeAge({ birthDate: d.birthDate }) : null;
+      const cccdErr = m.cccdError || '';
+      const bdErr = m.birthDateError || '';
       html =
         '<div class="modal__head"><h2 class="modal__title" id="modal-title">' + (isEdit ? 'Cập nhật hành chính hồ sơ ' + esc(d.patientCode) : 'Tạo hồ sơ bệnh nhân mới') + '</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Đóng">' + ICONS.x + '</button></div>' +
         '<div class="modal__body">' +
-          (m.error ? '<div class="banner banner--error"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(m.error) + '</p></div></div></div>' : '') +
+          (m.error ? '<div class="banner banner--error" role="alert"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(m.error) + '</p></div></div></div>' : '') +
           '<div class="field"><label class="field__label" for="mf-fullname">Họ tên / Ký hiệu hồ sơ *</label><input id="mf-fullname" class="input" value="' + esc(d.fullName) + '" placeholder="VD: Nguyễn Minh An"></div>' +
           '<div class="field"><label class="field__label" for="mf-sex">Giới tính *</label><select id="mf-sex" class="select">' +
             '<option value=""' + (!d.sex ? ' selected' : '') + '>-- Chưa chọn --</option>' +
@@ -8048,16 +9361,25 @@
             '<option value="male"' + (d.sex === 'male' ? ' selected' : '') + '>Nam</option>' +
             '<option value="unknown"' + (d.sex === 'unknown' ? ' selected' : '') + '>Chưa rõ</option>' +
           '</select></div>' +
-          '<div class="field"><label class="field__label">Độ chính xác ngày sinh / tuổi</label><div class="radio-group">' +
-            '<label class="choice-row"><input type="radio" name="mf-bmode" value="date"' + (d.birthMode === 'date' ? ' checked' : '') + '><span>Ngày sinh đầy đủ (dd/mm/yyyy)</span></label>' +
-            '<label class="choice-row"><input type="radio" name="mf-bmode" value="year"' + (d.birthMode === 'year' ? ' checked' : '') + '><span>Chỉ biết năm sinh (không tự tạo 01/01)</span></label>' +
-            '<label class="choice-row"><input type="radio" name="mf-bmode" value="age"' + (d.birthMode === 'age' ? ' checked' : '') + '><span>Chỉ biết tuổi ước lượng</span></label>' +
-            '<label class="choice-row"><input type="radio" name="mf-bmode" value="none"' + (d.birthMode === 'none' ? ' checked' : '') + '><span>Chưa có thông tin</span></label>' +
-          '</div></div>' +
-          (d.birthMode === 'date' ? '<div class="field"><label class="field__label" for="mf-birthdate">Ngày sinh</label><input id="mf-birthdate" type="date" class="input" value="' + esc(d.birthDate) + '"></div>' : '') +
-          (d.birthMode === 'year' ? '<div class="field"><label class="field__label" for="mf-birthyear">Năm sinh (YYYY)</label><input id="mf-birthyear" type="number" class="input" min="1900" max="2100" value="' + esc(d.birthYear) + '" placeholder="VD: 1948"></div>' : '') +
-          (d.birthMode === 'age' ? '<div class="field"><label class="field__label" for="mf-age">Tuổi ước lượng</label><input id="mf-age" type="number" class="input" min="0" max="120" value="' + esc(d.declaredAge) + '" placeholder="VD: 79"></div>' : '') +
-          '<div class="field"><label class="field__label" for="mf-extcode">Mã CCCD (không bắt buộc)</label><input id="mf-extcode" class="input" value="' + esc(d.externalPatientCode) + '" placeholder="Nhập số CCCD nếu có"></div>' +
+          '<div class="field">' +
+            '<div class="field__label-row">' +
+              '<label class="field__label" for="mf-birthdate">Ngày sinh *</label>' +
+              '<span id="mf-birthdate-age" class="badge badge--blue badge--xs"' + (calcAge === null ? ' hidden' : '') + '>' + (calcAge !== null ? ('Tuổi: ' + esc(calcAge) + ' tuổi') : '') + '</span>' +
+            '</div>' +
+            '<input id="mf-birthdate" type="date" class="input' + (bdErr ? ' input--error' : '') + '" required value="' + esc(d.birthDate || '') + '" aria-describedby="mf-birthdate-help mf-birthdate-error">' +
+            '<p class="field__help" id="mf-birthdate-help">Không rõ ngày/tháng thì nhập 01/01/&lt;năm sinh&gt;</p>' +
+            '<p class="field__error" id="mf-birthdate-error" role="alert"' + (bdErr ? '' : ' hidden') + '>' + (bdErr ? (ICONS.alert + ' ' + esc(bdErr)) : '') + '</p>' +
+          '</div>' +
+          '<div class="field">' +
+            '<label class="field__label" for="mf-cccd">Số CCCD (không bắt buộc)</label>' +
+            '<input id="mf-cccd" type="text" inputmode="numeric" maxlength="12" pattern="[0-9]{12}" class="input mono' + (cccdErr ? ' input--error' : '') + '" value="' + esc(d.cccd || '') + '" placeholder="Nhập đúng 12 chữ số (VD: 001055012345)" aria-describedby="mf-cccd-help mf-cccd-error">' +
+            '<p class="field__help" id="mf-cccd-help">Chỉ nhập chữ số, đúng 12 chữ số và không trùng hồ sơ khác.</p>' +
+            '<p class="field__error" id="mf-cccd-error" role="alert"' + (cccdErr ? '' : ' hidden') + '>' + (cccdErr ? (ICONS.alert + ' ' + esc(cccdErr)) : '') + '</p>' +
+          '</div>' +
+          '<div class="field">' +
+            '<label class="field__label" for="mf-extcode">Mã HIS (Số vào viện) (không bắt buộc)</label>' +
+            '<input id="mf-extcode" class="input mono" value="' + esc(d.externalPatientCode || '') + '" placeholder="Nhập mã HIS / Số vào viện nếu có">' +
+          '</div>' +
           '<p class="field__help">Mã hồ sơ <span class="mono">BN-xxxxx</span> sẽ được hệ thống cấp tự động và duy nhất.</p>' +
         '</div>' +
         '<div class="modal__foot">' +
@@ -8125,6 +9447,8 @@
             '<div class="field"><label class="field__label" for="mu-fullname">Họ tên hiển thị *</label><input id="mu-fullname" class="input" value="' + esc(d.fullName) + '" placeholder="VD: BS. Đỗ Văn Tuấn"></div>' +
             '<div class="field"><label class="field__label" for="mu-role">Vai trò hệ thống *</label><select id="mu-role" class="select">' +
               '<option value="doctor"' + (d.role === 'doctor' ? ' selected' : '') + '>Bác sĩ (lâm sàng)</option>' +
+              '<option value="nurse"' + (d.role === 'nurse' ? ' selected' : '') + '>Nhân viên y tế (tiếp nhận &amp; sinh hiệu)</option>' +
+              '<option value="pharmacist"' + (d.role === 'pharmacist' ? ' selected' : '') + '>Dược sĩ (chỉ xem M4)</option>' +
               '<option value="admin"' + (d.role === 'admin' ? ' selected' : '') + '>Quản trị viên (tách biệt khỏi bệnh án)</option>' +
             '</select></div>' +
             '<div class="field"><label class="field__label" for="mu-reason">Lý do tạo / cập nhật (ghi vào Nhật ký hệ thống) *</label><input id="mu-reason" class="input" value="' + esc(d.reason) + '" placeholder="VD: Cấp tài khoản bác sĩ khoa Tim mạch mới tiếp nhận"></div>' +
@@ -8139,7 +9463,7 @@
           '<div class="modal__head"><h2 class="modal__title" id="modal-title">Bước 2/2 · Xem lại phạm vi quyền trước khi lưu</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Đóng">' + ICONS.x + '</button></div>' +
           '<div class="modal__body">' +
             (m.error ? '<div class="banner banner--error"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(m.error) + '</p></div></div></div>' : '') +
-            '<div class="banner banner--blue" style="margin-bottom:0;"><div class="banner__main">' + ICONS.shield + '<div><p class="banner__title">Tài khoản: <span class="mono">' + esc(d.username) + '</span> · ' + esc(d.fullName) + ' (' + (d.role === 'admin' ? 'Quản trị viên' : 'Bác sĩ') + ')</p><p class="banner__desc">' + esc(pv.separationNoticeVi) + '</p></div></div></div>' +
+            '<div class="banner banner--blue" style="margin-bottom:0;"><div class="banner__main">' + ICONS.shield + '<div><p class="banner__title">Tài khoản: <span class="mono">' + esc(d.username) + '</span> · ' + esc(d.fullName) + ' (' + esc(formatRoleShort(d.role)) + ')</p><p class="banner__desc">' + esc(pv.separationNoticeVi) + '</p></div></div></div>' +
             '<div class="perm-compare">' +
               '<div class="perm-box perm-box--grant"><strong>Quyền được cấp</strong><ul>' + (pv.grantedPermissions || []).map(function (p) { return '<li>' + esc(p.labelVi) + '</li>'; }).join('') + '</ul></div>' +
               '<div class="perm-box perm-box--deny"><strong>Quyền không được cấp</strong><ul>' + (pv.deniedPermissions || []).map(function (p) { return '<li>' + esc(p.labelVi) + '</li>'; }).join('') + '</ul></div>' +
@@ -8181,7 +9505,7 @@
       const outBadge = lg.outcome === 'success'
         ? '<span class="badge badge--success">Thành công</span>'
         : (lg.outcome === 'denied' ? '<span class="badge badge--error">Từ chối</span>' : '<span class="badge badge--warn">Thất bại</span>');
-      const rVi = lg.actorRole === 'admin' ? 'Quản trị viên' : (lg.actorRole === 'doctor' ? 'Bác sĩ' : (lg.actorRole || '—'));
+      const rVi = formatRoleShort(lg.actorRole);
       html =
         '<div class="modal__head"><h2 class="modal__title" id="modal-title">Chi tiết bản ghi nhật ký</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Đóng">' + ICONS.x + '</button></div>' +
         '<div class="modal__body">' +
@@ -8438,13 +9762,18 @@
     let html = '';
     if (state.screen === 'login') html = renderLogin();
     else if (state.screen === 'forbidden') html = renderForbidden();
+    else if (state.screen === 'visit-locked') html = renderVisitLocked();
+    else if (state.screen === 'nurse-intake') html = renderNurseIntake();
+    else if (state.screen === 'nurse-visits') html = renderNurseVisits();
+    else if (state.screen === 'queue') html = renderVisitQueue();
+    else if (state.screen === 'my-visits') html = renderMyVisits();
     else if (state.screen === 'patients') html = renderPatients();
     else if (state.screen === 'profile') html = renderProfile();
     else if (state.screen === 'encounter') html = renderEncounter();
     else if (state.screen === 'review') html = renderReview();
     else if (state.screen === 'workflow') html = renderWorkflow();
     else if (state.screen === 'admin-accounts') html = renderAdminUsers();
-    else if (state.screen === 'admin-care') html = renderAdminCare();
+    else if (state.screen === 'admin-care') html = renderAdminUsers();
     else if (state.screen === 'admin-forms') html = renderAdminForms();
     else if (state.screen === 'admin-audit') html = renderAdminAudit();
     else html = renderLogin();
@@ -8546,6 +9875,19 @@
 
   function buildDraftSavePayload() {
     const enc = state.encounter;
+    const isNurse = Boolean(state.user && state.user.role === 'nurse');
+    const nurseAllowedDefIds = {};
+    if (isNurse && enc.formStructure && Array.isArray(enc.formStructure.sections)) {
+      enc.formStructure.sections.forEach(function (sec) {
+        if (!isNurseSection(sec)) return;
+        (sec.fields || []).forEach(function (ff) {
+          const fd = enc.defById[ff.fieldDefinitionId];
+          if (!fd) return;
+          const eRole = getFieldEntryRole(ff, fd, sec.sectionCode, enc.fieldMetadata);
+          if (eRole !== 'doctor') nurseAllowedDefIds[fd.id] = true;
+        });
+      });
+    }
     const values = [];
     const hasAnswerList = { diagnoses: false, medications: false, allergies: false };
     const answerTimedLabs = {};
@@ -8555,11 +9897,17 @@
       if (!v) return;
       const fd = enc.defById[v.fieldDefinitionId] || enc.defByCode[v.fieldCode];
       if (!fd) return;
+      if (isNurse && !nurseAllowedDefIds[fd.id]) return;
       if (fd.storageLevel === 'computed' || fd.storageLevel === 'patient' || fd.storageLevel === 'visit') return;
 
-      if (enc.isV12 && isV12StructuredAnswerCode(fd.code)) {
+      if (isNurse && v.valueState === 'unknown' && v.unknownReason) {
+        values.push({ fieldCode: fd.code, valueState: 'unknown', unknownReason: v.unknownReason });
+        return;
+      }
+
+      if (enc.isV12 && isV12StructuredAnswerCode(fd.code, fd)) {
         const rawAns = (v.answer && typeof v.answer === 'object') ? v.answer : visitValueToCompact(fd.code, v, fd);
-        const cleaned = cleanAnswerForDraft(fd.code, rawAns);
+        const cleaned = cleanAnswerForDraft(fd.code, rawAns, enc.isV2);
         if (!cleaned) return;
         values.push({
           fieldDefinitionId: fd.id,
@@ -8567,7 +9915,7 @@
           answer: cleaned
         });
         if (isStructuredListCode(fd.code)) hasAnswerList[fd.code] = true;
-        if (isTimedLabCode(fd.code)) answerTimedLabs[fd.code] = true;
+        if (isTimedLabCode(fd.code, fd)) answerTimedLabs[fd.code] = true;
         return;
       }
 
@@ -8587,6 +9935,14 @@
         values.push(scalar);
       }
     });
+
+    if (isNurse) {
+      return {
+        rowVersion: enc.visit.rowVersion,
+        values: values,
+        orthostaticBp: enc.orthostaticBp
+      };
+    }
 
     const payload = {
       rowVersion: enc.visit.rowVersion,
@@ -8656,7 +10012,7 @@
     const localErrors = [];
     (payload.values || []).forEach(function (item) {
       if (!item || !item.answer || !item.fieldCode) return;
-      const msg = validateV12CompactField(item.fieldCode, item.answer);
+      const msg = validateV12CompactField(item.fieldCode, item.answer, enc.defByCode[item.fieldCode], enc.isV2);
       if (msg) localErrors.push({ fieldCode: item.fieldCode, message: msg });
     });
     if (localErrors.length > 0) {
@@ -8984,9 +10340,18 @@
     } else if (code === 'medications') {
       const row = (items[idx] && typeof items[idx] === 'object') ? items[idx] : { id: 'med-' + (idx + 1), ingredient: '', class: null, dose: null, unit: null, route: null, frequency: null };
       if (prop === 'dose') row.dose = t.value === '' ? null : Number(t.value);
-      else if (prop === 'ingredient') row.ingredient = raw;
+      else if (prop === 'ingredient') {
+        if (enc.isV2) { row.name = raw; delete row.ingredient; }
+        else row.ingredient = raw;
+      }
       else row[prop] = t.value === '' ? null : t.value;
       items[idx] = row;
+      const badgeEl = document.querySelector('[data-med-auto-group-idx="' + idx + '"]');
+      if (badgeEl) {
+        const autoGrp = classifyMedicationGroup(enc.isV2 ? row.name : row);
+        badgeEl.textContent = autoGrp.label;
+        badgeEl.className = 'badge badge--xs ' + (autoGrp.pillar ? 'badge--pillar' : (autoGrp.caution ? 'badge--caution' : 'badge--neutral')) + ' med-auto-group-badge';
+      }
     } else if (code === 'allergies') {
       const row = (items[idx] && typeof items[idx] === 'object') ? items[idx] : { id: 'alg-' + (idx + 1), ingredient: '' };
       row.ingredient = raw;
@@ -9020,7 +10385,7 @@
         lf.password = '';
         lf.submitting = false;
         toast('Đăng nhập thành công: ' + res.user.fullName, 'success');
-        navigate(res.user.role === 'admin' ? '#/admin/users' : '#/patients', true);
+        navigate(getHomeHashForRole(res.user.role), true);
       } catch (err) {
         lf.submitting = false;
         lf.error = (err && err.detail) || 'Đăng nhập thất bại. Vui lòng thử lại.';
@@ -9215,7 +10580,9 @@
         if (encListAdd === 'diagnoses') {
           items.push('');
         } else if (encListAdd === 'medications') {
-          items.push({ id: 'med-' + Date.now().toString(36) + '-' + items.length, ingredient: '', class: null, dose: null, unit: null, route: null, frequency: null });
+          items.push(enc.isV2
+            ? { id: 'med-' + Date.now().toString(36) + '-' + items.length, name: '', schedule: {} }
+            : { id: 'med-' + Date.now().toString(36) + '-' + items.length, ingredient: '', class: null, dose: null, unit: null, route: null, frequency: null });
         } else if (encListAdd === 'allergies') {
           items.push({ id: 'alg-' + Date.now().toString(36) + '-' + items.length, ingredient: '' });
         }
@@ -9547,6 +10914,175 @@
       return;
     }
 
+    // V1 Nurse Visits status filter
+    const nvStatus = target.getAttribute('data-nurse-visits-status');
+    if (nvStatus !== null) {
+      state.nurseVisits.status = nvStatus;
+      await loadNurseVisits();
+      return;
+    }
+
+    // V1 Nurse create visit directly from Intake patient row
+    const nurseCreateForPt = target.getAttribute('data-nurse-create-visit');
+    if (nurseCreateForPt) {
+      openModal({
+        type: 'create-visit',
+        patientId: nurseCreateForPt,
+        data: { visitDateLocal: toDatetimeLocal(new Date().toISOString()), visitType: 'outpatient_new', chiefComplaint: '' },
+        error: ''
+      });
+      return;
+    }
+
+    // V1 Nurse withdraw waiting visit back to intake
+    const withdrawId = target.getAttribute('data-withdraw-visit');
+    if (withdrawId) {
+      state.nurseVisits.withdrawingId = withdrawId;
+      render();
+      try {
+        await api.withdrawVisit(withdrawId, {});
+        toast('Đã rút lại lượt khám về trạng thái Đang tiếp nhận.', 'success');
+      } catch (err) {
+        if (err && err.status === 409) {
+          toast((err && err.detail) || 'Không thể rút lại — lượt khám đã được bác sĩ nhận.', 'warn');
+        } else {
+          handleAuthOrError(err, 'Không thể rút lại lượt khám.');
+        }
+      } finally {
+        state.nurseVisits.withdrawingId = null;
+        await loadNurseVisits();
+      }
+      return;
+    }
+
+    // V2 Doctor Queue claim visit
+    const claimVisitId = target.getAttribute('data-claim-visit');
+    if (claimVisitId) {
+      if (state.queue.claimingId) return;
+      state.queue.claimingId = claimVisitId;
+      render();
+      try {
+        const res = await api.claimVisit(claimVisitId, {});
+        const claimed = (res && (res.visit || res)) || {};
+        state.queue.claimingId = null;
+        stopQueuePolling();
+        toast('Đã nhận lượt khám ' + (claimed.visitCode || '') + '.', 'success');
+        navigate('#/visits/' + (claimed.id || claimVisitId), true);
+      } catch (err) {
+        state.queue.claimingId = null;
+        if (err && err.status === 409) {
+          toast('Lượt khám đã được bác sĩ khác nhận', 'warn');
+          await loadVisitQueue({ silent: false });
+        } else {
+          handleAuthOrError(err, 'Không thể nhận lượt khám.');
+          if (state.screen === 'queue') render();
+        }
+      }
+      return;
+    }
+
+    // V2: Confirm ICD-suggested risk factor (single or all)
+    const confirmRiskKey = target.getAttribute('data-confirm-icd-risk');
+    const confirmRiskAll = target.getAttribute('data-confirm-icd-risk-all');
+    if (confirmRiskKey || confirmRiskAll) {
+      const enc = state.encounter;
+      const suggestions = computeIcdRiskSuggestions({
+        defByCode: enc.defByCode,
+        valuesByDefId: enc.valuesByDefId,
+        diagnoses: enc.diagnoses,
+        orthostaticBp: enc.orthostaticBp
+      });
+      const toConfirm = confirmRiskAll
+        ? suggestions.filter(function (s) { return !s.confirmed; })
+        : suggestions.filter(function (s) { return s.key === confirmRiskKey && !s.confirmed; });
+      toConfirm.forEach(function (s) {
+        const tgt = s.target;
+        if (!tgt || !tgt.fd) return;
+        delete enc.unlockedUnknownCodes[tgt.fd.code];
+        if (tgt.kind === 'bool') {
+          const item = makeEmptyVisitValue(enc.visitId, tgt.fd, 'answered');
+          item.valueBool = true;
+          enc.valuesByDefId[tgt.fd.id] = item;
+        } else if (tgt.kind === 'multi') {
+          const cur = enc.valuesByDefId[tgt.fd.id];
+          const opts = (cur && cur.valueState === 'answered' && Array.isArray(cur.selectedOptions)) ? clone(cur.selectedOptions) : [];
+          if (!opts.some(function (o) { return o.fieldOptionId === tgt.optionId; })) {
+            opts.push({ visitId: enc.visitId, fieldDefinitionId: tgt.fd.id, fieldOptionId: tgt.optionId });
+          }
+          const item = makeEmptyVisitValue(enc.visitId, tgt.fd, 'answered');
+          item.selectedOptions = opts;
+          enc.valuesByDefId[tgt.fd.id] = item;
+        }
+      });
+      if (toConfirm.length > 0) {
+        markEncounterDirty();
+        toast('Đã xác nhận ' + toConfirm.length + ' yếu tố nguy cơ từ mã ICD/BMI.', 'success');
+        render();
+      }
+      return;
+    }
+
+    // V2: Batch add multiple ICD-10 codes (separated by +, comma, semicolon, or spaces)
+    const addMultiIcdMode = target.getAttribute('data-add-multi-icd');
+    if (addMultiIcdMode) {
+      const isPrev = addMultiIcdMode === 'prev';
+      const inputEl = document.getElementById(isPrev ? 'prev-multi-icd-input' : 'enc-multi-icd-input');
+      const rawStr = inputEl ? inputEl.value : '';
+      const codes = String(rawStr || '').split(/[+,\s;]+/).map(function (c) { return c.trim().toUpperCase(); }).filter(Boolean);
+      if (codes.length === 0) {
+        toast('Vui lòng nhập ít nhất một mã ICD-10 (VD: I10+E11+I48).', 'warn');
+        return;
+      }
+      if (addMultiIcdMode === 'v12') {
+        const cur = encReadV12Answer('enc', 'diagnoses');
+        const arr = (cur && cur.value_state === 'answered' && Array.isArray(cur.value)) ? clone(cur.value) : [];
+        const existing = {};
+        arr.forEach(function (x) {
+          const xc = typeof x === 'string' ? x : (x && x.code);
+          if (xc) existing[String(xc).trim().toUpperCase()] = true;
+        });
+        let added = 0;
+        codes.forEach(function (c) {
+          if (!existing[c]) {
+            existing[c] = true;
+            arr.push(c);
+            added += 1;
+          }
+        });
+        encApplyV12Answer('enc', 'diagnoses', { value_state: 'answered', value: arr });
+        if (inputEl) inputEl.value = '';
+        if (added > 0) toast('Đã thêm ' + added + ' mã ICD.', 'success');
+        render();
+      } else {
+        const ft = getFormTarget(isPrev);
+        const existing = {};
+        (ft.diagnoses || []).forEach(function (d) { if (d && d.code) existing[String(d.code).trim().toUpperCase()] = true; });
+        const hasPrimary = (ft.diagnoses || []).some(function (d) { return d && d.role === 'primary'; });
+        let added = 0;
+        codes.forEach(function (c, i) {
+          if (!existing[c]) {
+            existing[c] = true;
+            ft.diagnoses.push({ code: c, display: '', role: (!hasPrimary && i === 0) ? 'primary' : 'secondary' });
+            added += 1;
+          }
+        });
+        ft.setListState('diagnoses', 'known');
+        ft.markDirty();
+        if (inputEl) inputEl.value = '';
+        if (added > 0) toast('Đã thêm ' + added + ' mã ICD.', 'success');
+        render();
+      }
+      return;
+    }
+
+    // V2 Doctor My Visits status filter
+    const mvStatus = target.getAttribute('data-my-visits-status');
+    if (mvStatus !== null) {
+      state.myVisits.status = mvStatus;
+      await loadMyVisits();
+      return;
+    }
+
     // Encounter section rail (UI-06: smooth scroll to section without full re-render)
     const encSec = target.getAttribute('data-enc-section');
     if (encSec) {
@@ -9725,8 +11261,20 @@
           if (!isPrev) focusUnlockedFieldInput(fd.code);
           return;
         }
+        let unknownReason = null;
+        if (!isPrev && state.user && state.user.role === 'nurse' &&
+            ['chieu_cao_cm', 'can_nang_kg', 'huyet_ap_tam_thu', 'huyet_ap_tam_truong', 'mach'].includes(fd.code)) {
+          unknownReason = window.prompt('Lý do chưa đo được ' + fd.labelVi + ' (bắt buộc, tối đa 500 ký tự):', '');
+          if (unknownReason === null) return;
+          unknownReason = unknownReason.trim();
+          if (!unknownReason || unknownReason.length > 500) {
+            toast('Nhập lý do từ 1 đến 500 ký tự.', 'error');
+            return;
+          }
+        }
         if (!isPrev) delete state.encounter.unlockedUnknownCodes[fd.code];
         ft.valuesByDefId[fd.id] = makeEmptyVisitValue(ft.visitId, fd, 'unknown');
+        if (unknownReason) ft.valuesByDefId[fd.id].unknownReason = unknownReason;
         if (fd.code === 'mach') ft.setAutoPulseSourceIndex(null);
         ft.markDirty();
         render();
@@ -10119,6 +11667,7 @@
     }
     if (action === 'logout') {
       if (state.loggingOut) return;
+      stopQueuePolling();
       state.loggingOut = true;
       closeAccountMenu(false);
       try { await api.logout(); } catch (_ignored) {}
@@ -10138,6 +11687,83 @@
       await loadPatients();
       return;
     }
+    if (action === 'reload-nurse-intake') {
+      await loadNurseIntake();
+      return;
+    }
+    if (action === 'reload-nurse-visits') {
+      await loadNurseVisits();
+      return;
+    }
+    if (action === 'reload-queue') {
+      await loadVisitQueue({ silent: false });
+      return;
+    }
+    if (action === 'reload-my-visits') {
+      await loadMyVisits();
+      return;
+    }
+    if (action === 'toggle-edit-nurse-vitals') {
+      state.encounter.nurseSectionsUnlocked = !state.encounter.nurseSectionsUnlocked;
+      render();
+      return;
+    }
+    if (action === 'submit-visit-queue' && state.encounter.visit) {
+      const enc = state.encounter;
+      if (enc.submittingQueue) return;
+      if (enc.dirty) {
+        const ok = await saveEncounterDraft();
+        if (!ok || enc.dirty) return;
+      }
+      enc.submittingQueue = true;
+      render();
+      try {
+        await api.submitVisit(enc.visit.id, { rowVersion: enc.visit.rowVersion }, enc.visit.rowVersion);
+        enc.submittingQueue = false;
+        enc.dirty = false;
+        toast('Đã gửi lượt khám ' + enc.visit.visitCode + ' vào hàng chờ bác sĩ.', 'success');
+        navigate('#/nurse/visits', true);
+      } catch (err) {
+        enc.submittingQueue = false;
+        if (err && err.status === 422) {
+          const errs = Array.isArray(err.errors) ? err.errors : [];
+          if (errs.length > 0) {
+            enc.errorList = errs.map(function (e) {
+              return Object.assign({}, e, { fieldCode: resolveFormFieldCode(enc.fieldMetadata, e.fieldCode || e.field) });
+            });
+            enc.fieldErrors = {};
+            enc.errorList.forEach(function (e) { enc.fieldErrors[e.fieldCode] = e.message; });
+          }
+          toast((err && err.detail) || 'Cần nhập đủ chiều cao, cân nặng, HA tâm thu, HA tâm trương, mạch (hoặc chọn Chưa rõ) trước khi gửi hàng chờ.', 'error');
+        } else {
+          handleAuthOrError(err, 'Không thể gửi lượt khám vào hàng chờ.');
+        }
+        if (state.screen === 'encounter') render();
+      }
+      return;
+    }
+    if (action === 'withdraw-visit-queue' && state.encounter.visit) {
+      const enc = state.encounter;
+      if (enc.withdrawingQueue) return;
+      enc.withdrawingQueue = true;
+      render();
+      try {
+        await api.withdrawVisit(enc.visit.id, { rowVersion: enc.visit.rowVersion }, enc.visit.rowVersion);
+        enc.withdrawingQueue = false;
+        toast('Đã rút lại lượt khám về trạng thái Đang tiếp nhận.', 'success');
+        await loadEncounter(enc.visit.id);
+      } catch (err) {
+        enc.withdrawingQueue = false;
+        if (err && err.status === 409) {
+          toast((err && err.detail) || 'Không thể rút lại — lượt khám đã được bác sĩ nhận.', 'warn');
+          await loadEncounter(enc.visit.id);
+        } else {
+          handleAuthOrError(err, 'Không thể rút lại lượt khám.');
+          if (state.screen === 'encounter') render();
+        }
+      }
+      return;
+    }
     if (action === 'reload-encounter') {
       await loadEncounter(state.encounter.visitId);
       return;
@@ -10146,14 +11772,15 @@
       openModal({
         type: 'patient-form',
         patientId: null,
-        data: { fullName: '', sex: '', birthMode: 'date', birthDate: '', birthYear: '', declaredAge: '', externalPatientCode: '' },
+        data: { fullName: '', sex: '', birthDate: '', cccd: '', externalPatientCode: '' },
+        birthDateError: '',
+        cccdError: '',
         error: ''
       });
       return;
     }
     if (action === 'open-edit-patient' && state.profile.patient) {
       const pt = state.profile.patient;
-      const bm = pt.birthDate ? 'date' : (pt.birthYear != null ? 'year' : (pt.declaredAge != null ? 'age' : 'none'));
       openModal({
         type: 'patient-form',
         patientId: pt.id,
@@ -10162,12 +11789,12 @@
           patientCode: pt.patientCode,
           fullName: pt.fullName,
           sex: pt.sex,
-          birthMode: bm,
           birthDate: pt.birthDate || '',
-          birthYear: pt.birthYear != null ? String(pt.birthYear) : '',
-          declaredAge: pt.declaredAge != null ? String(pt.declaredAge) : '',
+          cccd: pt.cccd || '',
           externalPatientCode: pt.externalPatientCode || ''
         },
+        birthDateError: '',
+        cccdError: '',
         error: ''
       });
       return;
@@ -10177,9 +11804,18 @@
       const d = m.data;
       const fullNameVal = ((document.getElementById('mf-fullname') || {}).value || '').trim();
       const sexVal = (document.getElementById('mf-sex') || {}).value || '';
+      const birthDateVal = ((document.getElementById('mf-birthdate') || {}).value || '').trim();
+      const cccdRaw = ((document.getElementById('mf-cccd') || {}).value || '').replace(/\D/g, '').slice(0, 12);
+      const extCodeVal = ((document.getElementById('mf-extcode') || {}).value || '').trim();
       d.fullName = fullNameVal;
       d.sex = sexVal;
-      d.externalPatientCode = ((document.getElementById('mf-extcode') || {}).value || '').trim();
+      d.birthDate = birthDateVal;
+      d.cccd = cccdRaw;
+      d.externalPatientCode = extCodeVal;
+      m.error = '';
+      m.birthDateError = '';
+      m.cccdError = '';
+
       if (!fullNameVal) {
         m.error = 'Vui lòng nhập họ tên hoặc ký hiệu hồ sơ bệnh nhân.';
         renderModal();
@@ -10190,13 +11826,23 @@
         renderModal();
         return;
       }
+      if (!birthDateVal) {
+        m.birthDateError = 'Vui lòng nhập ngày sinh (nếu không rõ ngày/tháng thì nhập 01/01/<năm sinh>).';
+        renderModal();
+        return;
+      }
+      const cccdValidationMsg = validateCccdValue(cccdRaw);
+      if (cccdValidationMsg) {
+        m.cccdError = cccdValidationMsg;
+        renderModal();
+        return;
+      }
       const payload = {
         fullName: fullNameVal,
         sex: sexVal,
-        birthDate: d.birthMode === 'date' ? ((document.getElementById('mf-birthdate') || {}).value || null) : null,
-        birthYear: d.birthMode === 'year' && (document.getElementById('mf-birthyear') || {}).value ? Number(document.getElementById('mf-birthyear').value) : null,
-        declaredAge: d.birthMode === 'age' && (document.getElementById('mf-age') || {}).value ? Number(document.getElementById('mf-age').value) : null,
-        externalPatientCode: d.externalPatientCode || null
+        birthDate: birthDateVal,
+        cccd: cccdRaw || null,
+        externalPatientCode: extCodeVal || null
       };
       try {
         if (m.patientId) {
@@ -10209,10 +11855,30 @@
           const created = await api.createPatient(payload);
           closeModal();
           toast('Đã tạo hồ sơ ' + created.patientCode + '.', 'success');
-          navigate('#/patients/' + created.id, true);
+          if (state.user && state.user.role === 'nurse') {
+            navigate('#/patients/' + created.id, true);
+          } else {
+            navigate('#/patients/' + created.id, true);
+          }
         }
       } catch (err) {
-        m.error = (err && err.detail) || 'Không thể lưu hồ sơ bệnh nhân.';
+        const errCode = (err && err.code) || '';
+        const errDetail = (err && err.detail) || '';
+        const isCccdConflict = Boolean(
+          (err && err.status === 409 && (cccdRaw || /cccd/i.test(errCode + ' ' + errDetail))) ||
+          /cccd/i.test(errCode)
+        );
+        if (isCccdConflict) {
+          m.cccdError = errDetail || 'Số CCCD này đã tồn tại trên hồ sơ bệnh nhân khác.';
+        } else if (err && err.status === 422 && Array.isArray(err.errors) && err.errors.length > 0) {
+          const cccdErrItem = err.errors.find(function (e) { return e && /cccd/i.test(String(e.field || e.fieldCode || '')); });
+          const bdErrItem = err.errors.find(function (e) { return e && /birth/i.test(String(e.field || e.fieldCode || '')); });
+          if (cccdErrItem) m.cccdError = cccdErrItem.message || errDetail;
+          if (bdErrItem) m.birthDateError = bdErrItem.message || errDetail;
+          if (!cccdErrItem && !bdErrItem) m.error = errDetail || 'Dữ liệu hồ sơ chưa hợp lệ.';
+        } else {
+          m.error = errDetail || 'Không thể lưu hồ sơ bệnh nhân.';
+        }
         renderModal();
       }
       return;
@@ -10677,6 +12343,11 @@
       scheduleLiveSearch('patients', t);
       return;
     }
+    if (t.id === 'nurse-intake-search') {
+      state.nurseIntake.q = t.value;
+      scheduleLiveSearch('nurseIntake', t);
+      return;
+    }
     if (t.id === 'enc-field-search') {
       state.encounter.fieldSearch = t.value;
       render();
@@ -10888,6 +12559,36 @@
       return;
     }
 
+    // Patient modal live CCCD (digits only, max 12, immediate validation) & birthDate age calculation
+    if (t.id === 'mf-cccd' && state.modal && state.modal.type === 'patient-form') {
+      const cleaned = String(t.value || '').replace(/\D/g, '').slice(0, 12);
+      if (t.value !== cleaned) t.value = cleaned;
+      state.modal.data.cccd = cleaned;
+      const errMsg = validateCccdValue(cleaned);
+      state.modal.cccdError = errMsg;
+      t.classList.toggle('input--error', Boolean(errMsg));
+      const errEl = document.getElementById('mf-cccd-error');
+      if (errEl) {
+        errEl.hidden = !errMsg;
+        errEl.innerHTML = errMsg ? (ICONS.alert + ' ' + esc(errMsg)) : '';
+      }
+      return;
+    }
+    if (t.id === 'mf-birthdate' && state.modal && state.modal.type === 'patient-form') {
+      state.modal.data.birthDate = t.value;
+      state.modal.birthDateError = '';
+      t.classList.remove('input--error');
+      const errEl = document.getElementById('mf-birthdate-error');
+      if (errEl) { errEl.hidden = true; errEl.innerHTML = ''; }
+      const ageEl = document.getElementById('mf-birthdate-age');
+      if (ageEl) {
+        const age = t.value ? computeAge({ birthDate: t.value }) : null;
+        ageEl.hidden = age === null;
+        ageEl.textContent = age !== null ? ('Tuổi: ' + age + ' tuổi') : '';
+      }
+      return;
+    }
+
     if (t.id === 'admin-user-search') { state.adminUsers.q = t.value; scheduleLiveSearch('users', t); return; }
     if (t.id === 'admin-care-search') { state.adminCare.q = t.value; scheduleLiveSearch('adminCare', t); return; }
     if (t.id === 'audit-q') { state.adminAudit.q = t.value; scheduleLiveSearch('audit', t); return; }
@@ -10998,7 +12699,15 @@
         row[k] = k === 'dose' ? (t.value === '' ? null : Number(t.value)) : t.value;
         ft.markDirty();
         const card = t.closest('.repeat-card');
-        if (card) card.classList.toggle('repeat-card--incomplete', !isValidMedRow(row));
+        if (card) {
+          card.classList.toggle('repeat-card--incomplete', !isValidMedRow(row));
+          const grpBadge = card.querySelector('.med-auto-group-badge');
+          if (grpBadge) {
+            const autoGrp = classifyMedicationGroup(row);
+            grpBadge.textContent = autoGrp.label;
+            grpBadge.className = 'badge badge--xs ' + (autoGrp.pillar ? 'badge--pillar' : (autoGrp.caution ? 'badge--caution' : 'badge--neutral')) + ' med-auto-group-badge';
+          }
+        }
       }
       return;
     }
@@ -11080,13 +12789,19 @@
     const t = ev.target;
     if (!t) return;
 
-    // Patient modal birth mode radio
-    if (t.name === 'mf-bmode' && state.modal && state.modal.type === 'patient-form') {
-      state.modal.data.fullName = (document.getElementById('mf-fullname') || {}).value || state.modal.data.fullName;
-      state.modal.data.sex = (document.getElementById('mf-sex') || {}).value || state.modal.data.sex;
-      state.modal.data.externalPatientCode = (document.getElementById('mf-extcode') || {}).value || state.modal.data.externalPatientCode;
-      state.modal.data.birthMode = t.value;
-      renderModal();
+    // Patient modal birthDate change -> update age chip
+    if (t.id === 'mf-birthdate' && state.modal && state.modal.type === 'patient-form') {
+      state.modal.data.birthDate = t.value;
+      state.modal.birthDateError = '';
+      t.classList.remove('input--error');
+      const errEl = document.getElementById('mf-birthdate-error');
+      if (errEl) { errEl.hidden = true; errEl.innerHTML = ''; }
+      const ageEl = document.getElementById('mf-birthdate-age');
+      if (ageEl) {
+        const age = t.value ? computeAge({ birthDate: t.value }) : null;
+        ageEl.hidden = age === null;
+        ageEl.textContent = age !== null ? ('Tuổi: ' + age + ' tuổi') : '';
+      }
       return;
     }
 
@@ -11132,7 +12847,9 @@
     }
 
     if (t.hasAttribute('data-enc-v12list-item')) {
+      const attr = t.getAttribute('data-enc-v12list-item') || '';
       encUpdateV12ListItem(t, true);
+      if (attr.indexOf('diagnoses:') === 0) render();
       return;
     }
 

@@ -238,6 +238,24 @@
       createVisitRevision(visitId, payload, rowVersion) {
         return request('POST', '/visits/' + encodeURIComponent(visitId) + '/revisions', { body: payload, ifMatch: rowVersion });
       },
+      submitVisit(visitId, payload, rowVersion) {
+        return request('POST', '/visits/' + encodeURIComponent(visitId) + '/submit', { body: payload || {}, ifMatch: rowVersion });
+      },
+      withdrawVisit(visitId, payload, rowVersion) {
+        return request('POST', '/visits/' + encodeURIComponent(visitId) + '/withdraw', { body: payload || {}, ifMatch: rowVersion });
+      },
+      listVisitQueue(params) {
+        return request('GET', '/visit-queue' + buildQuery(params));
+      },
+      claimVisit(visitId, payload) {
+        return request('POST', '/visits/' + encodeURIComponent(visitId) + '/claim', { body: payload || {} });
+      },
+      listMyVisits(params) {
+        return request('GET', '/my-visits' + buildQuery(params));
+      },
+      listNurseVisits(params) {
+        return request('GET', '/nurse/visits' + buildQuery(params));
+      },
       getVisitAiInput(visitId) { return request('GET', '/visits/' + encodeURIComponent(visitId) + '/ai-input'); },
       getVisitAiInputV1(visitId, params) {
         return request('GET', '/visits/' + encodeURIComponent(visitId) + '/ai-input/hf/1.0' + buildQuery(params));
@@ -392,6 +410,30 @@
       getVisitReview: function (id) { return adapter.getVisitReview(id); },
       confirmVisit: function (id, p, rv) { return adapter.confirmVisit(id, p, rv); },
       createVisitRevision: function (id, p, rv) { return adapter.createVisitRevision(id, p, rv); },
+      submitVisit: function (id, p, rv) {
+        if (typeof adapter.submitVisit !== 'function') return Promise.reject(new HttpApiError(501, { code: 'V2_STATIC_UNSUPPORTED', detail: 'Tính năng gửi hàng chờ yêu cầu kết nối máy chủ API.' }));
+        return adapter.submitVisit(id, p, rv);
+      },
+      withdrawVisit: function (id, p, rv) {
+        if (typeof adapter.withdrawVisit !== 'function') return Promise.reject(new HttpApiError(501, { code: 'V2_STATIC_UNSUPPORTED', detail: 'Tính năng rút lượt khám yêu cầu kết nối máy chủ API.' }));
+        return adapter.withdrawVisit(id, p, rv);
+      },
+      listVisitQueue: function (p) {
+        if (typeof adapter.listVisitQueue !== 'function') return Promise.reject(new HttpApiError(501, { code: 'V2_STATIC_UNSUPPORTED', detail: 'Hàng chờ lượt khám yêu cầu kết nối máy chủ API.' }));
+        return adapter.listVisitQueue(p);
+      },
+      claimVisit: function (id, p) {
+        if (typeof adapter.claimVisit !== 'function') return Promise.reject(new HttpApiError(501, { code: 'V2_STATIC_UNSUPPORTED', detail: 'Nhận lượt khám yêu cầu kết nối máy chủ API.' }));
+        return adapter.claimVisit(id, p);
+      },
+      listMyVisits: function (p) {
+        if (typeof adapter.listMyVisits !== 'function') return Promise.reject(new HttpApiError(501, { code: 'V2_STATIC_UNSUPPORTED', detail: 'Lượt khám của tôi yêu cầu kết nối máy chủ API.' }));
+        return adapter.listMyVisits(p);
+      },
+      listNurseVisits: function (p) {
+        if (typeof adapter.listNurseVisits !== 'function') return Promise.reject(new HttpApiError(501, { code: 'V2_STATIC_UNSUPPORTED', detail: 'Danh sách lượt đã gửi yêu cầu kết nối máy chủ API.' }));
+        return adapter.listNurseVisits(p);
+      },
       getVisitAiInput: function (id) { return adapter.getVisitAiInput(id); },
       getVisitAiInputV1: function (id, params) { return adapter.getVisitAiInputV1(id, params); },
       getVisitWorkflow: function (id, params) {
