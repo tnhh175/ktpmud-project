@@ -6472,19 +6472,138 @@
       cls_xquang_thoi_diem: 'Thời điểm X-quang ngực'
     };
 
-    const tier4Cards = (r.tier4AiModules || []).map(function (m) {
-      const missingCodes = Array.isArray(m.missingFieldCodes) ? m.missingFieldCodes : [];
-      const isReady = Boolean(m.ready);
-      const reasonCodes = new Set();
-      const nonMissingIssues = (m.issues || []).filter(function (issue) {
-        if (missingCodes.includes(issue.fieldCode) || reasonCodes.has(issue.issueCode)) return false;
-        reasonCodes.add(issue.issueCode);
-        return true;
+    const isV2Review = isFormV2(fv, rev.formRes && rev.formRes.sections);
+    const hasV2Catalog = isV2Review && Object.keys(defByCode).length > 0;
+    const V2_LEGACY_TO_FIELD_MAP = {
+      thuoc_ghi_nhan: 'medications',
+      thuoc_drugname: 'medications',
+      medication_list_state: 'medications',
+      medicationListState: 'medications',
+      di_ung_adr: 'allergies',
+      diung_allergen: 'allergies',
+      allergy_list_state: 'allergies',
+      allergyListState: 'allergies',
+      icd_code: 'diagnoses',
+      icd_display: 'diagnoses',
+      diagnosis_list_state: 'diagnoses',
+      diagnosisListState: 'diagnoses',
+      cls_egfr: 'egfr_ckd_epi',
+      tang_huyet_ap: 'ts_tang_huyet_ap',
+      dai_thao_duong: 'ts_dai_thao_duong',
+      age: 'luot_tuoi',
+      sex: 'bn_gioi_tinh'
+    };
+    const v2ValByCode = {};
+    if (hasV2Catalog && rev.visitDetail && Array.isArray(rev.visitDetail.values)) {
+      rev.visitDetail.values.forEach(function (vv) {
+        if (!vv) return;
+        const fd = defById[vv.fieldDefinitionId] || (vv.fieldCode ? defByCode[vv.fieldCode] : null);
+        const code = (fd && fd.code) || vv.fieldCode;
+        if (code) v2ValByCode[code] = vv;
       });
+    }
+    function isV2FieldAnswered(v2Code) {
+      if (!v2Code) return false;
+      const vv = v2ValByCode[v2Code];
+      if (vv) {
+        const ans = vv.answer && typeof vv.answer === 'object' ? vv.answer : null;
+        if (ans) {
+          if (ans.value_state === 'answered' && ans.value !== null && ans.value !== undefined) return true;
+          if (ans.value_state === 'unknown') return false;
+        }
+        if (vv.valueState === 'answered') return true;
+        if (vv.valueState === 'unknown') return false;
+      }
+      if (v2Code === 'medications') {
+        const validMeds = ((rev.visitDetail && rev.visitDetail.medications) || []).filter(isValidMedRow);
+        return validMeds.length > 0 || Boolean(v && v.medicationListState === 'none');
+      }
+      if (v2Code === 'allergies') {
+        const validAlgs = ((rev.visitDetail && rev.visitDetail.allergies) || []).filter(isValidAllergyRow);
+        return validAlgs.length > 0 || Boolean(v && v.allergyListState === 'none');
+      }
+      if (v2Code === 'diagnoses') {
+        const validDxs = ((rev.visitDetail && rev.visitDetail.diagnoses) || []).filter(isValidDiagnosisRow);
+        return validDxs.length > 0 || Boolean(v && v.diagnosisListState === 'none');
+      }
+      if (v2Code === 'luot_tuoi') {
+        return Boolean(pt && (pt.birthDate || pt.birthYear || pt.declaredAge != null));
+      }
+      if (v2Code === 'bn_gioi_tinh') {
+        return Boolean(pt && (pt.sex === 'male' || pt.sex === 'female'));
+      }
+      if (v2Code === 'bmi') {
+        return isV2FieldAnswered('chieu_cao_cm') && isV2FieldAnswered('can_nang_kg');
+      }
+      if (v2Code === 'so_luong_thuoc_dong_thoi' || v2Code === 'co_da_thuoc' || v2Code === 'nhom_thuoc_tu_dong') {
+        return isV2FieldAnswered('medications');
+      }
+      if (/^cls_/.test(v2Code)) {
+        return ((rev.visitDetail && rev.visitDetail.labResults) || []).some(function (l) {
+          return l && l.labCode === v2Code && isValidLabRow(l, defByCode);
+        });
+      }
+      return false;
+    }
+
+    const tier4Cards = (r.tier4AiModules || []).map(function (m) {
+      const rawMissingCodes = Array.isArray(m.missingFieldCodes) ? m.missingFieldCodes : [];
+      let missingCodes = rawMissingCodes;
+      const notApplicableCodes = [];
+      let isReady = Boolean(m.ready);
+      const reasonCodes = new Set();
+      let nonMissingIssues = [];
+
+      if (hasV2Catalog) {
+        missingCodes = [];
+        const addUnique = function (arr, code) {
+          if (code && arr.indexOf(code) < 0) arr.push(code);
+        };
+        rawMissingCodes.forEach(function (rawCode) {
+          const mapped = V2_LEGACY_TO_FIELD_MAP[rawCode] || rawCode;
+          if (defByCode[mapped]) {
+            if (!isV2FieldAnswered(mapped)) addUnique(missingCodes, mapped);
+          } else {
+            addUnique(notApplicableCodes, rawCode);
+          }
+        });
+        nonMissingIssues = (m.issues || []).filter(function (issue) {
+          if (!issue) return false;
+          if (issue.fieldCode) {
+            const mapped = V2_LEGACY_TO_FIELD_MAP[issue.fieldCode] || issue.fieldCode;
+            if (!defByCode[mapped]) {
+              addUnique(notApplicableCodes, issue.fieldCode);
+              return false;
+            }
+            if (isV2FieldAnswered(mapped) || missingCodes.includes(mapped)) return false;
+          } else if (issue.issueCode === 'NOT_COLLECTED') {
+            return false;
+          }
+          if (reasonCodes.has(issue.issueCode)) return false;
+          reasonCodes.add(issue.issueCode);
+          return true;
+        });
+        isReady = missingCodes.length === 0 && nonMissingIssues.length === 0;
+      } else {
+        nonMissingIssues = (m.issues || []).filter(function (issue) {
+          if (missingCodes.includes(issue.fieldCode) || reasonCodes.has(issue.issueCode)) return false;
+          reasonCodes.add(issue.issueCode);
+          return true;
+        });
+      }
+
       const reasons = nonMissingIssues.map(function (issue) { return issue.messageVi; });
       const hasActionableNonMissing = nonMissingIssues.some(function (issue) {
         return Boolean(AI_ACTIONABLE_ISSUE_CODES[issue.issueCode]);
       });
+      const notApplicableHtml = notApplicableCodes.length > 0 ? (
+        '<div class="ai-readiness-note ai-readiness-note--system" data-ai-v2-not-applicable="true">' +
+          'Không áp dụng cho v2.0: ' +
+          esc(notApplicableCodes.map(function (code) {
+            return AI_ISSUE_DISPLAY_LABELS[code] || AI_FALLBACK_FIELD_LABELS[code] || code;
+          }).join(', ')) +
+        '</div>'
+      ) : '';
       const missingChipsHtml = missingCodes.map(function (code) {
         const label = (defByCode[code] && defByCode[code].labelVi) || AI_ISSUE_DISPLAY_LABELS[code] || AI_FALLBACK_FIELD_LABELS[code] || code;
         const secCode = resolveFieldSectionCode(rev.formRes, code);
@@ -6512,6 +6631,7 @@
                 '</div>' : '') +
                 (reasons.length ? '<div class="ai-readiness-note ' + (hasActionableNonMissing ? 'ai-readiness-note--actionable' : 'ai-readiness-note--system') + '">Chưa sẵn sàng vì: ' + esc(reasons.join(' ')) + '</div>' :
                   (!missingCodes.length ? '<div class="ai-readiness-note ai-readiness-note--system">Chưa sẵn sàng vì: Cần kiểm tra chất lượng dữ liệu xuất AI.</div>' : ''))) +
+            notApplicableHtml +
           '</div>' +
           (!isReady && firstCode
             ? '<div class="ai-module-card__footer">' +
@@ -8443,13 +8563,26 @@
     const actions = Array.isArray(ms.availableActions) ? ms.availableActions : [];
     const hasAction = function (act) { return !isPharm && !isRunning && !wf.submittingAction && !wf.savingFields && actions.indexOf(act) >= 0; };
 
+    const wfFormVer = (wf.formRes && wf.formRes.formVersion) || (wf.data && wf.data.formVersion) || null;
+    let wfVerLabel = String(
+      (wfFormVer && wfFormVer.versionLabel) ||
+      (v && v.formVersionLabel) ||
+      (wf.data && wf.data.formVersionLabel) ||
+      ''
+    ).trim();
+    if (!wfVerLabel && wf.formRes) {
+      if (isFormV2(wfFormVer, wf.formRes.sections)) wfVerLabel = 'v2.0';
+      else if (isFormV12(wfFormVer, wf.formRes.fieldDefinitions, wf.formRes.sections)) wfVerLabel = 'v1.2';
+    }
+    const wfBadgeLabel = wfVerLabel ? (wfVerLabel + ' · Luồng 4 Module') : 'Luồng 4 Module';
+
     const stickyHead =
       '<div class="encounter-sticky-head">' +
         '<div>' +
           '<div class="encounter-sticky-head__id">' +
             (pt ? ('<span class="mono">' + esc(pt.patientCode) + '</span><span>' + esc(pt.fullName) + '</span>') : '<span>Lượt khám</span>') +
             '<span class="badge badge--blue mono">' + esc((v && v.visitCode) || wf.visitId) + '</span>' +
-            '<span class="badge badge--info">v1.2 · Luồng 4 Module</span>' +
+            '<span class="badge badge--info" data-wf-form-version="' + esc(wfVerLabel) + '">' + esc(wfBadgeLabel) + '</span>' +
             (wf.data.completed ? '<span class="badge badge--success">Đã hoàn tất workflow</span>' : '') +
           '</div>' +
           '<div class="encounter-sticky-head__meta">' +
