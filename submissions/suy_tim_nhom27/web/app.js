@@ -3203,10 +3203,10 @@
             '<td><div class="cell-primary mono">' + esc(pt.patientCode) + '</div><div class="cell-sub">' + esc(pt.fullName) + '</div></td>' +
             '<td><div>' + esc(formatSex(pt.sex)) + '</div><div class="cell-sub">' + esc(formatBirthPrecision(pt)) + '</div></td>' +
             '<td><div class="mono">' + esc(pt.cccd || '—') + '</div><div class="cell-sub mono">' + (pt.externalPatientCode ? ('HIS: ' + esc(pt.externalPatientCode)) : '') + '</div></td>' +
-            '<td style="text-align:right;white-space:nowrap;">' +
-              '<button type="button" class="btn btn--primary btn--sm" data-nurse-create-visit="' + esc(pt.id) + '">' + ICONS.plus + ' Tạo lượt khám</button> ' +
+            '<td style="text-align:right;white-space:nowrap;"><div class="table-actions">' +
+              '<button type="button" class="btn btn--primary btn--sm" data-nurse-create-visit="' + esc(pt.id) + '">' + ICONS.plus + ' Tạo lượt khám</button>' +
               '<button type="button" class="btn btn--secondary btn--sm" data-nav="#/patients/' + esc(pt.id) + '">Hồ sơ</button>' +
-            '</td>' +
+            '</div></td>' +
           '</tr>'
         );
       }).join('');
@@ -3289,12 +3289,12 @@
             '<td class="tabular">' + esc(formatDateTime(item.submittedAt || item.visitDate || item.createdAt)) + '</td>' +
             '<td>' + formatQueueVitalsSummary(item.vitals) + '</td>' +
             '<td>' + formatVisitStatusBadge(st, vid, false) + '</td>' +
-            '<td style="text-align:right;white-space:nowrap;">' +
+            '<td style="text-align:right;white-space:nowrap;"><div class="table-actions">' +
               (st === 'intake'
                 ? '<button type="button" class="btn btn--primary btn--sm" data-nav="#/visits/' + esc(vid) + '">Tiếp tục nhập</button>'
-                : '<button type="button" class="btn btn--secondary btn--sm" data-nav="#/visits/' + esc(vid) + '">Xem</button> ' +
+                : '<button type="button" class="btn btn--secondary btn--sm" data-nav="#/visits/' + esc(vid) + '">Xem</button>' +
                   (isWaiting ? '<button type="button" class="btn btn--danger-outline btn--sm' + (isWithdrawing ? ' is-loading' : '') + '" data-withdraw-visit="' + esc(vid) + '"' + (isWithdrawing ? ' disabled' : '') + '>' + (isWithdrawing ? 'Đang rút...' : 'Rút lại') + '</button>' : '')) +
-            '</td>' +
+            '</div></td>' +
           '</tr>'
         );
       }).join('');
@@ -3453,10 +3453,10 @@
             '<td class="tabular">' + esc(formatDateTime(it.claimedAt || it.visitDate)) + '</td>' +
             '<td><span class="badge badge--blue">' + esc(it.formVersionLabel || 'v2.0') + '</span></td>' +
             '<td>' + formatVisitStatusBadge(st, vid, false) + '</td>' +
-            '<td style="text-align:right;white-space:nowrap;">' +
-              '<button type="button" class="btn ' + (isConf ? 'btn--secondary' : 'btn--primary') + ' btn--sm" data-nav="#/visits/' + esc(vid) + '">' + (isConf ? 'Xem lượt khám' : 'Tiếp tục khám') + '</button> ' +
+            '<td style="text-align:right;white-space:nowrap;"><div class="table-actions">' +
+              '<button type="button" class="btn ' + (isConf ? 'btn--secondary' : 'btn--primary') + ' btn--sm" data-nav="#/visits/' + esc(vid) + '">' + (isConf ? 'Xem lượt khám' : 'Tiếp tục khám') + '</button>' +
               '<button type="button" class="btn btn--ghost btn--sm" data-nav="#/visits/' + esc(vid) + '/review">Xem lại</button>' +
-            '</td>' +
+            '</div></td>' +
           '</tr>'
         );
       }).join('');
@@ -9140,11 +9140,11 @@
             '<td><span class="cell-sub">' + esc(scopeDesc) + '</span></td>' +
             '<td>' + (u.isActive ? '<span class="badge badge--success">Đang hoạt động</span>' : '<span class="badge badge--error">Đã khóa</span>') + '</td>' +
             '<td class="tabular cell-sub">' + esc(formatDateTime(u.lastLoginAt)) + '</td>' +
-            '<td style="text-align:right;white-space:nowrap;">' +
-              '<button type="button" class="btn btn--secondary btn--sm" data-admin-edit-user="' + esc(u.id) + '">Sửa quyền</button> ' +
-              '<button type="button" class="btn btn--ghost btn--sm" data-admin-reset-pw="' + esc(u.id) + '">Đặt lại MK</button> ' +
+            '<td style="text-align:right;white-space:nowrap;"><div class="table-actions">' +
+              '<button type="button" class="btn btn--secondary btn--sm" data-admin-edit-user="' + esc(u.id) + '">Sửa quyền</button>' +
+              '<button type="button" class="btn btn--ghost btn--sm" data-admin-reset-pw="' + esc(u.id) + '">Đặt lại MK</button>' +
               '<button type="button" class="btn ' + (u.isActive ? 'btn--danger-outline' : 'btn--secondary') + ' btn--sm" data-admin-toggle-lock="' + esc(u.id) + '">' + (u.isActive ? 'Khóa' : 'Mở khóa') + '</button>' +
-            '</td>' +
+            '</div></td>' +
           '</tr>'
         );
       }).join('');
