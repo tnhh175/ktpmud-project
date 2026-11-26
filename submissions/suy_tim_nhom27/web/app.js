@@ -6632,6 +6632,26 @@
     );
   }
 
+  // Stale reasons come from the API as INPUT_CHANGED:<fieldCode|rerun>;
+  // show field names (or "module run again") instead of raw codes.
+  function wfFormatStaleReasons(wf, reasons) {
+    const defs = (wf.formRes && Array.isArray(wf.formRes.fieldDefinitions)) ? wf.formRes.fieldDefinitions : [];
+    const labels = [];
+    reasons.forEach(function (reason) {
+      const code = String(reason || '').replace(/^INPUT_CHANGED:/, '');
+      let label;
+      if (code === 'rerun') label = 'module trước vừa được chạy lại hoặc chốt lại';
+      else if (code === 'selected_medications') label = 'phương án đơn thuốc chọn ở Module 3';
+      else {
+        const resolved = resolveFormFieldCode(wf.fieldMetadata, code);
+        const fd = defs.find(function (d) { return d.code === resolved || d.code === code; });
+        label = (fd && fd.labelVi) || AI_FALLBACK_FIELD_LABELS[code] || 'trường "' + code + '" thay đổi';
+      }
+      if (labels.indexOf(label) < 0) labels.push(label);
+    });
+    return labels.join('; ');
+  }
+
   function renderM3SelectedPrescriptionBox(wf, isReadonly) {
     const sp = wf.selectedPrescription || { value_state: 'answered', listState: 'none', items: [] };
     const items = Array.isArray(sp.items) ? sp.items : [];
@@ -7201,7 +7221,7 @@
           '<div class="banner__main">' + ICONS.refresh + '<div>' +
             '<p class="banner__title">Cần chạy lại ' + esc(wfFormatModuleTitle(mod)) + '</p>' +
             '<p class="banner__desc">Cần chạy lại ' + esc(wfFormatModuleTitle(mod)) + ' — ' + staleDetailHtml + ' Kết quả bên dưới thuộc lần chạy trước và có thể không còn phù hợp. Hệ thống không tự chạy lại.</p>' +
-            (Array.isArray(ms.staleReasons) && ms.staleReasons.length > 0 ? '<p class="field__help" style="margin-top:4px;">Nguyên nhân: ' + esc(ms.staleReasons.join('; ')) + '</p>' : '') +
+            (Array.isArray(ms.staleReasons) && ms.staleReasons.length > 0 ? '<p class="field__help" style="margin-top:4px;">Nguyên nhân: ' + esc(wfFormatStaleReasons(wf, ms.staleReasons)) + '</p>' : '') +
           '</div></div>' +
         '</div>';
     }

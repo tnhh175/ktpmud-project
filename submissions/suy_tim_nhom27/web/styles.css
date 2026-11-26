@@ -4479,6 +4479,9 @@ button {
   .wf-man-m4-alert-edit {
     grid-template-columns: 1fr;
   }
+  .wf-rx-row--grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .wf-action-bar {
     flex-direction: column;
     align-items: stretch;
@@ -4490,7 +4493,8 @@ button {
 }
 @media (max-width: 520px) {
   .cfs-grid,
-  .wf-action-bar__btns {
+  .wf-action-bar__btns,
+  .wf-rx-row--grid {
     grid-template-columns: 1fr;
   }
 }
