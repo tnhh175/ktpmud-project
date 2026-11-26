@@ -257,9 +257,138 @@
 
   const NOT_FOUND_OR_NO_ACCESS_MSG = 'Không tìm thấy hoặc bạn không có quyền với hồ sơ này.';
 
+  function isRawErrorCodeString(str, code) {
+    const s = String(str || '').trim();
+    if (!s) return true;
+    if (code && s === String(code).trim()) return true;
+    return /^[A-Z][A-Z0-9_]{2,}$/.test(s);
+  }
+
   function formatClinicalError(err, fallback) {
     if (err && err.status === 404) return NOT_FOUND_OR_NO_ACCESS_MSG;
     return (err && err.detail) || fallback || 'Đã xảy ra lỗi khi tải dữ liệu.';
+  }
+
+  function formatCreateVisitError(err) {
+    if (!err) return 'Không thể tạo lượt khám mới.';
+    const status = err.status || 0;
+    const code = String(err.code || '').trim();
+    const prob = (err && err.problem) || {};
+    const rawDetail = String(prob.detail || err.detail || '').trim();
+    const rawTitle = String(prob.title || err.title || '').trim();
+    if (code === 'FIELD_NOT_ALLOWED_FOR_ROLE') {
+      return !isRawErrorCodeString(rawDetail, code)
+        ? rawDetail
+        : 'Vai trò hiện tại không được phép gửi trường dữ liệu này khi tạo lượt khám.';
+    }
+    if (code === 'NO_PUBLISHED_FORM_VERSION') {
+      return !isRawErrorCodeString(rawDetail, code)
+        ? rawDetail
+        : 'Hệ thống chưa có phiên bản biểu mẫu đang dùng để tạo lượt khám mới.';
+    }
+    if (status === 403) {
+      if (!isRawErrorCodeString(rawDetail, code)) return rawDetail;
+      if (!isRawErrorCodeString(rawTitle, code)) return rawTitle;
+      return 'Bạn không có quyền thực hiện thao tác tạo lượt khám này (HTTP 403).';
+    }
+    if (status === 422) {
+      const errs = Array.isArray(err.errors) ? err.errors : [];
+      if (errs.length > 0) {
+        const fieldLabels = {
+          visitDate: 'Thời điểm khám',
+          visitType: 'Loại lượt khám',
+          chiefComplaint: 'Lý do khám'
+        };
+        const parts = errs.map(function (item) {
+          if (!item) return '';
+          const fKey = item.field || item.fieldCode || '';
+          const fLabel = fieldLabels[fKey] || fKey;
+          const msg = String(item.message || '').trim();
+          if (fLabel && msg && !isRawErrorCodeString(msg, '')) return fLabel + ': ' + msg;
+          if (msg && !isRawErrorCodeString(msg, '')) return msg;
+          return fLabel ? ('Trường ' + fLabel + ' chưa hợp lệ') : '';
+        }).filter(Boolean);
+        if (parts.length > 0) return 'Dữ liệu chưa hợp lệ — ' + parts.join('; ') + '.';
+      }
+      if (!isRawErrorCodeString(rawDetail, code)) return rawDetail;
+      if (!isRawErrorCodeString(rawTitle, code)) return rawTitle;
+      return 'Dữ liệu tạo lượt khám chưa hợp lệ (HTTP 422). Vui lòng kiểm tra thời điểm khám và loại lượt khám.';
+    }
+    if (status === 404) return 'Không tìm thấy hồ sơ bệnh nhân để tạo lượt khám.';
+    if (status === 0) return 'Không thể kết nối máy chủ — vui lòng kiểm tra mạng và thử lại.';
+    if (!isRawErrorCodeString(rawDetail, code)) return rawDetail;
+    if (!isRawErrorCodeString(rawTitle, code)) return rawTitle;
+    return 'Không thể tạo lượt khám mới.';
+  }
+
+  const WF_ERROR_MESSAGES = {
+    FORM_VERSION_NOT_WORKFLOW_CAPABLE: function (ctx) {
+      const ver = ctx && ctx.formVersionLabel ? String(ctx.formVersionLabel).trim() : '';
+      return 'Lượt khám này dùng biểu mẫu cũ' + (ver ? ' (' + ver + ')' : '') + ' nên không chạy được Luồng 4 Module AI. Luồng 4 Module chỉ hỗ trợ biểu mẫu v1.2 và v2.0.';
+    },
+    VISIT_NOT_FOUND: NOT_FOUND_OR_NO_ACCESS_MSG,
+    VISIT_ALREADY_CONFIRMED: 'Lượt khám đã được xác nhận nên không thể thay đổi hay chạy thêm Luồng 4 Module AI. Hãy tạo bản sửa mới nếu cần cập nhật.',
+    CLINICAL_DATA_SEPARATION_ENFORCED: 'Tài khoản quản trị viên không có quyền truy cập dữ liệu lâm sàng hoặc Luồng 4 Module AI.',
+    WORKFLOW_FORBIDDEN: 'Bạn không có quyền thực hiện thao tác này trên luồng 4 Module AI.',
+    WORKFLOW_UPSTREAM_NOT_ACCEPTED: function (ctx) {
+      const num = ctx && ctx.moduleNum ? Number(ctx.moduleNum) : 0;
+      if (num > 1) {
+        const prevNum = Math.max(1, num - 1);
+        return 'Không thể chạy Module ' + num + ': Module ' + prevNum + ' chưa được chốt hoặc đang ở trạng thái cần chạy lại. Vui lòng hoàn tất Module ' + prevNum + ' trước.';
+      }
+      return 'Module trước chưa được chốt hoặc đang ở trạng thái cần chạy lại. Vui lòng hoàn tất bước trước đó.';
+    },
+    CONCURRENCY_ROW_VERSION_MISMATCH: 'Lượt khám vừa được cập nhật ở phiên khác (HTTP 409). Hãy tải lại dữ liệu mới nhất trước khi tiếp tục.',
+    WORKFLOW_RESULT_STALE: 'Lượt khám vừa được cập nhật ở phiên khác hoặc dữ liệu đầu vào đã thay đổi (HTTP 409). Hãy tải lại dữ liệu mới nhất trước khi tiếp tục.',
+    INPUT_CHANGED_DURING_RUN: 'Lượt khám vừa được cập nhật trong lúc đang chạy AI (HTTP 409). Hãy tải lại dữ liệu mới nhất trước khi tiếp tục.',
+    WORKFLOW_RUN_IN_PROGRESS: 'Module này đang có lượt chạy AI khác chưa hoàn tất. Vui lòng chờ xong hoặc đồng bộ lại trạng thái.',
+    WORKFLOW_REQUIRED_VALUE_MISSING: 'Chưa thể chạy module do còn trường dữ liệu bắt buộc chưa nhập hoặc chưa hợp lệ.',
+    WORKFLOW_MODULE_MISMATCH: 'Yêu cầu không khớp với module hiện tại. Vui lòng tải lại trang và thử lại.',
+    WORKFLOW_RESULT_NOT_FOUND: 'Không tìm thấy kết quả chạy AI tương ứng. Vui lòng đồng bộ lại trạng thái.',
+    WORKFLOW_INPUTS_MOVED_TO_DRAFT: 'Các trường dữ liệu đầu vào đã chuyển sang biểu mẫu lượt khám 8 nhóm. Vui lòng nhập và lưu nháp trên biểu mẫu trước khi chạy AI.',
+    MANUAL_REQUIRES_RERUN: 'Cần chạy lại module hoặc đồng bộ trạng thái trước khi lưu kết quả tự nhập.',
+    MANUAL_REASON_REQUIRED: 'Vui lòng nhập lý do tự nhập / điều chỉnh so với kết quả AI.',
+    M4_ALERT_INVALID: 'Thông tin cảnh báo an toàn thuốc không hợp lệ. Vui lòng tải lại và kiểm tra lại.',
+    M4_SERIOUS_REASON_REQUIRED: 'Cần ghi rõ lý do lâm sàng khi xử lý cảnh báo mức độ nghiêm trọng.',
+    M4_DISAGREE_REASON_REQUIRED: 'Cần ghi rõ lý do khi không đồng ý với cảnh báo an toàn thuốc.',
+    M4_SERIOUS_ALERT_UNRESOLVED: 'Còn cảnh báo an toàn thuốc mức độ nghiêm trọng chưa được xác nhận xử lý.',
+    OUTPUT_SCHEMA_INVALID: 'Dữ liệu kết quả chưa đúng định dạng yêu cầu. Vui lòng kiểm tra lại các mục đã nhập.',
+    FIELD_ENUM_INVALID: 'Giá trị lựa chọn không hợp lệ. Vui lòng kiểm tra lại dữ liệu đã chọn.',
+    IDEMPOTENCY_KEY_REUSED: 'Yêu cầu này đã được gửi trước đó. Vui lòng đồng bộ lại trạng thái.',
+    AUTH_REQUIRED: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+    WORKFLOW_STATIC_UNSUPPORTED: 'Luồng 4 Module AI yêu cầu kết nối máy chủ API.',
+    REQUEST_TIMEOUT: 'Máy chủ chưa phản hồi kịp thời — dữ liệu chưa được chạy hoặc chốt. Hãy đồng bộ lại trạng thái rồi thử lại.',
+    NETWORK_ERROR: 'Không thể kết nối máy chủ — dữ liệu chưa được chạy hoặc chốt. Kiểm tra mạng và thử lại.'
+  };
+
+  function formatWorkflowError(err, ctx) {
+    const o = ctx || {};
+    const status = (err && err.status) || 0;
+    const code = String((err && err.code) || '').trim();
+    const prob = (err && err.problem) || {};
+    const rawDetail = String(prob.detail || (err && err.detail) || '').trim();
+    const rawTitle = String(prob.title || (err && err.title) || '').trim();
+
+    if (code && Object.prototype.hasOwnProperty.call(WF_ERROR_MESSAGES, code)) {
+      const mapped = WF_ERROR_MESSAGES[code];
+      return typeof mapped === 'function' ? mapped(o) : mapped;
+    }
+    if (status === 403) {
+      return WF_ERROR_MESSAGES.WORKFLOW_FORBIDDEN;
+    }
+    if (status === 404) {
+      return NOT_FOUND_OR_NO_ACCESS_MSG;
+    }
+    if (status === 0 || status === 503 || status === 504) {
+      return WF_ERROR_MESSAGES.NETWORK_ERROR;
+    }
+    if (!isRawErrorCodeString(rawDetail, code)) {
+      return rawDetail;
+    }
+    if (!isRawErrorCodeString(rawTitle, code)) {
+      return rawTitle;
+    }
+    return o.fallback || 'Đã xảy ra lỗi khi xử lý Luồng 4 Module AI.';
   }
 
   function isAssignmentActiveNow(a) {
@@ -1436,6 +1565,8 @@
     sidebarCollapsed: (function () { try { return global.localStorage.getItem('suytim_sidebar_collapsed') === '1'; } catch (_e) { return false; } })(),
     forbiddenReason: '',
     visitLocked: { visitId: null, message: '' },
+    publishedFormVersionLabel: '',
+    publishedFormVersionProbing: false,
 
     // M1 Login
     login: { username: '', password: '', showPassword: false, error: '', submitting: false },
@@ -2071,6 +2202,106 @@
     toast((err && err.detail) || fallbackMsg || 'Đã xảy ra lỗi khi tải dữ liệu.', 'error');
   }
 
+  function recordPublishedFormVersion(fv) {
+    if (fv && fv.status === 'published' && fv.versionLabel) {
+      state.publishedFormVersionLabel = String(fv.versionLabel).trim();
+    }
+  }
+
+  function getPublishedFormVersionLabel() {
+    if (state.publishedFormVersionLabel) return state.publishedFormVersionLabel;
+    if (state.adminForms && Array.isArray(state.adminForms.versions)) {
+      const pub = state.adminForms.versions.find(function (v) { return v && v.status === 'published' && v.versionLabel; });
+      if (pub) return String(pub.versionLabel).trim();
+    }
+    const encFv = state.encounter && state.encounter.formStructure && state.encounter.formStructure.formVersion;
+    if (encFv && encFv.status === 'published' && encFv.versionLabel) return String(encFv.versionLabel).trim();
+    const revFv = state.review && state.review.formVersion;
+    if (revFv && revFv.status === 'published' && revFv.versionLabel) return String(revFv.versionLabel).trim();
+    const wfFv = state.workflow && state.workflow.formRes && state.workflow.formRes.formVersion;
+    if (wfFv && wfFv.status === 'published' && wfFv.versionLabel) return String(wfFv.versionLabel).trim();
+    if (state.profile && Array.isArray(state.profile.visits)) {
+      const activeIntake = state.profile.visits.find(function (v) {
+        return v && (v.status === 'intake' || v.status === 'waiting') && v.formVersionLabel;
+      });
+      if (activeIntake) return String(activeIntake.formVersionLabel).trim();
+    }
+    return '';
+  }
+
+  async function ensurePublishedFormVersionLabel() {
+    if (getPublishedFormVersionLabel() || state.publishedFormVersionProbing || !state.user) return;
+    state.publishedFormVersionProbing = true;
+    const role = state.user.role;
+    const userId = state.user.id;
+    try {
+      if (role === 'nurse') {
+        let visitId = '';
+        if (state.nurseVisits && Array.isArray(state.nurseVisits.items) && state.nurseVisits.items.length > 0) {
+          visitId = state.nurseVisits.items[0].id || '';
+        } else if (state.profile && Array.isArray(state.profile.visits)) {
+          const own = state.profile.visits.find(function (v) {
+            return v && (v.status === 'intake' || v.status === 'waiting') && v.createdBy === userId;
+          });
+          if (own) visitId = own.id || '';
+        }
+        if (!visitId) {
+          const nvRes = await api.listNurseVisits({ pageSize: 5 }).catch(function () { return null; });
+          const nvItems = (nvRes && (nvRes.items || nvRes.visits)) || (Array.isArray(nvRes) ? nvRes : []);
+          if (nvItems.length > 0 && nvItems[0] && nvItems[0].id) visitId = nvItems[0].id;
+        }
+        if (visitId) {
+          const fRes = await api.getVisitForm(visitId).catch(function () { return null; });
+          recordPublishedFormVersion(fRes && fRes.formVersion);
+        }
+      } else if (role === 'doctor') {
+        let visitId = '';
+        if (state.myVisits && Array.isArray(state.myVisits.items) && state.myVisits.items.length > 0) {
+          visitId = state.myVisits.items[0].id || '';
+        } else {
+          const mvRes = await api.listMyVisits({ pageSize: 5 }).catch(function () { return null; });
+          const mvItems = (mvRes && (mvRes.items || mvRes.visits)) || (Array.isArray(mvRes) ? mvRes : []);
+          if (mvItems.length > 0 && mvItems[0] && mvItems[0].id) visitId = mvItems[0].id;
+        }
+        if (visitId) {
+          const fRes = await api.getVisitForm(visitId).catch(function () { return null; });
+          recordPublishedFormVersion(fRes && fRes.formVersion);
+        }
+      } else if (role === 'admin') {
+        const formsRes = await api.listForms().catch(function () { return null; });
+        const tpl = formsRes && formsRes.items && formsRes.items[0];
+        if (tpl && tpl.id) {
+          const verRes = await api.listFormVersions(tpl.id, { status: 'published' }).catch(function () { return null; });
+          const pub = verRes && Array.isArray(verRes.items) && verRes.items.find(function (v) { return v && v.status === 'published'; });
+          recordPublishedFormVersion(pub);
+        }
+      }
+      if (state.publishedFormVersionLabel && state.modal && state.modal.type === 'create-visit') {
+        renderModal();
+      }
+    } catch (_ignored) {
+      // Best-effort metadata lookup; never block UI or surface errors
+    } finally {
+      state.publishedFormVersionProbing = false;
+    }
+  }
+
+  function openCreateVisitModal(patientId, suggestedType) {
+    openModal({
+      type: 'create-visit',
+      patientId: patientId,
+      data: {
+        visitDateLocal: toDatetimeLocal(new Date().toISOString()),
+        visitType: suggestedType || '',
+        chiefComplaint: ''
+      },
+      error: ''
+    });
+    if (!getPublishedFormVersionLabel()) {
+      ensurePublishedFormVersionLabel();
+    }
+  }
+
   async function loadNurseIntake(options) {
     const opts = options || null;
     state.nurseIntake.loading = true;
@@ -2083,6 +2314,7 @@
       });
       if (!isCurrentLiveSearch('nurseIntake', opts)) return;
       state.nurseIntake.items = (res && res.items) || [];
+      if (!getPublishedFormVersionLabel()) ensurePublishedFormVersionLabel();
     } catch (err) {
       state.nurseIntake.error = (err && err.detail) || 'Không tải được danh sách bệnh nhân tiếp nhận.';
       if (err && (err.status === 401 || err.status === 403)) return handleAuthOrError(err);
@@ -2103,6 +2335,7 @@
       const params = nv.status ? { status: nv.status } : {};
       const res = await api.listNurseVisits(params);
       nv.items = (res && (res.items || res.visits)) || (Array.isArray(res) ? res : []);
+      if (nv.items.length > 0 && !getPublishedFormVersionLabel()) ensurePublishedFormVersionLabel();
     } catch (err) {
       nv.error = (err && err.detail) || 'Không tải được danh sách lượt khám đã tạo / đã gửi.';
       if (err && (err.status === 401 || err.status === 403)) return handleAuthOrError(err);
@@ -2373,6 +2606,7 @@
       enc.access = detail.access || (ptRes.patient && ptRes.patient.access) || null;
       enc.visit = detail.visit;
       enc.formStructure = formRes;
+      recordPublishedFormVersion(formRes && formRes.formVersion);
       enc.isV2 = isFormV2(formRes.formVersion, formRes.sections);
       enc.isV12 = isFormV12(formRes.formVersion, formRes.fieldDefinitions, formRes.sections);
       enc.nurseSectionsUnlocked = false;
@@ -2489,6 +2723,7 @@
       rev.revisions = visitDetail.revisions || [];
       rev.patient = ptRes.patient;
       rev.formVersion = formRes.formVersion;
+      recordPublishedFormVersion(formRes && formRes.formVersion);
       rev.data = reviewRes;
     } catch (err) {
       rev.visit = null;
@@ -2543,6 +2778,7 @@
       if (af.template) {
         const verRes = await api.listFormVersions(af.template.id, {});
         af.versions = (verRes && verRes.items) || [];
+        af.versions.forEach(recordPublishedFormVersion);
         const chosenId = keepVersionId || af.selectedVersionId ||
           (af.versions.find(function (v) { return v.status === 'draft'; }) ||
            af.versions.find(function (v) { return v.status === 'published'; }) ||
@@ -2570,6 +2806,7 @@
     try {
       const detail = await api.getFormVersion(versionId);
       af.versionDetail = detail;
+      recordPublishedFormVersion(detail && detail.formVersion);
       af.draftSections = clone(detail.sections || []);
       af.draftDirty = false;
       if (af.draftSections.length > 0 && !af.draftSections.some(function (s) { return s.sectionCode === af.selectedSectionCode; })) {
@@ -2724,7 +2961,7 @@
         '<main class="login-panel">' +
           '<div class="login-card">' +
             '<h2 class="login-card__title">Đăng nhập</h2>' +
-            '<p class="login-card__sub">Dành cho Bác sĩ và Quản trị viên.</p>' +
+            '<p class="login-card__sub">Dành cho Bác sĩ, Nhân viên y tế và Quản trị viên.</p>' +
             (lf.error ? (
               '<div class="banner banner--error" role="alert">' +
                 '<div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(lf.error) + '</p></div></div>' +
@@ -7205,6 +7442,8 @@
     wf.isPharmacistView = Boolean(state.user && state.user.role === 'pharmacist');
     if (!o.silent) render();
 
+    let visitDetailP = null;
+    let formResP = null;
     try {
       if (wf.isPharmacistView) {
         const res = await api.getVisitWorkflow(visitId, { module: 'm4' });
@@ -7212,11 +7451,13 @@
         wf.activeModule = 'm4';
         if (res && res.output) wfSyncM4DraftFromOutput(wf, res.output, false);
       } else {
+        visitDetailP = api.getVisit(visitId).catch(function () { return null; });
+        formResP = api.getVisitForm(visitId).catch(function () { return null; });
         const [wfRes, fieldsRes, visitDetail, formRes] = await Promise.all([
           api.getVisitWorkflow(visitId),
           api.getWorkflowFields(visitId, 'm2').catch(function () { return null; }),
-          api.getVisit(visitId).catch(function () { return null; }),
-          api.getVisitForm(visitId).catch(function () { return null; })
+          visitDetailP,
+          formResP
         ]);
         wf.data = wfRes;
         if (fieldsRes) {
@@ -7240,7 +7481,10 @@
             wf.fieldMetadata = clone(visitDetail.fieldMetadata);
           }
         }
-        if (formRes) wf.formRes = formRes;
+        if (formRes) {
+          wf.formRes = formRes;
+          recordPublishedFormVersion(formRes.formVersion);
+        }
         if (wf.visit && wf.visit.patientId && (!wf.patient || wf.patient.id !== wf.visit.patientId)) {
           try {
             const ptRes = await api.getPatient(wf.visit.patientId);
@@ -7280,15 +7524,32 @@
       wf.errorCode = (err && err.code) || '';
       if (isVisitLockedError(err)) return handleVisitLockedError(err, visitId);
       if (err && err.status === 401) return handleAuthOrError(err);
-      if (err && err.status === 403) {
-        wf.error = 'Bạn không có quyền thực hiện thao tác này trên luồng 4 Module AI.';
-      } else if (err && err.status === 404) {
-        wf.error = NOT_FOUND_OR_NO_ACCESS_MSG;
-      } else if (err && err.status === 0) {
-        wf.error = 'Không thể kết nối máy chủ — dữ liệu chưa được chạy hoặc chốt. Kiểm tra mạng và thử lại.';
-      } else {
-        wf.error = (err && err.detail) || 'Không tải được trạng thái luồng 4 Module AI.';
+      let errFormVerLabel = '';
+      if (wf.errorCode === 'FORM_VERSION_NOT_WORKFLOW_CAPABLE' && !wf.isPharmacistView) {
+        try {
+          const [vd, fr] = await Promise.all([
+            visitDetailP || api.getVisit(visitId).catch(function () { return null; }),
+            formResP || api.getVisitForm(visitId).catch(function () { return null; })
+          ]);
+          if (vd && vd.visit) {
+            wf.visitDetail = vd;
+            wf.visit = vd.visit;
+          }
+          if (fr) {
+            wf.formRes = fr;
+            recordPublishedFormVersion(fr.formVersion);
+          }
+          errFormVerLabel = String(
+            (fr && fr.formVersion && fr.formVersion.versionLabel) ||
+            (vd && vd.visit && vd.visit.formVersionLabel) ||
+            ''
+          ).trim();
+        } catch (_ignored) {}
       }
+      wf.error = formatWorkflowError(err, {
+        formVersionLabel: errFormVerLabel,
+        fallback: 'Không tải được trạng thái Luồng 4 Module AI.'
+      });
     } finally {
       wf.loading = false;
       render();
@@ -7367,18 +7628,13 @@
       handleAuthOrError(err);
       return;
     }
-    if (status === 403) {
-      wf.bannerError = 'Bạn không có quyền thực hiện thao tác này trên luồng 4 Module AI.';
-    } else if (status === 409) {
-      if (code === 'WORKFLOW_UPSTREAM_NOT_ACCEPTED') {
-        const prevNum = Math.max(1, meta.num - 1);
-        wf.bannerError = 'Không thể chạy Module ' + meta.num + ': Module ' + prevNum + ' chưa được chốt hoặc đang ở trạng thái cần chạy lại. Vui lòng hoàn tất Module ' + prevNum + ' trước.';
-      } else if (code === 'CONCURRENCY_ROW_VERSION_MISMATCH' || code === 'WORKFLOW_RESULT_STALE' || code === 'INPUT_CHANGED_DURING_RUN') {
-        wf.bannerError = 'Lượt khám vừa được cập nhật ở phiên khác (HTTP 409). Hãy tải lại dữ liệu mới nhất trước khi tiếp tục.';
-      } else {
-        wf.bannerError = (err && err.detail) || ('Xung đột trạng thái workflow (HTTP 409) tại Module ' + meta.num + '.');
-      }
-    } else if (status === 422) {
+    const wfVerLabel = String(
+      (wf.formRes && wf.formRes.formVersion && wf.formRes.formVersion.versionLabel) ||
+      (wf.visit && wf.visit.formVersionLabel) ||
+      (wf.data && wf.data.formVersionLabel) ||
+      ''
+    ).trim();
+    if (status === 422) {
       const errs = Array.isArray(err && err.errors) ? err.errors : [];
       wf.bannerErrorFields = errs;
       errs.forEach(function (e) {
@@ -7386,12 +7642,20 @@
       });
       wf.bannerError = errs.length > 0
         ? ('Chưa thể chạy Module ' + meta.num + ': phát hiện ' + errs.length + ' trường thiếu hoặc ngoài khoảng hợp lệ. Bấm vào từng mục bên dưới để nhảy tới ô cần sửa.')
-        : ((err && err.detail) || ('Dữ liệu chưa hợp lệ (HTTP 422) tại Module ' + meta.num + '.'));
-    } else if (status === 0 || status === 503 || status === 504) {
-      wf.bannerError = 'Không thể kết nối máy chủ — dữ liệu chưa được chạy hoặc chốt. Kiểm tra mạng và thử lại.';
-    } else {
-      wf.bannerError = (err && err.detail) || 'Đã xảy ra lỗi khi xử lý yêu cầu workflow.';
+        : formatWorkflowError(err, {
+            moduleNum: meta.num,
+            formVersionLabel: wfVerLabel,
+            fallback: 'Dữ liệu chưa hợp lệ (HTTP 422) tại Module ' + meta.num + '.'
+          });
+      return;
     }
+    wf.bannerError = formatWorkflowError(err, {
+      moduleNum: meta.num,
+      formVersionLabel: wfVerLabel,
+      fallback: status === 409
+        ? ('Xung đột trạng thái workflow (HTTP 409) tại Module ' + meta.num + '.')
+        : 'Đã xảy ra lỗi khi xử lý yêu cầu workflow.'
+    });
   }
 
   async function wfSaveRecentTestEvidence(opts) {
@@ -8537,15 +8801,25 @@
       return renderShell('<span class="breadcrumbs__current">Đang tải luồng 4 Module AI...</span>', '<div class="skeleton-stack"><div class="skeleton-bar"></div><div class="skeleton-card"></div></div>');
     }
     if (wf.error || !wf.data) {
+      const canOpenVisit = !wf.isPharmacistView && Boolean(wf.visitId) && wf.errorStatus !== 404 && wf.errorStatus !== 403;
+      const visitFormBtn = canOpenVisit
+        ? '<button type="button" class="btn btn--primary btn--sm" data-nav="#/visits/' + esc(wf.visitId) + '">' + ICONS.arrowLeft + ' Về biểu mẫu lượt khám</button>'
+        : '';
+      const visitReviewBtn = canOpenVisit
+        ? '<button type="button" class="btn btn--secondary btn--sm" data-nav="#/visits/' + esc(wf.visitId) + '/review">Về Xem lại &amp; Xác nhận</button>'
+        : '';
       const backBtn = wf.isPharmacistView
         ? ''
         : '<button type="button" class="btn btn--secondary btn--sm" data-nav="#/patients">Quay lại danh sách</button>';
       const retryBtn = wf.errorStatus === 0 && wf.visitId
         ? '<button type="button" class="btn btn--primary btn--sm" data-wf-reload="1">Thử lại</button>'
         : '';
+      const errTitle = wf.errorCode === 'FORM_VERSION_NOT_WORKFLOW_CAPABLE'
+        ? '<p class="banner__title">Không hỗ trợ Luồng 4 Module AI cho biểu mẫu cũ</p>'
+        : '';
       return renderShell(
         '<span class="breadcrumbs__current">Luồng 4 Module AI</span>',
-        '<div class="banner banner--error" role="alert"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(wf.error || NOT_FOUND_OR_NO_ACCESS_MSG) + '</p></div></div><div style="display:flex;gap:8px;">' + retryBtn + backBtn + '</div></div>'
+        '<div class="banner banner--error" role="alert" data-wf-error-code="' + esc(wf.errorCode || '') + '"><div class="banner__main">' + ICONS.alert + '<div>' + errTitle + '<p class="banner__desc">' + esc(wf.error || NOT_FOUND_OR_NO_ACCESS_MSG) + '</p></div></div><div class="banner__actions">' + retryBtn + visitFormBtn + visitReviewBtn + backBtn + '</div></div>'
       );
     }
 
@@ -9523,11 +9797,16 @@
 
     if (m.type === 'create-visit') {
       const d = m.data;
+      const isNurse = Boolean(state.user && state.user.role === 'nurse');
+      const pubVer = getPublishedFormVersionLabel();
+      const formVersionPhrase = pubVer
+        ? ('phiên bản biểu mẫu <strong>' + esc(pubVer) + '</strong> đang dùng')
+        : 'phiên bản biểu mẫu đang dùng';
       html =
         '<div class="modal__head"><h2 class="modal__title" id="modal-title">Tạo lượt khám mới</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Đóng">' + ICONS.x + '</button></div>' +
         '<div class="modal__body">' +
-          '<div class="banner banner--blue" style="margin-bottom:0;"><div class="banner__main">' + ICONS.shield + '<div><p class="banner__desc">Lượt khám mới áp dụng phiên bản biểu mẫu <strong>Đang dùng</strong> hiện hành với các ô dữ liệu trống; hệ thống không tự sao chép sinh hiệu, thuốc hay cận lâm sàng từ lượt cũ.</p></div></div></div>' +
-          (m.error ? '<div class="banner banner--error"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(m.error) + '</p></div></div></div>' : '') +
+          '<div class="banner banner--blue" style="margin-bottom:0;" data-create-visit-form-version="' + esc(pubVer) + '"><div class="banner__main">' + ICONS.shield + '<div><p class="banner__desc">Lượt khám mới áp dụng ' + formVersionPhrase + ' với các ô dữ liệu trống; hệ thống không tự sao chép sinh hiệu, thuốc hay cận lâm sàng từ lượt cũ.</p></div></div></div>' +
+          (m.error ? '<div class="banner banner--error" role="alert" data-create-visit-error="1" style="margin-bottom:0;"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__title">Không thể tạo lượt khám</p><p class="banner__desc">' + esc(m.error) + '</p></div></div></div>' : '') +
           '<div class="field"><label class="field__label" for="mv-date">Thời điểm khám *</label><input id="mv-date" type="datetime-local" class="input" value="' + esc(d.visitDateLocal) + '"></div>' +
           '<div class="field"><label class="field__label" for="mv-type">Loại lượt khám *</label><select id="mv-type" class="select">' +
             '<option value=""' + (!d.visitType ? ' selected' : '') + '>-- Chưa chọn --</option>' +
@@ -9535,7 +9814,7 @@
             '<option value="follow_up"' + (d.visitType === 'follow_up' ? ' selected' : '') + '>Tái khám</option>' +
             '<option value="acute_inpatient"' + (d.visitType === 'acute_inpatient' ? ' selected' : '') + '>Đợt cấp / Nhập viện</option>' +
           '</select></div>' +
-          '<div class="field"><label class="field__label" for="mv-reason">Lý do khám ngắn gọn (tùy chọn)</label><textarea id="mv-reason" class="textarea" placeholder="VD: Khó thở khi gắng sức tăng nhẹ 1 tuần nay">' + esc(d.chiefComplaint) + '</textarea></div>' +
+          (!isNurse ? '<div class="field"><label class="field__label" for="mv-reason">Lý do khám ngắn gọn (tùy chọn)</label><textarea id="mv-reason" class="textarea" placeholder="VD: Khó thở khi gắng sức tăng nhẹ 1 tuần nay">' + esc(d.chiefComplaint) + '</textarea></div>' : '') +
         '</div>' +
         '<div class="modal__foot">' +
           '<button type="button" class="btn btn--secondary" data-action="close-modal">Hủy</button>' +
@@ -11058,12 +11337,7 @@
     // V1 Nurse create visit directly from Intake patient row
     const nurseCreateForPt = target.getAttribute('data-nurse-create-visit');
     if (nurseCreateForPt) {
-      openModal({
-        type: 'create-visit',
-        patientId: nurseCreateForPt,
-        data: { visitDateLocal: toDatetimeLocal(new Date().toISOString()), visitType: 'outpatient_new', chiefComplaint: '' },
-        error: ''
-      });
+      openCreateVisitModal(nurseCreateForPt, 'outpatient_new');
       return;
     }
 
@@ -11806,6 +12080,8 @@
       try { await api.logout(); } catch (_ignored) {}
       state.loggingOut = false;
       state.user = null;
+      state.publishedFormVersionLabel = '';
+      state.publishedFormVersionProbing = false;
       state.encounter.dirty = false;
       state.login.error = '';
       toast('Đã đăng xuất an toàn.', 'success');
@@ -12018,38 +12294,46 @@
     }
     if (action === 'open-create-visit' && state.profile.patient) {
       const suggestedType = (state.profile.visits || []).length === 0 ? 'outpatient_new' : '';
-      openModal({
-        type: 'create-visit',
-        patientId: state.profile.patient.id,
-        data: { visitDateLocal: toDatetimeLocal(new Date().toISOString()), visitType: suggestedType, chiefComplaint: '' },
-        error: ''
-      });
+      openCreateVisitModal(state.profile.patient.id, suggestedType);
       return;
     }
     if (action === 'submit-create-visit' && state.modal && state.modal.type === 'create-visit') {
       const m = state.modal;
+      const isNurse = Boolean(state.user && state.user.role === 'nurse');
       const dtLocal = (document.getElementById('mv-date') || {}).value;
       const vt = (document.getElementById('mv-type') || {}).value || '';
-      const cc = ((document.getElementById('mv-reason') || {}).value || '').trim() || null;
       m.data.visitDateLocal = dtLocal;
       m.data.visitType = vt;
-      m.data.chiefComplaint = cc || '';
+      const payload = {
+        visitDate: fromDatetimeLocal(dtLocal),
+        visitType: vt
+      };
+      if (!isNurse) {
+        const cc = ((document.getElementById('mv-reason') || {}).value || '').trim() || null;
+        m.data.chiefComplaint = cc || '';
+        payload.chiefComplaint = cc;
+      }
+      if (!dtLocal) {
+        m.error = 'Vui lòng chọn thời điểm khám.';
+        renderModal();
+        return;
+      }
       if (!vt) {
         m.error = 'Vui lòng chọn loại lượt khám (Khám mới, Tái khám hoặc Đợt cấp / Nhập viện).';
         renderModal();
         return;
       }
+      m.error = '';
       try {
-        const created = await api.createVisit(m.patientId, {
-          visitDate: fromDatetimeLocal(dtLocal),
-          visitType: vt,
-          chiefComplaint: cc
-        });
+        const created = await api.createVisit(m.patientId, payload);
+        if (created && created.formVersionLabel) {
+          state.publishedFormVersionLabel = String(created.formVersionLabel).trim();
+        }
         closeModal();
         toast('Đã tạo lượt khám ' + created.visitCode + '.', 'success');
         navigate('#/visits/' + created.id, true);
       } catch (err) {
-        m.error = (err && err.detail) || 'Không thể tạo lượt khám mới.';
+        m.error = formatCreateVisitError(err);
         renderModal();
       }
       return;
@@ -12452,6 +12736,7 @@
         }
         const curVer = af.versionDetail.formVersion;
         await api.publishFormVersion(curVer.id, { rowVersion: curVer.rowVersion, changeNote: af.publishNote || curVer.changeNote }, curVer.rowVersion);
+        if (curVer.versionLabel) state.publishedFormVersionLabel = String(curVer.versionLabel).trim();
         af.publishNote = '';
         toast('Đã phát hành phiên bản ' + curVer.versionLabel + ' cho các lượt khám mới.', 'success');
         await loadAdminForms(curVer.id);
