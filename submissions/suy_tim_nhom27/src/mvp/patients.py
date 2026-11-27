@@ -276,12 +276,17 @@ def allergy_row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+_HIS_CODE_MAX_LEN = 20
+_HIS_CODE_RE = re.compile(r"^[A-Za-z0-9._/-]+$")
+
+
 def _validate_patient_fields(
     *,
     full_name: str,
     birth_date: date | None,
     birth_year: int | None,
     declared_age: int | None,
+    external_patient_code: str | None = None,
 ) -> None:
     errors: list[dict[str, Any]] = []
     if len(full_name.strip()) < 2:
@@ -293,6 +298,25 @@ def _validate_patient_fields(
                 "rejectedValue": full_name,
             }
         )
+    if external_patient_code is not None:
+        if len(external_patient_code) > _HIS_CODE_MAX_LEN:
+            errors.append(
+                {
+                    "fieldCode": "externalPatientCode",
+                    "sectionCode": "hanh_chinh",
+                    "message": f"Mã HIS (Số vào viện) tối đa {_HIS_CODE_MAX_LEN} ký tự (hiện có {len(external_patient_code)} ký tự).",
+                    "rejectedValue": external_patient_code,
+                }
+            )
+        elif not _HIS_CODE_RE.fullmatch(external_patient_code):
+            errors.append(
+                {
+                    "fieldCode": "externalPatientCode",
+                    "sectionCode": "hanh_chinh",
+                    "message": 'Mã HIS (Số vào viện) chỉ gồm chữ cái không dấu, chữ số hoặc ký tự "-", "_", "/", ".", không chứa khoảng trắng.',
+                    "rejectedValue": external_patient_code,
+                }
+            )
     non_null_precisions = sum(
         1 for x in (birth_date, birth_year, declared_age) if x is not None
     )
@@ -352,6 +376,7 @@ def list_patients(
     request: Request,
     q: str | None = Query(default=None, max_length=100),
     latestVisitStatus: Literal["draft", "intake", "waiting", "in_progress", "confirmed", "none"] | None = Query(default=None),
+    recordStatus: Literal["active", "locked"] | None = Query(default=None),
     page: int = Query(default=1, ge=1),
     pageSize: int = Query(default=20, ge=1, le=100),
     principal: Principal = Depends(_require_doctor_patient),
@@ -375,6 +400,11 @@ def list_patients(
         has_rs = has_record_status_schema(conn)
         if has_rs:
             where_clauses.append("p.record_status <> 'archived'")
+            if recordStatus is not None:
+                where_clauses.append("p.record_status = %s")
+                params.append(recordStatus)
+        elif recordStatus == "locked":
+            where_clauses.append("FALSE")
         where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
         rs_join = "LEFT JOIN app_user prs ON prs.id = p.record_status_updated_by" if has_rs else ""
         rs_select = "prs.full_name AS record_status_updated_by_name," if has_rs else "NULL AS record_status_updated_by_name,"
@@ -454,13 +484,14 @@ def create_patient(
     principal: Principal = Depends(_require_doctor_patient),
 ) -> dict[str, Any]:
     full_name = body.fullName.strip()
+    ext_code = body.externalPatientCode.strip() if body.externalPatientCode else None
     _validate_patient_fields(
         full_name=full_name,
         birth_date=body.birthDate,
         birth_year=None,
         declared_age=None,
+        external_patient_code=ext_code,
     )
-    ext_code = body.externalPatientCode.strip() if body.externalPatientCode else None
 
     pool = request.app.state.pool
     req_id = get_request_id(request)
@@ -631,8 +662,13 @@ def update_patient(
         new_birth_date = body.birthDate
         new_birth_year = new_declared_age = None
         new_cccd = body.cccd if 'cccd' in fset else pt.get('cccd')
-        _validate_patient_fields(full_name=new_full_name,birth_date=new_birth_date,
-                                 birth_year=None,declared_age=None)
+        _validate_patient_fields(
+            full_name=new_full_name,
+            birth_date=new_birth_date,
+            birth_year=None,
+            declared_age=None,
+            external_patient_code=new_ext_code if "externalPatientCode" in fset else None,
+        )
 
         updated = conn.execute(
             """

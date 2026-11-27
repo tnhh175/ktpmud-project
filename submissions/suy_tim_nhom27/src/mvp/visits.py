@@ -2410,6 +2410,72 @@ def confirm_visit(
                 errors=review_payload["tier3ConfirmErrors"],
             )
 
+        # UI-09: Cho phép kết thúc lượt khám khi chưa chốt đủ 4 Module AI (0, một phần, hoặc đủ 4),
+        # nhưng vẫn bắt buộc xử lý các điều kiện an toàn: kết quả đã lỗi thời (stale) và cảnh báo
+        # an toàn thuốc mức Nghiêm trọng chưa được bác sĩ xác nhận ở Module 4.
+        fv_row_chk = conn.execute(
+            "SELECT version_label FROM form_version WHERE id = %s",
+            (str(v_row["form_version_id"]),),
+        ).fetchone()
+        if (
+            fv_row_chk
+            and fv_row_chk["version_label"] in ("v1.2", "v2.0")
+            and conn.execute("SELECT to_regclass('ai_workflow') AS relation").fetchone()["relation"]
+        ):
+            wf_row = conn.execute(
+                "SELECT * FROM ai_workflow WHERE visit_id = %s FOR UPDATE",
+                (str(visitId),),
+            ).fetchone()
+            if wf_row:
+                from .workflow import MODULES as WF_MODULES, state as wf_state_fn, synchronize_source
+                synchronize_source(conn, v_row, wf_row, request, principal)
+                wf_view = wf_state_fn(conn, v_row, wf_row)
+                ever_decided = {
+                    r["module"]
+                    for r in conn.execute(
+                        "SELECT DISTINCT module FROM ai_module_decision WHERE visit_id = %s",
+                        (str(visitId),),
+                    ).fetchall()
+                }
+                stale_mods = [
+                    m for m in WF_MODULES
+                    if wf_view["modules"][m]["state"] == "stale" and m in ever_decided
+                ]
+                if stale_mods:
+                    labels = ", ".join(m.upper() for m in stale_mods)
+                    raise ProblemError(
+                        422,
+                        "WORKFLOW_STALE_MODULES_UNRESOLVED",
+                        "Có kết quả Module AI cần đánh giá lại",
+                        f"Kết quả của {labels} không còn hợp lệ do dữ liệu đã thay đổi. Vui lòng chạy lại và chốt lại trước khi kết thúc lượt khám.",
+                        current_row_version=current_rv,
+                        errors=[
+                            {
+                                "fieldCode": m,
+                                "message": f"Module {m.upper()} cần chạy lại và chốt lại trước khi kết thúc lượt khám.",
+                                "rejectedValue": None,
+                            }
+                            for m in stale_mods
+                        ],
+                    )
+                pending_serious = wf_view.get("pendingSeriousAlertIds") or []
+                if pending_serious:
+                    raise ProblemError(
+                        422,
+                        "M4_SERIOUS_ALERT_UNRESOLVED",
+                        "Còn cảnh báo an toàn thuốc nghiêm trọng chưa xác nhận",
+                        f"Còn {len(pending_serious)} cảnh báo mức Nghiêm trọng ở Module 4 chưa được bác sĩ xác nhận kèm lý do. Vui lòng xử lý trước khi kết thúc lượt khám.",
+                        current_row_version=current_rv,
+                        errors=[
+                            {
+                                "fieldCode": aid,
+                                "message": "Cảnh báo an toàn thuốc mức Nghiêm trọng chưa được xác nhận kèm lý do.",
+                                "rejectedValue": None,
+                            }
+                            for aid in pending_serious
+                        ],
+                    )
+
         rev_seq_row = conn.execute(
             "SELECT COALESCE(MAX(revision_no), 0) + 1 AS next_rev FROM visit_revision WHERE visit_id = %s",
             (str(visitId),),

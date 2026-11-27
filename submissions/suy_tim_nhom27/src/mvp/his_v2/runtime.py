@@ -81,7 +81,7 @@ def project_fields(fields,detail,patient,visit,options=None):
         option=(options or {}).get(row.get('fieldOptionId'))
         if option:
             value=int(option) if option.isdigit() else option
-            if row['fieldCode']=='egfr_formula':value={'ckd_epi_2021':'CKD-EPI 2021'}.get(value,value)
+            if row['fieldCode']=='egfr_formula':value={'ckd_epi_2021':'CKD-EPI 2021','mdrd':'MDRD','cockcroft_gault':'Cockcroft-Gault','unknown':'Không rõ'}.get(value,value)
             fields[canonical_code(row['fieldCode'])]={'value_state':row['valueState'],'value':value}
     raw=fields.get('medications',{})
     if raw.get('value_state')=='answered':

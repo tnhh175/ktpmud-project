@@ -326,7 +326,7 @@ class CreatePatientRequest(BaseModel):
     sex: SexType
     birthDate: date
     cccd: str | None = Field(default=None, pattern=r"^[0-9]{12}$")
-    externalPatientCode: str | None = Field(default=None, max_length=64)
+    externalPatientCode: str | None = None
 
     @field_validator("birthDate", "externalPatientCode", mode="before")
     @classmethod
@@ -342,7 +342,7 @@ class UpdatePatientRequest(BaseModel):
     sex: SexType | None = None
     birthDate: date
     cccd: str | None = Field(default=None, pattern=r"^[0-9]{12}$")
-    externalPatientCode: str | None = Field(default=None, max_length=64)
+    externalPatientCode: str | None = None
 
     @field_validator("birthDate", "externalPatientCode", mode="before")
     @classmethod

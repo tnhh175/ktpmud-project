@@ -122,6 +122,27 @@
     return '';
   }
 
+  const HIS_CODE_MAX_LEN = 20;
+
+  function validateHisCodeValue(raw) {
+    const s = String(raw || '').trim();
+    if (!s) return '';
+    if (s.length > HIS_CODE_MAX_LEN) {
+      return 'Mã HIS (Số vào viện) tối đa ' + HIS_CODE_MAX_LEN + ' ký tự (hiện có ' + s.length + ' ký tự).';
+    }
+    if (!/^[A-Za-z0-9._/-]+$/.test(s)) {
+      return 'Mã HIS (Số vào viện) chỉ gồm chữ cái không dấu, chữ số hoặc ký tự "-", "_", "/", ".", không chứa khoảng trắng.';
+    }
+    return '';
+  }
+
+  function renderHisCodeInline(code, prefix) {
+    if (!code) return '';
+    const full = String(code);
+    const label = (prefix || '') + full;
+    return '<span class="his-code-ellipsis mono" title="' + esc(full) + '">' + esc(label) + '</span>';
+  }
+
   function formatVisitType(vt) {
     if (vt === 'outpatient_new') return 'Khám mới';
     if (vt === 'follow_up') return 'Tái khám';
@@ -262,33 +283,69 @@
   function formatQueueVitalsSummary(v) {
     if (!v || typeof v !== 'object') return '<span class="cell-sub">Chưa ghi nhận sinh hiệu</span>';
     const parts = [];
+    function pushChip(stateCls, iconChar, text, titleText) {
+      const iconHtml = iconChar ? ('<span class="vital-chip__icon" aria-hidden="true">' + iconChar + '</span>') : '';
+      parts.push(
+        '<span class="vital-chip ' + stateCls + '" title="' + esc(titleText) + '" aria-label="' + esc(text + ' — ' + titleText) + '">' +
+          iconHtml + '<span>' + esc(text) + '</span>' +
+        '</span>'
+      );
+    }
     if (v.sbp != null || v.dbp != null) {
-      const sbpNum = v.sbp != null ? Number(v.sbp) : null;
-      const warn = sbpNum !== null && sbpNum < 90;
-      parts.push('<span class="vital-chip' + (warn ? ' vital-chip--alert' : '') + '">HA ' + esc(v.sbp != null ? v.sbp : 'Chưa rõ') + '/' + esc(v.dbp != null ? v.dbp : 'Chưa rõ') + '</span>');
+      const sbpNum = (v.sbp != null && v.sbp !== '' && typeof v.sbp !== 'boolean') ? Number(v.sbp) : NaN;
+      const dbpNum = (v.dbp != null && v.dbp !== '' && typeof v.dbp !== 'boolean') ? Number(v.dbp) : NaN;
+      const sbpValid = isFinite(sbpNum) && sbpNum > 0;
+      const sbpText = sbpValid ? String(v.sbp) : 'Chưa rõ';
+      const dbpText = (isFinite(dbpNum) && dbpNum > 0) ? String(v.dbp) : 'Chưa rõ';
+      const label = 'HA ' + sbpText + '/' + dbpText + ' mmHg';
+      if (!sbpValid) {
+        pushChip('vital-chip--neutral', '', label, 'Thiếu HA tâm thu — chưa đủ căn cứ đánh giá ngưỡng');
+      } else if (sbpNum < 90) {
+        pushChip('vital-chip--alert', '!', label, 'Bất thường: HA tâm thu < 90 mmHg (ngoài ngưỡng cảnh báo)');
+      } else {
+        pushChip('vital-chip--ok', '✓', label, 'Bình thường theo ngưỡng cảnh báo hiện hành (HA tâm thu ≥ 90 mmHg)');
+      }
     }
-    if (v.hr != null) {
+    if (v.hr != null && v.hr !== '' && typeof v.hr !== 'boolean') {
       const hrNum = Number(v.hr);
-      const warn = isFinite(hrNum) && (hrNum < 40 || hrNum > 130);
-      parts.push('<span class="vital-chip' + (warn ? ' vital-chip--alert' : '') + '">M ' + esc(v.hr) + '</span>');
+      const label = 'M ' + String(v.hr) + ' l/p';
+      if (!isFinite(hrNum) || hrNum <= 0) {
+        pushChip('vital-chip--neutral', '', label, 'Giá trị mạch chưa hợp lệ — chưa đánh giá');
+      } else if (hrNum < 40 || hrNum > 130) {
+        pushChip('vital-chip--alert', '!', label, 'Bất thường: Mạch ngoài ngưỡng 40–130 lần/phút');
+      } else {
+        pushChip('vital-chip--ok', '✓', label, 'Bình thường theo ngưỡng hiện hành (40–130 lần/phút)');
+      }
     }
-    if (v.rr != null) {
+    if (v.rr != null && v.rr !== '' && typeof v.rr !== 'boolean') {
       const rrNum = Number(v.rr);
-      const warn = isFinite(rrNum) && rrNum > 25;
-      parts.push('<span class="vital-chip' + (warn ? ' vital-chip--alert' : '') + '">NT ' + esc(v.rr) + '</span>');
+      const label = 'NT ' + String(v.rr) + ' l/p';
+      if (!isFinite(rrNum) || rrNum <= 0) {
+        pushChip('vital-chip--neutral', '', label, 'Giá trị nhịp thở chưa hợp lệ — chưa đánh giá');
+      } else if (rrNum > 25) {
+        pushChip('vital-chip--alert', '!', label, 'Bất thường: Nhịp thở > 25 lần/phút (ngoài ngưỡng cảnh báo)');
+      } else {
+        pushChip('vital-chip--ok', '✓', label, 'Bình thường theo ngưỡng hiện hành (≤ 25 lần/phút)');
+      }
     }
-    if (v.spo2 != null) {
+    if (v.spo2 != null && v.spo2 !== '' && typeof v.spo2 !== 'boolean') {
       const spNum = Number(v.spo2);
-      const warn = isFinite(spNum) && spNum < 90;
-      parts.push('<span class="vital-chip' + (warn ? ' vital-chip--alert' : '') + '">SpO₂ ' + esc(v.spo2) + '%</span>');
+      const label = 'SpO₂ ' + String(v.spo2) + '%';
+      if (!isFinite(spNum) || spNum <= 0 || spNum > 100) {
+        pushChip('vital-chip--neutral', '', label, 'Giá trị SpO₂ chưa hợp lệ — chưa đánh giá');
+      } else if (spNum < 90) {
+        pushChip('vital-chip--alert', '!', label, 'Bất thường: SpO₂ < 90% (ngoài ngưỡng cảnh báo)');
+      } else {
+        pushChip('vital-chip--ok', '✓', label, 'Bình thường theo ngưỡng hiện hành (SpO₂ ≥ 90%)');
+      }
     }
-    if (v.bmi != null) {
-      parts.push('<span class="vital-chip">BMI ' + esc(v.bmi) + '</span>');
+    if (v.bmi != null && v.bmi !== '' && isFinite(Number(v.bmi))) {
+      pushChip('vital-chip--neutral', '', 'BMI ' + String(v.bmi) + ' kg/m²', 'Chưa đánh giá ngưỡng sinh hiệu tự động (BMI chỉ dùng gợi ý béo phì ≥ 25 ở biểu mẫu bác sĩ)');
     } else if (v.weightKg != null || v.heightCm != null) {
       const hw = [];
-      if (v.heightCm != null) hw.push(v.heightCm + 'cm');
-      if (v.weightKg != null) hw.push(v.weightKg + 'kg');
-      parts.push('<span class="vital-chip">' + esc(hw.join(' / ')) + '</span>');
+      if (v.heightCm != null) hw.push(v.heightCm + ' cm');
+      if (v.weightKg != null) hw.push(v.weightKg + ' kg');
+      pushChip('vital-chip--neutral', '', hw.join(' / '), 'Chỉ số nhân trắc — chưa đánh giá ngưỡng');
     }
     if (parts.length === 0) return '<span class="cell-sub">Chưa ghi nhận sinh hiệu</span>';
     return '<div class="vital-chips">' + parts.join('') + '</div>';
@@ -1654,7 +1711,7 @@
     login: { username: '', password: '', showPassword: false, error: '', submitting: false },
 
     // V1 Nurse Intake & Submitted Visits
-    nurseIntake: { q: '', items: [], loading: false, error: '' },
+    nurseIntake: { q: '', recordStatus: '', items: [], loading: false, error: '' },
     nurseVisits: { status: '', items: [], loading: false, error: '', withdrawingId: null },
 
     // V2 Doctor Queue & My Visits
@@ -1981,6 +2038,172 @@
     const value = computeBmi(height, weight);
     const output = document.querySelector('[data-field-code="bmi"] .bmi-card__value');
     if (output) output.textContent = value !== null ? value + ' kg/m²' : 'Chưa đủ dữ liệu';
+    refreshEncounterFieldAiStatus('bmi');
+  }
+
+  function buildServerMissingByMod(isV12Mode, workflowSummary, fieldMetaMap) {
+    const serverMissingByMod = {};
+    if (isV12Mode && workflowSummary && workflowSummary.modules) {
+      WF_MODULE_ORDER.forEach(function (m) {
+        const ms = workflowSummary.modules[m];
+        const map = {};
+        if (ms && Array.isArray(ms.missingFieldCodes)) {
+          ms.missingFieldCodes.forEach(function (fc) {
+            const resolved = resolveFormFieldCode(fieldMetaMap, fc);
+            map[resolved] = true;
+            map[fc] = true;
+          });
+        }
+        serverMissingByMod[m] = map;
+      });
+    }
+    return serverMissingByMod;
+  }
+
+  function getLiveFieldStateForCtx(ctx, code, isV12Mode) {
+    if (!ctx) return 'unfilled';
+    if (code === 'luot_tuoi' || code === 'age') {
+      const age = ctx.patient ? computeAge(ctx.patient, ctx.visit && ctx.visit.visitDate) : null;
+      return age !== null ? 'answered' : 'unfilled';
+    }
+    if (code === 'bn_gioi_tinh' || code === 'sex') {
+      return (ctx.patient && (ctx.patient.sex === 'male' || ctx.patient.sex === 'female')) ? 'answered' : 'unfilled';
+    }
+    if (code === 'bmi') {
+      return computeEncounterBmi(ctx) !== null ? 'answered' : 'unfilled';
+    }
+    const unlockedUnknowns = isV12Mode ? (ctx.unlockedUnknownCodes || {}) : {};
+    if (unlockedUnknowns[code]) return 'unfilled';
+    const fd = ctx.defByCode && ctx.defByCode[code];
+    const val = fd && ctx.valuesByDefId ? ctx.valuesByDefId[fd.id] : null;
+    if (val) {
+      if (val.answer && typeof val.answer === 'object') {
+        if (val.answer.value_state === 'unknown') return 'unknown';
+        if (val.answer.value_state === 'answered') {
+          const v = val.answer.value;
+          if (Array.isArray(v)) return 'answered';
+          if (v !== null && v !== undefined && v !== '') return 'answered';
+          return 'unfilled';
+        }
+      }
+      if (val.valueState === 'unknown') return 'unknown';
+      if (val.valueState === 'answered') {
+        if (fd && fd.dataType === 'boolean') return (val.valueBool === true || val.valueBool === false) ? 'answered' : 'unfilled';
+        if (fd && (fd.dataType === 'number' || fd.dataType === 'integer')) return (val.valueNum !== null && val.valueNum !== undefined && val.valueNum !== '' && !isNaN(Number(val.valueNum))) ? 'answered' : 'unfilled';
+        if (fd && fd.dataType === 'single_choice') return val.fieldOptionId ? 'answered' : 'unfilled';
+        if (fd && fd.dataType === 'multi_choice') return (Array.isArray(val.selectedOptions) && val.selectedOptions.length > 0) ? 'answered' : 'unfilled';
+        if (fd && fd.dataType === 'date') return val.valueDate ? 'answered' : 'unfilled';
+        return (val.valueText && String(val.valueText).trim()) ? 'answered' : 'unfilled';
+      }
+    }
+    if (code === 'huyet_ap_tam_thu' || code === 'huyet_ap_tam_truong') {
+      const hasBp = (ctx.orthostaticBp || []).some(function (b) { return b && (code === 'huyet_ap_tam_thu' ? b.systolic != null : b.diastolic != null); });
+      if (hasBp) return 'answered';
+    }
+    if (code === 'medications') {
+      if ((ctx.medications || []).some(isValidMedRow) || ctx.medicationListState === 'none') return 'answered';
+      if (ctx.medicationListState === 'unknown') return 'unknown';
+    }
+    if (code === 'allergies') {
+      if ((ctx.allergies || []).some(isValidAllergyRow) || ctx.allergyListState === 'none') return 'answered';
+      if (ctx.allergyListState === 'unknown') return 'unknown';
+    }
+    if (code === 'diagnoses') {
+      if ((ctx.diagnoses || []).some(isValidDiagnosisRow) || ctx.diagnosisListState === 'none') return 'answered';
+      if (ctx.diagnosisListState === 'unknown') return 'unknown';
+    }
+    return 'unfilled';
+  }
+
+  function getFieldAiStatusForCtx(ctx, code, opts) {
+    const o = opts || {};
+    const isV12Mode = Boolean(o.isV12Mode);
+    const isNurseViewer = Boolean(o.isNurseViewer);
+    if (!isV12Mode || isNurseViewer || !ctx || !code) {
+      return { isAiInput: false, liveState: 'unfilled', missingModules: [], hasError: false };
+    }
+    const fieldMetaMap = o.fieldMetaMap || ctx.fieldMetadata || {};
+    const serverMissingByMod = o.serverMissingByMod || buildServerMissingByMod(isV12Mode, ctx.workflowSummary, fieldMetaMap);
+    const modFilter = o.modFilter !== undefined ? o.modFilter : (ctx.moduleFilter || 'all');
+
+    const meta = getFieldMetaFromApi(fieldMetaMap, code);
+    const modsFromMeta = (meta && meta.input && Array.isArray(meta.modules)) ? meta.modules.slice() : [];
+    const mods = modsFromMeta.slice();
+    WF_MODULE_ORDER.forEach(function (m) {
+      if (serverMissingByMod[m] && serverMissingByMod[m][code] && mods.indexOf(m) < 0) mods.push(m);
+    });
+    if (mods.length === 0) return { isAiInput: false, liveState: 'unfilled', missingModules: [], hasError: false };
+
+    const liveState = getLiveFieldStateForCtx(ctx, code, isV12Mode);
+    const hasError = Boolean(ctx.fieldErrors && ctx.fieldErrors[code]);
+    const isValidAnswered = liveState === 'answered' && !hasError;
+    if (isValidAnswered) {
+      return { isAiInput: true, liveState: liveState, missingModules: [], hasError: false };
+    }
+    // UI-11 / UI-10: unfilled OR Chưa rõ (when AI module needs real value) OR error => orange + missing badge
+    const targetMods = modFilter !== 'all'
+      ? (mods.indexOf(modFilter) >= 0 ? [modFilter] : [])
+      : mods.filter(function (m) {
+          const ms = ctx.workflowSummary && ctx.workflowSummary.modules && ctx.workflowSummary.modules[m];
+          const notYetAccepted = !ms || ms.state !== 'accepted';
+          return (serverMissingByMod[m] && serverMissingByMod[m][code]) || notYetAccepted;
+        });
+    return { isAiInput: true, liveState: liveState, missingModules: targetMods, hasError: hasError };
+  }
+
+  function refreshEncounterFieldAiStatus(fieldCodeOrEl) {
+    if (state.screen !== 'encounter') return;
+    const enc = state.encounter;
+    if (!enc || !enc.isV12) return;
+    const isNurseUser = Boolean(state.user && state.user.role === 'nurse');
+    if (isNurseUser) return;
+
+    let fieldEl = null;
+    let fieldCode = '';
+    if (fieldCodeOrEl && typeof fieldCodeOrEl === 'object' && fieldCodeOrEl.nodeType === 1) {
+      fieldEl = fieldCodeOrEl.closest('[data-field-code]');
+      fieldCode = fieldEl ? (fieldEl.getAttribute('data-field-code') || '') : '';
+    } else if (typeof fieldCodeOrEl === 'string' && fieldCodeOrEl) {
+      fieldCode = fieldCodeOrEl;
+      fieldEl = document.querySelector('[data-field-code="' + CSS.escape(fieldCode) + '"]');
+    }
+    if (!fieldEl || !fieldCode) return;
+
+    const st = getFieldAiStatusForCtx(enc, fieldCode, {
+      isV12Mode: true,
+      isNurseViewer: false
+    });
+    const tagGroup = fieldEl.querySelector('.mod-tag-group');
+    const existingBadge = tagGroup ? tagGroup.querySelector('[data-ai-missing-badge]') : fieldEl.querySelector('[data-ai-missing-badge]');
+
+    if (!st.isAiInput) {
+      fieldEl.classList.remove('field--status-valid', 'field--status-missing', 'field--mod-missing');
+      if (existingBadge) existingBadge.remove();
+      return;
+    }
+    if (st.missingModules.length > 0) {
+      fieldEl.classList.add('field--status-missing', 'field--mod-missing');
+      fieldEl.classList.remove('field--status-valid');
+      if (tagGroup) {
+        const badgeText = 'Thiếu cho ' + st.missingModules.map(function (m) { return m.toUpperCase(); }).join(', ');
+        if (existingBadge) {
+          existingBadge.textContent = badgeText;
+        } else {
+          const b = document.createElement('span');
+          b.className = 'badge badge--warn badge--xs';
+          b.setAttribute('data-ai-missing-badge', fieldCode);
+          b.textContent = badgeText;
+          tagGroup.appendChild(b);
+        }
+      }
+    } else if (st.liveState === 'answered' && !st.hasError) {
+      fieldEl.classList.add('field--status-valid');
+      fieldEl.classList.remove('field--status-missing', 'field--mod-missing');
+      if (existingBadge) existingBadge.remove();
+    } else {
+      fieldEl.classList.remove('field--status-valid', 'field--status-missing', 'field--mod-missing');
+      if (existingBadge) existingBadge.remove();
+    }
   }
 
   function refreshNumericInput(input) {
@@ -2000,49 +2223,8 @@
     } else if (!isZero && zeroChip) {
       zeroChip.remove();
     }
-    // UI-11: Update live AI status color & missing badge immediately on numeric input
-    const tagGroup = field.querySelector('.mod-tag-group');
-    const fieldCode = field.getAttribute('data-field-code') || '';
-    const isNurseUser = Boolean(state.user && state.user.role === 'nurse');
-    if (tagGroup && fieldCode && !isNurseUser && state.screen === 'encounter') {
-      const hasErr = Boolean(input.classList.contains('input--error') || (state.encounter && state.encounter.fieldErrors && state.encounter.fieldErrors[fieldCode]));
-      const isValidNum = input.value !== '' && !isNaN(Number(input.value)) && !hasErr;
-      const existingBadge = tagGroup.querySelector('[data-ai-missing-badge]');
-      if (isValidNum) {
-        field.classList.add('field--status-valid');
-        field.classList.remove('field--status-missing', 'field--mod-missing');
-        if (existingBadge) existingBadge.remove();
-      } else {
-        field.classList.remove('field--status-valid');
-        const modFilter = (state.encounter && state.encounter.moduleFilter) || 'all';
-        const modTags = Array.from(tagGroup.querySelectorAll('.mod-tag')).map(function (el) {
-          return String(el.textContent || '').trim().toLowerCase();
-        }).filter(Boolean);
-        const wfSum = state.encounter && state.encounter.workflowSummary;
-        const missingMods = modFilter !== 'all'
-          ? (modTags.indexOf(modFilter) >= 0 ? [modFilter] : [])
-          : modTags.filter(function (m) {
-              const ms = wfSum && wfSum.modules && wfSum.modules[m];
-              return !ms || ms.state !== 'accepted';
-            });
-        if (missingMods.length > 0) {
-          field.classList.add('field--status-missing', 'field--mod-missing');
-          const badgeText = 'Thiếu cho ' + missingMods.map(function (m) { return m.toUpperCase(); }).join(', ');
-          if (existingBadge) {
-            existingBadge.textContent = badgeText;
-          } else {
-            const b = document.createElement('span');
-            b.className = 'badge badge--warn badge--xs';
-            b.setAttribute('data-ai-missing-badge', fieldCode);
-            b.textContent = badgeText;
-            tagGroup.appendChild(b);
-          }
-        } else {
-          field.classList.remove('field--status-missing', 'field--mod-missing');
-          if (existingBadge) existingBadge.remove();
-        }
-      }
-    }
+    // UI-10 / UI-11: Delegate live AI status color & missing badge update to shared helper
+    refreshEncounterFieldAiStatus(field);
   }
 
   function syncHeartRateFromBp(formTarget, heartRate, sourceIndex) {
@@ -2483,10 +2665,14 @@
     state.nurseIntake.error = '';
     if (!opts) render();
     try {
-      const res = await api.listPatients({
+      const params = {
         q: state.nurseIntake.q,
         pageSize: 50
-      });
+      };
+      if (state.nurseIntake.recordStatus) {
+        params.recordStatus = state.nurseIntake.recordStatus;
+      }
+      const res = await api.listPatients(params);
       if (!isCurrentLiveSearch('nurseIntake', opts)) return;
       state.nurseIntake.items = (res && res.items) || [];
       if (!getPublishedFormVersionLabel()) ensurePublishedFormVersionLabel();
@@ -2662,6 +2848,20 @@
             copy.unit = ans.unit || copy.unit || fd.canonicalUnit || null;
           } else if (fd.dataType === 'text' && copy.valueText == null && ans.value !== null && ans.value !== undefined) {
             copy.valueText = String(ans.value);
+          } else if (fd.dataType === 'date' && copy.valueDate == null && ans.value !== null && ans.value !== undefined) {
+            copy.valueDate = String(ans.value);
+          } else if (fd.dataType === 'single_choice' && copy.fieldOptionId == null && ans.value !== null && ans.value !== undefined) {
+            const matchOpt = (fd.options || []).find(function (o) {
+              return o && (o.optionCode === String(ans.value) || o.id === String(ans.value));
+            });
+            if (matchOpt) copy.fieldOptionId = matchOpt.id;
+          } else if (fd.dataType === 'multi_choice' && (!Array.isArray(copy.selectedOptions) || copy.selectedOptions.length === 0) && Array.isArray(ans.value)) {
+            copy.selectedOptions = ans.value.map(function (codeVal) {
+              const matchOpt = (fd.options || []).find(function (o) {
+                return o && (o.optionCode === String(codeVal) || o.id === String(codeVal));
+              });
+              return matchOpt ? { fieldOptionId: matchOpt.id } : null;
+            }).filter(Boolean);
           }
         }
         delete copy.answer;
@@ -3550,11 +3750,15 @@
       listHtml = '<div class="banner banner--error"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__title">Không tải được danh sách bệnh nhân</p><p class="banner__desc">' + esc(ni.error) + '</p></div></div><button type="button" class="btn btn--secondary btn--sm" data-action="reload-nurse-intake">Thử lại</button></div>';
     } else if (ni.items.length === 0) {
       const hasQ = Boolean(ni.q && ni.q.trim());
+      const hasStatusFilter = Boolean(ni.recordStatus);
       listHtml =
         '<div class="empty-state">' +
-          '<h3 class="empty-state__title">' + (hasQ ? 'Không tìm thấy hồ sơ bệnh nhân phù hợp' : 'Chưa có hồ sơ bệnh nhân nào') + '</h3>' +
-          '<p class="empty-state__desc">' + (hasQ ? 'Kiểm tra lại mã BN, họ tên, số CCCD hoặc tạo hồ sơ bệnh nhân mới.' : 'Bấm "Tạo hồ sơ bệnh nhân" để tiếp nhận người bệnh đầu tiên.') + '</p>' +
-          '<div class="empty-state__actions"><button type="button" class="btn btn--primary" data-action="open-create-patient">' + ICONS.plus + ' Tạo hồ sơ bệnh nhân</button></div>' +
+          '<h3 class="empty-state__title">' + ((hasQ || hasStatusFilter) ? 'Không tìm thấy hồ sơ bệnh nhân phù hợp' : 'Chưa có hồ sơ bệnh nhân nào') + '</h3>' +
+          '<p class="empty-state__desc">' + ((hasQ || hasStatusFilter) ? 'Thử thay đổi bộ lọc trạng thái, kiểm tra lại mã BN, họ tên, số CCCD hoặc mã HIS.' : 'Bấm "Tạo hồ sơ bệnh nhân" để tiếp nhận người bệnh đầu tiên.') + '</p>' +
+          '<div class="empty-state__actions">' +
+            (hasStatusFilter ? '<button type="button" class="btn btn--secondary" data-nurse-intake-status="">Xem tất cả trạng thái</button>' : '') +
+            '<button type="button" class="btn btn--primary" data-action="open-create-patient">' + ICONS.plus + ' Tạo hồ sơ bệnh nhân</button>' +
+          '</div>' +
         '</div>';
     } else {
       const rows = ni.items.map(function (it) {
@@ -3564,7 +3768,7 @@
           '<tr>' +
             '<td><div class="cell-primary mono">' + esc(pt.patientCode) + (isLocked ? ' ' + formatRecordStatusBadge('locked', true) : '') + '</div><div class="cell-sub">' + esc(pt.fullName) + '</div></td>' +
             '<td><div>' + esc(formatSex(pt.sex)) + '</div><div class="cell-sub">' + esc(formatBirthPrecision(pt)) + '</div></td>' +
-            '<td><div class="mono">' + esc(pt.cccd || '—') + '</div><div class="cell-sub mono">' + (pt.externalPatientCode ? ('HIS: ' + esc(pt.externalPatientCode)) : '') + '</div></td>' +
+            '<td><div class="mono">' + esc(pt.cccd || '—') + '</div><div class="cell-sub">' + (pt.externalPatientCode ? renderHisCodeInline(pt.externalPatientCode, 'HIS: ') : '') + '</div></td>' +
             '<td style="text-align:right;white-space:nowrap;"><div class="table-actions">' +
               '<button type="button" class="btn btn--primary btn--sm" data-nurse-create-visit="' + esc(pt.id) + '"' + (isLocked ? ' disabled title="Hồ sơ đã bị khóa — không thể tạo lượt khám mới"' : '') + '>' + ICONS.plus + ' Tạo lượt khám</button>' +
               '<button type="button" class="btn btn--secondary btn--sm" data-nav="#/patients/' + esc(pt.id) + '">Hồ sơ</button>' +
@@ -3584,7 +3788,7 @@
             '</div>' +
             '<div class="record-card__meta">' +
               '<div><span class="record-card__label">Ngày sinh / Tuổi</span>' + esc(formatBirthPrecision(pt)) + '</div>' +
-              '<div><span class="record-card__label">CCCD / Mã HIS</span><span class="mono">' + esc(pt.cccd || '—') + (pt.externalPatientCode ? ' · ' + esc(pt.externalPatientCode) : '') + '</span></div>' +
+              '<div><span class="record-card__label">CCCD / Mã HIS</span><span class="mono">' + esc(pt.cccd || '—') + '</span>' + (pt.externalPatientCode ? (' · ' + renderHisCodeInline(pt.externalPatientCode, '')) : '') + '</div>' +
             '</div>' +
             '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
               '<button type="button" class="btn btn--primary btn--sm" style="flex:1;" data-nurse-create-visit="' + esc(pt.id) + '"' + (isLocked ? ' disabled title="Hồ sơ đã bị khóa"' : '') + '>' + ICONS.plus + ' Tạo lượt khám</button>' +
@@ -3599,6 +3803,15 @@
         '<div class="mobile-cards">' + cards + '</div>';
     }
 
+    const statusFilterHtml = [
+      { v: '', label: 'Tất cả' },
+      { v: 'active', label: 'Đang hoạt động' },
+      { v: 'locked', label: 'Đã khóa' }
+    ].map(function (f) {
+      const active = (ni.recordStatus || '') === f.v;
+      return '<button type="button" class="filter-pill' + (active ? ' is-active' : '') + '" data-nurse-intake-status="' + esc(f.v) + '" aria-pressed="' + (active ? 'true' : 'false') + '">' + esc(f.label) + '</button>';
+    }).join('');
+
     const body =
       '<div class="page-head">' +
         '<div><h1 class="page-head__title">Tiếp nhận bệnh nhân</h1><p class="page-head__sub">Tìm hoặc tạo hồ sơ bệnh nhân, tạo lượt khám mới, nhập Hành chính &amp; Sinh hiệu rồi gửi vào hàng chờ bác sĩ.</p></div>' +
@@ -3609,6 +3822,7 @@
       '</div>' +
       '<div class="toolbar">' +
         '<div class="search-box"><span class="search-box__icon">' + ICONS.search + '</span><input type="search" class="input" id="nurse-intake-search" placeholder="Tìm bệnh nhân theo họ tên, mã BN, số CCCD hoặc mã HIS..." value="' + esc(ni.q) + '"></div>' +
+        '<div class="filter-group" role="group" aria-label="Lọc trạng thái hồ sơ" data-nurse-intake-status-filter="true">' + statusFilterHtml + '</div>' +
       '</div>' +
       listHtml;
 
@@ -3904,7 +4118,7 @@
         return (
           '<tr>' +
             '<td><div class="cell-primary mono">' + esc(pt.patientCode) + (isLocked ? ' ' + formatRecordStatusBadge('locked', true) : '') + '</div><div class="cell-sub">' + esc(pt.fullName) + '</div></td>' +
-            '<td><div class="mono">' + esc(pt.cccd || '—') + '</div><div class="cell-sub mono">' + (pt.externalPatientCode ? ('HIS: ' + esc(pt.externalPatientCode)) : '') + '</div></td>' +
+            '<td><div class="mono">' + esc(pt.cccd || '—') + '</div><div class="cell-sub">' + (pt.externalPatientCode ? renderHisCodeInline(pt.externalPatientCode, 'HIS: ') : '') + '</div></td>' +
             '<td><div>' + esc(formatSex(pt.sex)) + '</div><div class="cell-sub">' + esc(formatBirthPrecision(pt)) + '</div></td>' +
             '<td>' + (it.visitCount > 0 ? ('<div class="tabular">' + esc(formatDateTime(it.latestVisitDate)) + '</div><div class="cell-sub">' + it.visitCount + ' lượt khám</div>') : '<span class="cell-sub">Chưa ghi nhận</span>') + '</td>' +
             '<td>' + formatVisitStatusBadge(it.latestVisitStatus, it.latestVisitId, true) + '</td>' +
@@ -3924,7 +4138,7 @@
             '</div>' +
             '<div class="record-card__meta">' +
               '<div><span class="record-card__label">Giới tính &amp; Ngày sinh</span>' + esc(formatSex(pt.sex) + ' · ' + formatBirthPrecision(pt)) + '</div>' +
-              '<div><span class="record-card__label">CCCD / Mã HIS</span><span class="mono">' + esc(pt.cccd || '—') + (pt.externalPatientCode ? ' · ' + esc(pt.externalPatientCode) : '') + '</span></div>' +
+              '<div><span class="record-card__label">CCCD / Mã HIS</span><span class="mono">' + esc(pt.cccd || '—') + '</span>' + (pt.externalPatientCode ? (' · ' + renderHisCodeInline(pt.externalPatientCode, '')) : '') + '</div>' +
               '<div><span class="record-card__label">Lượt khám gần nhất</span>' + (it.visitCount > 0 ? esc(formatDateTime(it.latestVisitDate) + ' (' + it.visitCount + ' lượt)') : 'Chưa có lượt') + '</div>' +
             '</div>' +
             '<div><button type="button" class="btn btn--secondary btn--sm btn--full" data-nav="#/patients/' + esc(pt.id) + '">Mở hồ sơ ' + ICONS.arrowRight + '</button></div>' +
@@ -4232,7 +4446,7 @@
               '<div><div class="kv-item__label">Giới tính</div><div class="kv-item__value">' + esc(formatSex(pt.sex)) + '</div></div>' +
               '<div><div class="kv-item__label">Ngày sinh / Tuổi</div><div class="kv-item__value">' + esc(formatBirthPrecision(pt)) + '</div></div>' +
               '<div data-profile-cccd="true"><div class="kv-item__label">Số CCCD</div><div class="kv-item__value mono">' + esc(pt.cccd || 'Chưa ghi nhận') + '</div></div>' +
-              '<div data-profile-his="true"><div class="kv-item__label">Mã HIS (Số vào viện)</div><div class="kv-item__value mono">' + esc(pt.externalPatientCode || 'Chưa ghi nhận') + '</div></div>' +
+              '<div data-profile-his="true"><div class="kv-item__label">Mã HIS (Số vào viện)</div><div class="kv-item__value mono his-code-full">' + esc(pt.externalPatientCode || 'Chưa ghi nhận') + '</div></div>' +
               '<div><div class="kv-item__label">Cập nhật gần nhất</div><div class="kv-item__value tabular">' + esc(formatDateTime(pt.updatedAt)) + (lastEditorName ? ' · ' + esc(lastEditorName) : '') + '</div></div>' +
             '</div></div>' +
           '</section>' +
@@ -4989,100 +5203,20 @@
     const showListStates = Boolean(ctx.supportsListStates || isV11Bundle(ctx.formVersion, allSections, ctx.defById));
     const bundleHasVisitNotes = hasVisitNotesPlacements(allSections, ctx.defById);
 
-    const serverMissingByMod = {};
-    if (isV12Mode && ctx.workflowSummary && ctx.workflowSummary.modules) {
-      WF_MODULE_ORDER.forEach(function (m) {
-        const ms = ctx.workflowSummary.modules[m];
-        const map = {};
-        if (ms && Array.isArray(ms.missingFieldCodes)) {
-          ms.missingFieldCodes.forEach(function (fc) {
-            const resolved = resolveFormFieldCode(fieldMetaMap, fc);
-            map[resolved] = true;
-            map[fc] = true;
-          });
-        }
-        serverMissingByMod[m] = map;
-      });
-    }
+    const serverMissingByMod = buildServerMissingByMod(isV12Mode, ctx.workflowSummary, fieldMetaMap);
 
     function getLiveFieldState(code) {
-      if (code === 'luot_tuoi' || code === 'age') {
-        const age = ctx.patient ? computeAge(ctx.patient, ctx.visit && ctx.visit.visitDate) : null;
-        return age !== null ? 'answered' : 'unfilled';
-      }
-      if (code === 'bn_gioi_tinh' || code === 'sex') {
-        return (ctx.patient && (ctx.patient.sex === 'male' || ctx.patient.sex === 'female')) ? 'answered' : 'unfilled';
-      }
-      if (code === 'bmi') {
-        return computeEncounterBmi(ctx) !== null ? 'answered' : 'unfilled';
-      }
-      if (unlockedUnknowns[code]) return 'unfilled';
-      const fd = ctx.defByCode && ctx.defByCode[code];
-      const val = fd && ctx.valuesByDefId ? ctx.valuesByDefId[fd.id] : null;
-      if (val) {
-        if (val.answer && typeof val.answer === 'object') {
-          if (val.answer.value_state === 'unknown') return 'unknown';
-          if (val.answer.value_state === 'answered') {
-            const v = val.answer.value;
-            if (Array.isArray(v)) return 'answered';
-            if (v !== null && v !== undefined && v !== '') return 'answered';
-            return 'unfilled';
-          }
-        }
-        if (val.valueState === 'unknown') return 'unknown';
-        if (val.valueState === 'answered') {
-          if (fd && fd.dataType === 'boolean') return (val.valueBool === true || val.valueBool === false) ? 'answered' : 'unfilled';
-          if (fd && (fd.dataType === 'number' || fd.dataType === 'integer')) return (val.valueNum !== null && val.valueNum !== undefined && val.valueNum !== '' && !isNaN(Number(val.valueNum))) ? 'answered' : 'unfilled';
-          if (fd && fd.dataType === 'single_choice') return val.fieldOptionId ? 'answered' : 'unfilled';
-          if (fd && fd.dataType === 'multi_choice') return (Array.isArray(val.selectedOptions) && val.selectedOptions.length > 0) ? 'answered' : 'unfilled';
-          if (fd && fd.dataType === 'date') return val.valueDate ? 'answered' : 'unfilled';
-          return (val.valueText && String(val.valueText).trim()) ? 'answered' : 'unfilled';
-        }
-      }
-      if (code === 'huyet_ap_tam_thu' || code === 'huyet_ap_tam_truong') {
-        const hasBp = (ctx.orthostaticBp || []).some(function (b) { return b && (code === 'huyet_ap_tam_thu' ? b.systolic != null : b.diastolic != null); });
-        if (hasBp) return 'answered';
-      }
-      if (code === 'medications') {
-        if ((ctx.medications || []).some(isValidMedRow) || ctx.medicationListState === 'none') return 'answered';
-        if (ctx.medicationListState === 'unknown') return 'unknown';
-      }
-      if (code === 'allergies') {
-        if ((ctx.allergies || []).some(isValidAllergyRow) || ctx.allergyListState === 'none') return 'answered';
-        if (ctx.allergyListState === 'unknown') return 'unknown';
-      }
-      if (code === 'diagnoses') {
-        if ((ctx.diagnoses || []).some(isValidDiagnosisRow) || ctx.diagnosisListState === 'none') return 'answered';
-        if (ctx.diagnosisListState === 'unknown') return 'unknown';
-      }
-      return 'unfilled';
+      return getLiveFieldStateForCtx(ctx, code, isV12Mode);
     }
 
     function getFieldAiStatus(code) {
-      if (!isV12Mode || isNurseViewer) return { isAiInput: false, liveState: 'unfilled', missingModules: [], hasError: false };
-      const meta = getFieldMetaFromApi(fieldMetaMap, code);
-      const modsFromMeta = (meta && meta.input && Array.isArray(meta.modules)) ? meta.modules.slice() : [];
-      const mods = modsFromMeta.slice();
-      WF_MODULE_ORDER.forEach(function (m) {
-        if (serverMissingByMod[m] && serverMissingByMod[m][code] && mods.indexOf(m) < 0) mods.push(m);
+      return getFieldAiStatusForCtx(ctx, code, {
+        isV12Mode: isV12Mode,
+        isNurseViewer: isNurseViewer,
+        fieldMetaMap: fieldMetaMap,
+        serverMissingByMod: serverMissingByMod,
+        modFilter: modFilter
       });
-      if (mods.length === 0) return { isAiInput: false, liveState: 'unfilled', missingModules: [], hasError: false };
-
-      const liveState = getLiveFieldState(code);
-      const hasError = Boolean(ctx.fieldErrors && ctx.fieldErrors[code]);
-      const isValidAnswered = liveState === 'answered' && !hasError;
-      if (isValidAnswered) {
-        return { isAiInput: true, liveState: liveState, missingModules: [], hasError: false };
-      }
-      // UI-11: unfilled OR Chưa rõ (when AI module needs real value) OR error => orange + missing badge
-      const targetMods = modFilter !== 'all'
-        ? (mods.indexOf(modFilter) >= 0 ? [modFilter] : [])
-        : mods.filter(function (m) {
-            const ms = ctx.workflowSummary && ctx.workflowSummary.modules && ctx.workflowSummary.modules[m];
-            const notYetAccepted = !ms || ms.state !== 'accepted';
-            return (serverMissingByMod[m] && serverMissingByMod[m][code]) || notYetAccepted;
-          });
-      return { isAiInput: true, liveState: liveState, missingModules: targetMods, hasError: hasError };
     }
 
     function fieldMatchesModuleFilter(code) {
@@ -5522,12 +5656,9 @@
             '</div>'
           );
         }
-        const profileLinkHtml = (ctx.visit && ctx.visit.patientId)
-          ? '<button type="button" class="breadcrumbs__link" data-nav="#/patients/' + esc(ctx.visit.patientId) + '">Mở hồ sơ bệnh nhân ↗</button>'
-          : '';
         const ageNoteHtml = showTechMeta
-          ? ('<div class="bmi-card__note">Công thức: Ngày khám − Ngày sinh (' + esc(ctx.patient ? formatBirthPrecision(ctx.patient) : 'Hồ sơ hành chính') + ')' + (profileLinkHtml ? ' · ' + profileLinkHtml : '') + '</div>')
-          : (profileLinkHtml ? '<div class="bmi-card__note">' + profileLinkHtml + '</div>' : '');
+          ? ('<div class="bmi-card__note">Công thức: Ngày khám − Ngày sinh (' + esc(ctx.patient ? formatBirthPrecision(ctx.patient) : 'Hồ sơ hành chính') + ')</div>')
+          : '';
         return (
           '<div class="bmi-card' + modCls + '" data-field-code="luot_tuoi" data-auto-calc="true">' +
             '<div class="bmi-card__label"><span>' + esc(label) + ' ' + modBadgesHtml + '</span>' + autoBadgeHtml + '</div>' +
@@ -5547,14 +5678,9 @@
             '</div>'
           );
         }
-        const sexProfileLinkHtml = (ctx.visit && ctx.visit.patientId)
-          ? '<button type="button" class="breadcrumbs__link" data-nav="#/patients/' + esc(ctx.visit.patientId) + '">Mở hồ sơ bệnh nhân ↗</button>'
-          : '';
         const sexNoteHtml = showTechMeta
-          ? ('<div class="bmi-card__note">' + esc(customHelp || 'Đồng bộ từ hồ sơ hành chính bệnh nhân.') + (sexProfileLinkHtml ? ' · ' + sexProfileLinkHtml : '') + '</div>')
-          : ((customHelp || sexProfileLinkHtml)
-              ? '<div class="bmi-card__note">' + (customHelp ? esc(customHelp) : '') + (customHelp && sexProfileLinkHtml ? ' · ' : '') + sexProfileLinkHtml + '</div>'
-              : '');
+          ? ('<div class="bmi-card__note">' + esc(customHelp || 'Đồng bộ từ hồ sơ hành chính bệnh nhân.') + '</div>')
+          : (customHelp ? '<div class="bmi-card__note">' + esc(customHelp) + '</div>' : '');
         return (
           '<div class="bmi-card' + modCls + '" data-field-code="bn_gioi_tinh">' +
             '<div class="bmi-card__label"><span>' + esc(label) + ' ' + modBadgesHtml + '</span>' + sysBadgeHtml + '</div>' +
@@ -5724,7 +5850,7 @@
       const isNoteField = /_ghi_chu$/.test(fd.code);
       return (
         '<div class="field' + modCls + '" data-field-code="' + esc(fd.code) + '">' +
-          '<div class="field__label-row"><label class="field__label">' + esc(label) + ' ' + reqTag + '</label></div>' +
+          '<div class="field__label-row"><label class="field__label">' + esc(label) + ' ' + reqTag + ' ' + modBadgesHtml + '</label></div>' +
           '<div class="input-row-unknown">' +
             '<input type="' + (fd.dataType === 'date' ? 'date' : 'text') + '" class="' + cls + '" data-' + prefix + 'text="' + esc(fd.id) + '" placeholder="' + (isUnknown ? 'Chưa rõ' : (isNoteField ? 'Ghi chú chi tiết (tùy chọn)...' : 'Nhập thông tin...')) + '" value="' + esc(txtVal) + '"' + (isReadonly || isUnknown ? ' disabled' : '') + '>' +
             '<button type="button" class="unknown-toggle' + (isUnknown ? ' is-active' : '') + '" data-' + prefix + 'toggle-unknown="' + esc(fd.id) + '"' + (isReadonly ? ' disabled' : '') + '>Chưa rõ</button>' +
@@ -6978,6 +7104,11 @@
           const lbl = mf === 'all' ? 'Tất cả' : mf.toUpperCase();
           return '<button type="button" class="filter-pill' + (enc.moduleFilter === mf ? ' is-active' : '') + '" data-enc-mod-filter="' + esc(mf) + '" aria-pressed="' + (enc.moduleFilter === mf ? 'true' : 'false') + '">' + esc(lbl) + '</button>';
         }).join('') +
+        '<div class="field-status-legend" aria-label="Quy ước màu viền trường dữ liệu">' +
+          '<span class="field-status-legend__item"><span class="field-status-legend__dot field-status-legend__dot--valid"></span>Đầu vào AI đã nhập</span>' +
+          '<span class="field-status-legend__item"><span class="field-status-legend__dot field-status-legend__dot--missing"></span>Thiếu cho M1–M4</span>' +
+          '<span class="field-status-legend__item"><span class="field-status-legend__dot field-status-legend__dot--neutral"></span>Trường bổ sung (không thuộc đầu vào AI)</span>' +
+        '</div>' +
       '</div>'
     ) : '';
 
@@ -7591,23 +7722,52 @@
     const all4Accepted = isWfCapable && WF_MODULE_ORDER.every(function (m) {
       return wfModules[m] && wfModules[m].state === 'accepted';
     });
-    const wfCompleted = Boolean(wfState && wfState.completed);
+    const staleModules = isWfCapable ? WF_MODULE_ORDER.filter(function (m) {
+      return wfModules[m] && wfModules[m].state === 'stale';
+    }) : [];
     const pendingSeriousCount = (wfState && Array.isArray(wfState.pendingSeriousAlertIds)) ? wfState.pendingSeriousAlertIds.length : 0;
-    const wfReadyToConfirm = !isWfCapable || (all4Accepted && wfCompleted && pendingSeriousCount === 0);
+    const incompleteModules = isWfCapable ? WF_MODULE_ORDER.filter(function (m) {
+      const ms = wfModules[m];
+      return !ms || ms.state !== 'accepted';
+    }).map(function (m) {
+      const ms = wfModules[m] || { state: 'locked', attemptCount: 0 };
+      const statusLabel = ms.state === 'stale'
+        ? 'Cần đánh giá lại'
+        : (ms.state === 'ran' ? 'Chưa chốt' : 'Chưa thực hiện');
+      return { module: m, label: WF_MODULE_META[m].full, state: ms.state, statusLabel: statusLabel };
+    }) : [];
+    const wfReadyToConfirm = !isWfCapable || (staleModules.length === 0 && pendingSeriousCount === 0);
     const canConfirmFinal = Boolean(r.canConfirm && wfReadyToConfirm);
 
     function renderReviewModuleResultCard(mod) {
       const meta = WF_MODULE_META[mod];
-      const ms = wfModules[mod] || { state: 'locked' };
+      const ms = wfModules[mod] || { state: 'locked', attemptCount: 0 };
       const dec = (rev.moduleDecisions && rev.moduleDecisions[mod]) || null;
       const out = (dec && (dec.effectiveOutput || dec.output)) || null;
       const isAcc = ms.state === 'accepted' && Boolean(out);
+      const isStale = ms.state === 'stale';
+      const isRanUnaccepted = ms.state === 'ran';
       const srcLabel = ((dec && dec.source) || ms.decisionSource) === 'manual' ? 'Bác sĩ tự nhập' : 'AI';
       const srcBadgeCls = ((dec && dec.source) || ms.decisionSource) === 'manual' ? 'badge--blue' : 'badge--info';
 
+      let badgeHtml = '';
+      if (isAcc) {
+        badgeHtml = '<span class="badge badge--success badge--xs">Đã chốt</span><span class="badge ' + srcBadgeCls + ' badge--xs">Nguồn: ' + esc(srcLabel) + '</span>';
+      } else if (isStale) {
+        badgeHtml = '<span class="badge badge--error badge--xs">Cần đánh giá lại</span>';
+      } else if (isRanUnaccepted) {
+        badgeHtml = '<span class="badge badge--warn badge--xs">Chưa chốt</span>';
+      } else {
+        badgeHtml = '<span class="badge badge--neutral badge--xs">Chưa thực hiện</span>';
+      }
+
       let bodyHtml = '';
       if (!isAcc) {
-        const stText = ms.state === 'stale' ? 'Cần chạy lại và chốt lại' : (ms.state === 'ran' ? 'Đã chạy — chờ bác sĩ chốt' : 'Chưa chốt');
+        const stText = isStale
+          ? (isConf ? 'Cần đánh giá lại (kết quả cũ đã không còn hiệu lực)' : 'Cần chạy lại và chốt lại trước khi kết thúc lượt khám')
+          : (isRanUnaccepted
+              ? (isConf ? 'Đã chạy thử nhưng chưa được bác sĩ chốt trước khi kết thúc lượt khám' : 'Đã chạy — chờ bác sĩ chốt')
+              : (isConf ? 'Chưa thực hiện trong lượt khám này' : 'Chưa thực hiện'));
         bodyHtml =
           '<p class="field__help" style="margin:0;">Trạng thái: <strong>' + esc(stText) + '</strong></p>' +
           (!isConf
@@ -7666,15 +7826,14 @@
           (alerts.length === 0 ? '<p class="field__help" style="margin:0;">Không phát sinh cảnh báo an toàn thuốc.</p>' : alertLines);
       }
 
+      const cardCls = isAcc
+        ? 'review-ai-card--accepted'
+        : (isStale ? 'review-ai-card--stale' : (isRanUnaccepted ? 'review-ai-card--pending' : 'review-ai-card--unrun'));
       return (
-        '<article class="review-ai-card ' + (isAcc ? 'review-ai-card--accepted' : 'review-ai-card--pending') + '" data-review-ai-module="' + esc(mod) + '" data-review-ai-accepted="' + (isAcc ? 'true' : 'false') + '">' +
+        '<article class="review-ai-card ' + cardCls + '" data-review-ai-module="' + esc(mod) + '" data-review-ai-accepted="' + (isAcc ? 'true' : 'false') + '" data-review-ai-state="' + esc(isAcc ? 'accepted' : (isStale ? 'stale' : (isRanUnaccepted ? 'ran' : 'not_run'))) + '">' +
           '<div class="review-ai-card__head">' +
             '<div class="review-ai-card__title">' + esc(meta.full) + '</div>' +
-            '<div class="review-ai-card__badges">' +
-              (isAcc
-                ? ('<span class="badge badge--success badge--xs">Đã chốt</span><span class="badge ' + srcBadgeCls + ' badge--xs">Nguồn: ' + esc(srcLabel) + '</span>')
-                : '<span class="badge badge--warn badge--xs">Chưa chốt</span>') +
-            '</div>' +
+            '<div class="review-ai-card__badges">' + badgeHtml + '</div>' +
           '</div>' +
           '<div class="review-ai-card__body">' + bodyHtml + '</div>' +
         '</article>'
@@ -7684,7 +7843,7 @@
     const aiResultsSectionHtml = isWfCapable ? (
       '<section class="card" id="review-ai-results" data-review-ai-results="true" style="margin-top:16px;">' +
         '<div class="card__header">' +
-          '<div><h2 class="card__title">Kết quả đã chốt 4 Module AI</h2><p class="card__subtitle">Tổng hợp kết quả M1 Chẩn đoán, M2 Cận lâm sàng, M3 Điều trị và M4 An toàn thuốc (AI mô phỏng hoặc bác sĩ tự nhập).</p></div>' +
+          '<div><h2 class="card__title">Kết quả 4 Module AI</h2><p class="card__subtitle">Tổng hợp trạng thái và kết quả cuối cùng của M1 Chẩn đoán, M2 Cận lâm sàng, M3 Điều trị và M4 An toàn thuốc (chỉ lưu kết quả bác sĩ đã chốt, không tự tạo kết quả cho module chưa thực hiện).</p></div>' +
           (!isConf ? '<button type="button" class="btn btn--secondary btn--sm" data-nav="#/visits/' + esc(v.id) + '/workflow">Mở Luồng 4 Module AI ' + ICONS.arrowRight + '</button>' : '') +
         '</div>' +
         '<div class="card__body">' +
@@ -7695,17 +7854,23 @@
     ) : '';
 
     const wfBlockerHtml = (isWfCapable && !wfReadyToConfirm) ? (
-      '<div class="banner banner--warn" style="margin-bottom:0;" data-review-wf-blocker="true">' +
-        '<div class="banner__main">' + ICONS.alert + '<div><p class="banner__title">Chưa đủ điều kiện kết thúc lượt khám</p><p class="banner__desc">' +
-          (!all4Accepted
-            ? 'Cần chốt đủ cả 4 module M1–M4 trước khi xác nhận và kết thúc lượt khám.'
-            : (pendingSeriousCount > 0
-                ? ('Còn ' + pendingSeriousCount + ' cảnh báo mức Nghiêm trọng ở Module 4 chưa được xác nhận.')
-                : 'Vui lòng bấm "Hoàn tất đánh giá AI" tại Module 4 trước khi xác nhận và kết thúc lượt khám.')) +
+      '<div class="banner banner--error" style="margin-bottom:0;" data-review-wf-blocker="true">' +
+        '<div class="banner__main">' + ICONS.alert + '<div><p class="banner__title">Chưa đủ điều kiện an toàn để kết thúc lượt khám</p><p class="banner__desc">' +
+          (staleModules.length > 0
+            ? ('Kết quả của ' + esc(staleModules.map(function (m) { return m.toUpperCase(); }).join(', ')) + ' đang ở trạng thái Cần đánh giá lại do dữ liệu đã thay đổi. Vui lòng chạy lại và chốt lại trước khi kết thúc lượt khám.')
+            : ('Còn ' + pendingSeriousCount + ' cảnh báo an toàn thuốc mức Nghiêm trọng ở Module 4 chưa được xác nhận kèm lý do. Vui lòng xử lý trước khi kết thúc lượt khám.')) +
         '</p></div></div>' +
-        '<div class="banner__actions"><button type="button" class="btn btn--primary btn--sm" data-nav="#/visits/' + esc(v.id) + '/workflow">Tới Luồng 4 Module AI ' + ICONS.arrowRight + '</button></div>' +
+        '<div class="banner__actions"><button type="button" class="btn btn--primary btn--sm" data-review-goto-module="' + esc(staleModules.length > 0 ? staleModules[0] : 'm4') + '">Xử lý ngay ' + ICONS.arrowRight + '</button></div>' +
       '</div>'
-    ) : '';
+    ) : (isWfCapable && !isConf && incompleteModules.length > 0 ? (
+      '<div class="banner banner--warn" style="margin-bottom:0;" data-review-wf-incomplete-notice="true">' +
+        '<div class="banner__main">' + ICONS.alert + '<div><p class="banner__title">Còn ' + incompleteModules.length + ' Module AI chưa hoàn thành</p><p class="banner__desc">' +
+          incompleteModules.map(function (im) { return '<strong>' + esc(im.label) + '</strong> (' + esc(im.statusLabel) + ')'; }).join(' · ') +
+          '. Bạn vẫn có thể xác nhận và kết thúc lượt khám; hệ thống sẽ giữ đúng trạng thái hiện có và không tự tạo kết quả cho các module này.' +
+        '</p></div></div>' +
+        '<div class="banner__actions"><button type="button" class="btn btn--secondary btn--sm" data-review-goto-module="' + esc(incompleteModules[0].module) + '">Tới ' + esc(incompleteModules[0].module.toUpperCase()) + ' ' + ICONS.arrowRight + '</button></div>' +
+      '</div>'
+    ) : '');
 
     const gateHtml = !isConf ? (
       '<section class="confirm-gate">' +
@@ -8246,9 +8411,22 @@
         const m4Out = wf.m4ProjectionOutput || (m4dec && m4dec.output) || (m4run && m4run.output) || null;
         if (m4Out) wfSyncM4DraftFromOutput(wf, m4Out, Boolean(o.keepM4Draft));
 
-        if (wf.preferredModuleOnLoad && wf.data && wf.data.modules && wf.data.modules[wf.preferredModuleOnLoad] && wf.data.modules[wf.preferredModuleOnLoad].state !== 'locked') {
-          wf.activeModule = wf.preferredModuleOnLoad;
+        wf.lockedJumpNotice = '';
+        if (wf.preferredModuleOnLoad && wf.data && wf.data.modules && wf.data.modules[wf.preferredModuleOnLoad]) {
+          const reqMod = wf.preferredModuleOnLoad;
           wf.preferredModuleOnLoad = null;
+          if (wf.data.modules[reqMod].state !== 'locked') {
+            wf.activeModule = reqMod;
+          } else {
+            const reqIdx = WF_MODULE_ORDER.indexOf(reqMod);
+            const blockingMod = WF_MODULE_ORDER.slice(0, Math.max(0, reqIdx)).find(function (m) {
+              const st = wf.data.modules[m] && wf.data.modules[m].state;
+              return st !== 'accepted';
+            }) || 'm1';
+            wf.activeModule = blockingMod;
+            wf.lockedJumpNotice = wfFormatModuleTitle(reqMod) + ' đang bị khóa do ' + wfFormatModuleTitle(blockingMod) + ' chưa được hoàn thành và chốt. Vui lòng hoàn tất ' + wfFormatModuleTitle(blockingMod) + ' trước khi chuyển sang ' + wfFormatModuleTitle(reqMod) + '.';
+            toast(wf.lockedJumpNotice, 'info');
+          }
         } else if (!o.keepModule && wf.data && wf.data.modules) {
           const preferred = WF_MODULE_ORDER.find(function (m) {
             const st = wf.data.modules[m] && wf.data.modules[m].state;
@@ -9889,7 +10067,16 @@
         actionBarHtml +
       '</section>';
 
-    const body = stickyHead + pharmacistBanner + renderWorkflowStepper(wf) + renderUpstreamSummaryStack(wf) + stageCard;
+    const lockedNoticeBanner = (!isPharm && wf.lockedJumpNotice) ? (
+      '<div class="banner banner--warn" role="status" data-wf-locked-notice="true">' +
+        '<div class="banner__main">' + ICONS.lock + '<div>' +
+          '<p class="banner__title">Module đích đang bị khóa do phụ thuộc thứ tự</p>' +
+          '<p class="banner__desc">' + esc(wf.lockedJumpNotice) + '</p>' +
+        '</div></div>' +
+      '</div>'
+    ) : '';
+
+    const body = stickyHead + pharmacistBanner + renderWorkflowStepper(wf) + lockedNoticeBanner + renderUpstreamSummaryStack(wf) + stageCard;
     const crumbs = isPharm
       ? '<span class="breadcrumbs__current">Module 4 · An toàn thuốc (Chế độ Dược sĩ)</span>'
       : (
@@ -10164,7 +10351,7 @@
             '<tr data-admin-patient-id="' + esc(p.id) + '" data-admin-patient-status="' + esc(p.recordStatus) + '">' +
               '<td><div class="cell-primary mono">' + esc(p.patientCode) + '</div><div class="cell-sub">' + esc(p.fullName) + '</div></td>' +
               '<td><div>' + esc(formatSex(p.sex)) + '</div><div class="cell-sub">' + esc(formatBirthPrecision(p)) + '</div></td>' +
-              '<td><div class="mono">' + esc(p.externalPatientCode || '—') + '</div>' + (p.cccd ? '<div class="cell-sub mono">CCCD: ' + esc(p.cccd) + '</div>' : '') + '</td>' +
+              '<td><div>' + (p.externalPatientCode ? renderHisCodeInline(p.externalPatientCode, '') : '<span class="mono">—</span>') + '</div>' + (p.cccd ? '<div class="cell-sub mono">CCCD: ' + esc(p.cccd) + '</div>' : '') + '</td>' +
               '<td>' + formatRecordStatusBadge(p.recordStatus, true) + (p.recordStatusUpdatedAt ? '<div class="cell-sub tabular">' + esc(formatDateTime(p.recordStatusUpdatedAt)) + '</div>' : '') + '</td>' +
               '<td><div class="tabular"><strong>' + esc(p.visitCount) + '</strong> lượt</div><div class="cell-sub tabular">' + (p.latestVisitDate ? esc(formatDateTime(p.latestVisitDate)) : 'Chưa có lượt') + '</div></td>' +
               '<td>' + pendHtml + '</td>' +
@@ -10895,7 +11082,9 @@
           '</div>' +
           '<div class="field">' +
             '<label class="field__label" for="mf-extcode">Mã HIS (Số vào viện) (không bắt buộc)</label>' +
-            '<input id="mf-extcode" class="input mono" value="' + esc(d.externalPatientCode || '') + '" placeholder="Nhập mã HIS / Số vào viện nếu có">' +
+            '<input id="mf-extcode" class="input mono' + (m.extCodeError ? ' input--error' : '') + '" value="' + esc(d.externalPatientCode || '') + '" placeholder="Nhập mã HIS / Số vào viện nếu có (tối đa 20 ký tự)" aria-describedby="mf-extcode-help mf-extcode-error">' +
+            '<p class="field__help" id="mf-extcode-help">Tối đa 20 ký tự (chữ không dấu, số hoặc -, _, /, .), không chứa khoảng trắng.</p>' +
+            '<p class="field__error" id="mf-extcode-error" role="alert"' + (m.extCodeError ? '' : ' hidden') + '>' + (m.extCodeError ? (ICONS.alert + ' ' + esc(m.extCodeError)) : '') + '</p>' +
           '</div>' +
           '<p class="field__help">Mã hồ sơ <span class="mono">BN-xxxxx</span> sẽ được hệ thống cấp tự động và duy nhất.</p>' +
         '</div>' +
@@ -10933,10 +11122,23 @@
     }
 
     if (m.type === 'confirm-visit-final') {
+      const incMods = Array.isArray(m.incompleteModules) ? m.incompleteModules : [];
+      const incHtml = incMods.length > 0 ? (
+        '<div class="banner banner--warn" style="margin-top:10px;margin-bottom:0;" data-confirm-incomplete-modules="true"><div class="banner__main">' + ICONS.alert + '<div>' +
+          '<p class="banner__title">Các Module AI chưa hoàn thành (' + incMods.length + '/4)</p>' +
+          '<ul class="review-module-warn-list">' +
+            incMods.map(function (im) {
+              return '<li><strong>' + esc(im.label) + '</strong>: ' + esc(im.statusLabel) + '</li>';
+            }).join('') +
+          '</ul>' +
+          '<p class="banner__desc" style="margin-top:4px;">Các module trên sẽ giữ nguyên trạng thái chưa hoàn thành; hệ thống không tự tạo kết quả thay cho bác sĩ.</p>' +
+        '</div></div></div>'
+      ) : '';
       html =
         '<div class="modal__head"><h2 class="modal__title" id="modal-title">Xác nhận và kết thúc lượt khám?</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Đóng">' + ICONS.x + '</button></div>' +
         '<div class="modal__body">' +
-          '<div class="banner banner--info" style="margin-bottom:0;"><div class="banner__main">' + ICONS.shield + '<div><p class="banner__desc">Lượt khám <strong class="mono">' + esc(m.visitCode || '') + '</strong> sẽ được chốt ở trạng thái <strong>Hoàn thành (Chỉ đọc)</strong> cùng toàn bộ dữ liệu và kết quả 4 module AI đã chốt. Nếu cần chỉnh sửa về sau, bạn có thể tạo bản sửa mới mà không làm mất lịch sử.</p></div></div></div>' +
+          '<div class="banner banner--info" style="margin-bottom:0;"><div class="banner__main">' + ICONS.shield + '<div><p class="banner__desc">Lượt khám <strong class="mono">' + esc(m.visitCode || '') + '</strong> sẽ được chốt ở trạng thái <strong>Hoàn thành (Chỉ đọc)</strong> cùng toàn bộ dữ liệu lâm sàng và kết quả các Module AI đã chốt. Nếu cần chỉnh sửa về sau, bạn có thể tạo bản sửa mới mà không làm mất lịch sử.</p></div></div></div>' +
+          incHtml +
         '</div>' +
         '<div class="modal__foot">' +
           '<button type="button" class="btn btn--secondary" data-action="close-modal">Hủy</button>' +
@@ -11905,6 +12107,7 @@
       ft.valuesByDefId[fd.id] = compactToVisitValue(ft.visitId, fd, compact);
     }
     ft.markDirty();
+    if (!isPrev) refreshEncounterFieldAiStatus(code);
   }
 
   function encReadV12Answer(scope, code) {
@@ -11978,10 +12181,12 @@
       delete enc.fieldErrors[code];
       markEncounterDirty();
       t.classList.toggle('input--error', !iso);
+      refreshEncounterFieldAiStatus(code);
     } else {
       if (iso) enc.pendingMeasuredAt[code] = iso;
       else delete enc.pendingMeasuredAt[code];
       t.classList.remove('input--error');
+      refreshEncounterFieldAiStatus(code);
     }
   }
 
@@ -12310,6 +12515,20 @@
       return;
     }
 
+    const nurseIntakeStatus = target.getAttribute('data-nurse-intake-status');
+    if (nurseIntakeStatus !== null) {
+      state.nurseIntake.recordStatus = nurseIntakeStatus;
+      loadNurseIntake();
+      return;
+    }
+
+    const reviewGotoModEarly = target.getAttribute('data-review-goto-module');
+    if (reviewGotoModEarly && state.review.visit) {
+      state.workflow.preferredModuleOnLoad = reviewGotoModEarly;
+      navigate('#/visits/' + state.review.visit.id + '/workflow');
+      return;
+    }
+
     const encWfView = target.getAttribute('data-enc-wf-view');
     if (encWfView && state.encounter.visit) {
       state.workflow.preferredModuleOnLoad = encWfView;
@@ -12376,12 +12595,25 @@
     const wfSelMod = target.getAttribute('data-wf-select-module');
     if (wfSelMod) {
       const wf = state.workflow;
-      if (!wf.runningModule && !wf.isPharmacistView && wf.data && wf.data.modules && wf.data.modules[wfSelMod] && wf.data.modules[wfSelMod].state !== 'locked') {
-        wf.activeModule = wfSelMod;
-        wf.manualModeModule = null;
-        wf.bannerError = '';
-        wf.bannerErrorFields = [];
-        render();
+      if (!wf.runningModule && !wf.isPharmacistView && wf.data && wf.data.modules && wf.data.modules[wfSelMod]) {
+        if (wf.data.modules[wfSelMod].state !== 'locked') {
+          wf.activeModule = wfSelMod;
+          wf.manualModeModule = null;
+          wf.bannerError = '';
+          wf.bannerErrorFields = [];
+          wf.lockedJumpNotice = '';
+          render();
+        } else {
+          const reqIdx = WF_MODULE_ORDER.indexOf(wfSelMod);
+          const blockingMod = WF_MODULE_ORDER.slice(0, Math.max(0, reqIdx)).find(function (m) {
+            const st = wf.data.modules[m] && wf.data.modules[m].state;
+            return st !== 'accepted';
+          }) || 'm1';
+          const msg = wfFormatModuleTitle(wfSelMod) + ' đang bị khóa do ' + wfFormatModuleTitle(blockingMod) + ' chưa được hoàn thành và chốt.';
+          wf.lockedJumpNotice = msg;
+          toast(msg, 'info');
+          render();
+        }
       }
       return;
     }
@@ -12886,6 +13118,7 @@
         }
         ft.markDirty();
         render();
+        if (!isPrev) refreshEncounterFieldAiStatus(fd.code);
       }
       return;
     }
@@ -12903,12 +13136,14 @@
         if (isUnlocked) {
           delete state.encounter.unlockedUnknownCodes[fd.code];
           render();
+          if (!isPrev) refreshEncounterFieldAiStatus(fd.code);
           return;
         }
         if (cur && cur.valueState === 'unknown') {
           if (isSavedUnk) {
             state.encounter.unlockedUnknownCodes[fd.code] = true;
             render();
+            if (!isPrev) refreshEncounterFieldAiStatus(fd.code);
             focusUnlockedFieldInput(fd.code);
             return;
           }
@@ -12916,6 +13151,7 @@
           if (fd.code === 'mach') ft.setAutoPulseSourceIndex(null);
           ft.markDirty();
           render();
+          if (!isPrev) refreshEncounterFieldAiStatus(fd.code);
           if (!isPrev) focusUnlockedFieldInput(fd.code);
           return;
         }
@@ -12927,6 +13163,7 @@
         if (fd.code === 'mach') ft.setAutoPulseSourceIndex(null);
         ft.markDirty();
         render();
+        if (!isPrev) refreshEncounterFieldAiStatus(fd.code);
       }
       return;
     }
@@ -13552,6 +13789,7 @@
       m.error = '';
       m.birthDateError = '';
       m.cccdError = '';
+      m.extCodeError = '';
 
       if (!fullNameVal) {
         m.error = 'Vui lòng nhập họ tên hoặc ký hiệu hồ sơ bệnh nhân.';
@@ -13565,6 +13803,12 @@
       }
       if (!birthDateVal) {
         m.birthDateError = 'Vui lòng nhập ngày sinh (nếu không rõ ngày/tháng thì nhập 01/01/<năm sinh>).';
+        renderModal();
+        return;
+      }
+      const hisValidationMsg = validateHisCodeValue(extCodeVal);
+      if (hisValidationMsg) {
+        m.extCodeError = hisValidationMsg;
         renderModal();
         return;
       }
@@ -13610,9 +13854,11 @@
         } else if (err && err.status === 422 && Array.isArray(err.errors) && err.errors.length > 0) {
           const cccdErrItem = err.errors.find(function (e) { return e && /cccd/i.test(String(e.field || e.fieldCode || '')); });
           const bdErrItem = err.errors.find(function (e) { return e && /birth/i.test(String(e.field || e.fieldCode || '')); });
+          const hisErrItem = err.errors.find(function (e) { return e && /externalPatientCode/i.test(String(e.field || e.fieldCode || '')); });
           if (cccdErrItem) m.cccdError = cccdErrItem.message || errDetail;
           if (bdErrItem) m.birthDateError = bdErrItem.message || errDetail;
-          if (!cccdErrItem && !bdErrItem) m.error = errDetail || 'Dữ liệu hồ sơ chưa hợp lệ.';
+          if (hisErrItem) m.extCodeError = hisErrItem.message || errDetail;
+          if (!cccdErrItem && !bdErrItem && !hisErrItem) m.error = errDetail || 'Dữ liệu hồ sơ chưa hợp lệ.';
         } else {
           m.error = errDetail || 'Không thể lưu hồ sơ bệnh nhân.';
         }
@@ -13696,19 +13942,28 @@
       else if (ok) openModal(destination);
       return;
     }
-    const reviewGotoMod = target.getAttribute('data-review-goto-module');
-    if (reviewGotoMod && state.review.visit) {
-      state.workflow.preferredModuleOnLoad = reviewGotoMod;
-      navigate('#/visits/' + state.review.visit.id + '/workflow');
-      return;
-    }
     if (action === 'confirm-visit' && state.review.visit) {
       const rev = state.review;
       const noteEl = document.getElementById('confirm-note-input');
       rev.confirmNote = noteEl ? noteEl.value.trim() : rev.confirmNote;
+      const wfState = rev.workflow || (rev.visitDetail && rev.visitDetail.workflow) || null;
+      const wfModules = (wfState && wfState.modules) || {};
+      const fv = rev.formRes && rev.formRes.formVersion;
+      const isWfCapable = isFormV12(fv, rev.formRes && rev.formRes.fieldDefinitions, rev.formRes && rev.formRes.sections);
+      const incompleteModules = isWfCapable ? WF_MODULE_ORDER.filter(function (m) {
+        const ms = wfModules[m];
+        return !ms || ms.state !== 'accepted';
+      }).map(function (m) {
+        const ms = wfModules[m] || { state: 'locked' };
+        const statusLabel = ms.state === 'stale'
+          ? 'Cần đánh giá lại'
+          : (ms.state === 'ran' ? 'Chưa chốt' : 'Chưa thực hiện');
+        return { module: m, label: WF_MODULE_META[m].full, state: ms.state, statusLabel: statusLabel };
+      }) : [];
       openModal({
         type: 'confirm-visit-final',
-        visitCode: rev.visit.visitCode
+        visitCode: rev.visit.visitCode,
+        incompleteModules: incompleteModules
       });
       return;
     }
@@ -14319,8 +14574,8 @@
           else delete state.encounter.fieldErrors[v12NumCode];
         }
       }
-      refreshNumericInput(t);
       t.classList.toggle('input--error', Boolean(errMsg));
+      refreshNumericInput(t);
       const fBox = t.closest('.field');
       if (fBox) {
         let errEl = fBox.querySelector('.field__error');
@@ -14353,6 +14608,7 @@
       }
       t.classList.remove('input--unknown');
       t.classList.toggle('input--error', Boolean(errMsg));
+      if (!isPrev) refreshEncounterFieldAiStatus(code);
       const fBox = t.closest('.v12-field');
       if (fBox) {
         let errEl = fBox.querySelector('.field__error');
@@ -14516,6 +14772,19 @@
       }
       return;
     }
+    if (t.id === 'mf-extcode' && state.modal && state.modal.type === 'patient-form') {
+      const rawVal = String(t.value || '');
+      state.modal.data.externalPatientCode = rawVal;
+      const errMsg = validateHisCodeValue(rawVal);
+      state.modal.extCodeError = errMsg;
+      t.classList.toggle('input--error', Boolean(errMsg));
+      const errEl = document.getElementById('mf-extcode-error');
+      if (errEl) {
+        errEl.hidden = !errMsg;
+        errEl.innerHTML = errMsg ? (ICONS.alert + ' ' + esc(errMsg)) : '';
+      }
+      return;
+    }
     if (t.id === 'mf-birthdate' && state.modal && state.modal.type === 'patient-form') {
       state.modal.data.birthDate = t.value;
       state.modal.birthDateError = '';
@@ -14623,13 +14892,17 @@
         ft.valuesByDefId[fd.id] = item;
         ft.markDirty();
       }
+      t.classList.remove('input--error');
+      t.classList.toggle('input--unfilled', t.value === '');
+      if (!isPrev) refreshEncounterFieldAiStatus(t);
       return;
     }
 
     // Repeating table inputs (BP / Med / Allergy / Lab)
     const bpAttr = t.getAttribute('data-enc-bp-field') || t.getAttribute('data-prev-bp-field');
     if (bpAttr) {
-      const ft = getFormTarget(t.hasAttribute('data-prev-bp-field'));
+      const isPrev = t.hasAttribute('data-prev-bp-field');
+      const ft = getFormTarget(isPrev);
       const parts = bpAttr.split(':');
       const row = ft.orthostaticBp[Number(parts[0])];
       if (row) {
@@ -14637,6 +14910,11 @@
         row[k] = k === 'measuredAt' ? fromDatetimeLocal(t.value) : (['systolic', 'diastolic', 'heartRate', 'minuteAfter'].indexOf(k) >= 0 ? (t.value === '' ? null : Number(t.value)) : t.value);
         if (k === 'heartRate') syncHeartRateFromBp(ft, row[k], Number(parts[0]));
         ft.markDirty();
+        if (!isPrev) {
+          if (k === 'systolic') refreshEncounterFieldAiStatus('huyet_ap_tam_thu');
+          else if (k === 'diastolic') refreshEncounterFieldAiStatus('huyet_ap_tam_truong');
+          else if (k === 'heartRate') refreshEncounterFieldAiStatus('mach');
+        }
       }
       return;
     }
@@ -14742,6 +15020,19 @@
     if (!t) return;
 
     // Patient modal birthDate change -> update age chip
+    if (t.id === 'mf-extcode' && state.modal && state.modal.type === 'patient-form') {
+      const rawVal = String(t.value || '');
+      state.modal.data.externalPatientCode = rawVal;
+      const errMsg = validateHisCodeValue(rawVal);
+      state.modal.extCodeError = errMsg;
+      t.classList.toggle('input--error', Boolean(errMsg));
+      const errEl = document.getElementById('mf-extcode-error');
+      if (errEl) {
+        errEl.hidden = !errMsg;
+        errEl.innerHTML = errMsg ? (ICONS.alert + ' ' + esc(errMsg)) : '';
+      }
+      return;
+    }
     if (t.id === 'mf-birthdate' && state.modal && state.modal.type === 'patient-form') {
       state.modal.data.birthDate = t.value;
       state.modal.birthDateError = '';
@@ -14762,6 +15053,7 @@
       const scope = t.getAttribute('data-v12-scope') || 'enc';
       const compact = t.value ? { value_state: 'answered', value: t.value } : null;
       encApplyV12Answer(scope, 'egfr_formula', compact);
+      if (scope !== 'prev') refreshEncounterFieldAiStatus('egfr_ckd_epi');
       return;
     }
 
@@ -14887,7 +15179,40 @@
         ft.valuesByDefId[fd.id] = item;
         ft.markDirty();
       }
+      t.classList.remove('input--error');
       t.classList.toggle('input--unfilled', !t.value);
+      if (!isPrev) refreshEncounterFieldAiStatus(t);
+      return;
+    }
+
+    // Text / Date change fallback (e.g. native date picker firing change)
+    const chgTxtId = t.getAttribute('data-enc-text') || t.getAttribute('data-prev-text');
+    if (chgTxtId) {
+      const isPrev = t.hasAttribute('data-prev-text');
+      const ft = getFormTarget(isPrev);
+      const fd = ft.defById[chgTxtId];
+      if (!fd) return;
+      if (t.value === '') {
+        if (!isPrev && state.encounter.savedUnknownCodes[fd.code] && state.encounter.unlockedUnknownCodes[fd.code]) {
+          // D7: preserve saved unknown
+        } else {
+          delete ft.valuesByDefId[fd.id];
+          ft.markDirty();
+        }
+      } else {
+        if (!isPrev) {
+          delete state.encounter.unlockedUnknownCodes[fd.code];
+          delete state.encounter.fieldErrors[fd.code];
+        }
+        const item = makeEmptyVisitValue(ft.visitId, fd, 'answered');
+        if (fd.dataType === 'date') item.valueDate = t.value;
+        else item.valueText = t.value;
+        ft.valuesByDefId[fd.id] = item;
+        ft.markDirty();
+      }
+      t.classList.remove('input--error');
+      t.classList.toggle('input--unfilled', t.value === '');
+      if (!isPrev) refreshEncounterFieldAiStatus(t);
       return;
     }
 
@@ -14926,6 +15251,7 @@
       }
       const choices = t.closest('.multi-choice-box');
       if (choices) choices.classList.toggle('multi-choice-box--unfilled', opts.length === 0);
+      if (!isPrev) refreshEncounterFieldAiStatus(t);
       return;
     }
 

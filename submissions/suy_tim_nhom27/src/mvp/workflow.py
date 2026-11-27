@@ -52,6 +52,141 @@ def canonical_code(code):
 M3_FIELDS = {'e_over_a_ratio','cls_creatinin','egfr_ckd_epi','egfr_formula',
              'cls_kali','ecg_12_chuyen_dao','xquang_nguc_thang','selected_medications'}
 M2_OBSERVATION_FIELDS = {'cls_bnp','cls_nt_probnp','cls_lvef','ecg_12_chuyen_dao','xquang_nguc_thang'}
+_UNIT_ALIASES = {
+    'lần/phút': '/min', 'lần/p': '/min', 'l/p': '/min', 'nhịp/phút': '/min', 'bpm': '/min', '/min': '/min',
+    'µmol/l': 'umol/L', 'μmol/l': 'umol/L', 'umol/l': 'umol/L',
+    'ml/phút/1.73m²': 'mL/min/1.73m2', 'ml/min/1.73m²': 'mL/min/1.73m2', 'ml/min/1.73m2': 'mL/min/1.73m2',
+    'pg/ml': 'pg/mL', 'mmol/l': 'mmol/L', 'meq/l': 'mEq/L', 'ml': 'mL',
+    'mmhg': 'mmHg', 'mg/ngày': 'mg/day', 'mg/day': 'mg/day', 'mg/l': 'mg/L',
+    'kg/m²': 'kg/m2', 'kg/m2': 'kg/m2',
+}
+_EGFR_OPTION_MAP = {
+    'ckd_epi_2021': 'CKD-EPI 2021',
+    'mdrd': 'MDRD',
+    'cockcroft_gault': 'Cockcroft-Gault',
+    'unknown': 'Không rõ',
+}
+
+
+def _normalize_field_answer(code, raw):
+    """Normalize legacy/older visit field answers to match inputSnapshot schema without altering clinical values."""
+    if not isinstance(raw, dict):
+        return raw
+    field_schema = SCHEMA['$defs']['fields']['properties'].get(code)
+    # Lossless fast-path: preserve answers that already satisfy the exact schema cleanly (e.g. C8 migration parity).
+    if 'ownerModule' not in raw and matches(raw, field_schema if isinstance(field_schema, dict) else {'$ref': '#/$defs/observation'}):
+        return deepcopy(raw)
+    ans = deepcopy(raw)
+    ans.pop('ownerModule', None)
+    state_val = ans.get('value_state')
+    if state_val not in ('answered', 'unknown'):
+        return ans
+    if 'reason' in ans:
+        r = ans['reason']
+        if not isinstance(r, str) or not r.strip():
+            ans.pop('reason', None)
+        else:
+            ans['reason'] = r.strip()
+    branches = field_schema.get('oneOf', [field_schema]) if isinstance(field_schema, dict) else []
+    branch = next((b for b in branches if isinstance(b, dict) and b.get('properties', {}).get('value_state', {}).get('const') == state_val), None)
+    bprops = branch.get('properties', {}) if isinstance(branch, dict) else {}
+
+    if state_val == 'unknown':
+        ans['value'] = None
+        if isinstance(branch, dict):
+            if 'unit' not in bprops:
+                ans.pop('unit', None)
+            elif 'unit' in ans:
+                u_rule = bprops['unit']
+                if ans['unit'] is None and u_rule.get('const') is not None:
+                    ans.pop('unit', None)
+                elif isinstance(ans['unit'], str):
+                    mapped = _UNIT_ALIASES.get(ans['unit'].strip().lower(), ans['unit'].strip())
+                    if u_rule.get('const') is not None and mapped != u_rule['const']:
+                        ans.pop('unit', None)
+                    else:
+                        ans['unit'] = mapped
+            if 'measuredAt' not in bprops or ans.get('measuredAt') in (None, ''):
+                ans.pop('measuredAt', None)
+            for k in list(ans.keys()):
+                if k not in bprops:
+                    ans.pop(k, None)
+        else:
+            if ans.get('unit') in (None, ''):
+                ans.pop('unit', None)
+            if ans.get('measuredAt') in (None, ''):
+                ans.pop('measuredAt', None)
+        return ans
+
+    # value_state == 'answered'
+    val = ans.get('value')
+    if code == 'egfr_formula' and isinstance(val, str):
+        ans['value'] = _EGFR_OPTION_MAP.get(val, val)
+        val = ans['value']
+    if isinstance(branch, dict):
+        v_rule = bprops.get('value', {})
+        if v_rule.get('type') == 'integer' and type(val) is float and val.is_integer():
+            ans['value'] = int(val)
+        elif 'enum' in v_rule and isinstance(val, str) and val.isdigit() and int(val) in v_rule['enum']:
+            ans['value'] = int(val)
+        elif v_rule.get('type') == 'integer' and isinstance(val, str) and val.isdigit():
+            ans['value'] = int(val)
+        if 'unit' not in bprops:
+            ans.pop('unit', None)
+        else:
+            u_rule = bprops['unit']
+            cur_u = ans.get('unit')
+            if isinstance(cur_u, str):
+                cur_u = cur_u.strip()
+                cur_u = _UNIT_ALIASES.get(cur_u.lower(), cur_u) if cur_u else None
+            if cur_u:
+                ans['unit'] = cur_u
+            elif u_rule.get('const') is not None:
+                ans['unit'] = u_rule['const']
+            elif 'unit' in ans and cur_u is None and u_rule.get('const') is not None:
+                ans.pop('unit', None)
+            elif 'unit' in ans and not cur_u:
+                ans.pop('unit', None)
+        if 'measuredAt' not in bprops:
+            ans.pop('measuredAt', None)
+        elif ans.get('measuredAt') in (None, '') and 'measuredAt' not in branch.get('required', []):
+            ans.pop('measuredAt', None)
+        for k in list(ans.keys()):
+            if k not in bprops:
+                ans.pop(k, None)
+    else:
+        if isinstance(ans.get('unit'), str):
+            u_clean = ans['unit'].strip()
+            ans['unit'] = _UNIT_ALIASES.get(u_clean.lower(), u_clean) if u_clean else None
+        if ans.get('unit') is None:
+            ans.pop('unit', None)
+        if ans.get('measuredAt') in (None, ''):
+            ans.pop('measuredAt', None)
+    return ans
+
+
+def _normalize_observation(obs):
+    if not isinstance(obs, dict):
+        return obs
+    o = deepcopy(obs)
+    ans = o.get('answer')
+    if isinstance(ans, dict):
+        cleaned = _normalize_field_answer(o.get('fieldCode', ''), ans)
+        # Observation schema allows only value_state, value, unit, measuredAt, reason
+        for k in list(cleaned.keys()):
+            if k not in ('value_state', 'value', 'unit', 'measuredAt', 'reason'):
+                cleaned.pop(k, None)
+        o['answer'] = cleaned
+    return {k: o[k] for k in ('id', 'fieldCode', 'answer') if k in o}
+
+
+def _module_dependencies(module, rules):
+    deps = set(rules['outputProjection']['gapFields'][module.upper()]) | set(rules['workflowPolicy']['requiredResolved'][module.upper()])
+    if module == 'm3':
+        deps.add('egfr_formula')
+    if module == 'm4':
+        deps |= {'so_luong_thuoc_dong_thoi', 'co_da_thuoc', 'nhom_thuoc_tu_dong'}
+    return deps
 DRUG_CLASSES = {'MRA','ACEI','ARB','ARNI','NSAID','digoxin','amiodarone',
                 'loop_diuretic','beta_blocker','SGLT2i','other','corticosteroid','TZD','class_I_antiarrhythmic'}
 GROUP_CLASSES = {'mra':'MRA','sglt2i':'SGLT2i',
@@ -128,7 +263,7 @@ def access(conn, visit_id, principal, *, write=False):
         raise problem('VISIT_ALREADY_CONFIRMED')
     version=conn.execute('SELECT version_label FROM form_version WHERE id=%s',(row['form_version_id'],)).fetchone()
     if version['version_label'] not in ('v1.2','v2.0'):
-        raise problem('FORM_VERSION_NOT_WORKFLOW_CAPABLE')
+        raise problem('FORM_VERSION_NOT_WORKFLOW_CAPABLE', detail=f"Lượt khám dùng phiên bản biểu mẫu {version['version_label']} chưa hỗ trợ Luồng 4 Module AI (chỉ hỗ trợ v1.2 và v2.0).")
     return row
 
 
@@ -144,6 +279,7 @@ def source_fields(conn, visit):
     if patient['sex'] in ('male','female'):
         fields['sex']={'value_state':'answered','value':patient['sex']}
     definitions={r['code']:r for r in conn.execute('SELECT code,data_type FROM field_definition').fetchall()}
+    option_map={str(r['id']):r['option_code'] for r in conn.execute('SELECT id,option_code FROM field_option').fetchall()}
     canonical={}
     for value in detail['values']:
         code=value['fieldCode']
@@ -154,16 +290,26 @@ def source_fields(conn, visit):
             continue
         if definitions[code]['data_type']=='multi_choice' and value['valueState']=='answered':
             # Multi-choice rows saved through selectedOptions carry no scalar value; project option codes.
-            ids=[o['fieldOptionId'] for o in value.get('selectedOptions') or []]
+            ids=[str(o['fieldOptionId']) for o in value.get('selectedOptions') or []]
             if not ids:continue
-            option_codes={str(r['id']):r['option_code'] for r in conn.execute('SELECT id,option_code FROM field_option WHERE id=ANY(%s::uuid[])',(ids,)).fetchall()}
-            fields[code]={'value_state':'answered','value':[option_codes[i] for i in ids if i in option_codes]}
+            fields[code]={'value_state':'answered','value':[option_map[i] for i in ids if i in option_map]}
             continue
-        if value.get('valueText') or value.get('valueDate') or value.get('fieldOptionId'):
+        if value.get('fieldOptionId') and value['valueState']=='answered':
+            opt_code=option_map.get(str(value['fieldOptionId']))
+            if opt_code is not None:
+                val=int(opt_code) if opt_code.isdigit() else opt_code
+                if code=='egfr_formula':
+                    val=_EGFR_OPTION_MAP.get(val,val)
+                fields[canonical_code(code)]={'value_state':'answered','value':val}
+            continue
+        if value.get('valueText') or value.get('valueDate'):
             continue
         answer={'value_state':value['valueState'],'value':None}
         if value['valueState']=='answered':
-            answer['value']=value.get('valueBool') if value.get('valueBool') is not None else value.get('valueNum')
+            scalar_val=value.get('valueBool') if value.get('valueBool') is not None else value.get('valueNum')
+            if scalar_val is None:
+                continue
+            answer['value']=scalar_val
             if value.get('unit'):
                 answer['unit']=value['unit']
         fields[value['fieldCode']]=answer
@@ -201,9 +347,8 @@ def source_fields(conn, visit):
     label=conn.execute('SELECT version_label FROM form_version WHERE id=%s',(visit['form_version_id'],)).fetchone()['version_label']
     if label=='v2.0':
         from .his_v2.runtime import project_fields
-        options={str(r['id']):r['option_code'] for r in conn.execute('SELECT id,option_code FROM field_option')}
-        fields=project_fields(fields,detail,patient,visit,options)
-    return fields
+        fields=project_fields(fields,detail,patient,visit,option_map)
+    return {k:_normalize_field_answer(k,v) for k,v in fields.items()}
 
 
 def rules_for_visit(conn,visit):
@@ -501,13 +646,46 @@ def make_snapshot(conn, visit, workflow, module, rules):
     dependencies=set(rules['outputProjection']['gapFields'][module.upper()])|set(rules['workflowPolicy']['requiredResolved'][module.upper()])
     if module=='m3':dependencies.add('egfr_formula')
     observation_codes=dependencies|(M2_OBSERVATION_FIELDS if module=='m2' else set())
-    fields={k:v for k,v in fields.items() if k in dependencies}
+    fields={k:_normalize_field_answer(k,v) for k,v in fields.items() if k in dependencies}
     # Snapshot is a private allowlisted workflow projection, separate from the legacy AI export.
     label=conn.execute('SELECT version_label FROM form_version WHERE id=%s',(visit['form_version_id'],)).fetchone()['version_label']
     snap=dict(formVersionId=str(visit['form_version_id']),formVersionLabel=label,visitRevisionNo=visit['current_revision_no'],
               mappingVersion='hf-map/2.0' if label=='v2.0' else 'hf-map/1.1-test',fields=fields,upstreamDecisionIds=ids,selectedPrescription=prescription,
-              observations=[deepcopy(o) for o in workflow['observations'] if o['fieldCode'] in observation_codes],lists={k:fields.get(k,{'value_state':'unknown','value':None}) for k in LISTS})
-    validate(snap,'inputSnapshot')
+              observations=[_normalize_observation(o) for o in workflow['observations'] if o.get('fieldCode') in observation_codes],
+              lists={k:_normalize_field_answer(k,fields.get(k,{'value_state':'unknown','value':None})) for k in LISTS})
+    try:
+        validate(snap,'inputSnapshot')
+    except ValueError:
+        props=SCHEMA['$defs']['fields']['properties']
+        labels={r['code']:r['label_vi'] for r in conn.execute('SELECT code,label_vi FROM field_definition').fetchall()}
+        bad_errors=[]
+        for k,val in snap['fields'].items():
+            sch=props.get(k,{'$ref':'#/$defs/observation'})
+            if not matches(val,sch):
+                fcode=form_code(k)
+                lbl=labels.get(fcode) or labels.get(k) or fcode
+                reason='định dạng hoặc miền giá trị dữ liệu cũ chưa tương thích.'
+                if isinstance(val,dict) and val.get('value_state')=='answered':
+                    branches=sch.get('oneOf',[sch]) if isinstance(sch,dict) else []
+                    ans_branch=next((b for b in branches if isinstance(b,dict) and b.get('properties',{}).get('value_state',{}).get('const')=='answered'),{})
+                    if 'measuredAt' in ans_branch.get('required',[]) and not val.get('measuredAt'):
+                        reason='thiếu thời điểm đo (measuredAt).'
+                    elif 'unit' in ans_branch.get('properties',{}) and ans_branch['properties']['unit'].get('const') and val.get('unit')!=ans_branch['properties']['unit']['const']:
+                        reason=f"đơn vị chưa đúng chuẩn ({ans_branch['properties']['unit']['const']})."
+                bad_errors.append({'fieldCode':fcode,'message':f'{lbl}: {reason}','rejectedValue':None})
+        obs_sch=SCHEMA['$defs']['inputSnapshot']['properties']['observations']['items']
+        for obs in snap['observations']:
+            if not matches(obs,obs_sch):
+                fcode=form_code(obs.get('fieldCode',''))
+                lbl=labels.get(fcode) or fcode or 'cận lâm sàng'
+                if not any(e['fieldCode']==fcode for e in bad_errors):
+                    bad_errors.append({'fieldCode':fcode,'message':f'{lbl}: bản ghi thời điểm đo dữ liệu cũ chưa đúng định dạng.','rejectedValue':None})
+        if bad_errors:
+            summary='; '.join(e['message'] for e in bad_errors[:4])
+            detail=f"Không thể chạy {module.upper()} do dữ liệu lượt khám cũ chưa tương thích ({summary}). Vui lòng mở biểu mẫu, cập nhật và lưu lại các trường này rồi chạy lại."
+        else:
+            detail=f"Không thể chạy {module.upper()} do gói dữ liệu đầu vào của lượt khám cũ chưa tương thích với biểu mẫu hiện hành. Vui lòng mở biểu mẫu, kiểm tra và lưu lại."
+        raise ProblemError(422,'WORKFLOW_INPUT_INCOMPATIBLE','Dữ liệu lượt khám chưa tương thích để chạy Module',detail,errors=bad_errors) from None
     engine={**snap,'fields':normalize_lists(fields),'visitTime':to_iso(visit['visit_date']),
             'recentTestEvidence':deepcopy(workflow['recent_test_evidence']) if module=='m2' else {}}
     for m,decision in decisions.items():
@@ -867,11 +1045,20 @@ def synchronize_source(conn,visit,workflow,request=None,principal=None):
     revision_changed=workflow['source_revision_no']!=visit['current_revision_no']
     if changed or revision_changed:
         latest,_=rows(conn,visit['id'])
-        affected='m1' if revision_changed else min((owner_for(k) for k in changed), key=MODULES.index)
-        for prior in MODULES[:MODULES.index(affected)]:
-            if latest[prior] and changed & consumed_fields(latest[prior]):
-                affected=prior;break
-        invalidate(conn,workflow,affected,changed|({'visit_revision'} if revision_changed else set()),request,principal)
+        rules=rules_for_visit(conn,visit)
+        if revision_changed:
+            affected='m1'
+        else:
+            affected=None
+            for mod in MODULES:
+                deps=_module_dependencies(mod,rules)
+                if latest[mod]:
+                    deps=deps|consumed_fields(latest[mod])
+                if changed & deps:
+                    affected=mod
+                    break
+        if affected is not None:
+            invalidate(conn,workflow,affected,changed|({'visit_revision'} if revision_changed else set()),request,principal)
         for key in changed:
             if key in current:
                 workflow['fields'][key]=current[key]
@@ -884,6 +1071,16 @@ def synchronize_source(conn,visit,workflow,request=None,principal=None):
                 workflow['observations'].append({'id':str(uuid4()),'fieldCode':key,'answer':deepcopy(answer)})
         workflow['source_fields']=current;workflow['source_hash']=digest(current)
         workflow['source_revision_no']=visit['current_revision_no'];save(conn,workflow)
+    else:
+        # Silently normalize legacy shape drift (e.g. stray unit: null / ownerModule) without invalidating accepted runs.
+        normalized_fields={k:_normalize_field_answer(k,v) for k,v in workflow['fields'].items()}
+        normalized_obs=[_normalize_observation(o) for o in workflow['observations']]
+        if normalized_fields!=workflow['fields'] or normalized_obs!=workflow['observations']:
+            workflow['fields']=normalized_fields
+            workflow['observations']=normalized_obs
+            workflow['source_fields']=current
+            workflow['source_hash']=digest(current)
+            save(conn,workflow,bump=False)
 
 
 

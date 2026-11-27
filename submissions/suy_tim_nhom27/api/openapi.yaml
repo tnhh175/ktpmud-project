@@ -292,6 +292,17 @@ paths:
             type: string
           - type: 'null'
           title: Latestvisitstatus
+      - name: recordStatus
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - enum:
+            - active
+            - locked
+            type: string
+          - type: 'null'
+          title: Recordstatus
       - name: page
         in: query
         required: false
@@ -5991,7 +6002,8 @@ components:
         externalPatientCode:
           anyOf:
           - type: string
-            maxLength: 64
+            maxLength: 20
+            pattern: ^[A-Za-z0-9._/-]+$
           - type: 'null'
           title: Externalpatientcode
       additionalProperties: false
@@ -6038,7 +6050,8 @@ components:
         externalPatientCode:
           anyOf:
           - type: string
-            maxLength: 64
+            maxLength: 20
+            pattern: ^[A-Za-z0-9._/-]+$
           - type: 'null'
           title: Externalpatientcode
       additionalProperties: false

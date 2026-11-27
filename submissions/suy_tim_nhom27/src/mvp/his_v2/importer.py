@@ -41,6 +41,7 @@ def normalize_row(raw):
     row={k:clean(v) for k,v in raw.items()};warnings=[]
     patient_code,visit_code=external(row.get('SoVaoVien')),external(row.get('SoTiepNhan'))
     if not patient_code or not visit_code:raise RowError('HIS_ID_MISSING')
+    if len(patient_code)>20:raise RowError('HIS_ID_TOO_LONG')
     when=row.get('NgayKham')
     if isinstance(when,str):
         try:when=datetime.fromisoformat(when)
