@@ -1518,6 +1518,7 @@ def list_audit_logs(
         "form_template",
         "form_version",
         "field_definition",
+        "care_assignment",
         "patient_record_request",
         "password_reset_request",
     ]

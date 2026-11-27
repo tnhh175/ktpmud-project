@@ -10641,13 +10641,13 @@
         '<input type="search" id="audit-q" class="input" placeholder="Tìm người thực hiện hoặc mã yêu cầu..." value="' + esc(aa.q) + '">' +
         '<select id="audit-action" class="select">' +
           '<option value="">Tất cả hành động</option>' +
-          ['login', 'logout', 'login_failed', 'user_create', 'user_update', 'form_version_create', 'form_version_update', 'form_version_delete', 'form_version_publish', 'patient_create', 'visit_confirm', 'ai_input_export', 'care_assignment_add', 'care_assignment_revoke'].map(function (a) {
+          ['login', 'logout', 'login_failed', 'user_create', 'user_update', 'form_version_create', 'form_version_update', 'form_version_publish', 'patient_create', 'patient_update', 'visit_create', 'visit_submit', 'visit_claim', 'visit_withdraw', 'visit_confirm', 'ai_input_export', 'care_assignment_add', 'care_assignment_revoke', 'password_reset_request', 'password_reset_resolve', 'password_reset_reject', 'patient_record_request_create', 'patient_record_request_cancel', 'patient_record_request_approve', 'patient_record_request_reject', 'patient_record_status_change'].map(function (a) {
             return '<option value="' + a + '"' + (aa.action === a ? ' selected' : '') + '>' + esc(formatAuditAction(a)) + '</option>';
           }).join('') +
         '</select>' +
         '<select id="audit-entity" class="select">' +
           '<option value="">Tất cả đối tượng</option>' +
-          ['app_user', 'user_session', 'patient', 'visit', 'visit_revision', 'form_version', 'care_assignment'].map(function (e) {
+          ['app_user', 'user_session', 'patient', 'visit', 'visit_revision', 'form_version', 'care_assignment', 'patient_record_request', 'password_reset_request'].map(function (e) {
             return '<option value="' + e + '"' + (aa.entityType === e ? ' selected' : '') + '>' + esc(formatAuditEntity(e)) + '</option>';
           }).join('') +
         '</select>' +
