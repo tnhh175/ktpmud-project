@@ -1598,11 +1598,25 @@ def list_audit_logs(
         where.append("a.occurred_at <= %s")
         params.append(toDate)
     if q and q.strip():
-        like = f"%{q.strip()}%"
-        where.append(
-            "(COALESCE(u.username, '') ILIKE %s OR COALESCE(a.request_id, '') ILIKE %s OR a.entity_type ILIKE %s OR a.detail::text ILIKE %s)"
-        )
-        params.extend([like, like, like, like])
+        term = q.strip()
+        like = f"%{term}%"
+        # A role label ("Bác sĩ", "Nhân viên y tế", ...) filters by actor role only, so it
+        # does not also match account-edit details that merely mention that role.
+        role_labels = {
+            "bác sĩ": "doctor", "bác sĩ lâm sàng": "doctor", "bs": "doctor",
+            "nhân viên y tế": "nurse", "nvyt": "nurse", "điều dưỡng": "nurse",
+            "quản trị viên": "admin", "quản trị": "admin", "admin": "admin",
+            "dược sĩ": "pharmacist",
+        }
+        role = role_labels.get(" ".join(term.lower().split()))
+        if role is not None:
+            where.append("(u.role::text = %s OR COALESCE(u.username, '') ILIKE %s)")
+            params.extend([role, like])
+        else:
+            where.append(
+                "(COALESCE(u.username, '') ILIKE %s OR COALESCE(u.full_name, '') ILIKE %s OR COALESCE(a.request_id, '') ILIKE %s OR a.entity_type ILIKE %s OR a.detail::text ILIKE %s)"
+            )
+            params.extend([like, like, like, like, like])
 
     where_sql = f"WHERE {' AND '.join(where)}" if where else ""
     pool = request.app.state.pool
@@ -1624,7 +1638,7 @@ def list_audit_logs(
             SELECT
                 a.id, a.actor_user_id, a.action, a.entity_type, a.entity_id,
                 a.occurred_at, a.ip::text AS ip_text, a.request_id, a.outcome, a.detail,
-                u.username AS actor_username, u.role AS actor_role
+                u.username AS actor_username, u.full_name AS actor_full_name, u.role AS actor_role
             FROM audit_log a
             LEFT JOIN app_user u ON u.id = a.actor_user_id
             {where_sql}
@@ -1639,6 +1653,7 @@ def list_audit_logs(
             "id": str(r["id"]),
             "actorUserId": str(r["actor_user_id"]) if r["actor_user_id"] is not None else None,
             "actorUsername": r.get("actor_username"),
+            "actorFullName": r.get("actor_full_name"),
             "actorRole": r.get("actor_role"),
             "action": r["action"],
             "entityType": r["entity_type"],

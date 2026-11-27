@@ -164,9 +164,43 @@
       patient_record_request_cancel: 'NVYT hủy yêu cầu khóa/lưu trữ hồ sơ',
       patient_record_request_approve: 'Admin duyệt khóa/lưu trữ hồ sơ',
       patient_record_request_reject: 'Admin từ chối yêu cầu khóa/lưu trữ hồ sơ',
-      patient_record_status_change: 'Admin đổi trạng thái hồ sơ bệnh nhân'
+      patient_record_status_change: 'Admin đổi trạng thái hồ sơ bệnh nhân',
+      workflow_fields_saved: 'Bác sĩ lưu dữ liệu cho module AI',
+      workflow_run: 'Chạy module AI',
+      workflow_decision: 'Bác sĩ chốt kết quả module AI',
+      workflow_confirmation: 'Bác sĩ xác nhận cảnh báo an toàn thuốc',
+      workflow_invalidated: 'Kết quả module AI cần chạy lại do dữ liệu đổi',
+      workflow_finished: 'Hoàn tất đánh giá 4 module AI'
     };
     return map[act] || act;
+  }
+
+  // Full Vietnamese description of an audit row, using the (sanitized) detail.
+  function formatAuditActionFull(l) {
+    const d = (l && l.detail) || {};
+    const modName = { m1: 'M1 Chẩn đoán', m2: 'M2 Cận lâm sàng', m3: 'M3 Điều trị', m4: 'M4 An toàn thuốc' };
+    const mods = function (list) { return (list || []).map(function (m) { return modName[m] || m; }).join(', '); };
+    const visit = d.visitCode ? ' — lượt ' + d.visitCode : '';
+    switch (l.action) {
+      case 'workflow_run': {
+        const phase = { started: 'bắt đầu', succeeded: 'thành công', failed: 'thất bại' }[d.phase] || '';
+        return 'Chạy ' + (modName[d.module] || 'module AI') + (d.attempt > 1 ? ' (lần ' + d.attempt + ')' : '') + (phase ? ' — ' + phase : '');
+      }
+      case 'workflow_decision':
+        return 'Bác sĩ chốt ' + (modName[d.module] || 'module AI') + (d.source === 'manual' ? ' — tự nhập kết quả' : (d.source === 'ai' ? ' — dùng kết quả AI' : ''));
+      case 'workflow_fields_saved':
+        return 'Bác sĩ lưu dữ liệu cho ' + (modName[d.module] || 'module AI');
+      case 'workflow_invalidated':
+        return (d.modules && d.modules.length ? mods(d.modules) : 'Module AI') + ' cần chạy lại' + ((d.fieldCodes || []).indexOf('rerun') >= 0 ? ' (do chạy lại module trước)' : ' (do dữ liệu đầu vào thay đổi)');
+      case 'workflow_confirmation':
+        return 'Bác sĩ xác nhận đã xem ' + ((d.alertIds || []).length || '') + ' cảnh báo M4 An toàn thuốc';
+      case 'ai_input_export':
+        return 'Xuất dữ liệu đầu vào AI' + (d.code === 'AI_INPUT_NOT_READY' ? ' — chưa đủ dữ liệu' : '');
+      case 'visit_confirm':
+        return 'Bác sĩ xác nhận kết thúc lượt khám' + visit;
+      default:
+        return formatAuditAction(l.action) + visit;
+    }
   }
 
   function formatRoleLabel(role) {
@@ -175,6 +209,15 @@
     if (role === 'pharmacist') return 'Dược sĩ (chỉ xem M4)';
     if (role === 'doctor') return 'Bác sĩ lâm sàng';
     return role || '—';
+  }
+
+  function auditActorName(l) {
+    return l.actorFullName || l.actorUsername || 'Ẩn danh';
+  }
+
+  function auditActorSub(l) {
+    if (!l.actorUsername) return formatRoleShort(l.actorRole);
+    return l.actorUsername + '-' + formatRoleShort(l.actorRole);
   }
 
   function formatRoleShort(role) {
@@ -10606,8 +10649,8 @@
         return (
           '<tr>' +
             '<td class="tabular">' + esc(formatDateTime(l.occurredAt)) + '</td>' +
-            '<td><div class="cell-primary mono">' + esc(l.actorUsername || 'Ẩn danh') + '</div><div class="cell-sub">' + esc(roleVi(l.actorRole)) + '</div></td>' +
-            '<td>' + esc(formatAuditAction(l.action)) + '</td>' +
+            '<td><div class="cell-primary">' + esc(auditActorName(l)) + '</div><div class="cell-sub">' + esc(auditActorSub(l)) + '</div></td>' +
+            '<td>' + esc(formatAuditActionFull(l)) + '</td>' +
             '<td>' + esc(formatAuditEntity(l.entityType)) + '</td>' +
             '<td>' + outcomeBadge(l.outcome) + '</td>' +
             '<td style="text-align:right;"><button type="button" class="btn btn--secondary btn--sm" data-audit-select="' + esc(l.id) + '">Xem chi tiết</button></td>' +
@@ -10618,9 +10661,9 @@
       const cards = aa.items.map(function (l) {
         return (
           '<article class="record-card">' +
-            '<div class="record-card__top"><div><div class="cell-primary">' + esc(formatAuditAction(l.action)) + '</div><div class="cell-sub tabular">' + esc(formatDateTime(l.occurredAt)) + '</div></div>' + outcomeBadge(l.outcome) + '</div>' +
+            '<div class="record-card__top"><div><div class="cell-primary">' + esc(formatAuditActionFull(l)) + '</div><div class="cell-sub tabular">' + esc(formatDateTime(l.occurredAt)) + '</div></div>' + outcomeBadge(l.outcome) + '</div>' +
             '<div class="record-card__meta">' +
-              '<div><span class="record-card__label">Người thực hiện</span><span class="mono">' + esc(l.actorUsername || 'Ẩn danh') + '</span></div>' +
+              '<div><span class="record-card__label">Người thực hiện</span><span>' + esc(auditActorName(l)) + '</span><div class="cell-sub">' + esc(auditActorSub(l)) + '</div></div>' +
               '<div><span class="record-card__label">Đối tượng</span>' + esc(formatAuditEntity(l.entityType)) + '</div>' +
             '</div>' +
             '<button type="button" class="btn btn--secondary btn--sm btn--full" data-audit-select="' + esc(l.id) + '">Xem chi tiết</button>' +
@@ -10638,10 +10681,10 @@
         '<div><h1 class="page-head__title">Tra cứu nhật ký hệ thống</h1><p class="page-head__sub">Theo dõi sự kiện đăng nhập, phân quyền, phát hành biểu mẫu và xác nhận lượt khám.</p></div>' +
       '</div>' +
       '<div class="audit-filters">' +
-        '<input type="search" id="audit-q" class="input" placeholder="Tìm người thực hiện hoặc mã yêu cầu..." value="' + esc(aa.q) + '">' +
+        '<input type="search" id="audit-q" class="input" placeholder="Tìm họ tên, tài khoản, vai trò hoặc mã yêu cầu..." value="' + esc(aa.q) + '">' +
         '<select id="audit-action" class="select">' +
           '<option value="">Tất cả hành động</option>' +
-          ['login', 'logout', 'login_failed', 'user_create', 'user_update', 'form_version_create', 'form_version_update', 'form_version_publish', 'patient_create', 'patient_update', 'visit_create', 'visit_submit', 'visit_claim', 'visit_withdraw', 'visit_confirm', 'ai_input_export', 'care_assignment_add', 'care_assignment_revoke', 'password_reset_request', 'password_reset_resolve', 'password_reset_reject', 'patient_record_request_create', 'patient_record_request_cancel', 'patient_record_request_approve', 'patient_record_request_reject', 'patient_record_status_change'].map(function (a) {
+          ['login', 'logout', 'login_failed', 'user_create', 'user_update', 'form_version_create', 'form_version_update', 'form_version_publish', 'patient_create', 'patient_update', 'visit_create', 'visit_submit', 'visit_claim', 'visit_withdraw', 'visit_confirm', 'ai_input_export', 'care_assignment_add', 'care_assignment_revoke', 'password_reset_request', 'password_reset_resolve', 'password_reset_reject', 'patient_record_request_create', 'patient_record_request_cancel', 'patient_record_request_approve', 'patient_record_request_reject', 'patient_record_status_change', 'workflow_fields_saved', 'workflow_run', 'workflow_decision', 'workflow_confirmation', 'workflow_invalidated', 'workflow_finished'].map(function (a) {
             return '<option value="' + a + '"' + (aa.action === a ? ' selected' : '') + '>' + esc(formatAuditAction(a)) + '</option>';
           }).join('') +
         '</select>' +
@@ -11131,9 +11174,9 @@
           '<div class="kv-grid">' +
             '<div><div class="kv-item__label">Thời điểm</div><div class="kv-item__value tabular">' + esc(formatDateTime(lg.occurredAt)) + '</div></div>' +
             '<div><div class="kv-item__label">Kết quả</div><div class="kv-item__value">' + outBadge + '</div></div>' +
-            '<div><div class="kv-item__label">Người thực hiện</div><div class="kv-item__value mono">' + esc(lg.actorUsername || 'Ẩn danh') + '</div></div>' +
+            '<div><div class="kv-item__label">Người thực hiện</div><div class="kv-item__value">' + esc(auditActorName(lg)) + '<div class="cell-sub">' + esc(auditActorSub(lg)) + '</div></div></div>' +
             '<div><div class="kv-item__label">Vai trò</div><div class="kv-item__value">' + esc(rVi) + '</div></div>' +
-            '<div><div class="kv-item__label">Hành động</div><div class="kv-item__value">' + esc(formatAuditAction(lg.action)) + '</div></div>' +
+            '<div><div class="kv-item__label">Hành động</div><div class="kv-item__value">' + esc(formatAuditActionFull(lg)) + '</div></div>' +
             '<div><div class="kv-item__label">Đối tượng</div><div class="kv-item__value">' + esc(formatAuditEntity(lg.entityType)) + '</div></div>' +
           '</div>' +
           '<details class="details-tech">' +

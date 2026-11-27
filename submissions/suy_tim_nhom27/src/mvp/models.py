@@ -995,6 +995,7 @@ class AuditLog(BaseModel):
     id: UUID
     actorUserId: UUID | None = None
     actorUsername: str | None = None
+    actorFullName: str | None = None
     actorRole: UserRole | None = None
     action: AuditAction
     entityType: str

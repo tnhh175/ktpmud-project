@@ -5537,6 +5537,11 @@ components:
           - type: string
           - type: 'null'
           title: Actorusername
+        actorFullName:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actorfullname
         actorRole:
           anyOf:
           - type: string
