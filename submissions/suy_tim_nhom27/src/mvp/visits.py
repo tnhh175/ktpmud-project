@@ -809,7 +809,16 @@ def _validate_and_normalize_draft(
                 try: _parse_iso_datetime(obj['measuredAt'])
                 except (ValueError,TypeError): invalid=True
             if invalid:
-                errors.append({'fieldCode':fd['code'],'message':'Đầu vào v2.0 không khớp kiểu, miền hoặc quyền ghi của trường.','rejectedValue':None})
+                message='Đầu vào v2.0 không khớp kiểu, miền hoặc quyền ghi của trường.'
+                lo,hi=fd.get('minValue'),fd.get('maxValue')
+                if state=='answered' and dtype in ('number','integer') and type(value) in (int,float) and ((lo is not None and value<lo) or (hi is not None and value>hi)):
+                    unit=f" {fd['canonicalUnit']}" if fd.get('canonicalUnit') else ''
+                    fmt=lambda x:('%g'%x).replace('.',',')
+                    rng=f'{fmt(lo)}–{fmt(hi)}{unit}' if lo is not None and hi is not None else (f'≥ {fmt(lo)}{unit}' if lo is not None else f'≤ {fmt(hi)}{unit}')
+                    message=f"{fd.get('labelVi') or fd['code']}: giá trị phải trong khoảng {rng}."
+                elif state=='answered' and fd.get('validationRule',{}).get('requiresMeasuredAt') and not obj.get('measuredAt'):
+                    message=f"{fd.get('labelVi') or fd['code']}: cần nhập thời điểm đo khi có giá trị số."
+                errors.append({'fieldCode':fd['code'],'message':message,'rejectedValue':None})
                 continue
             seen_field_ids.add(fd['id'])
             normalized_values.append(dict(fieldDefinitionId=fd['id'],fieldCode=fd['code'],valueState=state,answer=obj,

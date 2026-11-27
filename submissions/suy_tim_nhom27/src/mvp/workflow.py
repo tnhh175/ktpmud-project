@@ -152,6 +152,13 @@ def source_fields(conn, visit):
             canonical[canonical_code(code)]=deepcopy(value['answer']);continue
         if value['fieldCode'].startswith('cls_') and value.get('valueText'):
             continue
+        if definitions[code]['data_type']=='multi_choice' and value['valueState']=='answered':
+            # Multi-choice rows saved through selectedOptions carry no scalar value; project option codes.
+            ids=[o['fieldOptionId'] for o in value.get('selectedOptions') or []]
+            if not ids:continue
+            option_codes={str(r['id']):r['option_code'] for r in conn.execute('SELECT id,option_code FROM field_option WHERE id=ANY(%s::uuid[])',(ids,)).fetchall()}
+            fields[code]={'value_state':'answered','value':[option_codes[i] for i in ids if i in option_codes]}
+            continue
         if value.get('valueText') or value.get('valueDate') or value.get('fieldOptionId'):
             continue
         answer={'value_state':value['valueState'],'value':None}
