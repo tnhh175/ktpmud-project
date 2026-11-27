@@ -18,7 +18,7 @@ CREATE TYPE field_data_type AS ENUM ('number', 'integer', 'text', 'boolean', 'da
 CREATE TYPE section_code AS ENUM ('sinh_ton', 'trieu_chung_kham', 'chan_doan_nguy_co', 'thuoc', 'hanh_chinh', 'trieu_chung_dien_bien', 'sinh_ton_kham', 'benh_su_dong_mac', 'thuoc_di_ung', 'can_lam_sang', 'lao_khoa', 'ghi_chu');
 CREATE TYPE readiness_tier AS ENUM ('patient_created', 'draft_saved', 'confirmed', 'ai_ready');
 CREATE TYPE bp_position AS ENUM ('supine', 'sitting', 'standing');
-CREATE TYPE audit_action AS ENUM ('login', 'logout', 'login_failed', 'user_create', 'user_update', 'form_version_create', 'form_version_update', 'form_version_publish', 'patient_create', 'visit_confirm', 'ai_input_export', 'care_assignment_add', 'care_assignment_revoke', 'visit_create', 'visit_submit', 'visit_claim', 'visit_withdraw', 'patient_update');
+CREATE TYPE audit_action AS ENUM ('login', 'logout', 'login_failed', 'user_create', 'user_update', 'form_version_create', 'form_version_update', 'form_version_publish', 'patient_create', 'visit_confirm', 'ai_input_export', 'care_assignment_add', 'care_assignment_revoke', 'visit_create', 'visit_submit', 'visit_claim', 'visit_withdraw', 'patient_update', 'password_reset_request', 'password_reset_resolve', 'password_reset_reject', 'patient_record_request_create', 'patient_record_request_cancel', 'patient_record_request_approve', 'patient_record_request_reject', 'patient_record_status_change');
 
 -- -----------------------------------------------------------------------------
 -- 2. TABLES (21 tables including diagnosis and patient care assignments)
@@ -72,6 +72,9 @@ CREATE TABLE patient (
   birth_year smallint,
   declared_age smallint,
   row_version integer NOT NULL DEFAULT 1,
+  record_status varchar(16) NOT NULL DEFAULT 'active',
+  record_status_updated_at timestamptz,
+  record_status_updated_by uuid REFERENCES app_user(id) ON DELETE RESTRICT,
   created_by uuid NOT NULL,
   updated_by uuid REFERENCES app_user(id),
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -83,6 +86,7 @@ CREATE TABLE patient (
   CONSTRAINT chk_patient_code_fmt CHECK (patient_code ~ '^BN-[0-9]{5}$'),
   CONSTRAINT chk_patient_full_name_len CHECK (length(trim(full_name)) >= 2),
   CONSTRAINT chk_patient_sex CHECK (sex IN ('male', 'female', 'unknown')),
+  CONSTRAINT chk_patient_record_status CHECK (record_status IN ('active', 'locked', 'archived')),
   CONSTRAINT chk_patient_birth_date_range CHECK (birth_date IS NULL OR (birth_date >= DATE '1900-01-01' AND birth_date <= CURRENT_DATE)),
   CONSTRAINT chk_patient_birth_year_range CHECK (birth_year IS NULL OR (birth_year BETWEEN 1900 AND 2100)),
   CONSTRAINT chk_patient_declared_age_range CHECK (declared_age IS NULL OR (declared_age BETWEEN 0 AND 120)),
@@ -92,6 +96,7 @@ CREATE TABLE patient (
 CREATE UNIQUE INDEX uq_patient_cccd ON patient(cccd) WHERE cccd IS NOT NULL;
 CREATE INDEX ix_patient_full_name ON patient (full_name);
 CREATE INDEX ix_patient_external_code ON patient (external_patient_code) WHERE external_patient_code IS NOT NULL;
+CREATE INDEX ix_patient_record_status ON patient (record_status, updated_at DESC);
 
 CREATE TABLE field_definition (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -468,6 +473,59 @@ CREATE TABLE patient_care_assignment (
 CREATE UNIQUE INDEX ix_care_active_pair ON patient_care_assignment (patient_id, doctor_user_id) WHERE revoked_at IS NULL;
 CREATE INDEX ix_care_doctor_patient ON patient_care_assignment (doctor_user_id, patient_id) WHERE revoked_at IS NULL;
 CREATE INDEX ix_care_patient ON patient_care_assignment (patient_id, assigned_at DESC);
+
+CREATE TABLE patient_record_request (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  patient_id uuid NOT NULL REFERENCES patient(id) ON DELETE RESTRICT,
+  request_type varchar(16) NOT NULL,
+  reason varchar(500) NOT NULL,
+  status varchar(16) NOT NULL DEFAULT 'pending',
+  requested_by uuid NOT NULL REFERENCES app_user(id) ON DELETE RESTRICT,
+  requested_at timestamptz NOT NULL DEFAULT now(),
+  handled_by uuid REFERENCES app_user(id) ON DELETE RESTRICT,
+  handled_at timestamptz,
+  admin_note varchar(500),
+  CONSTRAINT pk_patient_record_request PRIMARY KEY (id),
+  CONSTRAINT chk_patient_record_req_type CHECK (request_type IN ('lock', 'delete')),
+  CONSTRAINT chk_patient_record_req_status CHECK (status IN ('pending', 'approved', 'rejected', 'cancelled')),
+  CONSTRAINT chk_patient_record_req_reason CHECK (length(trim(reason)) >= 3),
+  CONSTRAINT chk_patient_record_req_handled CHECK (
+    (status = 'pending' AND handled_by IS NULL AND handled_at IS NULL)
+    OR (status IN ('approved', 'rejected') AND handled_by IS NOT NULL AND handled_at IS NOT NULL)
+    OR (status = 'cancelled' AND handled_at IS NOT NULL)
+  )
+);
+CREATE UNIQUE INDEX uq_patient_record_request_pending_type ON patient_record_request (patient_id, request_type) WHERE status = 'pending';
+CREATE INDEX ix_patient_record_request_patient_time ON patient_record_request (patient_id, requested_at DESC);
+CREATE INDEX ix_patient_record_request_status_time ON patient_record_request (status, requested_at DESC);
+
+CREATE TABLE password_reset_request (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  username_entered varchar(64) NOT NULL,
+  username_normalized varchar(64) NOT NULL,
+  user_id uuid REFERENCES app_user(id) ON DELETE SET NULL,
+  note varchar(300),
+  status varchar(16) NOT NULL DEFAULT 'pending',
+  requested_at timestamptz NOT NULL DEFAULT now(),
+  last_requested_at timestamptz NOT NULL DEFAULT now(),
+  request_count integer NOT NULL DEFAULT 1,
+  handled_by uuid REFERENCES app_user(id) ON DELETE RESTRICT,
+  handled_at timestamptz,
+  admin_note varchar(500),
+  client_ip_hash varchar(64),
+  CONSTRAINT pk_password_reset_request PRIMARY KEY (id),
+  CONSTRAINT chk_pw_reset_req_username CHECK (length(trim(username_entered)) >= 1),
+  CONSTRAINT chk_pw_reset_req_status CHECK (status IN ('pending', 'resolved', 'rejected')),
+  CONSTRAINT chk_pw_reset_req_count CHECK (request_count >= 1),
+  CONSTRAINT chk_pw_reset_req_handled CHECK (
+    (status = 'pending' AND handled_by IS NULL AND handled_at IS NULL)
+    OR (status IN ('resolved', 'rejected') AND handled_by IS NOT NULL AND handled_at IS NOT NULL)
+  )
+);
+CREATE UNIQUE INDEX uq_password_reset_request_pending_user ON password_reset_request (username_normalized) WHERE status = 'pending';
+CREATE INDEX ix_password_reset_request_status_time ON password_reset_request (status, last_requested_at DESC);
+CREATE INDEX ix_password_reset_request_ip_time ON password_reset_request (client_ip_hash, last_requested_at DESC) WHERE client_ip_hash IS NOT NULL;
+CREATE INDEX ix_password_reset_request_user_time ON password_reset_request (username_normalized, last_requested_at DESC);
 
 CREATE OR REPLACE FUNCTION fn_set_updated_at()
 RETURNS trigger

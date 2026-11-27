@@ -3699,6 +3699,361 @@ paths:
       - doctor
       description: 'Vai trò: doctor. Lượt in_progress/confirmed chỉ assignedDoctorId truy cập; người khác
         403 VISIT_LOCKED_BY_OTHER_DOCTOR. '
+  /auth/password-reset-requests:
+    post:
+      tags:
+      - Auth
+      summary: Gửi yêu cầu cấp lại mật khẩu (quên mật khẩu)
+      operationId: createPasswordResetRequest
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - username
+              properties:
+                username:
+                  type: string
+                  minLength: 1
+                  maxLength: 64
+                note:
+                  type:
+                  - string
+                  - 'null'
+                  maxLength: 300
+      responses:
+        '200':
+          description: Phản hồi chung chống dò tìm tài khoản
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted:
+                    type: boolean
+                  message:
+                    type: string
+        '422':
+          description: FIELD_VALIDATION_FAILED
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /admin/password-reset-requests:
+    get:
+      tags:
+      - AdminUsers
+      summary: Danh sách yêu cầu cấp lại mật khẩu chờ/đã xử lý
+      operationId: listPasswordResetRequests
+      x-roles:
+      - admin
+      parameters:
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum: [pending, resolved, rejected]
+      - name: q
+        in: query
+        schema:
+          type: string
+          maxLength: 100
+      - name: page
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: pageSize
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Danh sách yêu cầu cấp lại mật khẩu
+        '403':
+          description: RBAC_ROLE_FORBIDDEN
+  /admin/password-reset-requests/{requestId}/resolve:
+    post:
+      tags:
+      - AdminUsers
+      summary: Admin cấp mã đăng nhập một lần cho yêu cầu quên mật khẩu
+      operationId: resolvePasswordResetRequest
+      x-roles:
+      - admin
+      parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Đã cấp mã đăng nhập một lần và đánh dấu resolved
+        '403':
+          description: RBAC_ROLE_FORBIDDEN
+        '404':
+          description: RESOURCE_NOT_FOUND
+        '409':
+          description: REQUEST_ALREADY_HANDLED / ACCOUNT_DEACTIVATED
+  /admin/password-reset-requests/{requestId}/reject:
+    post:
+      tags:
+      - AdminUsers
+      summary: Admin từ chối yêu cầu quên mật khẩu kèm ghi chú
+      operationId: rejectPasswordResetRequest
+      x-roles:
+      - admin
+      parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Đã từ chối yêu cầu
+        '403':
+          description: RBAC_ROLE_FORBIDDEN
+        '404':
+          description: RESOURCE_NOT_FOUND
+        '409':
+          description: REQUEST_ALREADY_HANDLED
+  /patients/{patientId}/record-requests:
+    get:
+      tags:
+      - Patients
+      summary: Xem danh sách yêu cầu khóa/lưu trữ của một hồ sơ bệnh nhân
+      operationId: listPatientRecordRequests
+      x-roles:
+      - nurse
+      - doctor
+      parameters:
+      - name: patientId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Danh sách yêu cầu khóa/lưu trữ
+        '403':
+          description: RBAC_ROLE_FORBIDDEN
+        '404':
+          description: RESOURCE_NOT_FOUND
+    post:
+      tags:
+      - Patients
+      summary: NVYT gửi yêu cầu khóa hoặc lưu trữ hồ sơ bệnh nhân
+      operationId: createPatientRecordRequest
+      x-roles:
+      - nurse
+      parameters:
+      - name: patientId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '201':
+          description: Đã ghi nhận yêu cầu chờ Quản trị viên xét duyệt
+        '403':
+          description: RBAC_ROLE_FORBIDDEN
+        '404':
+          description: RESOURCE_NOT_FOUND
+        '409':
+          description: RECORD_REQUEST_ALREADY_PENDING / PATIENT_ALREADY_LOCKED
+  /patients/{patientId}/record-requests/{requestId}/cancel:
+    post:
+      tags:
+      - Patients
+      summary: NVYT hủy yêu cầu khóa/lưu trữ đang chờ của chính mình
+      operationId: cancelPatientRecordRequest
+      x-roles:
+      - nurse
+      parameters:
+      - name: patientId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Đã hủy yêu cầu
+        '403':
+          description: RBAC_ROLE_FORBIDDEN / RECORD_REQUEST_NOT_OWNER
+        '404':
+          description: RESOURCE_NOT_FOUND
+        '409':
+          description: REQUEST_ALREADY_HANDLED
+  /admin/patients:
+    get:
+      tags:
+      - AdminPatients
+      summary: Danh sách hồ sơ bệnh nhân toàn hệ thống (chỉ thông tin hành chính, không dữ liệu lâm sàng)
+      operationId: adminListPatients
+      x-roles:
+      - admin
+      parameters:
+      - name: q
+        in: query
+        schema:
+          type: string
+          maxLength: 100
+      - name: recordStatus
+        in: query
+        schema:
+          type: string
+          enum: [active, locked, archived]
+      - name: page
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: pageSize
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Danh sách hồ sơ hành chính toàn hệ thống
+        '403':
+          description: RBAC_ROLE_FORBIDDEN
+  /admin/patients/record-requests:
+    get:
+      tags:
+      - AdminPatients
+      summary: Danh sách yêu cầu khóa/lưu trữ hồ sơ từ NVYT
+      operationId: adminListPatientRecordRequests
+      x-roles:
+      - admin
+      parameters:
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum: [pending, approved, rejected, cancelled]
+      - name: requestType
+        in: query
+        schema:
+          type: string
+          enum: [lock, delete]
+      - name: q
+        in: query
+        schema:
+          type: string
+          maxLength: 100
+      - name: page
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: pageSize
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Danh sách yêu cầu từ NVYT
+        '403':
+          description: RBAC_ROLE_FORBIDDEN
+  /admin/patients/record-requests/{requestId}/approve:
+    post:
+      tags:
+      - AdminPatients
+      summary: Admin duyệt yêu cầu khóa hoặc lưu trữ hồ sơ
+      operationId: adminApprovePatientRecordRequest
+      x-roles:
+      - admin
+      parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Đã duyệt yêu cầu và cập nhật trạng thái hồ sơ
+        '403':
+          description: RBAC_ROLE_FORBIDDEN
+        '404':
+          description: RESOURCE_NOT_FOUND
+        '409':
+          description: REQUEST_ALREADY_HANDLED
+  /admin/patients/record-requests/{requestId}/reject:
+    post:
+      tags:
+      - AdminPatients
+      summary: Admin từ chối yêu cầu khóa/lưu trữ hồ sơ kèm ghi chú
+      operationId: adminRejectPatientRecordRequest
+      x-roles:
+      - admin
+      parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Đã từ chối yêu cầu
+        '403':
+          description: RBAC_ROLE_FORBIDDEN
+        '404':
+          description: RESOURCE_NOT_FOUND
+        '409':
+          description: REQUEST_ALREADY_HANDLED
+  /admin/patients/{patientId}/record-status:
+    patch:
+      tags:
+      - AdminPatients
+      summary: Admin trực tiếp khóa, mở khóa, lưu trữ hoặc khôi phục hồ sơ bệnh nhân
+      operationId: adminUpdatePatientRecordStatus
+      x-roles:
+      - admin
+      parameters:
+      - name: patientId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Đã cập nhật trạng thái hồ sơ
+        '403':
+          description: RBAC_ROLE_FORBIDDEN
+        '404':
+          description: RESOURCE_NOT_FOUND
+        '409':
+          description: RECORD_STATUS_UNCHANGED / CONCURRENCY_ROW_VERSION_MISMATCH
 components:
   securitySchemes:
     bearerAuth:
@@ -4068,6 +4423,31 @@ components:
           - female
           - unknown
           title: Sex
+        recordStatus:
+          type: string
+          enum:
+          - active
+          - locked
+          - archived
+          default: active
+          title: Recordstatus
+        recordStatusUpdatedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Recordstatusupdatedat
+        recordStatusUpdatedBy:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Recordstatusupdatedby
+        recordStatusUpdatedByName:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Recordstatusupdatedbyname
         birthDate:
           anyOf:
           - type: string

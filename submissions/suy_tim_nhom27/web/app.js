@@ -148,13 +148,23 @@
       form_version_delete: 'Xóa bản nháp biểu mẫu',
       form_version_publish: 'Phát hành phiên bản biểu mẫu',
       patient_create: 'Tạo hồ sơ bệnh nhân',
+      patient_update: 'Cập nhật hành chính bệnh nhân',
+      visit_create: 'Tạo lượt khám',
       visit_confirm: 'Xác nhận lượt khám / Bản sửa',
       visit_submit: 'NVYT gửi lượt khám vào hàng chờ',
       visit_claim: 'Bác sĩ nhận lượt khám',
       visit_withdraw: 'NVYT rút lại lượt khám',
       ai_input_export: 'Xuất JSON đầu vào AI',
       care_assignment_add: 'Phân công bác sĩ phụ trách',
-      care_assignment_revoke: 'Thu hồi phân công bác sĩ'
+      care_assignment_revoke: 'Thu hồi phân công bác sĩ',
+      password_reset_request: 'Yêu cầu cấp lại mật khẩu',
+      password_reset_resolve: 'Cấp mã đăng nhập một lần',
+      password_reset_reject: 'Từ chối yêu cầu cấp lại mật khẩu',
+      patient_record_request_create: 'NVYT gửi yêu cầu khóa/lưu trữ hồ sơ',
+      patient_record_request_cancel: 'NVYT hủy yêu cầu khóa/lưu trữ hồ sơ',
+      patient_record_request_approve: 'Admin duyệt khóa/lưu trữ hồ sơ',
+      patient_record_request_reject: 'Admin từ chối yêu cầu khóa/lưu trữ hồ sơ',
+      patient_record_status_change: 'Admin đổi trạng thái hồ sơ bệnh nhân'
     };
     return map[act] || act;
   }
@@ -212,7 +222,7 @@
     if (v.sbp != null || v.dbp != null) {
       const sbpNum = v.sbp != null ? Number(v.sbp) : null;
       const warn = sbpNum !== null && sbpNum < 90;
-      parts.push('<span class="vital-chip' + (warn ? ' vital-chip--alert' : '') + '">HA ' + esc(v.sbp != null ? v.sbp : '?') + '/' + esc(v.dbp != null ? v.dbp : '?') + '</span>');
+      parts.push('<span class="vital-chip' + (warn ? ' vital-chip--alert' : '') + '">HA ' + esc(v.sbp != null ? v.sbp : 'Chưa rõ') + '/' + esc(v.dbp != null ? v.dbp : 'Chưa rõ') + '</span>');
     }
     if (v.hr != null) {
       const hrNum = Number(v.hr);
@@ -250,9 +260,38 @@
       visit: 'Lượt khám',
       visit_revision: 'Bản sửa lượt khám',
       care_assignment: 'Phân công phụ trách',
+      patient_record_request: 'Yêu cầu khóa/lưu trữ hồ sơ',
+      password_reset_request: 'Yêu cầu cấp lại mật khẩu',
       audit_log: 'Nhật ký hệ thống'
     };
     return map[ent] || ent || '—';
+  }
+
+  function formatRecordStatusBadge(status, small) {
+    const cls = small ? ' badge--xs' : '';
+    if (status === 'locked') return '<span class="badge badge--warn' + cls + '" data-record-status="locked">' + ICONS.lock + ' Đã khóa</span>';
+    if (status === 'archived') return '<span class="badge badge--neutral' + cls + '" data-record-status="archived">Đã lưu trữ</span>';
+    return '<span class="badge badge--success' + cls + '" data-record-status="active">Đang hoạt động</span>';
+  }
+
+  function formatRecordRequestType(reqType) {
+    if (reqType === 'delete') return '<span class="badge badge--error badge--xs">Xóa (lưu trữ)</span>';
+    return '<span class="badge badge--warn badge--xs">Khóa hồ sơ</span>';
+  }
+
+  function formatRecordRequestStatus(st) {
+    if (st === 'pending') return '<span class="badge badge--warn badge--xs">Chờ duyệt</span>';
+    if (st === 'approved') return '<span class="badge badge--success badge--xs">Đã duyệt</span>';
+    if (st === 'rejected') return '<span class="badge badge--error badge--xs">Từ chối</span>';
+    if (st === 'cancelled') return '<span class="badge badge--neutral badge--xs">Đã hủy</span>';
+    return '<span class="badge badge--neutral badge--xs">' + esc(st || '—') + '</span>';
+  }
+
+  function formatPwResetStatus(st) {
+    if (st === 'pending') return '<span class="badge badge--warn badge--xs">Chờ xử lý</span>';
+    if (st === 'resolved') return '<span class="badge badge--success badge--xs">Đã cấp mã</span>';
+    if (st === 'rejected') return '<span class="badge badge--error badge--xs">Đã từ chối</span>';
+    return '<span class="badge badge--neutral badge--xs">' + esc(st || '—') + '</span>';
   }
 
   const NOT_FOUND_OR_NO_ACCESS_MSG = 'Không tìm thấy hoặc bạn không có quyền với hồ sơ này.';
@@ -1583,7 +1622,7 @@
     patients: { items: [], q: '', status: '', loading: false, error: '' },
 
     // M3 Patient Profile
-    profile: { patientId: null, patient: null, latestVisitSummary: null, visits: [], careAssignments: [], careDoctors: [], careLoading: false, careError: '', loading: false, error: '' },
+    profile: { patientId: null, patient: null, latestVisitSummary: null, visits: [], recordRequests: [], careAssignments: [], careDoctors: [], careLoading: false, careError: '', loading: false, error: '' },
 
     // M4 Encounter
     encounter: {
@@ -1719,8 +1758,37 @@
       lastRunErrors: {}     // { m1: runError }
     },
 
-    // M6 Admin Users
-    adminUsers: { items: [], q: '', role: '', isActive: '', loading: false, error: '' },
+    // M6 Admin Users & Password Reset Requests (UI-02)
+    adminUsers: {
+      activeTab: 'accounts', // accounts | reset-requests
+      items: [], q: '', role: '', isActive: '', loading: false, error: '',
+      pwRequests: [], pwPendingCount: 0, pwStatus: '', pwQ: '', pwLoading: false, pwError: ''
+    },
+
+    // UI-18 Admin System-Wide Patient Records & Nurse Record Requests
+    adminPatients: {
+      activeTab: 'records', // records | requests
+      items: [],
+      summary: { totalAll: 0, activeCount: 0, lockedCount: 0, archivedCount: 0, pendingRequestCount: 0 },
+      pagination: { page: 1, pageSize: 20, totalItems: 0, totalPages: 1 },
+      q: '',
+      recordStatus: '',
+      loading: false,
+      error: '',
+      requests: [],
+      reqPendingCount: 0,
+      reqPagination: { page: 1, pageSize: 20, totalItems: 0, totalPages: 1 },
+      reqStatus: '',
+      reqType: '',
+      reqQ: '',
+      reqLoading: false,
+      reqError: ''
+    },
+
+    adminBadges: {
+      pwResetPending: 0,
+      recordReqPending: 0
+    },
 
     // M7 Admin Forms
     adminForms: {
@@ -1798,6 +1866,9 @@
     patients: { timer: null, sequence: 0 },
     nurseIntake: { timer: null, sequence: 0 },
     users: { timer: null, sequence: 0 },
+    pwReset: { timer: null, sequence: 0 },
+    adminPatients: { timer: null, sequence: 0 },
+    adminRecordReqs: { timer: null, sequence: 0 },
     audit: { timer: null, sequence: 0 },
     adminCare: { timer: null, sequence: 0 }
   };
@@ -1847,6 +1918,9 @@
       if (kind === 'patients') loadPatients(options);
       else if (kind === 'nurseIntake') loadNurseIntake(options);
       else if (kind === 'users') loadAdminUsers(options);
+      else if (kind === 'pwReset') loadAdminPwResetRequests(options);
+      else if (kind === 'adminPatients') loadAdminPatients(options);
+      else if (kind === 'adminRecordReqs') loadAdminRecordRequests(options);
       else if (kind === 'audit') loadAdminAudit(options);
       else if (kind === 'adminCare') loadAdminCare(options);
     }, 180);
@@ -2179,13 +2253,20 @@
       await loadAdminUsers();
       return;
     }
+    if (head === 'admin' && parts[1] === 'patients') {
+      state.screen = 'admin-patients';
+      await loadAdminPatients();
+      return;
+    }
     if (head === 'admin' && parts[1] === 'forms') {
       state.screen = 'admin-forms';
+      refreshAdminBadges();
       await loadAdminForms();
       return;
     }
     if (head === 'admin' && parts[1] === 'audit') {
       state.screen = 'admin-audit';
+      refreshAdminBadges();
       await loadAdminAudit();
       return;
     }
@@ -2478,15 +2559,18 @@
     state.profile.error = '';
     render();
     try {
-      const [ptRes, visRes] = await Promise.all([
+      const [ptRes, visRes, reqRes] = await Promise.all([
         api.getPatient(patientId),
-        api.listPatientVisits(patientId, { pageSize: 50 })
+        api.listPatientVisits(patientId, { pageSize: 50 }),
+        api.listPatientRecordRequests(patientId).catch(function () { return { items: [] }; })
       ]);
       state.profile.patient = ptRes.patient;
       state.profile.latestVisitSummary = ptRes.latestVisitSummary || null;
       state.profile.visits = (visRes && visRes.items) || [];
+      state.profile.recordRequests = (reqRes && reqRes.items) || [];
     } catch (err) {
       state.profile.patient = null;
+      state.profile.recordRequests = [];
       state.profile.error = formatClinicalError(err, 'Không tải được hồ sơ bệnh nhân.');
       if (err && (err.status === 401 || err.status === 403)) return handleAuthOrError(err);
     } finally {
@@ -2827,6 +2911,28 @@
     }
   }
 
+  async function refreshAdminBadges() {
+    if (!state.user || state.user.role !== 'admin') return;
+    try {
+      const [pwRes, rrRes] = await Promise.all([
+        api.listPasswordResetRequests({ status: 'pending', pageSize: 1 }).catch(function () { return null; }),
+        api.adminListPatientRecordRequests({ status: 'pending', pageSize: 1 }).catch(function () { return null; })
+      ]);
+      let changed = false;
+      if (pwRes && typeof pwRes.pendingCount === 'number') {
+        if (state.adminBadges.pwResetPending !== pwRes.pendingCount) changed = true;
+        state.adminBadges.pwResetPending = pwRes.pendingCount;
+        state.adminUsers.pwPendingCount = pwRes.pendingCount;
+      }
+      if (rrRes && typeof rrRes.pendingCount === 'number') {
+        if (state.adminBadges.recordReqPending !== rrRes.pendingCount) changed = true;
+        state.adminBadges.recordReqPending = rrRes.pendingCount;
+        state.adminPatients.reqPendingCount = rrRes.pendingCount;
+      }
+      if (changed) render();
+    } catch (_ignored) {}
+  }
+
   async function loadAdminUsers(options) {
     const opts = options || null;
     const au = state.adminUsers;
@@ -2834,20 +2940,137 @@
     au.error = '';
     if (!opts) render();
     try {
-      const res = await api.listUsers({
-        q: au.q,
-        role: au.role,
-        isActive: au.isActive,
-        pageSize: 50
-      });
+      const [res, pwRes] = await Promise.all([
+        api.listUsers({
+          q: au.q,
+          role: au.role,
+          isActive: au.isActive,
+          pageSize: 50
+        }),
+        api.listPasswordResetRequests({
+          q: au.pwQ,
+          status: au.pwStatus,
+          pageSize: 50
+        }).catch(function () { return null; })
+      ]);
       if (!isCurrentLiveSearch('users', opts)) return;
       au.items = (res && res.items) || [];
+      if (pwRes) {
+        au.pwRequests = pwRes.items || [];
+        au.pwPendingCount = Number(pwRes.pendingCount || 0);
+        state.adminBadges.pwResetPending = au.pwPendingCount;
+      }
+      refreshAdminBadges();
     } catch (err) {
       au.error = (err && err.detail) || 'Không tải được danh sách tài khoản.';
       if (err && (err.status === 401 || err.status === 403)) return handleAuthOrError(err);
     } finally {
       if (!isCurrentLiveSearch('users', opts)) return;
       au.loading = false;
+      render();
+      restoreInputFocus(opts && opts.restoreFocus);
+    }
+  }
+
+  async function loadAdminPwResetRequests(options) {
+    const opts = options || null;
+    const au = state.adminUsers;
+    au.pwLoading = true;
+    au.pwError = '';
+    if (!opts) render();
+    try {
+      const res = await api.listPasswordResetRequests({
+        q: au.pwQ,
+        status: au.pwStatus,
+        pageSize: 50
+      });
+      if (!isCurrentLiveSearch('pwReset', opts)) return;
+      au.pwRequests = (res && res.items) || [];
+      au.pwPendingCount = Number((res && res.pendingCount) || 0);
+      state.adminBadges.pwResetPending = au.pwPendingCount;
+    } catch (err) {
+      au.pwError = (err && err.detail) || 'Không tải được danh sách yêu cầu cấp lại mật khẩu.';
+      if (err && (err.status === 401 || err.status === 403)) return handleAuthOrError(err);
+    } finally {
+      if (!isCurrentLiveSearch('pwReset', opts)) return;
+      au.pwLoading = false;
+      render();
+      restoreInputFocus(opts && opts.restoreFocus);
+    }
+  }
+
+  async function loadAdminPatients(options) {
+    const opts = options || null;
+    const ap = state.adminPatients;
+    ap.loading = true;
+    ap.error = '';
+    if (!opts) render();
+    try {
+      const [patRes, reqRes] = await Promise.all([
+        api.adminListPatients({
+          q: ap.q,
+          recordStatus: ap.recordStatus,
+          page: (ap.pagination && ap.pagination.page) || 1,
+          pageSize: 20
+        }),
+        api.adminListPatientRecordRequests({
+          q: ap.reqQ,
+          status: ap.reqStatus,
+          requestType: ap.reqType,
+          page: (ap.reqPagination && ap.reqPagination.page) || 1,
+          pageSize: 20
+        }).catch(function () { return null; })
+      ]);
+      if (!isCurrentLiveSearch('adminPatients', opts)) return;
+      ap.items = (patRes && patRes.items) || [];
+      if (patRes && patRes.summary) ap.summary = patRes.summary;
+      if (patRes && patRes.pagination) ap.pagination = patRes.pagination;
+      if (reqRes) {
+        ap.requests = reqRes.items || [];
+        ap.reqPendingCount = Number(reqRes.pendingCount || 0);
+        if (reqRes.pagination) ap.reqPagination = reqRes.pagination;
+        state.adminBadges.recordReqPending = ap.reqPendingCount;
+      } else if (ap.summary) {
+        ap.reqPendingCount = Number(ap.summary.pendingRequestCount || 0);
+        state.adminBadges.recordReqPending = ap.reqPendingCount;
+      }
+      refreshAdminBadges();
+    } catch (err) {
+      ap.error = (err && err.detail) || 'Không tải được danh sách hồ sơ bệnh nhân.';
+      if (err && (err.status === 401 || err.status === 403)) return handleAuthOrError(err);
+    } finally {
+      if (!isCurrentLiveSearch('adminPatients', opts)) return;
+      ap.loading = false;
+      render();
+      restoreInputFocus(opts && opts.restoreFocus);
+    }
+  }
+
+  async function loadAdminRecordRequests(options) {
+    const opts = options || null;
+    const ap = state.adminPatients;
+    ap.reqLoading = true;
+    ap.reqError = '';
+    if (!opts) render();
+    try {
+      const res = await api.adminListPatientRecordRequests({
+        q: ap.reqQ,
+        status: ap.reqStatus,
+        requestType: ap.reqType,
+        page: (ap.reqPagination && ap.reqPagination.page) || 1,
+        pageSize: 20
+      });
+      if (!isCurrentLiveSearch('adminRecordReqs', opts)) return;
+      ap.requests = (res && res.items) || [];
+      ap.reqPendingCount = Number((res && res.pendingCount) || 0);
+      if (res && res.pagination) ap.reqPagination = res.pagination;
+      state.adminBadges.recordReqPending = ap.reqPendingCount;
+    } catch (err) {
+      ap.reqError = (err && err.detail) || 'Không tải được danh sách yêu cầu khóa/lưu trữ hồ sơ.';
+      if (err && (err.status === 401 || err.status === 403)) return handleAuthOrError(err);
+    } finally {
+      if (!isCurrentLiveSearch('adminRecordReqs', opts)) return;
+      ap.reqLoading = false;
       render();
       restoreInputFocus(opts && opts.restoreFocus);
     }
@@ -3064,7 +3287,10 @@
                 '<input id="login-username" name="username" type="text" class="input" autocomplete="username" placeholder="Nhập tên đăng nhập" value="' + esc(lf.username) + '" required>' +
               '</div>' +
               '<div class="field">' +
-                '<label class="field__label" for="login-password">Mật khẩu</label>' +
+                '<div class="field__label-row">' +
+                  '<label class="field__label" for="login-password">Mật khẩu</label>' +
+                  '<button type="button" class="link-btn" id="btn-forgot-password" data-action="open-forgot-password">Quên mật khẩu?</button>' +
+                '</div>' +
                 '<div class="password-wrap">' +
                   '<input id="login-password" name="password" type="' + (lf.showPassword ? 'text' : 'password') + '" class="input" autocomplete="current-password" placeholder="Nhập mật khẩu" value="' + esc(lf.password) + '" required>' +
                   '<button type="button" class="password-toggle" id="btn-toggle-pw" aria-label="' + (lf.showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu') + '" aria-pressed="' + (lf.showPassword ? 'true' : 'false') + '">' +
@@ -3091,7 +3317,8 @@
     const queueCount = state.queue && Array.isArray(state.queue.items) ? state.queue.items.length : 0;
     const navItems = isAdmin
       ? [
-          { id: 'admin-accounts', hash: '#/admin/users', label: 'Tài khoản & Quyền', icon: ICONS.users },
+          { id: 'admin-accounts', hash: '#/admin/users', label: 'Tài khoản & Quyền', icon: ICONS.users, count: Number((state.adminBadges && state.adminBadges.pwResetPending) || 0) },
+          { id: 'admin-patients', hash: '#/admin/patients', label: 'Hồ sơ bệnh nhân', icon: ICONS.fileText, count: Number((state.adminBadges && state.adminBadges.recordReqPending) || 0) },
           { id: 'admin-forms', hash: '#/admin/forms', label: 'Biểu mẫu & Phiên bản', icon: ICONS.layers },
           { id: 'admin-audit', hash: '#/admin/audit', label: 'Nhật ký hệ thống', icon: ICONS.list }
         ]
@@ -3289,13 +3516,14 @@
     } else {
       const rows = ni.items.map(function (it) {
         const pt = it.patient || it;
+        const isLocked = pt.recordStatus === 'locked';
         return (
           '<tr>' +
-            '<td><div class="cell-primary mono">' + esc(pt.patientCode) + '</div><div class="cell-sub">' + esc(pt.fullName) + '</div></td>' +
+            '<td><div class="cell-primary mono">' + esc(pt.patientCode) + (isLocked ? ' ' + formatRecordStatusBadge('locked', true) : '') + '</div><div class="cell-sub">' + esc(pt.fullName) + '</div></td>' +
             '<td><div>' + esc(formatSex(pt.sex)) + '</div><div class="cell-sub">' + esc(formatBirthPrecision(pt)) + '</div></td>' +
             '<td><div class="mono">' + esc(pt.cccd || '—') + '</div><div class="cell-sub mono">' + (pt.externalPatientCode ? ('HIS: ' + esc(pt.externalPatientCode)) : '') + '</div></td>' +
             '<td style="text-align:right;white-space:nowrap;"><div class="table-actions">' +
-              '<button type="button" class="btn btn--primary btn--sm" data-nurse-create-visit="' + esc(pt.id) + '">' + ICONS.plus + ' Tạo lượt khám</button>' +
+              '<button type="button" class="btn btn--primary btn--sm" data-nurse-create-visit="' + esc(pt.id) + '"' + (isLocked ? ' disabled title="Hồ sơ đã bị khóa — không thể tạo lượt khám mới"' : '') + '>' + ICONS.plus + ' Tạo lượt khám</button>' +
               '<button type="button" class="btn btn--secondary btn--sm" data-nav="#/patients/' + esc(pt.id) + '">Hồ sơ</button>' +
             '</div></td>' +
           '</tr>'
@@ -3304,10 +3532,11 @@
 
       const cards = ni.items.map(function (it) {
         const pt = it.patient || it;
+        const isLocked = pt.recordStatus === 'locked';
         return (
           '<article class="record-card">' +
             '<div class="record-card__top">' +
-              '<div><div class="cell-primary mono">' + esc(pt.patientCode) + '</div><div class="cell-sub">' + esc(pt.fullName) + '</div></div>' +
+              '<div><div class="cell-primary mono">' + esc(pt.patientCode) + (isLocked ? ' ' + formatRecordStatusBadge('locked', true) : '') + '</div><div class="cell-sub">' + esc(pt.fullName) + '</div></div>' +
               '<span class="badge badge--neutral">' + esc(formatSex(pt.sex)) + '</span>' +
             '</div>' +
             '<div class="record-card__meta">' +
@@ -3315,7 +3544,7 @@
               '<div><span class="record-card__label">CCCD / Mã HIS</span><span class="mono">' + esc(pt.cccd || '—') + (pt.externalPatientCode ? ' · ' + esc(pt.externalPatientCode) : '') + '</span></div>' +
             '</div>' +
             '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
-              '<button type="button" class="btn btn--primary btn--sm" style="flex:1;" data-nurse-create-visit="' + esc(pt.id) + '">' + ICONS.plus + ' Tạo lượt khám</button>' +
+              '<button type="button" class="btn btn--primary btn--sm" style="flex:1;" data-nurse-create-visit="' + esc(pt.id) + '"' + (isLocked ? ' disabled title="Hồ sơ đã bị khóa"' : '') + '>' + ICONS.plus + ' Tạo lượt khám</button>' +
               '<button type="button" class="btn btn--secondary btn--sm" data-nav="#/patients/' + esc(pt.id) + '">Hồ sơ</button>' +
             '</div>' +
           '</article>'
@@ -3628,9 +3857,10 @@
     } else {
       const rows = ps.items.map(function (it) {
         const pt = it.patient;
+        const isLocked = pt.recordStatus === 'locked';
         return (
           '<tr>' +
-            '<td><div class="cell-primary mono">' + esc(pt.patientCode) + '</div><div class="cell-sub">' + esc(pt.fullName) + '</div></td>' +
+            '<td><div class="cell-primary mono">' + esc(pt.patientCode) + (isLocked ? ' ' + formatRecordStatusBadge('locked', true) : '') + '</div><div class="cell-sub">' + esc(pt.fullName) + '</div></td>' +
             '<td><div class="mono">' + esc(pt.cccd || '—') + '</div><div class="cell-sub mono">' + (pt.externalPatientCode ? ('HIS: ' + esc(pt.externalPatientCode)) : '') + '</div></td>' +
             '<td><div>' + esc(formatSex(pt.sex)) + '</div><div class="cell-sub">' + esc(formatBirthPrecision(pt)) + '</div></td>' +
             '<td>' + (it.visitCount > 0 ? ('<div class="tabular">' + esc(formatDateTime(it.latestVisitDate)) + '</div><div class="cell-sub">' + it.visitCount + ' lượt khám</div>') : '<span class="cell-sub">Chưa ghi nhận</span>') + '</td>' +
@@ -3642,10 +3872,11 @@
 
       const cards = ps.items.map(function (it) {
         const pt = it.patient;
+        const isLocked = pt.recordStatus === 'locked';
         return (
           '<article class="record-card">' +
             '<div class="record-card__top">' +
-              '<div><div class="cell-primary mono">' + esc(pt.patientCode) + '</div><div class="cell-sub">' + esc(pt.fullName) + '</div></div>' +
+              '<div><div class="cell-primary mono">' + esc(pt.patientCode) + (isLocked ? ' ' + formatRecordStatusBadge('locked', true) : '') + '</div><div class="cell-sub">' + esc(pt.fullName) + '</div></div>' +
               formatVisitStatusBadge(it.latestVisitStatus, it.latestVisitId, true) +
             '</div>' +
             '<div class="record-card__meta">' +
@@ -3887,20 +4118,73 @@
           );
         }).join('') + '</div>';
 
+    const recStatus = pt.recordStatus || 'active';
+    const isLocked = recStatus === 'locked';
+    const reqList = Array.isArray(pr.recordRequests) ? pr.recordRequests : [];
+    const hasPendingLock = reqList.some(function (r) { return r.status === 'pending' && r.requestType === 'lock'; });
+    const hasPendingDelete = reqList.some(function (r) { return r.status === 'pending' && r.requestType === 'delete'; });
+
+    let recordRequestsCardHtml = '';
+    if (isNurse || reqList.length > 0) {
+      const reqItemsHtml = reqList.length === 0
+        ? '<p class="field__help">Chưa có yêu cầu khóa hoặc lưu trữ nào cho hồ sơ này.</p>'
+        : '<div class="record-req-list" data-patient-record-requests="true">' + reqList.map(function (r) {
+            return (
+              '<div class="record-req-item" data-record-req-id="' + esc(r.id) + '" data-record-req-status="' + esc(r.status) + '">' +
+                '<div class="record-req-item__top">' +
+                  '<div class="record-req-item__badges">' + formatRecordRequestType(r.requestType) + ' ' + formatRecordRequestStatus(r.status) + '</div>' +
+                  '<span class="cell-sub tabular">' + esc(formatDateTime(r.requestedAt)) + '</span>' +
+                '</div>' +
+                '<div class="record-req-item__reason">' + esc(r.reason) + '</div>' +
+                '<div class="cell-sub">Người gửi: <strong>' + esc(r.requestedByName || 'NVYT') + '</strong>' +
+                  (r.handledAt ? (' · Xử lý: ' + esc(formatDateTime(r.handledAt)) + (r.handledByName ? ' (' + esc(r.handledByName) + ')' : '')) : '') +
+                '</div>' +
+                (r.adminNote ? '<div class="record-req-item__note"><strong>Phản hồi Quản trị viên:</strong> ' + esc(r.adminNote) + '</div>' : '') +
+                (r.canCancel ? '<div class="record-req-item__actions"><button type="button" class="btn btn--ghost btn--sm" data-cancel-record-request="' + esc(r.id) + '">Hủy yêu cầu đang chờ</button></div>' : '') +
+              '</div>'
+            );
+          }).join('') + '</div>';
+
+      recordRequestsCardHtml =
+        '<section class="card" data-record-requests-card="true">' +
+          '<div class="card__header">' +
+            '<div>' +
+              '<h2 class="card__title">Yêu cầu khóa / lưu trữ hồ sơ</h2>' +
+              '<p class="card__subtitle">' + (isNurse ? 'Gửi yêu cầu tới Quản trị viên khi cần khóa tạm hoặc lưu trữ (xóa mềm) hồ sơ.' : 'Theo dõi trạng thái yêu cầu khóa/lưu trữ hồ sơ.') + '</p>' +
+            '</div>' +
+          '</div>' +
+          '<div class="card__body">' +
+            (isNurse ? (
+              '<div class="record-req-controls">' +
+                '<button type="button" class="btn btn--secondary btn--sm" data-action="open-record-request" data-req-type="lock"' + (isLocked || hasPendingLock ? ' disabled' : '') + '>' + ICONS.lock + ' Yêu cầu khóa hồ sơ</button>' +
+                '<button type="button" class="btn btn--danger-outline btn--sm" data-action="open-record-request" data-req-type="delete"' + (hasPendingDelete ? ' disabled' : '') + '>' + ICONS.trash + ' Yêu cầu xóa (lưu trữ) hồ sơ</button>' +
+              '</div>'
+            ) : '') +
+            reqItemsHtml +
+          '</div>' +
+        '</section>';
+    }
+
+    const lockedBannerHtml = isLocked
+      ? '<div class="banner banner--warn" role="status" data-patient-locked-banner="true"><div class="banner__main">' + ICONS.lock + '<div><p class="banner__title">Hồ sơ bệnh nhân đã bị khóa</p><p class="banner__desc">Không thể tạo lượt khám mới hoặc chỉnh sửa thông tin hành chính. Các lượt khám hiện có vẫn được xem; bác sĩ vẫn hoàn tất được lượt đang khám. Liên hệ Quản trị viên để mở khóa.</p></div></div></div>'
+      : '';
+
     const body =
       '<div class="page-head">' +
-        '<div><h1 class="page-head__title"><span class="mono">' + esc(pt.patientCode) + '</span> · ' + esc(pt.fullName) + '</h1><p class="page-head__sub">' + (isNurse ? 'Thông tin hành chính và các lượt tiếp nhận.' : 'Thông tin hành chính, tóm tắt lượt khám gần nhất và dòng thời gian lượt khám.') + '</p></div>' +
+        '<div><h1 class="page-head__title"><span class="mono">' + esc(pt.patientCode) + '</span> · ' + esc(pt.fullName) + ' ' + formatRecordStatusBadge(recStatus, false) + '</h1><p class="page-head__sub">' + (isNurse ? 'Thông tin hành chính và các lượt tiếp nhận.' : 'Thông tin hành chính, tóm tắt lượt khám gần nhất và dòng thời gian lượt khám.') + '</p></div>' +
         '<div class="page-head__actions">' +
           '<button type="button" class="btn btn--secondary" data-nav="' + listHash + '">' + ICONS.arrowLeft + ' Về danh sách</button>' +
-          (isNurse ? '<button type="button" class="btn btn--primary" data-action="open-create-visit">' + ICONS.plus + ' Tạo lượt khám mới</button>' : '') +
+          (isNurse ? '<button type="button" class="btn btn--primary" data-action="open-create-visit"' + (isLocked ? ' disabled title="Hồ sơ đã bị khóa — không thể tạo lượt khám mới"' : '') + '>' + ICONS.plus + ' Tạo lượt khám mới</button>' : '') +
         '</div>' +
       '</div>' +
+      lockedBannerHtml +
       '<div class="profile-grid">' +
         '<div class="profile-col">' +
           '<section class="card">' +
-            '<div class="card__header"><div><h2 class="card__title">Thông tin hành chính</h2></div><button type="button" class="btn btn--secondary btn--sm" data-action="open-edit-patient">Sửa hành chính</button></div>' +
+            '<div class="card__header"><div><h2 class="card__title">Thông tin hành chính</h2></div><button type="button" class="btn btn--secondary btn--sm" data-action="open-edit-patient"' + (isLocked ? ' disabled title="Hồ sơ đã bị khóa — không thể sửa hành chính"' : '') + '>Sửa hành chính</button></div>' +
             '<div class="card__body"><div class="kv-grid">' +
               '<div><div class="kv-item__label">Mã hồ sơ</div><div class="kv-item__value mono">' + esc(pt.patientCode) + '</div></div>' +
+              '<div><div class="kv-item__label">Trạng thái hồ sơ</div><div class="kv-item__value">' + formatRecordStatusBadge(recStatus, true) + '</div></div>' +
               '<div><div class="kv-item__label">Họ tên / Ký hiệu</div><div class="kv-item__value">' + esc(pt.fullName) + '</div></div>' +
               '<div><div class="kv-item__label">Giới tính</div><div class="kv-item__value">' + esc(formatSex(pt.sex)) + '</div></div>' +
               '<div><div class="kv-item__label">Ngày sinh / Tuổi</div><div class="kv-item__value">' + esc(formatBirthPrecision(pt)) + '</div></div>' +
@@ -3909,6 +4193,7 @@
               '<div><div class="kv-item__label">Cập nhật gần nhất</div><div class="kv-item__value tabular">' + esc(formatDateTime(pt.updatedAt)) + (lastEditorName ? ' · ' + esc(lastEditorName) : '') + '</div></div>' +
             '</div></div>' +
           '</section>' +
+          recordRequestsCardHtml +
           latestVisitCardHtml +
         '</div>' +
         '<div class="profile-col">' +
@@ -7568,10 +7853,11 @@
       return 'Vượt ngưỡng an toàn' + (p || ';');
     });
     // Strip leading "Luật 2.1–2.2; " / "Luật 3.5 mô phỏng: " / "Dùng lại nội dung luật M3-C0; "
-    s = s.replace(/^\s*(?:Dùng\s+lại\s+nội\s+dung\s+)?Luật\s+[A-Z0-9]+(?:[.\-–][A-Z0-9]+)*(?:\s+mô\s+phỏng)?\s*[;:,]\s*/i, '');
+    // A rule code must contain a digit (2.1, 4.4, M3-C0) so ordinary words like "luật dò liều" stay intact.
+    s = s.replace(/^\s*(?:Dùng\s+lại\s+nội\s+dung\s+)?Luật\s+(?=[A-Z]{0,3}\d)[A-Z0-9]+(?:[.\-–][A-Z0-9]+)*(?![0-9A-Za-zÀ-ỹ])(?:\s+mô\s+phỏng)?\s*[;:,]\s*/i, '');
     // Strip inline phrases referencing rule codes like "của Luật 1.9" or "để áp dụng Luật 3.1" or "Luật 2.4:"
-    s = s.replace(/\s*(?:của|theo|để\s+áp\s+dụng)\s+Luật\s+[A-Z0-9]+(?:[.\-–][A-Z0-9]+)*/gi, '');
-    s = s.replace(/\bLuật\s+[A-Z0-9]+(?:[.\-–][A-Z0-9]+)*\s*[;:,]?\s*/gi, '');
+    s = s.replace(/\s*(?:của|theo|để\s+áp\s+dụng)\s+Luật\s+(?=[A-Z]{0,3}\d)[A-Z0-9]+(?:[.\-–][A-Z0-9]+)*(?![0-9A-Za-zÀ-ỹ])/gi, '');
+    s = s.replace(/\bLuật\s+(?=[A-Z]{0,3}\d)[A-Z0-9]+(?:[.\-–][A-Z0-9]+)*(?![0-9A-Za-zÀ-ỹ])\s*[;:,]?\s*/gi, '');
     // Clean orphaned punctuation / spacing
     s = s.replace(/\s+([,.;:])/g, '$1').replace(/\s{2,}/g, ' ').replace(/^[;:,.\s]+/, '').trim();
     if (s) {
@@ -9035,7 +9321,7 @@
           '<span class="badge badge--error">' + nSer + ' Nghiêm trọng</span>' +
           '<span class="badge badge--warn">' + nImp + ' Quan trọng</span>' +
           '<span class="badge badge--info">' + nMon + ' Theo dõi</span>' +
-          '<span class="badge badge--neutral">Độ bao phủ: ' + esc(output.coverage === 'complete' ? 'Đầy đủ' : 'Chưa đầy đủ (incomplete)') + '</span>' +
+          '<span class="badge badge--neutral">Độ bao phủ: ' + esc(output.coverage === 'complete' ? 'Đầy đủ' : 'Chưa đầy đủ') + '</span>' +
         '</div>' +
         (alerts.length === 0
           ? '<p class="field__help">Không phát sinh cảnh báo trong bộ luật mock hiện hành (không đồng nghĩa an toàn tuyệt đối khi độ bao phủ chưa đầy đủ).</p>'
@@ -9647,30 +9933,323 @@
         '<div class="mobile-cards">' + cards + '</div>';
     }
 
+    const pwPending = Number(au.pwPendingCount || 0);
+    const activeTab = au.activeTab === 'reset-requests' ? 'reset-requests' : 'accounts';
+
+    let pwResetHtml = '';
+    if (activeTab === 'reset-requests') {
+      if (au.pwLoading) {
+        pwResetHtml = '<div class="skeleton-stack"><div class="skeleton-bar"></div><div class="skeleton-card"></div></div>';
+      } else if (au.pwError) {
+        pwResetHtml = '<div class="banner banner--error"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(au.pwError) + '</p></div></div></div>';
+      } else if (!au.pwRequests || au.pwRequests.length === 0) {
+        pwResetHtml = '<div class="empty-state" data-empty-pw-resets="true"><h3 class="empty-state__title">Chưa có yêu cầu cấp lại mật khẩu nào</h3><p class="empty-state__desc">Khi Bác sĩ hoặc Nhân viên y tế gửi yêu cầu "Quên mật khẩu?" từ trang đăng nhập, yêu cầu sẽ xuất hiện tại đây.</p></div>';
+      } else {
+        const pwRows = au.pwRequests.map(function (r) {
+          const mu = r.matchedUser;
+          const isPending = r.status === 'pending';
+          const canResolve = isPending && mu && mu.role !== 'admin' && mu.isActive;
+          const matchedHtml = mu
+            ? '<div class="cell-primary">' + esc(mu.fullName) + '</div><div class="cell-sub mono">' + esc(mu.username) + (!mu.isActive ? ' · Đã khóa' : '') + '</div>'
+            : '<span class="badge badge--warn badge--xs">Không khớp tài khoản</span>';
+          const roleHtml = mu
+            ? (mu.role === 'nurse'
+                ? '<span class="badge badge--blue">Nhân viên y tế</span>'
+                : (mu.role === 'doctor'
+                    ? '<span class="badge badge--info">Bác sĩ</span>'
+                    : (mu.role === 'admin' ? '<span class="badge badge--blue">Quản trị viên</span>' : '<span class="badge badge--neutral">' + esc(formatRoleShort(mu.role)) + '</span>')))
+            : '<span class="cell-sub">—</span>';
+          const actionHtml = isPending
+            ? '<div class="table-actions">' +
+                '<button type="button" class="btn btn--primary btn--sm" data-pwreset-resolve="' + esc(r.id) + '"' + (!canResolve ? ' disabled title="' + esc(!mu ? 'Không khớp tài khoản hệ thống' : (!mu.isActive ? 'Tài khoản đang bị khóa' : 'Không áp dụng cho Quản trị viên')) + '"' : '') + '>' + ICONS.key + ' Cấp mã đăng nhập một lần</button>' +
+                '<button type="button" class="btn btn--danger-outline btn--sm" data-pwreset-reject="' + esc(r.id) + '">Từ chối</button>' +
+              '</div>'
+            : '<div class="cell-sub">' + esc(r.handledByName || '—') + (r.adminNote ? (' · ' + esc(r.adminNote)) : '') + '</div>';
+          return (
+            '<tr data-pwreset-id="' + esc(r.id) + '" data-pwreset-status="' + esc(r.status) + '">' +
+              '<td><div class="cell-primary mono">' + esc(r.usernameEntered) + (r.requestCount > 1 ? ' <span class="badge badge--neutral badge--xs">×' + esc(r.requestCount) + '</span>' : '') + '</div>' + (r.note ? '<div class="cell-sub">' + esc(r.note) + '</div>' : '') + '</td>' +
+              '<td>' + matchedHtml + '</td>' +
+              '<td>' + roleHtml + '</td>' +
+              '<td class="tabular cell-sub">' + esc(formatDateTime(r.lastRequestedAt || r.requestedAt)) + '</td>' +
+              '<td>' + formatPwResetStatus(r.status) + '</td>' +
+              '<td style="text-align:right;">' + actionHtml + '</td>' +
+            '</tr>'
+          );
+        }).join('');
+
+        const pwCards = au.pwRequests.map(function (r) {
+          const mu = r.matchedUser;
+          const isPending = r.status === 'pending';
+          const canResolve = isPending && mu && mu.role !== 'admin' && mu.isActive;
+          return (
+            '<article class="record-card" data-pwreset-card-id="' + esc(r.id) + '">' +
+              '<div class="record-card__top">' +
+                '<div><div class="cell-primary mono">' + esc(r.usernameEntered) + '</div><div class="cell-sub">' + (mu ? esc(mu.fullName + ' (' + formatRoleShort(mu.role) + ')') : 'Không khớp tài khoản') + '</div></div>' +
+                formatPwResetStatus(r.status) +
+              '</div>' +
+              '<div class="record-card__meta">' +
+                '<div><span class="record-card__label">Thời điểm</span>' + esc(formatDateTime(r.lastRequestedAt || r.requestedAt)) + '</div>' +
+                (r.note ? '<div><span class="record-card__label">Ghi chú gửi</span>' + esc(r.note) + '</div>' : '') +
+                (r.adminNote ? '<div><span class="record-card__label">Ghi chú Admin</span>' + esc(r.adminNote) + '</div>' : '') +
+              '</div>' +
+              (isPending ? (
+                '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+                  '<button type="button" class="btn btn--primary btn--sm" data-pwreset-resolve="' + esc(r.id) + '"' + (!canResolve ? ' disabled' : '') + '>' + ICONS.key + ' Cấp mã một lần</button>' +
+                  '<button type="button" class="btn btn--danger-outline btn--sm" data-pwreset-reject="' + esc(r.id) + '">Từ chối</button>' +
+                '</div>'
+              ) : '') +
+            '</article>'
+          );
+        }).join('');
+
+        pwResetHtml =
+          '<div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Tên nhập</th><th>Tài khoản khớp</th><th>Vai trò</th><th>Thời điểm</th><th>Trạng thái</th><th style="text-align:right;">Thao tác</th></tr></thead><tbody>' + pwRows + '</tbody></table></div></div>' +
+          '<div class="mobile-cards">' + pwCards + '</div>';
+      }
+    }
+
+    const tabsHtml =
+      '<div class="tabs-bar" role="tablist" aria-label="Quản lý tài khoản">' +
+        '<button type="button" role="tab" class="tab-btn' + (activeTab === 'accounts' ? ' is-active' : '') + '" aria-selected="' + (activeTab === 'accounts' ? 'true' : 'false') + '" data-admin-users-tab="accounts">Danh sách tài khoản</button>' +
+        '<button type="button" role="tab" class="tab-btn' + (activeTab === 'reset-requests' ? ' is-active' : '') + '" aria-selected="' + (activeTab === 'reset-requests' ? 'true' : 'false') + '" data-admin-users-tab="reset-requests">Yêu cầu cấp lại mật khẩu' + (pwPending > 0 ? ' <span class="tab-badge" data-pw-reset-badge="true">' + esc(pwPending) + '</span>' : '') + '</button>' +
+      '</div>';
+
+    const tabContentHtml = activeTab === 'accounts'
+      ? (
+          '<div class="toolbar">' +
+            '<div class="search-box"><span class="search-box__icon">' + ICONS.search + '</span><input type="search" id="admin-user-search" class="input" placeholder="Tìm tên đăng nhập hoặc họ tên..." value="' + esc(au.q) + '"></div>' +
+            '<div class="filter-pills">' +
+              '<select class="select" id="admin-user-role-filter" style="width:auto;min-height:36px;">' +
+                '<option value="">Tất cả vai trò</option>' +
+                '<option value="doctor"' + (au.role === 'doctor' ? ' selected' : '') + '>Bác sĩ</option>' +
+                '<option value="nurse"' + (au.role === 'nurse' ? ' selected' : '') + '>Nhân viên y tế</option>' +
+                '<option value="admin"' + (au.role === 'admin' ? ' selected' : '') + '>Quản trị viên</option>' +
+              '</select>' +
+              '<select class="select" id="admin-user-active-filter" style="width:auto;min-height:36px;">' +
+                '<option value="">Tất cả trạng thái</option>' +
+                '<option value="true"' + (au.isActive === 'true' ? ' selected' : '') + '>Đang hoạt động</option>' +
+                '<option value="false"' + (au.isActive === 'false' ? ' selected' : '') + '>Đã khóa</option>' +
+              '</select>' +
+            '</div>' +
+          '</div>' +
+          listHtml
+        )
+      : (
+          '<div class="toolbar">' +
+            '<div class="search-box"><span class="search-box__icon">' + ICONS.search + '</span><input type="search" id="admin-pwreset-search" class="input" placeholder="Tìm theo tên đăng nhập hoặc họ tên..." value="' + esc(au.pwQ) + '"></div>' +
+            '<div class="filter-pills">' +
+              '<select class="select" id="admin-pwreset-status-filter" style="width:auto;min-height:36px;">' +
+                '<option value="">Tất cả trạng thái</option>' +
+                '<option value="pending"' + (au.pwStatus === 'pending' ? ' selected' : '') + '>Chờ xử lý</option>' +
+                '<option value="resolved"' + (au.pwStatus === 'resolved' ? ' selected' : '') + '>Đã cấp mã</option>' +
+                '<option value="rejected"' + (au.pwStatus === 'rejected' ? ' selected' : '') + '>Đã từ chối</option>' +
+              '</select>' +
+              '<button type="button" class="btn btn--secondary btn--sm" data-action="reload-pwreset-requests">' + ICONS.refresh + ' Làm mới</button>' +
+            '</div>' +
+          '</div>' +
+          pwResetHtml
+        );
+
     const body =
       '<div class="page-head">' +
-        '<div><h1 class="page-head__title">Quản lý tài khoản &amp; Phạm vi quyền</h1><p class="page-head__sub">Quản lý tài khoản bác sĩ, nhân viên y tế, quản trị viên và phạm vi quyền tương ứng.</p></div>' +
+        '<div><h1 class="page-head__title">Quản lý tài khoản &amp; Phạm vi quyền</h1><p class="page-head__sub">Quản lý tài khoản bác sĩ, nhân viên y tế, quản trị viên và tiếp nhận yêu cầu cấp lại mật khẩu.</p></div>' +
         '<div class="page-head__actions"><button type="button" class="btn btn--primary" data-action="open-create-user">' + ICONS.userPlus + ' Tạo tài khoản mới</button></div>' +
       '</div>' +
-      '<div class="toolbar">' +
-        '<div class="search-box"><span class="search-box__icon">' + ICONS.search + '</span><input type="search" id="admin-user-search" class="input" placeholder="Tìm tên đăng nhập hoặc họ tên..." value="' + esc(au.q) + '"></div>' +
-        '<div class="filter-pills">' +
-          '<select class="select" id="admin-user-role-filter" style="width:auto;min-height:36px;">' +
-            '<option value="">Tất cả vai trò</option>' +
-            '<option value="doctor"' + (au.role === 'doctor' ? ' selected' : '') + '>Bác sĩ</option>' +
-            '<option value="nurse"' + (au.role === 'nurse' ? ' selected' : '') + '>Nhân viên y tế</option>' +
-            '<option value="admin"' + (au.role === 'admin' ? ' selected' : '') + '>Quản trị viên</option>' +
-          '</select>' +
-          '<select class="select" id="admin-user-active-filter" style="width:auto;min-height:36px;">' +
-            '<option value="">Tất cả trạng thái</option>' +
-            '<option value="true"' + (au.isActive === 'true' ? ' selected' : '') + '>Đang hoạt động</option>' +
-            '<option value="false"' + (au.isActive === 'false' ? ' selected' : '') + '>Đã khóa</option>' +
-          '</select>' +
-        '</div>' +
-      '</div>' +
-      listHtml;
+      tabsHtml +
+      tabContentHtml;
 
     return renderShell('<span class="breadcrumbs__current">Tài khoản &amp; Quyền</span>', body);
+  }
+
+  /* ------------------------------------------------------------------------
+     UI-18: Admin System-Wide Patient Records & Nurse Lock/Archive Requests
+     (Strictly administrative metadata — zero clinical or M1-M4 columns)
+     ------------------------------------------------------------------------ */
+  function renderAdminPatients() {
+    const ap = state.adminPatients;
+    const activeTab = ap.activeTab === 'requests' ? 'requests' : 'records';
+    const sum = ap.summary || { totalAll: 0, activeCount: 0, lockedCount: 0, archivedCount: 0, pendingRequestCount: 0 };
+    const reqPending = Number(ap.reqPendingCount || sum.pendingRequestCount || 0);
+
+    const tabsHtml =
+      '<div class="tabs-bar" role="tablist" aria-label="Quản lý hồ sơ bệnh nhân">' +
+        '<button type="button" role="tab" class="tab-btn' + (activeTab === 'records' ? ' is-active' : '') + '" aria-selected="' + (activeTab === 'records' ? 'true' : 'false') + '" data-admin-patients-tab="records">Danh sách hồ sơ (' + esc(sum.totalAll) + ')</button>' +
+        '<button type="button" role="tab" class="tab-btn' + (activeTab === 'requests' ? ' is-active' : '') + '" aria-selected="' + (activeTab === 'requests' ? 'true' : 'false') + '" data-admin-patients-tab="requests">Yêu cầu từ NVYT' + (reqPending > 0 ? ' <span class="tab-badge" data-record-req-badge="true">' + esc(reqPending) + '</span>' : '') + '</button>' +
+      '</div>';
+
+    let contentHtml = '';
+    if (activeTab === 'records') {
+      const statusFilters = [
+        { v: '', label: 'Tất cả (' + sum.totalAll + ')' },
+        { v: 'active', label: 'Đang hoạt động (' + sum.activeCount + ')' },
+        { v: 'locked', label: 'Đã khóa (' + sum.lockedCount + ')' },
+        { v: 'archived', label: 'Đã lưu trữ (' + sum.archivedCount + ')' }
+      ].map(function (f) {
+        return '<button type="button" class="filter-pill' + (ap.recordStatus === f.v ? ' is-active' : '') + '" data-admin-pat-status="' + f.v + '">' + esc(f.label) + '</button>';
+      }).join('');
+
+      let listHtml = '';
+      if (ap.loading) {
+        listHtml = '<div class="skeleton-stack"><div class="skeleton-bar"></div><div class="skeleton-card"></div></div>';
+      } else if (ap.error) {
+        listHtml = '<div class="banner banner--error"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(ap.error) + '</p></div></div></div>';
+      } else if (!ap.items || ap.items.length === 0) {
+        listHtml = '<div class="empty-state"><h3 class="empty-state__title">Không có hồ sơ bệnh nhân nào khớp bộ lọc</h3><p class="empty-state__desc">Thử thay đổi từ khóa tìm kiếm hoặc chọn trạng thái khác.</p></div>';
+      } else {
+        const makeDirectButtons = function (p) {
+          const st = p.recordStatus || 'active';
+          if (st === 'active') {
+            return (
+              '<button type="button" class="btn btn--secondary btn--sm" data-admin-pat-action="locked" data-pat-id="' + esc(p.id) + '">' + ICONS.lock + ' Khóa</button>' +
+              '<button type="button" class="btn btn--danger-outline btn--sm" data-admin-pat-action="archived" data-pat-id="' + esc(p.id) + '">Lưu trữ</button>'
+            );
+          }
+          if (st === 'locked') {
+            return (
+              '<button type="button" class="btn btn--secondary btn--sm" data-admin-pat-action="active" data-pat-id="' + esc(p.id) + '">' + ICONS.unlock + ' Mở khóa</button>' +
+              '<button type="button" class="btn btn--danger-outline btn--sm" data-admin-pat-action="archived" data-pat-id="' + esc(p.id) + '">Lưu trữ</button>'
+            );
+          }
+          return '<button type="button" class="btn btn--primary btn--sm" data-admin-pat-action="active" data-pat-id="' + esc(p.id) + '">' + ICONS.refresh + ' Khôi phục</button>';
+        };
+
+        const rows = ap.items.map(function (p) {
+          const pendHtml = p.pendingRequestCount > 0
+            ? '<button type="button" class="badge badge--warn badge--link badge--xs" data-admin-patients-tab="requests">' + esc(p.pendingRequestCount) + ' chờ duyệt</button>'
+            : '<span class="cell-sub">—</span>';
+          return (
+            '<tr data-admin-patient-id="' + esc(p.id) + '" data-admin-patient-status="' + esc(p.recordStatus) + '">' +
+              '<td><div class="cell-primary mono">' + esc(p.patientCode) + '</div><div class="cell-sub">' + esc(p.fullName) + '</div></td>' +
+              '<td><div>' + esc(formatSex(p.sex)) + '</div><div class="cell-sub">' + esc(formatBirthPrecision(p)) + '</div></td>' +
+              '<td><div class="mono">' + esc(p.externalPatientCode || '—') + '</div>' + (p.cccd ? '<div class="cell-sub mono">CCCD: ' + esc(p.cccd) + '</div>' : '') + '</td>' +
+              '<td>' + formatRecordStatusBadge(p.recordStatus, true) + (p.recordStatusUpdatedAt ? '<div class="cell-sub tabular">' + esc(formatDateTime(p.recordStatusUpdatedAt)) + '</div>' : '') + '</td>' +
+              '<td><div class="tabular"><strong>' + esc(p.visitCount) + '</strong> lượt</div><div class="cell-sub tabular">' + (p.latestVisitDate ? esc(formatDateTime(p.latestVisitDate)) : 'Chưa có lượt') + '</div></td>' +
+              '<td>' + pendHtml + '</td>' +
+              '<td style="text-align:right;white-space:nowrap;"><div class="table-actions">' + makeDirectButtons(p) + '</div></td>' +
+            '</tr>'
+          );
+        }).join('');
+
+        const cards = ap.items.map(function (p) {
+          return (
+            '<article class="record-card" data-admin-patient-card-id="' + esc(p.id) + '">' +
+              '<div class="record-card__top">' +
+                '<div><div class="cell-primary mono">' + esc(p.patientCode) + '</div><div class="cell-sub">' + esc(p.fullName) + '</div></div>' +
+                formatRecordStatusBadge(p.recordStatus, true) +
+              '</div>' +
+              '<div class="record-card__meta">' +
+                '<div><span class="record-card__label">Ngày sinh &amp; Giới tính</span>' + esc(formatSex(p.sex) + ' · ' + formatBirthPrecision(p)) + '</div>' +
+                '<div><span class="record-card__label">Mã HIS / CCCD</span><span class="mono">' + esc(p.externalPatientCode || '—') + (p.cccd ? ' · ' + esc(p.cccd) : '') + '</span></div>' +
+                '<div><span class="record-card__label">Số lượt &amp; Lượt gần nhất</span>' + esc(p.visitCount) + ' lượt · ' + (p.latestVisitDate ? esc(formatDateTime(p.latestVisitDate)) : 'Chưa có lượt') + '</div>' +
+                '<div><span class="record-card__label">Yêu cầu chờ</span>' + (p.pendingRequestCount > 0 ? esc(p.pendingRequestCount + ' chờ duyệt') : 'Không có') + '</div>' +
+              '</div>' +
+              '<div style="display:flex;gap:6px;flex-wrap:wrap;">' + makeDirectButtons(p) + '</div>' +
+            '</article>'
+          );
+        }).join('');
+
+        const pg = ap.pagination || { page: 1, totalPages: 1, totalItems: ap.items.length };
+        const pagerHtml = pg.totalPages > 1
+          ? '<div class="pagination-bar"><span class="cell-sub">Trang ' + esc(pg.page) + ' / ' + esc(pg.totalPages) + ' (' + esc(pg.totalItems) + ' hồ sơ)</span><div class="pagination-bar__btns"><button type="button" class="btn btn--secondary btn--sm" data-admin-pat-page="' + esc(pg.page - 1) + '"' + (pg.page <= 1 ? ' disabled' : '') + '>Trang trước</button><button type="button" class="btn btn--secondary btn--sm" data-admin-pat-page="' + esc(pg.page + 1) + '"' + (pg.page >= pg.totalPages ? ' disabled' : '') + '>Trang sau</button></div></div>'
+          : '';
+
+        listHtml =
+          '<div class="card"><div class="table-wrap"><table class="data-table" data-admin-patients-table="true"><thead><tr><th>Mã BN &amp; Họ tên</th><th>Giới tính &amp; Ngày sinh</th><th>Mã HIS / CCCD</th><th>Trạng thái hồ sơ</th><th>Lượt khám</th><th>Yêu cầu chờ</th><th style="text-align:right;">Thao tác</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
+          '<div class="mobile-cards">' + cards + '</div>' +
+          pagerHtml;
+      }
+
+      contentHtml =
+        '<div class="toolbar">' +
+          '<div class="search-box"><span class="search-box__icon">' + ICONS.search + '</span><input type="search" id="admin-patients-search" class="input" placeholder="Tìm theo mã BN, họ tên, mã HIS hoặc CCCD..." value="' + esc(ap.q) + '"></div>' +
+          '<div class="filter-pills" role="group" aria-label="Lọc trạng thái hồ sơ">' + statusFilters + '</div>' +
+        '</div>' +
+        listHtml;
+    } else {
+      let reqHtml = '';
+      if (ap.reqLoading) {
+        reqHtml = '<div class="skeleton-stack"><div class="skeleton-bar"></div><div class="skeleton-card"></div></div>';
+      } else if (ap.reqError) {
+        reqHtml = '<div class="banner banner--error"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(ap.reqError) + '</p></div></div></div>';
+      } else if (!ap.requests || ap.requests.length === 0) {
+        reqHtml = '<div class="empty-state" data-empty-record-reqs="true"><h3 class="empty-state__title">Chưa có yêu cầu khóa/lưu trữ nào từ NVYT</h3><p class="empty-state__desc">Khi Nhân viên y tế gửi yêu cầu khóa hoặc xóa (lưu trữ) hồ sơ bệnh nhân, yêu cầu sẽ hiển thị tại đây để Quản trị viên xét duyệt.</p></div>';
+      } else {
+        const reqRows = ap.requests.map(function (r) {
+          const isPending = r.status === 'pending';
+          const actHtml = isPending
+            ? '<div class="table-actions">' +
+                '<button type="button" class="btn btn--primary btn--sm" data-record-req-approve="' + esc(r.id) + '">' + ICONS.checkCircle + ' Duyệt</button>' +
+                '<button type="button" class="btn btn--danger-outline btn--sm" data-record-req-reject="' + esc(r.id) + '">Từ chối</button>' +
+              '</div>'
+            : '<div class="cell-sub">' + esc(r.handledByName || '—') + (r.adminNote ? (' · ' + esc(r.adminNote)) : '') + '</div>';
+          return (
+            '<tr data-admin-record-req-id="' + esc(r.id) + '" data-admin-record-req-status="' + esc(r.status) + '">' +
+              '<td><div class="cell-primary mono">' + esc(r.patientCode) + ' ' + formatRecordStatusBadge(r.patientRecordStatus, true) + '</div><div class="cell-sub">' + esc(r.patientName) + '</div></td>' +
+              '<td>' + formatRecordRequestType(r.requestType) + '</td>' +
+              '<td><div>' + esc(r.reason) + '</div><div class="cell-sub">Người gửi: <strong>' + esc(r.requestedByName || 'NVYT') + '</strong> · ' + esc(formatDateTime(r.requestedAt)) + '</div></td>' +
+              '<td>' + formatRecordRequestStatus(r.status) + '</td>' +
+              '<td style="text-align:right;">' + actHtml + '</td>' +
+            '</tr>'
+          );
+        }).join('');
+
+        const reqCards = ap.requests.map(function (r) {
+          const isPending = r.status === 'pending';
+          return (
+            '<article class="record-card" data-admin-record-req-card-id="' + esc(r.id) + '">' +
+              '<div class="record-card__top">' +
+                '<div><div class="cell-primary mono">' + esc(r.patientCode) + ' · ' + esc(r.patientName) + '</div><div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;">' + formatRecordRequestType(r.requestType) + formatRecordRequestStatus(r.status) + '</div></div>' +
+              '</div>' +
+              '<div class="record-card__meta">' +
+                '<div><span class="record-card__label">Lý do yêu cầu</span>' + esc(r.reason) + '</div>' +
+                '<div><span class="record-card__label">Người gửi &amp; Thời điểm</span>' + esc((r.requestedByName || 'NVYT') + ' · ' + formatDateTime(r.requestedAt)) + '</div>' +
+                (r.adminNote ? '<div><span class="record-card__label">Ghi chú Quản trị viên</span>' + esc(r.adminNote) + '</div>' : '') +
+              '</div>' +
+              (isPending ? (
+                '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+                  '<button type="button" class="btn btn--primary btn--sm" data-record-req-approve="' + esc(r.id) + '">' + ICONS.checkCircle + ' Duyệt</button>' +
+                  '<button type="button" class="btn btn--danger-outline btn--sm" data-record-req-reject="' + esc(r.id) + '">Từ chối</button>' +
+                '</div>'
+              ) : '') +
+            '</article>'
+          );
+        }).join('');
+
+        reqHtml =
+          '<div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Hồ sơ bệnh nhân</th><th>Loại yêu cầu</th><th>Lý do &amp; Người gửi</th><th>Trạng thái</th><th style="text-align:right;">Thao tác</th></tr></thead><tbody>' + reqRows + '</tbody></table></div></div>' +
+          '<div class="mobile-cards">' + reqCards + '</div>';
+      }
+
+      contentHtml =
+        '<div class="toolbar">' +
+          '<div class="search-box"><span class="search-box__icon">' + ICONS.search + '</span><input type="search" id="admin-record-req-search" class="input" placeholder="Tìm theo mã BN, họ tên, người gửi hoặc lý do..." value="' + esc(ap.reqQ) + '"></div>' +
+          '<div class="filter-pills">' +
+            '<select class="select" id="admin-record-req-status-filter" style="width:auto;min-height:36px;">' +
+              '<option value="">Tất cả trạng thái</option>' +
+              '<option value="pending"' + (ap.reqStatus === 'pending' ? ' selected' : '') + '>Chờ duyệt</option>' +
+              '<option value="approved"' + (ap.reqStatus === 'approved' ? ' selected' : '') + '>Đã duyệt</option>' +
+              '<option value="rejected"' + (ap.reqStatus === 'rejected' ? ' selected' : '') + '>Từ chối</option>' +
+              '<option value="cancelled"' + (ap.reqStatus === 'cancelled' ? ' selected' : '') + '>Đã hủy</option>' +
+            '</select>' +
+            '<select class="select" id="admin-record-req-type-filter" style="width:auto;min-height:36px;">' +
+              '<option value="">Tất cả loại</option>' +
+              '<option value="lock"' + (ap.reqType === 'lock' ? ' selected' : '') + '>Khóa hồ sơ</option>' +
+              '<option value="delete"' + (ap.reqType === 'delete' ? ' selected' : '') + '>Xóa (lưu trữ)</option>' +
+            '</select>' +
+            '<button type="button" class="btn btn--secondary btn--sm" data-action="reload-admin-patients">' + ICONS.refresh + ' Làm mới</button>' +
+          '</div>' +
+        '</div>' +
+        reqHtml;
+    }
+
+    const body =
+      '<div class="page-head">' +
+        '<div><h1 class="page-head__title">Quản lý hồ sơ bệnh nhân</h1><p class="page-head__sub">Quản lý thông tin hành chính toàn hệ thống, trạng thái khóa/lưu trữ mềm và xét duyệt yêu cầu từ Nhân viên y tế. Không hiển thị dữ liệu lâm sàng.</p></div>' +
+      '</div>' +
+      tabsHtml +
+      contentHtml;
+
+    return renderShell('<span class="breadcrumbs__current">Hồ sơ bệnh nhân</span>', body);
   }
 
   /* ------------------------------------------------------------------------
@@ -10406,9 +10985,138 @@
         '<div class="modal__head"><h2 class="modal__title" id="modal-title">Mã thiết lập mật khẩu một lần</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Đóng">' + ICONS.x + '</button></div>' +
         '<div class="modal__body">' +
           '<div class="banner banner--success" style="margin-bottom:0;"><div class="banner__main">' + ICONS.key + '<div><p class="banner__title">' + esc(m.title) + '</p><p class="banner__desc">Mã kích hoạt dưới đây chỉ hiển thị duy nhất một lần và hết hạn sau 24 giờ.</p></div></div></div>' +
-          '<div class="bmi-card"><div class="bmi-card__label">Tài khoản: <span class="mono">' + esc(m.username) + '</span></div><div class="bmi-card__value mono" style="font-size:20px;">' + esc(m.code) + '</div></div>' +
+          '<div class="bmi-card"><div class="bmi-card__label">Tài khoản: <span class="mono">' + esc(m.username) + '</span></div><div class="bmi-card__value mono" style="font-size:20px;" data-setup-code-value="true">' + esc(m.code) + '</div></div>' +
         '</div>' +
         '<div class="modal__foot"><button type="button" class="btn btn--primary" data-action="close-modal">Đã ghi nhận</button></div>';
+    }
+
+    if (m.type === 'forgot-password') {
+      html =
+        '<div class="modal__head"><h2 class="modal__title" id="modal-title">Quên mật khẩu</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Đóng">' + ICONS.x + '</button></div>' +
+        '<div class="modal__body">' +
+          (m.submittedMessage
+            ? '<div class="banner banner--success" role="status" data-forgot-password-success="true" style="margin-bottom:0;"><div class="banner__main">' + ICONS.checkCircle + '<div><p class="banner__title">Đã gửi yêu cầu</p><p class="banner__desc">' + esc(m.submittedMessage) + '</p></div></div></div>'
+            : (
+                '<p class="field__help" style="margin-top:0;">Nhập tên đăng nhập của bạn để gửi yêu cầu tới Quản trị viên bệnh viện. Quản trị viên sẽ xác minh và cấp mã đăng nhập một lần.</p>' +
+                (m.error ? '<div class="banner banner--error" role="alert"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(m.error) + '</p></div></div></div>' : '') +
+                '<div class="field"><label class="field__label" for="fp-username">Tên đăng nhập *</label><input id="fp-username" class="input mono" value="' + esc(m.username || '') + '" placeholder="VD: doctor01 hoặc nurse01" autocomplete="username"></div>' +
+                '<div class="field"><label class="field__label" for="fp-note">Ghi chú cho Quản trị viên (tùy chọn)</label><textarea id="fp-note" class="textarea" maxlength="300" placeholder="VD: Khoa Tim mạch / số điện thoại nội bộ để xác minh">' + esc(m.note || '') + '</textarea></div>'
+              )) +
+        '</div>' +
+        '<div class="modal__foot">' +
+          (m.submittedMessage
+            ? '<button type="button" class="btn btn--primary" data-action="close-modal">Đóng</button>'
+            : '<button type="button" class="btn btn--secondary" data-action="close-modal">Hủy</button><button type="button" class="btn btn--primary' + (m.submitting ? ' is-loading' : '') + '" data-action="submit-forgot-password"' + (m.submitting ? ' disabled' : '') + '>' + (m.submitting ? 'Đang gửi...' : 'Gửi yêu cầu') + '</button>') +
+        '</div>';
+    }
+
+    if (m.type === 'resolve-pw-reset' && m.req) {
+      const r = m.req;
+      const mu = r.matchedUser;
+      html =
+        '<div class="modal__head"><h2 class="modal__title" id="modal-title">Cấp mã đăng nhập một lần</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Đóng">' + ICONS.x + '</button></div>' +
+        '<div class="modal__body">' +
+          '<div class="banner banner--info" style="margin-bottom:0;"><div class="banner__main">' + ICONS.key + '<div><p class="banner__title">Xác nhận cấp mã cho <span class="mono">' + esc(mu ? mu.username : r.usernameEntered) + '</span></p><p class="banner__desc">Họ tên: <strong>' + esc(mu ? mu.fullName : '—') + '</strong> (' + esc(mu ? formatRoleShort(mu.role) : '—') + '). Các phiên đăng nhập cũ của tài khoản sẽ bị thu hồi và mật khẩu sẽ được đổi sang mã một lần mới.</p></div></div></div>' +
+          (m.error ? '<div class="banner banner--error" role="alert"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(m.error) + '</p></div></div></div>' : '') +
+          '<div class="field"><label class="field__label" for="rpr-note">Ghi chú xác minh (tùy chọn)</label><input id="rpr-note" class="input" maxlength="500" value="' + esc(m.adminNote || '') + '" placeholder="VD: Đã xác minh trực tiếp qua điện thoại nội bộ"></div>' +
+        '</div>' +
+        '<div class="modal__foot">' +
+          '<button type="button" class="btn btn--secondary" data-action="close-modal">Hủy</button>' +
+          '<button type="button" class="btn btn--primary" data-action="submit-resolve-pw-reset">' + ICONS.key + ' Cấp mã một lần</button>' +
+        '</div>';
+    }
+
+    if (m.type === 'reject-pw-reset' && m.req) {
+      const r = m.req;
+      html =
+        '<div class="modal__head"><h2 class="modal__title" id="modal-title">Từ chối yêu cầu cấp lại mật khẩu</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Đóng">' + ICONS.x + '</button></div>' +
+        '<div class="modal__body">' +
+          '<p>Từ chối yêu cầu cấp lại mật khẩu cho tên nhập <strong class="mono">' + esc(r.usernameEntered) + '</strong>.</p>' +
+          (m.error ? '<div class="banner banner--error" role="alert"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(m.error) + '</p></div></div></div>' : '') +
+          '<div class="field"><label class="field__label" for="rjpr-note">Ghi chú từ chối (bắt buộc) *</label><textarea id="rjpr-note" class="textarea" maxlength="500" placeholder="VD: Không khớp tài khoản hoặc chưa xác minh được người yêu cầu (tối thiểu 3 ký tự)">' + esc(m.adminNote || '') + '</textarea></div>' +
+        '</div>' +
+        '<div class="modal__foot">' +
+          '<button type="button" class="btn btn--secondary" data-action="close-modal">Hủy</button>' +
+          '<button type="button" class="btn btn--danger" data-action="submit-reject-pw-reset">Xác nhận từ chối</button>' +
+        '</div>';
+    }
+
+    if (m.type === 'patient-record-request' && m.patient) {
+      const pt = m.patient;
+      const isDel = m.requestType === 'delete';
+      html =
+        '<div class="modal__head"><h2 class="modal__title" id="modal-title">' + (isDel ? 'Yêu cầu xóa (lưu trữ) hồ sơ' : 'Yêu cầu khóa hồ sơ') + '</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Đóng">' + ICONS.x + '</button></div>' +
+        '<div class="modal__body">' +
+          '<div class="banner ' + (isDel ? 'banner--warn' : 'banner--info') + '" style="margin-bottom:0;"><div class="banner__main">' + (isDel ? ICONS.trash : ICONS.lock) + '<div><p class="banner__title"><span class="mono">' + esc(pt.patientCode) + '</span> · ' + esc(pt.fullName) + '</p><p class="banner__desc">' + (isDel
+            ? 'Yêu cầu xóa (lưu trữ mềm): nếu Quản trị viên duyệt, hồ sơ sẽ ẩn khỏi danh sách làm việc thường ngày; dữ liệu và lịch sử lượt khám vẫn được bảo toàn và có thể khôi phục.'
+            : 'Yêu cầu khóa hồ sơ: nếu Quản trị viên duyệt, hồ sơ sẽ không thể tạo lượt khám mới hay sửa hành chính cho tới khi được mở khóa.') + '</p></div></div></div>' +
+          (m.error ? '<div class="banner banner--error" role="alert"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(m.error) + '</p></div></div></div>' : '') +
+          '<div class="field"><label class="field__label" for="prr-reason">Lý do gửi yêu cầu (bắt buộc) *</label><textarea id="prr-reason" class="textarea" maxlength="500" placeholder="Nhập lý do rõ ràng (tối thiểu 3 ký tự)...">' + esc(m.reason || '') + '</textarea></div>' +
+        '</div>' +
+        '<div class="modal__foot">' +
+          '<button type="button" class="btn btn--secondary" data-action="close-modal">Hủy</button>' +
+          '<button type="button" class="btn ' + (isDel ? 'btn--danger' : 'btn--primary') + '" data-action="submit-patient-record-request">Gửi yêu cầu tới Quản trị viên</button>' +
+        '</div>';
+    }
+
+    if (m.type === 'approve-record-request' && m.req) {
+      const r = m.req;
+      const isDel = r.requestType === 'delete';
+      html =
+        '<div class="modal__head"><h2 class="modal__title" id="modal-title">' + (isDel ? 'Xác nhận duyệt lưu trữ hồ sơ' : 'Xác nhận duyệt khóa hồ sơ') + '</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Đóng">' + ICONS.x + '</button></div>' +
+        '<div class="modal__body">' +
+          '<div class="banner ' + (isDel ? 'banner--warn' : 'banner--info') + '" style="margin-bottom:0;"><div class="banner__main">' + (isDel ? ICONS.trash : ICONS.lock) + '<div><p class="banner__title"><span class="mono">' + esc(r.patientCode) + '</span> · ' + esc(r.patientName) + '</p><p class="banner__desc">' + (isDel
+            ? 'Duyệt yêu cầu này sẽ chuyển hồ sơ sang trạng thái <strong>Đã lưu trữ</strong> (ẩn khỏi danh sách NVYT và Bác sĩ; dữ liệu và lịch sử lượt khám vẫn giữ nguyên và có thể khôi phục bất kỳ lúc nào).'
+            : 'Duyệt yêu cầu này sẽ chuyển hồ sơ sang trạng thái <strong>Đã khóa</strong> (chặn tạo lượt khám mới và chỉnh sửa thông tin hành chính).') + '</p></div></div></div>' +
+          '<div class="kv-grid" style="margin-top:8px;"><div><div class="kv-item__label">Người gửi</div><div class="kv-item__value">' + esc(r.requestedByName || 'NVYT') + '</div></div><div><div class="kv-item__label">Lý do NVYT nêu</div><div class="kv-item__value">' + esc(r.reason) + '</div></div></div>' +
+          (m.error ? '<div class="banner banner--error" role="alert"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(m.error) + '</p></div></div></div>' : '') +
+          '<div class="field"><label class="field__label" for="arr-note">Ghi chú của Quản trị viên (tùy chọn)</label><input id="arr-note" class="input" maxlength="500" value="' + esc(m.adminNote || '') + '" placeholder="VD: Đã đối chiếu hồ sơ trùng lặp"></div>' +
+        '</div>' +
+        '<div class="modal__foot">' +
+          '<button type="button" class="btn btn--secondary" data-action="close-modal">Hủy</button>' +
+          '<button type="button" class="btn ' + (isDel ? 'btn--danger' : 'btn--primary') + '" data-action="submit-approve-record-request">' + ICONS.checkCircle + ' Xác nhận duyệt</button>' +
+        '</div>';
+    }
+
+    if (m.type === 'reject-record-request' && m.req) {
+      const r = m.req;
+      html =
+        '<div class="modal__head"><h2 class="modal__title" id="modal-title">Từ chối yêu cầu hồ sơ</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Đóng">' + ICONS.x + '</button></div>' +
+        '<div class="modal__body">' +
+          '<p>Từ chối yêu cầu <strong>' + (r.requestType === 'delete' ? 'xóa (lưu trữ)' : 'khóa') + '</strong> hồ sơ <strong class="mono">' + esc(r.patientCode) + '</strong> · ' + esc(r.patientName) + '.</p>' +
+          (m.error ? '<div class="banner banner--error" role="alert"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(m.error) + '</p></div></div></div>' : '') +
+          '<div class="field"><label class="field__label" for="rjrr-note">Ghi chú từ chối (bắt buộc) *</label><textarea id="rjrr-note" class="textarea" maxlength="500" placeholder="Nhập lý do từ chối (tối thiểu 3 ký tự)...">' + esc(m.adminNote || '') + '</textarea></div>' +
+        '</div>' +
+        '<div class="modal__foot">' +
+          '<button type="button" class="btn btn--secondary" data-action="close-modal">Hủy</button>' +
+          '<button type="button" class="btn btn--danger" data-action="submit-reject-record-request">Xác nhận từ chối</button>' +
+        '</div>';
+    }
+
+    if (m.type === 'admin-patient-status' && m.patient) {
+      const p = m.patient;
+      const target = m.targetStatus;
+      const actionTitle = target === 'locked'
+        ? 'Khóa hồ sơ bệnh nhân'
+        : (target === 'archived'
+            ? 'Lưu trữ (xóa mềm) hồ sơ bệnh nhân'
+            : (p.recordStatus === 'archived' ? 'Khôi phục hồ sơ bệnh nhân' : 'Mở khóa hồ sơ bệnh nhân'));
+      const desc = target === 'locked'
+        ? 'Hồ sơ sẽ chuyển sang trạng thái Đã khóa: không tạo được lượt khám mới và không sửa được thông tin hành chính.'
+        : (target === 'archived'
+            ? 'Hồ sơ sẽ chuyển sang trạng thái Đã lưu trữ: ẩn khỏi danh sách NVYT và Bác sĩ; toàn bộ dữ liệu và lịch sử lượt khám vẫn được giữ nguyên và có thể khôi phục.'
+            : 'Hồ sơ sẽ trở lại trạng thái Đang hoạt động và hiển thị bình thường cho các vai trò có quyền.');
+      html =
+        '<div class="modal__head"><h2 class="modal__title" id="modal-title">' + esc(actionTitle) + '</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Đóng">' + ICONS.x + '</button></div>' +
+        '<div class="modal__body">' +
+          '<div class="banner ' + (target === 'archived' ? 'banner--warn' : 'banner--info') + '" style="margin-bottom:0;"><div class="banner__main">' + ICONS.shield + '<div><p class="banner__title"><span class="mono">' + esc(p.patientCode) + '</span> · ' + esc(p.fullName) + '</p><p class="banner__desc">' + esc(desc) + '</p></div></div></div>' +
+          (m.error ? '<div class="banner banner--error" role="alert"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(m.error) + '</p></div></div></div>' : '') +
+          '<div class="field"><label class="field__label" for="aps-reason">Lý do thao tác (ghi Nhật ký hệ thống) *</label><textarea id="aps-reason" class="textarea" maxlength="500" placeholder="Nhập lý do tối thiểu 3 ký tự...">' + esc(m.reason || '') + '</textarea></div>' +
+        '</div>' +
+        '<div class="modal__foot">' +
+          '<button type="button" class="btn btn--secondary" data-action="close-modal">Hủy</button>' +
+          '<button type="button" class="btn ' + (target === 'archived' ? 'btn--danger' : 'btn--primary') + '" data-action="submit-admin-patient-status">Xác nhận thực hiện</button>' +
+        '</div>';
     }
 
     if (m.type === 'audit-detail' && m.log) {
@@ -10684,6 +11392,7 @@
     else if (state.screen === 'review') html = renderReview();
     else if (state.screen === 'workflow') html = renderWorkflow();
     else if (state.screen === 'admin-accounts') html = renderAdminUsers();
+    else if (state.screen === 'admin-patients') html = renderAdminPatients();
     else if (state.screen === 'admin-care') html = renderAdminUsers();
     else if (state.screen === 'admin-forms') html = renderAdminForms();
     else if (state.screen === 'admin-audit') html = renderAdminAudit();
@@ -12287,6 +12996,86 @@
       return;
     }
 
+    // UI-02 Password reset request tab & row actions
+    const adminUsersTab = target.getAttribute('data-admin-users-tab');
+    if (adminUsersTab) {
+      state.adminUsers.activeTab = adminUsersTab;
+      if (adminUsersTab === 'reset-requests') await loadAdminPwResetRequests();
+      else render();
+      return;
+    }
+    const resolvePwId = target.getAttribute('data-pwreset-resolve');
+    if (resolvePwId) {
+      const req = (state.adminUsers.pwRequests || []).find(function (x) { return x.id === resolvePwId; });
+      if (req) openModal({ type: 'resolve-pw-reset', req: req, adminNote: '', error: '' });
+      return;
+    }
+    const rejectPwId = target.getAttribute('data-pwreset-reject');
+    if (rejectPwId) {
+      const req = (state.adminUsers.pwRequests || []).find(function (x) { return x.id === rejectPwId; });
+      if (req) openModal({ type: 'reject-pw-reset', req: req, adminNote: '', error: '' });
+      return;
+    }
+
+    // UI-03 Nurse cancel own pending patient record request
+    const cancelRecReqId = target.getAttribute('data-cancel-record-request');
+    if (cancelRecReqId && state.profile.patient) {
+      try {
+        await api.cancelPatientRecordRequest(state.profile.patient.id, cancelRecReqId);
+        toast('Đã hủy yêu cầu đang chờ.', 'info');
+        await loadProfile(state.profile.patient.id);
+      } catch (err) {
+        toast((err && err.detail) || 'Không thể hủy yêu cầu.', 'error');
+      }
+      return;
+    }
+
+    // UI-18 Admin Patients tabs, filters, pagination, direct actions & nurse request review
+    const adminPatTab = target.getAttribute('data-admin-patients-tab');
+    if (adminPatTab) {
+      state.adminPatients.activeTab = adminPatTab;
+      if (adminPatTab === 'requests') await loadAdminRecordRequests();
+      else await loadAdminPatients();
+      return;
+    }
+    const adminPatStatusFilter = target.getAttribute('data-admin-pat-status');
+    if (adminPatStatusFilter !== null) {
+      state.adminPatients.recordStatus = adminPatStatusFilter;
+      state.adminPatients.pagination.page = 1;
+      await loadAdminPatients();
+      return;
+    }
+    const adminPatPage = target.getAttribute('data-admin-pat-page');
+    if (adminPatPage) {
+      const nextP = parseInt(adminPatPage, 10);
+      if (nextP >= 1) {
+        state.adminPatients.pagination.page = nextP;
+        await loadAdminPatients();
+      }
+      return;
+    }
+    const adminPatAction = target.getAttribute('data-admin-pat-action');
+    if (adminPatAction) {
+      const pid = target.getAttribute('data-pat-id');
+      const pat = (state.adminPatients.items || []).find(function (x) { return x.id === pid; });
+      if (pat) {
+        openModal({ type: 'admin-patient-status', patient: pat, targetStatus: adminPatAction, reason: '', error: '' });
+      }
+      return;
+    }
+    const approveRecReqId = target.getAttribute('data-record-req-approve');
+    if (approveRecReqId) {
+      const req = (state.adminPatients.requests || []).find(function (x) { return x.id === approveRecReqId; });
+      if (req) openModal({ type: 'approve-record-request', req: req, adminNote: '', error: '' });
+      return;
+    }
+    const rejectRecReqId = target.getAttribute('data-record-req-reject');
+    if (rejectRecReqId) {
+      const req = (state.adminPatients.requests || []).find(function (x) { return x.id === rejectRecReqId; });
+      if (req) openModal({ type: 'reject-record-request', req: req, adminNote: '', error: '' });
+      return;
+    }
+
     // M6 Admin User row actions
     const editUid = target.getAttribute('data-admin-edit-user');
     if (editUid) {
@@ -13039,6 +13828,187 @@
       return;
     }
 
+    // UI-02 Forgot Password (public login screen) & Admin handlers
+    if (action === 'open-forgot-password') {
+      const currentInput = (document.getElementById('login-username') || {}).value || state.login.username || '';
+      openModal({
+        type: 'forgot-password',
+        username: currentInput.trim(),
+        note: '',
+        submitting: false,
+        submittedMessage: '',
+        error: ''
+      });
+      return;
+    }
+    if (action === 'submit-forgot-password' && state.modal && state.modal.type === 'forgot-password') {
+      const m = state.modal;
+      const uname = ((document.getElementById('fp-username') || {}).value || '').trim();
+      const note = ((document.getElementById('fp-note') || {}).value || '').trim();
+      m.username = uname;
+      m.note = note;
+      if (!uname) {
+        m.error = 'Vui lòng nhập tên đăng nhập cần cấp lại mật khẩu.';
+        renderModal();
+        return;
+      }
+      m.error = '';
+      m.submitting = true;
+      renderModal();
+      try {
+        const res = await api.createPasswordResetRequest({ username: uname, note: note || null });
+        m.submitting = false;
+        m.submittedMessage = (res && res.message) || 'Yêu cầu đã được ghi nhận, liên hệ Quản trị viên để xác minh.';
+        renderModal();
+      } catch (err) {
+        m.submitting = false;
+        m.error = (err && err.detail) || 'Không thể gửi yêu cầu lúc này. Vui lòng thử lại.';
+        renderModal();
+      }
+      return;
+    }
+    if (action === 'reload-pwreset-requests') {
+      await loadAdminPwResetRequests();
+      return;
+    }
+    if (action === 'submit-resolve-pw-reset' && state.modal && state.modal.type === 'resolve-pw-reset') {
+      const m = state.modal;
+      const note = ((document.getElementById('rpr-note') || {}).value || '').trim();
+      m.adminNote = note;
+      try {
+        const res = await api.resolvePasswordResetRequest(m.req.id, { adminNote: note || null });
+        await loadAdminUsers();
+        openModal({
+          type: 'setup-code',
+          title: 'Đã cấp mã đăng nhập một lần cho ' + ((res.user && res.user.username) || m.req.usernameEntered),
+          username: (res.user && res.user.username) || m.req.usernameEntered,
+          code: res.oneTimeSetupCode
+        });
+      } catch (err) {
+        m.error = (err && err.detail) || 'Không thể cấp mã đăng nhập một lần.';
+        renderModal();
+      }
+      return;
+    }
+    if (action === 'submit-reject-pw-reset' && state.modal && state.modal.type === 'reject-pw-reset') {
+      const m = state.modal;
+      const note = ((document.getElementById('rjpr-note') || {}).value || '').trim();
+      m.adminNote = note;
+      if (note.length < 3) {
+        m.error = 'Vui lòng nhập ghi chú từ chối (tối thiểu 3 ký tự).';
+        renderModal();
+        return;
+      }
+      try {
+        await api.rejectPasswordResetRequest(m.req.id, { adminNote: note });
+        closeModal();
+        toast('Đã từ chối yêu cầu cấp lại mật khẩu.', 'info');
+        await loadAdminPwResetRequests();
+      } catch (err) {
+        m.error = (err && err.detail) || 'Không thể từ chối yêu cầu.';
+        renderModal();
+      }
+      return;
+    }
+
+    // UI-03 Nurse open & submit lock/delete record request modal
+    if (action === 'open-record-request' && state.profile.patient) {
+      const reqType = target.getAttribute('data-req-type') === 'delete' ? 'delete' : 'lock';
+      openModal({
+        type: 'patient-record-request',
+        patient: state.profile.patient,
+        requestType: reqType,
+        reason: '',
+        error: ''
+      });
+      return;
+    }
+    if (action === 'submit-patient-record-request' && state.modal && state.modal.type === 'patient-record-request') {
+      const m = state.modal;
+      const reason = ((document.getElementById('prr-reason') || {}).value || '').trim();
+      m.reason = reason;
+      if (reason.length < 3) {
+        m.error = 'Vui lòng nhập lý do rõ ràng (tối thiểu 3 ký tự).';
+        renderModal();
+        return;
+      }
+      try {
+        await api.createPatientRecordRequest(m.patient.id, { requestType: m.requestType, reason: reason });
+        closeModal();
+        toast('Đã gửi yêu cầu tới Quản trị viên xét duyệt.', 'success');
+        await loadProfile(m.patient.id);
+      } catch (err) {
+        m.error = (err && err.detail) || 'Không thể gửi yêu cầu hồ sơ.';
+        renderModal();
+      }
+      return;
+    }
+
+    // UI-18 Admin Patient status & request review modal submits
+    if (action === 'reload-admin-patients') {
+      await loadAdminPatients();
+      return;
+    }
+    if (action === 'submit-admin-patient-status' && state.modal && state.modal.type === 'admin-patient-status') {
+      const m = state.modal;
+      const reason = ((document.getElementById('aps-reason') || {}).value || '').trim();
+      m.reason = reason;
+      if (reason.length < 3) {
+        m.error = 'Vui lòng nhập lý do thao tác (tối thiểu 3 ký tự).';
+        renderModal();
+        return;
+      }
+      try {
+        await api.adminUpdatePatientRecordStatus(
+          m.patient.id,
+          { recordStatus: m.targetStatus, reason: reason, rowVersion: m.patient.rowVersion },
+          m.patient.rowVersion
+        );
+        closeModal();
+        toast('Đã cập nhật trạng thái hồ sơ ' + m.patient.patientCode + '.', 'success');
+        await loadAdminPatients();
+      } catch (err) {
+        m.error = (err && err.detail) || 'Không thể cập nhật trạng thái hồ sơ.';
+        renderModal();
+      }
+      return;
+    }
+    if (action === 'submit-approve-record-request' && state.modal && state.modal.type === 'approve-record-request') {
+      const m = state.modal;
+      const note = ((document.getElementById('arr-note') || {}).value || '').trim();
+      m.adminNote = note;
+      try {
+        await api.adminApprovePatientRecordRequest(m.req.id, { adminNote: note || null });
+        closeModal();
+        toast('Đã duyệt yêu cầu và cập nhật trạng thái hồ sơ ' + m.req.patientCode + '.', 'success');
+        await loadAdminPatients();
+      } catch (err) {
+        m.error = (err && err.detail) || 'Không thể duyệt yêu cầu.';
+        renderModal();
+      }
+      return;
+    }
+    if (action === 'submit-reject-record-request' && state.modal && state.modal.type === 'reject-record-request') {
+      const m = state.modal;
+      const note = ((document.getElementById('rjrr-note') || {}).value || '').trim();
+      m.adminNote = note;
+      if (note.length < 3) {
+        m.error = 'Vui lòng nhập ghi chú từ chối (tối thiểu 3 ký tự).';
+        renderModal();
+        return;
+      }
+      try {
+        await api.adminRejectPatientRecordRequest(m.req.id, { adminNote: note });
+        closeModal();
+        toast('Đã từ chối yêu cầu của NVYT.', 'info');
+        await loadAdminPatients();
+      } catch (err) {
+        m.error = (err && err.detail) || 'Không thể từ chối yêu cầu.';
+        renderModal();
+      }
+      return;
+    }
+
     // M6 Admin Users modal handlers
     if (action === 'open-create-user') {
       openModal({
@@ -13519,6 +14489,9 @@
     }
 
     if (t.id === 'admin-user-search') { state.adminUsers.q = t.value; scheduleLiveSearch('users', t); return; }
+    if (t.id === 'admin-pwreset-search') { state.adminUsers.pwQ = t.value; scheduleLiveSearch('pwReset', t); return; }
+    if (t.id === 'admin-patients-search') { state.adminPatients.q = t.value; state.adminPatients.pagination.page = 1; scheduleLiveSearch('adminPatients', t); return; }
+    if (t.id === 'admin-record-req-search') { state.adminPatients.reqQ = t.value; state.adminPatients.reqPagination.page = 1; scheduleLiveSearch('adminRecordReqs', t); return; }
     if (t.id === 'admin-care-search') { state.adminCare.q = t.value; scheduleLiveSearch('adminCare', t); return; }
     if (t.id === 'audit-q') { state.adminAudit.q = t.value; scheduleLiveSearch('audit', t); return; }
     if (t.id === 'admin-form-field-search') {
@@ -13969,6 +14942,9 @@
     // M6 filters
     if (t.id === 'admin-user-role-filter') { state.adminUsers.role = t.value; await loadAdminUsers(); return; }
     if (t.id === 'admin-user-active-filter') { state.adminUsers.isActive = t.value; await loadAdminUsers(); return; }
+    if (t.id === 'admin-pwreset-status-filter') { state.adminUsers.pwStatus = t.value; await loadAdminPwResetRequests(); return; }
+    if (t.id === 'admin-record-req-status-filter') { state.adminPatients.reqStatus = t.value; state.adminPatients.reqPagination.page = 1; await loadAdminRecordRequests(); return; }
+    if (t.id === 'admin-record-req-type-filter') { state.adminPatients.reqType = t.value; state.adminPatients.reqPagination.page = 1; await loadAdminRecordRequests(); return; }
 
     // M7 Form property checkboxes
     const edProp = t.getAttribute('data-ed-prop');

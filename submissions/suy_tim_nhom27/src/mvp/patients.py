@@ -9,15 +9,18 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 
 from .audit import record_audit_log
-from .care import ACCESS_EXISTS_SQL, require_patient_access
+from .care import ACCESS_EXISTS_SQL, has_record_status_schema, require_patient_access
 from .auth import Principal, get_client_ip, get_request_id, require_role
 from .db import compute_pagination, num_to_json, parse_if_match, to_date_iso, to_iso
 from .models import (
+    CreatePatientRecordRequest,
     CreatePatientRequest,
     CreateVisitRequest,
     Patient,
     PatientDetailResponse,
     PatientListResponse,
+    PatientRecordRequestItem,
+    PatientRecordRequestListResponse,
     ProblemError,
     UpdatePatientRequest,
     Visit,
@@ -162,6 +165,10 @@ def patient_row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
         "birthDate": to_date_iso(row.get("birth_date")),
         "birthYear": int(row["birth_year"]) if row.get("birth_year") is not None else None,
         "declaredAge": int(row["declared_age"]) if row.get("declared_age") is not None else None,
+        "recordStatus": row.get("record_status") or "active",
+        "recordStatusUpdatedAt": to_iso(row.get("record_status_updated_at")),
+        "recordStatusUpdatedBy": str(row["record_status_updated_by"]) if row.get("record_status_updated_by") else None,
+        "recordStatusUpdatedByName": row.get("record_status_updated_by_name"),
         "rowVersion": int(row["row_version"]),
         "createdBy": str(row["created_by"]),
         "createdAt": to_iso(row["created_at"]),
@@ -364,28 +371,34 @@ def list_patients(
         where_clauses.append("COALESCE(lv.status::text, 'none') = %s")
         params.append(latestVisitStatus)
 
-    where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
-
-    base_from = f"""
-        FROM patient p
-        JOIN app_user pc ON pc.id=p.created_by
-        JOIN app_user pu ON pu.id=COALESCE(p.updated_by,p.created_by)
-        LEFT JOIN LATERAL (
-            SELECT v.id, v.visit_code, v.visit_date, v.status
-            FROM visit v
-            WHERE v.patient_id = p.id
-            ORDER BY v.visit_date DESC, v.created_at DESC
-            LIMIT 1
-        ) lv ON true
-        LEFT JOIN LATERAL (
-            SELECT count(*)::int AS visit_count
-            FROM visit v2
-            WHERE v2.patient_id = p.id
-        ) vc ON true
-        {where_sql}
-    """
-
     with pool.connection() as conn:
+        has_rs = has_record_status_schema(conn)
+        if has_rs:
+            where_clauses.append("p.record_status <> 'archived'")
+        where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+        rs_join = "LEFT JOIN app_user prs ON prs.id = p.record_status_updated_by" if has_rs else ""
+        rs_select = "prs.full_name AS record_status_updated_by_name," if has_rs else "NULL AS record_status_updated_by_name,"
+
+        base_from = f"""
+            FROM patient p
+            JOIN app_user pc ON pc.id=p.created_by
+            JOIN app_user pu ON pu.id=COALESCE(p.updated_by,p.created_by)
+            {rs_join}
+            LEFT JOIN LATERAL (
+                SELECT v.id, v.visit_code, v.visit_date, v.status
+                FROM visit v
+                WHERE v.patient_id = p.id
+                ORDER BY v.visit_date DESC, v.created_at DESC
+                LIMIT 1
+            ) lv ON true
+            LEFT JOIN LATERAL (
+                SELECT count(*)::int AS visit_count
+                FROM visit v2
+                WHERE v2.patient_id = p.id
+            ) vc ON true
+            {where_sql}
+        """
+
         total_row = conn.execute(
             f"SELECT count(*)::int AS cnt {base_from}",
             params,
@@ -397,6 +410,7 @@ def list_patients(
             f"""
             SELECT
                 p.*, pc.full_name AS creator_name, pu.full_name AS editor_name,
+                {rs_select}
                 NULL AS access,
                 COALESCE(vc.visit_count, 0) AS visit_count,
                 lv.id AS latest_visit_id,
@@ -519,10 +533,14 @@ def get_patient(
     pool = request.app.state.pool
     with pool.connection() as conn:
         access = require_patient_access(conn, patientId, principal, write=False)
+        has_rs = has_record_status_schema(conn)
+        rs_join = "LEFT JOIN app_user prs ON prs.id=p.record_status_updated_by" if has_rs else ""
+        rs_select = ", prs.full_name AS record_status_updated_by_name" if has_rs else ", NULL AS record_status_updated_by_name"
         pt = conn.execute(
-            """SELECT p.*,pc.full_name AS creator_name,pu.full_name AS editor_name
+            f"""SELECT p.*,pc.full_name AS creator_name,pu.full_name AS editor_name{rs_select}
             FROM patient p JOIN app_user pc ON pc.id=p.created_by
-            JOIN app_user pu ON pu.id=COALESCE(p.updated_by,p.created_by) WHERE p.id=%s""",
+            JOIN app_user pu ON pu.id=COALESCE(p.updated_by,p.created_by)
+            {rs_join} WHERE p.id=%s""",
             (str(patientId),),
         ).fetchone()
         if not pt:
@@ -570,6 +588,20 @@ def update_patient(
                 "RESOURCE_NOT_FOUND",
                 "Không tìm thấy hồ sơ bệnh nhân",
                 "Không tồn tại hồ sơ bệnh nhân với mã định danh yêu cầu.",
+            )
+        if pt.get("record_status") == "locked":
+            raise ProblemError(
+                409,
+                "PATIENT_RECORD_LOCKED",
+                "Hồ sơ bệnh nhân đã bị khóa",
+                "Hồ sơ đang ở trạng thái đã khóa nên không thể chỉnh sửa thông tin hành chính. Liên hệ Quản trị viên để mở khóa.",
+            )
+        if pt.get("record_status") == "archived":
+            raise ProblemError(
+                409,
+                "PATIENT_RECORD_ARCHIVED",
+                "Hồ sơ bệnh nhân đã lưu trữ",
+                "Hồ sơ đang ở trạng thái lưu trữ nên không thể chỉnh sửa thông tin hành chính.",
             )
 
         current_rv = int(pt["row_version"])
@@ -742,8 +774,9 @@ def create_visit(
 
     with pool.connection() as conn:
         access = require_patient_access(conn, patientId, principal, write=True)
+        has_rs = has_record_status_schema(conn)
         pt = conn.execute(
-            "SELECT id FROM patient WHERE id = %s",
+            f"SELECT id{', record_status' if has_rs else ''} FROM patient WHERE id = %s",
             (str(patientId),),
         ).fetchone()
         if not pt:
@@ -752,6 +785,20 @@ def create_visit(
                 "RESOURCE_NOT_FOUND",
                 "Không tìm thấy hồ sơ bệnh nhân",
                 "Hồ sơ bệnh nhân không tồn tại.",
+            )
+        if has_rs and pt.get("record_status") == "locked":
+            raise ProblemError(
+                409,
+                "PATIENT_RECORD_LOCKED",
+                "Hồ sơ bệnh nhân đã bị khóa",
+                "Không thể tạo lượt khám mới cho hồ sơ đang ở trạng thái đã khóa. Liên hệ Quản trị viên để mở khóa.",
+            )
+        if has_rs and pt.get("record_status") == "archived":
+            raise ProblemError(
+                409,
+                "PATIENT_RECORD_ARCHIVED",
+                "Hồ sơ bệnh nhân đã lưu trữ",
+                "Không thể tạo lượt khám mới cho hồ sơ đã lưu trữ.",
             )
 
         published = conn.execute(
@@ -816,3 +863,280 @@ def create_visit(
     row_dict["creator_role"] = principal.role
     response.headers["ETag"] = f'"{int(row["row_version"])}"'
     return visit_row_to_dict(row_dict)
+
+
+# ---------------------------------------------------------------------------
+# Patient Record Lock/Archive Requests (UI-03)
+# ---------------------------------------------------------------------------
+def record_request_row_to_dict(
+    row: dict[str, Any],
+    principal: Principal | None = None,
+) -> dict[str, Any]:
+    can_cancel = bool(
+        principal is not None
+        and principal.role == "nurse"
+        and row["status"] == "pending"
+        and str(row["requested_by"]) == str(principal.user_id)
+    )
+    return {
+        "id": str(row["id"]),
+        "patientId": str(row["patient_id"]),
+        "patientCode": row["patient_code"],
+        "patientName": row["patient_name"],
+        "patientRecordStatus": row.get("patient_record_status") or "active",
+        "requestType": row["request_type"],
+        "reason": row["reason"],
+        "status": row["status"],
+        "requestedBy": str(row["requested_by"]),
+        "requestedByName": row.get("requested_by_name"),
+        "requestedAt": to_iso(row["requested_at"]),
+        "handledBy": str(row["handled_by"]) if row.get("handled_by") else None,
+        "handledByName": row.get("handled_by_name"),
+        "handledAt": to_iso(row.get("handled_at")),
+        "adminNote": row.get("admin_note"),
+        "canCancel": can_cancel,
+    }
+
+
+@router.get(
+    "/patients/{patientId}/record-requests",
+    operation_id="listPatientRecordRequests",
+    response_model=PatientRecordRequestListResponse,
+)
+def list_patient_record_requests(
+    patientId: UUID,
+    request: Request,
+    principal: Principal = Depends(_require_doctor_patient),
+) -> dict[str, Any]:
+    pool = request.app.state.pool
+    with pool.connection() as conn:
+        require_patient_access(conn, patientId, principal, write=False)
+        if not has_record_status_schema(conn):
+            return {"items": []}
+        rows = conn.execute(
+            """
+            SELECT
+                r.*,
+                p.patient_code,
+                p.full_name AS patient_name,
+                p.record_status AS patient_record_status,
+                req_u.full_name AS requested_by_name,
+                hdl_u.full_name AS handled_by_name
+            FROM patient_record_request r
+            JOIN patient p ON p.id = r.patient_id
+            JOIN app_user req_u ON req_u.id = r.requested_by
+            LEFT JOIN app_user hdl_u ON hdl_u.id = r.handled_by
+            WHERE r.patient_id = %s
+            ORDER BY r.requested_at DESC, r.id DESC
+            """,
+            (str(patientId),),
+        ).fetchall()
+    return {"items": [record_request_row_to_dict(r, principal) for r in rows]}
+
+
+@router.post(
+    "/patients/{patientId}/record-requests",
+    operation_id="createPatientRecordRequest",
+    response_model=PatientRecordRequestItem,
+    status_code=201,
+)
+def create_patient_record_request(
+    patientId: UUID,
+    body: CreatePatientRecordRequest,
+    request: Request,
+    principal: Principal = Depends(require_role("nurse", "patient_record_request")),
+) -> dict[str, Any]:
+    reason = body.reason.strip()
+    if len(reason) < 3:
+        raise ProblemError(
+            422,
+            "FIELD_VALIDATION_FAILED",
+            "Lý do yêu cầu không hợp lệ",
+            "Vui lòng nhập lý do tối thiểu 3 ký tự.",
+            errors=[
+                {
+                    "fieldCode": "reason",
+                    "message": "Lý do yêu cầu phải có ít nhất 3 ký tự.",
+                    "rejectedValue": body.reason,
+                }
+            ],
+        )
+
+    pool = request.app.state.pool
+    req_id = get_request_id(request)
+    ip_addr = get_client_ip(request)
+
+    with pool.connection() as conn:
+        require_patient_access(conn, patientId, principal, write=True)
+        if not has_record_status_schema(conn):
+            raise ProblemError(
+                503,
+                "MIGRATION_REQUIRED",
+                "Chưa sẵn sàng tính năng yêu cầu hồ sơ",
+                "Cơ sở dữ liệu chưa áp dụng migration 012.",
+            )
+        pt = conn.execute(
+            "SELECT id, patient_code, full_name, record_status FROM patient WHERE id = %s FOR UPDATE",
+            (str(patientId),),
+        ).fetchone()
+        if not pt or pt["record_status"] == "archived":
+            raise ProblemError(
+                404,
+                "RESOURCE_NOT_FOUND",
+                "Không tìm thấy hồ sơ bệnh nhân",
+                "Hồ sơ bệnh nhân không tồn tại hoặc đã được lưu trữ.",
+            )
+        if body.requestType == "lock" and pt["record_status"] == "locked":
+            raise ProblemError(
+                409,
+                "PATIENT_ALREADY_LOCKED",
+                "Hồ sơ bệnh nhân đã bị khóa",
+                "Hồ sơ này hiện đã ở trạng thái khóa nên không cần gửi thêm yêu cầu khóa.",
+            )
+
+        existing = conn.execute(
+            """
+            SELECT id
+            FROM patient_record_request
+            WHERE patient_id = %s AND request_type = %s AND status = 'pending'
+            """,
+            (str(patientId), body.requestType),
+        ).fetchone()
+        if existing:
+            type_label = "khóa" if body.requestType == "lock" else "xóa (lưu trữ)"
+            raise ProblemError(
+                409,
+                "RECORD_REQUEST_ALREADY_PENDING",
+                "Đã có yêu cầu đang chờ xử lý",
+                f"Hồ sơ này đang có một yêu cầu {type_label} chờ Quản trị viên xét duyệt.",
+            )
+
+        row = conn.execute(
+            """
+            INSERT INTO patient_record_request (
+                patient_id, request_type, reason, status, requested_by
+            )
+            VALUES (%s, %s, %s, 'pending', %s)
+            RETURNING *
+            """,
+            (str(patientId), body.requestType, reason, str(principal.user_id)),
+        ).fetchone()
+
+        record_audit_log(
+            conn,
+            actor_user_id=principal.user_id,
+            action="patient_record_request_create",
+            entity_type="patient_record_request",
+            entity_id=row["id"],
+            ip=ip_addr,
+            request_id=req_id,
+            outcome="success",
+            detail={
+                "patientId": str(patientId),
+                "patientCode": pt["patient_code"],
+                "requestType": body.requestType,
+                "reason": reason,
+            },
+        )
+        conn.commit()
+
+    out = dict(row)
+    out["patient_code"] = pt["patient_code"]
+    out["patient_name"] = pt["full_name"]
+    out["patient_record_status"] = pt["record_status"]
+    out["requested_by_name"] = principal.full_name
+    out["handled_by_name"] = None
+    return record_request_row_to_dict(out, principal)
+
+
+@router.post(
+    "/patients/{patientId}/record-requests/{requestId}/cancel",
+    operation_id="cancelPatientRecordRequest",
+    response_model=PatientRecordRequestItem,
+)
+def cancel_patient_record_request(
+    patientId: UUID,
+    requestId: UUID,
+    request: Request,
+    principal: Principal = Depends(require_role("nurse", "patient_record_request")),
+) -> dict[str, Any]:
+    pool = request.app.state.pool
+    req_id = get_request_id(request)
+    ip_addr = get_client_ip(request)
+
+    with pool.connection() as conn:
+        require_patient_access(conn, patientId, principal, write=False)
+        if not has_record_status_schema(conn):
+            raise ProblemError(404, "RESOURCE_NOT_FOUND", "Không tìm thấy yêu cầu", "Không tìm thấy yêu cầu.")
+        row = conn.execute(
+            """
+            SELECT
+                r.*,
+                p.patient_code,
+                p.full_name AS patient_name,
+                p.record_status AS patient_record_status,
+                req_u.full_name AS requested_by_name
+            FROM patient_record_request r
+            JOIN patient p ON p.id = r.patient_id
+            JOIN app_user req_u ON req_u.id = r.requested_by
+            WHERE r.id = %s AND r.patient_id = %s
+            FOR UPDATE OF r
+            """,
+            (str(requestId), str(patientId)),
+        ).fetchone()
+        if not row:
+            raise ProblemError(
+                404,
+                "RESOURCE_NOT_FOUND",
+                "Không tìm thấy yêu cầu",
+                "Yêu cầu khóa/lưu trữ hồ sơ không tồn tại.",
+            )
+        if str(row["requested_by"]) != str(principal.user_id):
+            raise ProblemError(
+                403,
+                "RECORD_REQUEST_NOT_OWNER",
+                "Không có quyền hủy yêu cầu",
+                "Bạn chỉ có thể hủy yêu cầu đang chờ do chính mình gửi.",
+            )
+        if row["status"] != "pending":
+            raise ProblemError(
+                409,
+                "REQUEST_ALREADY_HANDLED",
+                "Yêu cầu đã được xử lý",
+                "Chỉ có thể hủy yêu cầu đang ở trạng thái chờ duyệt.",
+            )
+
+        updated = conn.execute(
+            """
+            UPDATE patient_record_request
+            SET status = 'cancelled', handled_at = now()
+            WHERE id = %s
+            RETURNING *
+            """,
+            (str(requestId),),
+        ).fetchone()
+
+        record_audit_log(
+            conn,
+            actor_user_id=principal.user_id,
+            action="patient_record_request_cancel",
+            entity_type="patient_record_request",
+            entity_id=requestId,
+            ip=ip_addr,
+            request_id=req_id,
+            outcome="success",
+            detail={
+                "patientId": str(patientId),
+                "patientCode": row["patient_code"],
+                "requestType": row["request_type"],
+            },
+        )
+        conn.commit()
+
+    out = dict(updated)
+    out["patient_code"] = row["patient_code"]
+    out["patient_name"] = row["patient_name"]
+    out["patient_record_status"] = row["patient_record_status"]
+    out["requested_by_name"] = row["requested_by_name"]
+    out["handled_by_name"] = None
+    return record_request_row_to_dict(out, principal)

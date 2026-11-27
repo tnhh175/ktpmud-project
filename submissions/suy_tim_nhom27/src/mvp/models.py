@@ -47,7 +47,15 @@ AuditAction = Literal[
     "care_assignment_revoke",
     "workflow_fields_saved", "workflow_run", "workflow_decision",
     "workflow_confirmation", "workflow_invalidated", "workflow_finished",
+    "password_reset_request", "password_reset_resolve", "password_reset_reject",
+    "patient_record_request_create", "patient_record_request_cancel",
+    "patient_record_request_approve", "patient_record_request_reject",
+    "patient_record_status_change",
 ]
+RecordStatus = Literal["active", "locked", "archived"]
+PatientRecordRequestType = Literal["lock", "delete"]
+PatientRecordRequestStatus = Literal["pending", "approved", "rejected", "cancelled"]
+PasswordResetRequestStatus = Literal["pending", "resolved", "rejected"]
 SexType = Literal["male", "female", "unknown"]
 VisitType = Literal["outpatient_new", "follow_up", "acute_inpatient"]
 AiModuleCode = Literal["ai_diagnosis", "ai_lab_test", "ai_treatment", "ai_medsafety"]
@@ -301,6 +309,10 @@ class Patient(BaseModel):
     birthDate: date | None = None
     birthYear: int | None = None
     declaredAge: int | None = None
+    recordStatus: RecordStatus = "active"
+    recordStatusUpdatedAt: datetime | None = None
+    recordStatusUpdatedBy: UUID | None = None
+    recordStatusUpdatedByName: str | None = None
     rowVersion: int
     createdBy: UUID
     createdAt: datetime
@@ -997,3 +1009,181 @@ class AuditLog(BaseModel):
 class AuditLogListResponse(BaseModel):
     items: list[AuditLog]
     pagination: PaginationMeta
+
+
+# ---------------------------------------------------------------------------
+# Password Reset Requests (UI-02)
+# ---------------------------------------------------------------------------
+class CreatePasswordResetRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    username: str = Field(min_length=1, max_length=64)
+    note: str | None = Field(default=None, max_length=300)
+
+    @field_validator("note", mode="before")
+    @classmethod
+    def _clean_note(cls, v: Any) -> Any:
+        return _empty_str_to_none(v)
+
+
+class PasswordResetAcceptedResponse(BaseModel):
+    accepted: bool = True
+    message: str
+
+
+class PasswordResetMatchedUser(BaseModel):
+    id: UUID
+    username: str
+    fullName: str
+    role: UserRole
+    isActive: bool
+    rowVersion: int
+
+
+class PasswordResetRequestItem(BaseModel):
+    id: UUID
+    usernameEntered: str
+    note: str | None = None
+    status: PasswordResetRequestStatus
+    requestedAt: datetime
+    lastRequestedAt: datetime
+    requestCount: int
+    handledBy: UUID | None = None
+    handledByName: str | None = None
+    handledAt: datetime | None = None
+    adminNote: str | None = None
+    matchedUser: PasswordResetMatchedUser | None = None
+
+
+class PasswordResetRequestListResponse(BaseModel):
+    items: list[PasswordResetRequestItem]
+    pendingCount: int
+    pagination: PaginationMeta
+
+
+class ResolvePasswordResetRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    adminNote: str | None = Field(default=None, max_length=500)
+
+    @field_validator("adminNote", mode="before")
+    @classmethod
+    def _clean_note(cls, v: Any) -> Any:
+        return _empty_str_to_none(v)
+
+
+class ResolvePasswordResetResponse(BaseModel):
+    request: PasswordResetRequestItem
+    user: AppUser
+    oneTimeSetupCode: str
+
+
+class RejectPasswordResetRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    adminNote: str = Field(min_length=3, max_length=500)
+
+
+# ---------------------------------------------------------------------------
+# Patient Record Requests & Admin Patient Management (UI-03 / UI-18)
+# ---------------------------------------------------------------------------
+class CreatePatientRecordRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    requestType: PatientRecordRequestType
+    reason: str = Field(min_length=3, max_length=500)
+
+
+class PatientRecordRequestItem(BaseModel):
+    id: UUID
+    patientId: UUID
+    patientCode: str
+    patientName: str
+    patientRecordStatus: RecordStatus
+    requestType: PatientRecordRequestType
+    reason: str
+    status: PatientRecordRequestStatus
+    requestedBy: UUID
+    requestedByName: str | None = None
+    requestedAt: datetime
+    handledBy: UUID | None = None
+    handledByName: str | None = None
+    handledAt: datetime | None = None
+    adminNote: str | None = None
+    canCancel: bool = False
+
+
+class PatientRecordRequestListResponse(BaseModel):
+    items: list[PatientRecordRequestItem]
+
+
+class AdminPatientRecordRequestListResponse(BaseModel):
+    items: list[PatientRecordRequestItem]
+    pendingCount: int
+    pagination: PaginationMeta
+
+
+class AdminPatientItem(BaseModel):
+    id: UUID
+    patientCode: str
+    fullName: str
+    sex: SexType
+    birthDate: date | None = None
+    birthYear: int | None = None
+    declaredAge: int | None = None
+    externalPatientCode: str | None = None
+    cccd: str | None = None
+    recordStatus: RecordStatus
+    recordStatusUpdatedAt: datetime | None = None
+    recordStatusUpdatedBy: UUID | None = None
+    recordStatusUpdatedByName: str | None = None
+    visitCount: int
+    latestVisitDate: datetime | None = None
+    pendingRequestCount: int
+    rowVersion: int
+    createdAt: datetime
+    updatedAt: datetime
+
+
+class AdminPatientSummary(BaseModel):
+    totalAll: int
+    activeCount: int
+    lockedCount: int
+    archivedCount: int
+    pendingRequestCount: int
+
+
+class AdminPatientListResponse(BaseModel):
+    items: list[AdminPatientItem]
+    summary: AdminPatientSummary
+    pagination: PaginationMeta
+
+
+class AdminUpdateRecordStatusRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    recordStatus: RecordStatus
+    reason: str = Field(min_length=3, max_length=500)
+    rowVersion: int | None = Field(default=None, ge=1)
+
+
+class ApprovePatientRecordRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    adminNote: str | None = Field(default=None, max_length=500)
+
+    @field_validator("adminNote", mode="before")
+    @classmethod
+    def _clean_note(cls, v: Any) -> Any:
+        return _empty_str_to_none(v)
+
+
+class ApprovePatientRecordRequestResponse(BaseModel):
+    request: PatientRecordRequestItem
+    patient: AdminPatientItem
+
+
+class RejectPatientRecordRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    adminNote: str = Field(min_length=3, max_length=500)

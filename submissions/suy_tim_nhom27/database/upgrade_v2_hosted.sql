@@ -4,3 +4,4 @@
 \ir migrations/009_v2_roles_queue.sql
 \ir migrations/010_form_v2.sql
 \ir migrations/011_v2_runtime_grants.sql
+\ir migrations/012_record_and_password_requests.sql

@@ -23,8 +23,10 @@ from .models import (
     AppUser,
     AuthTokenResponse,
     ChangePasswordRequest,
+    CreatePasswordResetRequest,
     LoginRequest,
     LogoutRequest,
+    PasswordResetAcceptedResponse,
     ProblemError,
     RefreshTokenRequest,
 )
@@ -770,3 +772,188 @@ def get_current_user(principal: Principal = Depends(get_current_principal)) -> d
         "createdAt": to_iso(principal.created_at),
         "updatedAt": to_iso(principal.updated_at),
     }
+
+
+PASSWORD_RESET_GENERIC_MESSAGE = (
+    "Yêu cầu đã được ghi nhận, liên hệ Quản trị viên để xác minh."
+)
+PASSWORD_RESET_WINDOW_MINUTES = 15
+PASSWORD_RESET_MAX_PER_WINDOW = 3
+
+
+def _hash_client_ip(ip_addr: str | None) -> str | None:
+    if not ip_addr:
+        return None
+    return hashlib.sha256(f"hfcare-pwreset-v1:{ip_addr}".encode("utf-8")).hexdigest()
+
+
+@router.post(
+    "/password-reset-requests",
+    operation_id="createPasswordResetRequest",
+    response_model=PasswordResetAcceptedResponse,
+)
+def create_password_reset_request(
+    body: CreatePasswordResetRequest,
+    request: Request,
+) -> dict[str, Any]:
+    """Submit an unauthenticated forgot-password request for Admin review (UI-02).
+
+    Always returns the exact same generic message regardless of whether the account
+    exists, is excluded (admin role), or exceeds the rate limit, to prevent user
+    enumeration. Rate-limited to <= 3 requests per 15 minutes per client IP and per
+    username, with pending request deduplication per normalized username.
+    """
+    username_entered = body.username.strip()
+    if not username_entered:
+        raise ProblemError(
+            422,
+            "FIELD_VALIDATION_FAILED",
+            "Thiếu tên đăng nhập",
+            "Vui lòng nhập tên đăng nhập cần cấp lại mật khẩu.",
+            errors=[
+                {
+                    "fieldCode": "username",
+                    "message": "Tên đăng nhập là bắt buộc.",
+                }
+            ],
+        )
+    username_norm = username_entered.lower()
+    note = body.note.strip() if body.note else None
+    ip_addr = get_client_ip(request)
+    ip_hash = _hash_client_ip(ip_addr)
+    req_id = get_request_id(request)
+    window_start = datetime.now(timezone.utc) - timedelta(minutes=PASSWORD_RESET_WINDOW_MINUTES)
+
+    generic_resp = {
+        "accepted": True,
+        "message": PASSWORD_RESET_GENERIC_MESSAGE,
+    }
+
+    pool = request.app.state.pool
+    with pool.connection() as conn:
+        if not conn.execute("SELECT to_regclass('public.password_reset_request') AS r").fetchone()["r"]:
+            return generic_resp
+
+        conn.execute("SELECT pg_advisory_xact_lock(hashtext('pw_reset:' || %s))", (username_norm,))
+
+        ip_recent = 0
+        if ip_hash:
+            ip_row = conn.execute(
+                """
+                SELECT COALESCE(SUM(request_count), 0)::int AS cnt
+                FROM password_reset_request
+                WHERE client_ip_hash = %s AND last_requested_at >= %s
+                """,
+                (ip_hash, window_start),
+            ).fetchone()
+            ip_recent = int(ip_row["cnt"]) if ip_row else 0
+
+        user_row = conn.execute(
+            """
+            SELECT COALESCE(SUM(request_count), 0)::int AS cnt
+            FROM password_reset_request
+            WHERE username_normalized = %s AND last_requested_at >= %s
+            """,
+            (username_norm, window_start),
+        ).fetchone()
+        user_recent = int(user_row["cnt"]) if user_row else 0
+
+        if ip_recent >= PASSWORD_RESET_MAX_PER_WINDOW or user_recent >= PASSWORD_RESET_MAX_PER_WINDOW:
+            record_audit_log(
+                conn,
+                actor_user_id=None,
+                action="password_reset_request",
+                entity_type="password_reset_request",
+                entity_id=None,
+                ip=ip_addr,
+                request_id=req_id,
+                outcome="denied",
+                detail={"reason": "rate_limited"},
+            )
+            conn.commit()
+            return generic_resp
+
+        matched_user = conn.execute(
+            """
+            SELECT id, username, role, is_active
+            FROM app_user
+            WHERE lower(username) = %s
+            """,
+            (username_norm,),
+        ).fetchone()
+
+        # Self-service forgot-password does not apply to admin accounts (security policy);
+        # still return the identical generic response so admin usernames are not enumerated.
+        if matched_user is not None and matched_user["role"] == "admin":
+            record_audit_log(
+                conn,
+                actor_user_id=None,
+                action="password_reset_request",
+                entity_type="password_reset_request",
+                entity_id=None,
+                ip=ip_addr,
+                request_id=req_id,
+                outcome="denied",
+                detail={"reason": "admin_role_excluded"},
+            )
+            conn.commit()
+            return generic_resp
+
+        matched_user_id = str(matched_user["id"]) if matched_user is not None else None
+
+        existing_pending = conn.execute(
+            """
+            SELECT id, request_count
+            FROM password_reset_request
+            WHERE username_normalized = %s AND status = 'pending'
+            FOR UPDATE
+            """,
+            (username_norm,),
+        ).fetchone()
+
+        if existing_pending:
+            conn.execute(
+                """
+                UPDATE password_reset_request
+                SET request_count = request_count + 1,
+                    last_requested_at = now(),
+                    note = COALESCE(%s, note),
+                    user_id = COALESCE(user_id, %s),
+                    client_ip_hash = COALESCE(%s, client_ip_hash)
+                WHERE id = %s
+                """,
+                (note, matched_user_id, ip_hash, existing_pending["id"]),
+            )
+            req_entity_id = existing_pending["id"]
+            deduplicated = True
+        else:
+            inserted = conn.execute(
+                """
+                INSERT INTO password_reset_request (
+                    username_entered, username_normalized, user_id, note, status, client_ip_hash
+                )
+                VALUES (%s, %s, %s, %s, 'pending', %s)
+                RETURNING id
+                """,
+                (username_entered, username_norm, matched_user_id, note, ip_hash),
+            ).fetchone()
+            req_entity_id = inserted["id"]
+            deduplicated = False
+
+        record_audit_log(
+            conn,
+            actor_user_id=None,
+            action="password_reset_request",
+            entity_type="password_reset_request",
+            entity_id=req_entity_id,
+            ip=ip_addr,
+            request_id=req_id,
+            outcome="success",
+            detail={
+                "matched": matched_user is not None,
+                "deduplicated": deduplicated,
+            },
+        )
+        conn.commit()
+
+    return generic_resp

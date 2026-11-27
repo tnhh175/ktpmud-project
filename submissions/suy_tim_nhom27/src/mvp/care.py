@@ -50,10 +50,19 @@ def access_shape(row):
     return {'assignmentId': str(row['id']), 'assignedAt': to_iso(row['assigned_at']), 'assignedBy': str(row['assigned_by'])}
 
 
+def has_record_status_schema(conn) -> bool:
+    row = conn.execute("SELECT to_regclass('public.patient_record_request') AS r").fetchone()
+    return bool(row and row["r"])
+
+
 def require_patient_access(conn, patient_id, principal, *, write=False):
-    row = conn.execute('SELECT id FROM patient WHERE id=%s FOR ' + ('UPDATE' if write else 'SHARE'),
+    has_rs = has_record_status_schema(conn)
+    select_cols = 'id, record_status' if has_rs else 'id'
+    row = conn.execute(f'SELECT {select_cols} FROM patient WHERE id=%s FOR ' + ('UPDATE' if write else 'SHARE'),
                        (str(patient_id),)).fetchone()
     if not row:
+        raise missing()
+    if has_rs and row.get('record_status') == 'archived':
         raise missing()
     if principal.role == 'nurse':
         return None

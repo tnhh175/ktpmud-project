@@ -210,6 +210,9 @@
       },
       getCurrentUser() { return request('GET', '/auth/me'); },
       changePassword(payload) { return request('POST', '/auth/change-password', { body: payload }); },
+      createPasswordResetRequest(payload) {
+        return request('POST', '/auth/password-reset-requests', { body: payload, skipAuth: true });
+      },
 
       /* Patients */
       listPatients(params) { return request('GET', '/patients' + buildQuery(params)); },
@@ -217,6 +220,15 @@
       getPatient(patientId) { return request('GET', '/patients/' + encodeURIComponent(patientId)); },
       updatePatient(patientId, payload, rowVersion) {
         return request('PATCH', '/patients/' + encodeURIComponent(patientId), { body: payload, ifMatch: rowVersion });
+      },
+      listPatientRecordRequests(patientId) {
+        return request('GET', '/patients/' + encodeURIComponent(patientId) + '/record-requests');
+      },
+      createPatientRecordRequest(patientId, payload) {
+        return request('POST', '/patients/' + encodeURIComponent(patientId) + '/record-requests', { body: payload });
+      },
+      cancelPatientRecordRequest(patientId, requestId) {
+        return request('POST', '/patients/' + encodeURIComponent(patientId) + '/record-requests/' + encodeURIComponent(requestId) + '/cancel', { body: {} });
       },
 
       /* Visits */
@@ -330,6 +342,26 @@
         return request('PATCH', '/admin/users/' + encodeURIComponent(userId), { body: payload, ifMatch: rowVersion });
       },
       previewUserPermissions(payload) { return request('POST', '/admin/users/permission-preview', { body: payload }); },
+      listPasswordResetRequests(params) { return request('GET', '/admin/password-reset-requests' + buildQuery(params)); },
+      resolvePasswordResetRequest(requestId, payload) {
+        return request('POST', '/admin/password-reset-requests/' + encodeURIComponent(requestId) + '/resolve', { body: payload || {} });
+      },
+      rejectPasswordResetRequest(requestId, payload) {
+        return request('POST', '/admin/password-reset-requests/' + encodeURIComponent(requestId) + '/reject', { body: payload });
+      },
+
+      /* Admin Patients (UI-18, administrative metadata only) */
+      adminListPatients(params) { return request('GET', '/admin/patients' + buildQuery(params)); },
+      adminUpdatePatientRecordStatus(patientId, payload, rowVersion) {
+        return request('PATCH', '/admin/patients/' + encodeURIComponent(patientId) + '/record-status', { body: payload, ifMatch: rowVersion });
+      },
+      adminListPatientRecordRequests(params) { return request('GET', '/admin/patients/record-requests' + buildQuery(params)); },
+      adminApprovePatientRecordRequest(requestId, payload) {
+        return request('POST', '/admin/patients/record-requests/' + encodeURIComponent(requestId) + '/approve', { body: payload || {} });
+      },
+      adminRejectPatientRecordRequest(requestId, payload) {
+        return request('POST', '/admin/patients/record-requests/' + encodeURIComponent(requestId) + '/reject', { body: payload });
+      },
 
       /* Admin Forms */
       listFieldDefinitions(params) { return request('GET', '/admin/field-definitions' + buildQuery(params)); },
@@ -398,10 +430,14 @@
       logout: function () { return adapter.logout(); },
       getCurrentUser: function () { return adapter.getCurrentUser(); },
       changePassword: function (p) { return adapter.changePassword(p); },
+      createPasswordResetRequest: function (p) { return adapter.createPasswordResetRequest(p); },
       listPatients: function (p) { return adapter.listPatients(p); },
       createPatient: function (p) { return adapter.createPatient(p); },
       getPatient: function (id) { return adapter.getPatient(id); },
       updatePatient: function (id, p, rv) { return adapter.updatePatient(id, p, rv); },
+      listPatientRecordRequests: function (id) { return adapter.listPatientRecordRequests(id); },
+      createPatientRecordRequest: function (id, p) { return adapter.createPatientRecordRequest(id, p); },
+      cancelPatientRecordRequest: function (id, rid) { return adapter.cancelPatientRecordRequest(id, rid); },
       listPatientVisits: function (id, p) { return adapter.listPatientVisits(id, p); },
       createVisit: function (id, p) { return adapter.createVisit(id, p); },
       getVisit: function (id) { return adapter.getVisit(id); },
@@ -481,6 +517,14 @@
       getUser: function (id) { return adapter.getUser(id); },
       updateUser: function (id, p, rv) { return adapter.updateUser(id, p, rv); },
       previewUserPermissions: function (p) { return adapter.previewUserPermissions(p); },
+      listPasswordResetRequests: function (p) { return adapter.listPasswordResetRequests(p); },
+      resolvePasswordResetRequest: function (id, p) { return adapter.resolvePasswordResetRequest(id, p); },
+      rejectPasswordResetRequest: function (id, p) { return adapter.rejectPasswordResetRequest(id, p); },
+      adminListPatients: function (p) { return adapter.adminListPatients(p); },
+      adminUpdatePatientRecordStatus: function (id, p, rv) { return adapter.adminUpdatePatientRecordStatus(id, p, rv); },
+      adminListPatientRecordRequests: function (p) { return adapter.adminListPatientRecordRequests(p); },
+      adminApprovePatientRecordRequest: function (id, p) { return adapter.adminApprovePatientRecordRequest(id, p); },
+      adminRejectPatientRecordRequest: function (id, p) { return adapter.adminRejectPatientRecordRequest(id, p); },
       listFieldDefinitions: function (p) { return adapter.listFieldDefinitions(p); },
       listForms: function () { return adapter.listForms(); },
       listFormVersions: function (id, p) { return adapter.listFormVersions(id, p); },

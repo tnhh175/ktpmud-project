@@ -11,7 +11,7 @@ import psycopg
 from psycopg.types.json import Jsonb
 
 from .audit import record_audit_log
-from .care import require_visit_access, audit_access, nurse_field_codes
+from .care import require_visit_access, audit_access, has_record_status_schema, nurse_field_codes
 from .auth import Principal, get_client_ip, get_request_id, require_role
 from .db import num_to_json, parse_if_match, to_date_iso, to_iso
 from .models import (
@@ -159,10 +159,11 @@ def visit_queue(request: Request, page: int = Query(1,ge=1),pageSize: int = Quer
                 principal: Principal = Depends(_require_doctor_visit)):
     from .db import compute_pagination
     with request.app.state.pool.connection() as conn:
-        total = conn.execute("SELECT count(*) AS n FROM visit WHERE status='waiting'").fetchone()['n']
-        rows = conn.execute('''SELECT v.*,p.patient_code,p.full_name AS patient_name,p.sex,p.birth_date,
+        active_filter = " AND p.record_status <> 'archived'" if has_record_status_schema(conn) else ""
+        total = conn.execute(f"SELECT count(*) AS n FROM visit v JOIN patient p ON p.id=v.patient_id WHERE v.status='waiting'{active_filter}").fetchone()['n']
+        rows = conn.execute(f'''SELECT v.*,p.patient_code,p.full_name AS patient_name,p.sex,p.birth_date,
            p.birth_year,p.declared_age,u.full_name AS submitter_name FROM visit v JOIN patient p ON p.id=v.patient_id
-           LEFT JOIN app_user u ON u.id=v.submitted_by WHERE v.status='waiting'
+           LEFT JOIN app_user u ON u.id=v.submitted_by WHERE v.status='waiting'{active_filter}
            ORDER BY v.submitted_at ASC NULLS LAST,v.id LIMIT %s OFFSET %s''',(pageSize,(page-1)*pageSize)).fetchall()
         items = [dict(visitId=str(r['id']),visitCode=r['visit_code'],patientId=str(r['patient_id']),
             patientCode=r['patient_code'],patientName=r['patient_name'],sex=r['sex'],age=_compute_age(r,r['visit_date']),
@@ -173,18 +174,20 @@ def visit_queue(request: Request, page: int = Query(1,ge=1),pageSize: int = Quer
 def _personal_visits(request, principal, status, page, page_size):
     from .db import compute_pagination
     doctor = principal.role=='doctor'
-    where = "assigned_doctor_id=%s AND status IN ('in_progress','confirmed')" if doctor else "created_by=%s AND status IN ('intake','waiting')"
+    where = "v.assigned_doctor_id=%s AND v.status IN ('in_progress','confirmed')" if doctor else "v.created_by=%s AND v.status IN ('intake','waiting')"
     params = [principal.user_id]
     if status:
-        where += ' AND status=%s'; params.append(status)
+        where += ' AND v.status=%s'; params.append(status)
     with request.app.state.pool.connection() as conn:
-        total = conn.execute('SELECT count(*) AS n FROM visit WHERE '+where,params).fetchone()['n']
+        if has_record_status_schema(conn):
+            where += " AND p.record_status <> 'archived'"
+        total = conn.execute('SELECT count(*) AS n FROM visit v JOIN patient p ON p.id=v.patient_id WHERE '+where,params).fetchone()['n']
         rows = conn.execute('''SELECT v.*,p.patient_code,p.full_name AS patient_name,p.sex,p.birth_date,
                             p.birth_year,p.declared_age,pc.full_name AS creator_name,pc.role AS creator_role,
                             pd.full_name AS assigned_doctor_name FROM visit v JOIN patient p ON p.id=v.patient_id
                             JOIN app_user pc ON pc.id=v.created_by
                             LEFT JOIN app_user pd ON pd.id=v.assigned_doctor_id
-                            WHERE '''+where.replace('assigned_doctor_id','v.assigned_doctor_id').replace('created_by','v.created_by').replace('status','v.status')+' ORDER BY v.visit_date DESC,v.id LIMIT %s OFFSET %s',
+                            WHERE '''+where+' ORDER BY v.visit_date DESC,v.id LIMIT %s OFFSET %s',
                             [*params,page_size,(page-1)*page_size]).fetchall()
         items = [{**(visit_row_to_dict(r) if doctor else nurse_visit_dict(r)),
                   'patientCode':r['patient_code'],'patientName':r['patient_name'],'sex':r['sex'],

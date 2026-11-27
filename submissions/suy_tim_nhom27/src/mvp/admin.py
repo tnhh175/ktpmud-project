@@ -16,9 +16,15 @@ from .auth import (
     require_role,
     user_row_to_schema_dict,
 )
-from .db import compute_pagination, parse_if_match, to_iso
+from .db import compute_pagination, parse_if_match, to_date_iso, to_iso
 from .models import (
+    AdminPatientItem,
+    AdminPatientListResponse,
+    AdminPatientRecordRequestListResponse,
+    AdminUpdateRecordStatusRequest,
     AppUser,
+    ApprovePatientRecordRequest,
+    ApprovePatientRecordRequestResponse,
     AuditAction,
     AuditLogListResponse,
     CreateFormVersionDraftRequest,
@@ -34,10 +40,21 @@ from .models import (
     FormVersionListResponse,
     FormVersionPreviewResponse,
     FormVersionStatus,
+    PasswordResetRequestItem,
+    PasswordResetRequestListResponse,
+    PasswordResetRequestStatus,
+    PatientRecordRequestItem,
+    PatientRecordRequestStatus,
+    PatientRecordRequestType,
     PermissionPreviewRequest,
     PermissionPreviewResponse,
     ProblemError,
     PublishFormVersionRequest,
+    RecordStatus,
+    RejectPasswordResetRequest,
+    RejectPatientRecordRequest,
+    ResolvePasswordResetRequest,
+    ResolvePasswordResetResponse,
     SectionCode,
     UpdateFormVersionRequest,
     UpdateUserRequest,
@@ -45,6 +62,7 @@ from .models import (
     UserListResponse,
     UserRole,
 )
+from .patients import record_request_row_to_dict
 from .visits import (
     form_version_row_to_dict,
     load_field_definitions_with_children,
@@ -57,6 +75,7 @@ router = APIRouter(prefix="/api/v1/admin", tags=["Admin"])
 _require_admin_users = require_role("admin", "app_user")
 _require_admin_forms = require_role("admin", "form_version")
 _require_admin_audit = require_role("admin", "audit_log")
+_require_admin_patients = require_role("admin", "patient")
 
 
 def _permission_matrix_for_role(role: str) -> dict[str, Any]:
@@ -1499,6 +1518,8 @@ def list_audit_logs(
         "form_template",
         "form_version",
         "field_definition",
+        "patient_record_request",
+        "password_reset_request",
     ]
     | None = Query(default=None),
     entityId: UUID | None = Query(default=None),
@@ -1655,3 +1676,961 @@ def preview_unsaved_form_version(versionId: UUID, body: UpdateFormVersionRequest
             sec["formVersionId"]=str(versionId)
             for ff in sec["fields"]: ff.update(fieldCode=lookup[ff["fieldDefinitionId"]],formVersionId=str(versionId))
     return {"isPreviewOnly":True,"previewBannerVi":"Xem trước trạng thái chưa lưu; không ghi dữ liệu.","formVersion":fv,"sections":sorted(sections,key=lambda x:x["displayOrder"]),"fieldDefinitions":definitions}
+
+
+# ---------------------------------------------------------------------------
+# UI-02: Admin Password Reset Requests
+# ---------------------------------------------------------------------------
+def _pw_reset_row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
+    matched_user = None
+    if row.get("matched_user_id") is not None:
+        matched_user = {
+            "id": str(row["matched_user_id"]),
+            "username": row["matched_username"],
+            "fullName": row["matched_full_name"],
+            "role": row["matched_role"],
+            "isActive": bool(row["matched_is_active"]),
+            "rowVersion": int(row["matched_row_version"]),
+        }
+    return {
+        "id": str(row["id"]),
+        "usernameEntered": row["username_entered"],
+        "note": row.get("note"),
+        "status": row["status"],
+        "requestedAt": to_iso(row["requested_at"]),
+        "lastRequestedAt": to_iso(row["last_requested_at"]),
+        "requestCount": int(row["request_count"]),
+        "handledBy": str(row["handled_by"]) if row.get("handled_by") else None,
+        "handledByName": row.get("handled_by_name"),
+        "handledAt": to_iso(row.get("handled_at")),
+        "adminNote": row.get("admin_note"),
+        "matchedUser": matched_user,
+    }
+
+
+@router.get(
+    "/password-reset-requests",
+    operation_id="listPasswordResetRequests",
+    response_model=PasswordResetRequestListResponse,
+    tags=["AdminUsers"],
+)
+def list_password_reset_requests(
+    request: Request,
+    status: PasswordResetRequestStatus | None = Query(default=None),
+    q: str | None = Query(default=None, max_length=100),
+    page: int = Query(default=1, ge=1),
+    pageSize: int = Query(default=20, ge=1, le=100),
+    principal: Principal = Depends(_require_admin_users),
+) -> dict[str, Any]:
+    pool = request.app.state.pool
+    with pool.connection() as conn:
+        if not conn.execute("SELECT to_regclass('public.password_reset_request') AS r").fetchone()["r"]:
+            return {
+                "items": [],
+                "pendingCount": 0,
+                "pagination": compute_pagination(page, pageSize, 0),
+            }
+
+        pending_row = conn.execute(
+            "SELECT count(*)::int AS cnt FROM password_reset_request WHERE status = 'pending'"
+        ).fetchone()
+        pending_count = int(pending_row["cnt"]) if pending_row else 0
+
+        where: list[str] = []
+        params: list[Any] = []
+        if status is not None:
+            where.append("r.status = %s")
+            params.append(status)
+        if q and q.strip():
+            like = f"%{q.strip()}%"
+            where.append(
+                "(r.username_entered ILIKE %s OR COALESCE(u.full_name, '') ILIKE %s OR COALESCE(u.username, '') ILIKE %s)"
+            )
+            params.extend([like, like, like])
+
+        where_sql = f"WHERE {' AND '.join(where)}" if where else ""
+        base_from = f"""
+            FROM password_reset_request r
+            LEFT JOIN app_user u ON u.id = r.user_id
+            LEFT JOIN app_user h ON h.id = r.handled_by
+            {where_sql}
+        """
+
+        total_row = conn.execute(f"SELECT count(*)::int AS cnt {base_from}", params).fetchone()
+        total_items = int(total_row["cnt"]) if total_row else 0
+        offset = (page - 1) * pageSize
+        rows = conn.execute(
+            f"""
+            SELECT
+                r.*,
+                u.id AS matched_user_id,
+                u.username AS matched_username,
+                u.full_name AS matched_full_name,
+                u.role AS matched_role,
+                u.is_active AS matched_is_active,
+                u.row_version AS matched_row_version,
+                h.full_name AS handled_by_name
+            {base_from}
+            ORDER BY (r.status = 'pending') DESC, r.last_requested_at DESC, r.id DESC
+            LIMIT %s OFFSET %s
+            """,
+            [*params, pageSize, offset],
+        ).fetchall()
+
+    return {
+        "items": [_pw_reset_row_to_dict(r) for r in rows],
+        "pendingCount": pending_count,
+        "pagination": compute_pagination(page, pageSize, total_items),
+    }
+
+
+@router.post(
+    "/password-reset-requests/{requestId}/resolve",
+    operation_id="resolvePasswordResetRequest",
+    response_model=ResolvePasswordResetResponse,
+    tags=["AdminUsers"],
+)
+def resolve_password_reset_request(
+    requestId: UUID,
+    body: ResolvePasswordResetRequest,
+    request: Request,
+    principal: Principal = Depends(_require_admin_users),
+) -> dict[str, Any]:
+    admin_note = body.adminNote.strip() if body.adminNote else None
+    pool = request.app.state.pool
+    req_id = get_request_id(request)
+    ip_addr = get_client_ip(request)
+
+    with pool.connection() as conn:
+        req_row = conn.execute(
+            """
+            SELECT *
+            FROM password_reset_request
+            WHERE id = %s
+            FOR UPDATE
+            """,
+            (str(requestId),),
+        ).fetchone()
+        if not req_row:
+            raise ProblemError(
+                404,
+                "RESOURCE_NOT_FOUND",
+                "Không tìm thấy yêu cầu cấp lại mật khẩu",
+                "Yêu cầu cấp lại mật khẩu không tồn tại.",
+            )
+        if req_row["status"] != "pending":
+            raise ProblemError(
+                409,
+                "REQUEST_ALREADY_HANDLED",
+                "Yêu cầu đã được xử lý",
+                "Yêu cầu cấp lại mật khẩu này không còn ở trạng thái chờ xử lý.",
+            )
+
+        user_row = None
+        if req_row.get("user_id") is not None:
+            user_row = conn.execute(
+                """
+                SELECT id, username, full_name, role, is_active, row_version, created_at, updated_at
+                FROM app_user
+                WHERE id = %s
+                FOR UPDATE
+                """,
+                (str(req_row["user_id"]),),
+            ).fetchone()
+        if user_row is None:
+            user_row = conn.execute(
+                """
+                SELECT id, username, full_name, role, is_active, row_version, created_at, updated_at
+                FROM app_user
+                WHERE lower(username) = %s
+                FOR UPDATE
+                """,
+                (req_row["username_normalized"],),
+            ).fetchone()
+
+        if user_row is None:
+            raise ProblemError(
+                422,
+                "USER_NOT_FOUND_FOR_RESET",
+                "Không tìm thấy tài khoản khớp",
+                "Tên đăng nhập trong yêu cầu không khớp tài khoản nào trong hệ thống. Vui lòng từ chối yêu cầu này.",
+            )
+        if user_row["role"] == "admin":
+            raise ProblemError(
+                403,
+                "ADMIN_RESET_REQUEST_FORBIDDEN",
+                "Không áp dụng cho tài khoản Quản trị viên",
+                "Luồng quên mật khẩu không áp dụng cho tài khoản Quản trị viên.",
+            )
+        if not user_row["is_active"]:
+            raise ProblemError(
+                409,
+                "ACCOUNT_DEACTIVATED",
+                "Tài khoản đang bị tạm khóa",
+                "Tài khoản này đang bị tạm khóa; vui lòng mở khóa tài khoản trước khi cấp mã đăng nhập một lần.",
+            )
+
+        one_time_code = _generate_one_time_code("RST")
+        new_pw_hash = hash_password(one_time_code)
+
+        updated_user = conn.execute(
+            """
+            UPDATE app_user
+            SET password_hash = %s,
+                row_version = row_version + 1
+            WHERE id = %s
+            RETURNING id, username, full_name, role, is_active, row_version, created_at, updated_at
+            """,
+            (new_pw_hash, str(user_row["id"])),
+        ).fetchone()
+
+        conn.execute(
+            """
+            UPDATE user_session
+            SET revoked_at = GREATEST(now(), created_at)
+            WHERE user_id = %s AND revoked_at IS NULL
+            """,
+            (str(user_row["id"]),),
+        )
+
+        updated_req = conn.execute(
+            """
+            UPDATE password_reset_request
+            SET status = 'resolved',
+                user_id = %s,
+                handled_by = %s,
+                handled_at = now(),
+                admin_note = %s
+            WHERE id = %s
+            RETURNING *
+            """,
+            (str(user_row["id"]), str(principal.user_id), admin_note, str(requestId)),
+        ).fetchone()
+
+        last_login_row = conn.execute(
+            "SELECT max(created_at) AS last_login_at FROM user_session WHERE user_id = %s",
+            (str(user_row["id"]),),
+        ).fetchone()
+
+        record_audit_log(
+            conn,
+            actor_user_id=principal.user_id,
+            action="password_reset_resolve",
+            entity_type="password_reset_request",
+            entity_id=requestId,
+            ip=ip_addr,
+            request_id=req_id,
+            outcome="success",
+            detail={
+                "targetUserId": str(user_row["id"]),
+                "targetUsername": user_row["username"],
+                "adminNote": admin_note,
+            },
+        )
+        conn.commit()
+
+    out_user = dict(updated_user)
+    out_user["last_login_at"] = last_login_row["last_login_at"] if last_login_row else None
+    out_req = dict(updated_req)
+    out_req["matched_user_id"] = updated_user["id"]
+    out_req["matched_username"] = updated_user["username"]
+    out_req["matched_full_name"] = updated_user["full_name"]
+    out_req["matched_role"] = updated_user["role"]
+    out_req["matched_is_active"] = updated_user["is_active"]
+    out_req["matched_row_version"] = updated_user["row_version"]
+    out_req["handled_by_name"] = principal.full_name
+
+    return {
+        "request": _pw_reset_row_to_dict(out_req),
+        "user": user_row_to_schema_dict(out_user),
+        "oneTimeSetupCode": one_time_code,
+    }
+
+
+@router.post(
+    "/password-reset-requests/{requestId}/reject",
+    operation_id="rejectPasswordResetRequest",
+    response_model=PasswordResetRequestItem,
+    tags=["AdminUsers"],
+)
+def reject_password_reset_request(
+    requestId: UUID,
+    body: RejectPasswordResetRequest,
+    request: Request,
+    principal: Principal = Depends(_require_admin_users),
+) -> dict[str, Any]:
+    admin_note = body.adminNote.strip()
+    if len(admin_note) < 3:
+        raise ProblemError(
+            422,
+            "FIELD_VALIDATION_FAILED",
+            "Thiếu lý do từ chối",
+            "Ghi chú từ chối phải dài tối thiểu 3 ký tự.",
+            errors=[{"fieldCode": "adminNote", "message": "Ghi chú từ chối phải có ít nhất 3 ký tự."}],
+        )
+
+    pool = request.app.state.pool
+    req_id = get_request_id(request)
+    ip_addr = get_client_ip(request)
+
+    with pool.connection() as conn:
+        req_row = conn.execute(
+            """
+            SELECT
+                r.*,
+                u.id AS matched_user_id,
+                u.username AS matched_username,
+                u.full_name AS matched_full_name,
+                u.role AS matched_role,
+                u.is_active AS matched_is_active,
+                u.row_version AS matched_row_version
+            FROM password_reset_request r
+            LEFT JOIN app_user u ON u.id = r.user_id
+            WHERE r.id = %s
+            FOR UPDATE OF r
+            """,
+            (str(requestId),),
+        ).fetchone()
+        if not req_row:
+            raise ProblemError(
+                404,
+                "RESOURCE_NOT_FOUND",
+                "Không tìm thấy yêu cầu cấp lại mật khẩu",
+                "Yêu cầu cấp lại mật khẩu không tồn tại.",
+            )
+        if req_row["status"] != "pending":
+            raise ProblemError(
+                409,
+                "REQUEST_ALREADY_HANDLED",
+                "Yêu cầu đã được xử lý",
+                "Chỉ có thể từ chối yêu cầu đang ở trạng thái chờ xử lý.",
+            )
+
+        updated = conn.execute(
+            """
+            UPDATE password_reset_request
+            SET status = 'rejected',
+                handled_by = %s,
+                handled_at = now(),
+                admin_note = %s
+            WHERE id = %s
+            RETURNING *
+            """,
+            (str(principal.user_id), admin_note, str(requestId)),
+        ).fetchone()
+
+        record_audit_log(
+            conn,
+            actor_user_id=principal.user_id,
+            action="password_reset_reject",
+            entity_type="password_reset_request",
+            entity_id=requestId,
+            ip=ip_addr,
+            request_id=req_id,
+            outcome="success",
+            detail={
+                "usernameEntered": req_row["username_entered"],
+                "adminNote": admin_note,
+            },
+        )
+        conn.commit()
+
+    out = dict(updated)
+    for k in (
+        "matched_user_id",
+        "matched_username",
+        "matched_full_name",
+        "matched_role",
+        "matched_is_active",
+        "matched_row_version",
+    ):
+        out[k] = req_row.get(k)
+    out["handled_by_name"] = principal.full_name
+    return _pw_reset_row_to_dict(out)
+
+
+# ---------------------------------------------------------------------------
+# UI-18: Admin System-Wide Patient Records & Nurse Record Requests (Admin-only, K8-safe)
+# ---------------------------------------------------------------------------
+def _admin_patient_row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
+    """Strictly administrative patient metadata only — zero clinical or M1-M4 fields."""
+    return {
+        "id": str(row["id"]),
+        "patientCode": row["patient_code"],
+        "fullName": row["full_name"],
+        "sex": row["sex"],
+        "birthDate": to_date_iso(row.get("birth_date")),
+        "birthYear": int(row["birth_year"]) if row.get("birth_year") is not None else None,
+        "declaredAge": int(row["declared_age"]) if row.get("declared_age") is not None else None,
+        "externalPatientCode": row.get("external_patient_code"),
+        "cccd": row.get("cccd"),
+        "recordStatus": row.get("record_status") or "active",
+        "recordStatusUpdatedAt": to_iso(row.get("record_status_updated_at")),
+        "recordStatusUpdatedBy": str(row["record_status_updated_by"]) if row.get("record_status_updated_by") else None,
+        "recordStatusUpdatedByName": row.get("record_status_updated_by_name"),
+        "visitCount": int(row.get("visit_count") or 0),
+        "latestVisitDate": to_iso(row.get("latest_visit_date")),
+        "pendingRequestCount": int(row.get("pending_request_count") or 0),
+        "rowVersion": int(row["row_version"]),
+        "createdAt": to_iso(row["created_at"]),
+        "updatedAt": to_iso(row["updated_at"]),
+    }
+
+
+def _load_admin_patient_item(conn: Any, patient_id: UUID | str) -> dict[str, Any] | None:
+    row = conn.execute(
+        """
+        SELECT
+            p.id, p.patient_code, p.full_name, p.sex, p.birth_date, p.birth_year,
+            p.declared_age, p.external_patient_code, p.cccd,
+            p.record_status, p.record_status_updated_at, p.record_status_updated_by,
+            p.row_version, p.created_at, p.updated_at,
+            prs.full_name AS record_status_updated_by_name,
+            COALESCE(vc.visit_count, 0) AS visit_count,
+            vc.latest_visit_date,
+            COALESCE(prc.pending_request_count, 0) AS pending_request_count
+        FROM patient p
+        LEFT JOIN app_user prs ON prs.id = p.record_status_updated_by
+        LEFT JOIN LATERAL (
+            SELECT count(*)::int AS visit_count, max(v.visit_date) AS latest_visit_date
+            FROM visit v
+            WHERE v.patient_id = p.id
+        ) vc ON true
+        LEFT JOIN LATERAL (
+            SELECT count(*)::int AS pending_request_count
+            FROM patient_record_request r
+            WHERE r.patient_id = p.id AND r.status = 'pending'
+        ) prc ON true
+        WHERE p.id = %s
+        """,
+        (str(patient_id),),
+    ).fetchone()
+    return _admin_patient_row_to_dict(row) if row else None
+
+
+@router.get(
+    "/patients",
+    operation_id="adminListPatients",
+    response_model=AdminPatientListResponse,
+    tags=["AdminPatients"],
+)
+def admin_list_patients(
+    request: Request,
+    q: str | None = Query(default=None, max_length=100),
+    recordStatus: RecordStatus | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    pageSize: int = Query(default=20, ge=1, le=100),
+    principal: Principal = Depends(_require_admin_patients),
+) -> dict[str, Any]:
+    pool = request.app.state.pool
+    with pool.connection() as conn:
+        if not conn.execute("SELECT to_regclass('public.patient_record_request') AS r").fetchone()["r"]:
+            raise ProblemError(
+                503,
+                "MIGRATION_REQUIRED",
+                "Chưa sẵn sàng quản lý hồ sơ bệnh nhân",
+                "Cơ sở dữ liệu chưa áp dụng migration 012.",
+            )
+
+        summary_row = conn.execute(
+            """
+            SELECT
+                count(*)::int AS total_all,
+                count(*) FILTER (WHERE record_status = 'active')::int AS active_count,
+                count(*) FILTER (WHERE record_status = 'locked')::int AS locked_count,
+                count(*) FILTER (WHERE record_status = 'archived')::int AS archived_count,
+                (SELECT count(*)::int FROM patient_record_request WHERE status = 'pending') AS pending_req_count
+            FROM patient
+            """
+        ).fetchone()
+
+        where: list[str] = []
+        params: list[Any] = []
+        if q and q.strip():
+            like = f"%{q.strip()}%"
+            where.append(
+                "(p.patient_code ILIKE %s OR p.full_name ILIKE %s OR COALESCE(p.external_patient_code, '') ILIKE %s OR COALESCE(p.cccd, '') ILIKE %s)"
+            )
+            params.extend([like, like, like, like])
+        if recordStatus is not None:
+            where.append("p.record_status = %s")
+            params.append(recordStatus)
+
+        where_sql = f"WHERE {' AND '.join(where)}" if where else ""
+        total_row = conn.execute(
+            f"SELECT count(*)::int AS cnt FROM patient p {where_sql}",
+            params,
+        ).fetchone()
+        total_items = int(total_row["cnt"]) if total_row else 0
+        offset = (page - 1) * pageSize
+
+        rows = conn.execute(
+            f"""
+            SELECT
+                p.id, p.patient_code, p.full_name, p.sex, p.birth_date, p.birth_year,
+                p.declared_age, p.external_patient_code, p.cccd,
+                p.record_status, p.record_status_updated_at, p.record_status_updated_by,
+                p.row_version, p.created_at, p.updated_at,
+                prs.full_name AS record_status_updated_by_name,
+                COALESCE(vc.visit_count, 0) AS visit_count,
+                vc.latest_visit_date,
+                COALESCE(prc.pending_request_count, 0) AS pending_request_count
+            FROM patient p
+            LEFT JOIN app_user prs ON prs.id = p.record_status_updated_by
+            LEFT JOIN LATERAL (
+                SELECT count(*)::int AS visit_count, max(v.visit_date) AS latest_visit_date
+                FROM visit v
+                WHERE v.patient_id = p.id
+            ) vc ON true
+            LEFT JOIN LATERAL (
+                SELECT count(*)::int AS pending_request_count
+                FROM patient_record_request r
+                WHERE r.patient_id = p.id AND r.status = 'pending'
+            ) prc ON true
+            {where_sql}
+            ORDER BY COALESCE(prc.pending_request_count, 0) DESC, p.updated_at DESC, p.patient_code DESC
+            LIMIT %s OFFSET %s
+            """,
+            [*params, pageSize, offset],
+        ).fetchall()
+
+    return {
+        "items": [_admin_patient_row_to_dict(r) for r in rows],
+        "summary": {
+            "totalAll": int(summary_row["total_all"]),
+            "activeCount": int(summary_row["active_count"]),
+            "lockedCount": int(summary_row["locked_count"]),
+            "archivedCount": int(summary_row["archived_count"]),
+            "pendingRequestCount": int(summary_row["pending_req_count"]),
+        },
+        "pagination": compute_pagination(page, pageSize, total_items),
+    }
+
+
+@router.get(
+    "/patients/record-requests",
+    operation_id="adminListPatientRecordRequests",
+    response_model=AdminPatientRecordRequestListResponse,
+    tags=["AdminPatients"],
+)
+def admin_list_patient_record_requests(
+    request: Request,
+    status: PatientRecordRequestStatus | None = Query(default=None),
+    requestType: PatientRecordRequestType | None = Query(default=None),
+    q: str | None = Query(default=None, max_length=100),
+    page: int = Query(default=1, ge=1),
+    pageSize: int = Query(default=20, ge=1, le=100),
+    principal: Principal = Depends(_require_admin_patients),
+) -> dict[str, Any]:
+    pool = request.app.state.pool
+    with pool.connection() as conn:
+        if not conn.execute("SELECT to_regclass('public.patient_record_request') AS r").fetchone()["r"]:
+            return {
+                "items": [],
+                "pendingCount": 0,
+                "pagination": compute_pagination(page, pageSize, 0),
+            }
+
+        pending_row = conn.execute(
+            "SELECT count(*)::int AS cnt FROM patient_record_request WHERE status = 'pending'"
+        ).fetchone()
+        pending_count = int(pending_row["cnt"]) if pending_row else 0
+
+        where: list[str] = []
+        params: list[Any] = []
+        if status is not None:
+            where.append("r.status = %s")
+            params.append(status)
+        if requestType is not None:
+            where.append("r.request_type = %s")
+            params.append(requestType)
+        if q and q.strip():
+            like = f"%{q.strip()}%"
+            where.append(
+                "(p.patient_code ILIKE %s OR p.full_name ILIKE %s OR req_u.full_name ILIKE %s OR r.reason ILIKE %s)"
+            )
+            params.extend([like, like, like, like])
+
+        where_sql = f"WHERE {' AND '.join(where)}" if where else ""
+        base_from = f"""
+            FROM patient_record_request r
+            JOIN patient p ON p.id = r.patient_id
+            JOIN app_user req_u ON req_u.id = r.requested_by
+            LEFT JOIN app_user hdl_u ON hdl_u.id = r.handled_by
+            {where_sql}
+        """
+
+        total_row = conn.execute(f"SELECT count(*)::int AS cnt {base_from}", params).fetchone()
+        total_items = int(total_row["cnt"]) if total_row else 0
+        offset = (page - 1) * pageSize
+
+        rows = conn.execute(
+            f"""
+            SELECT
+                r.*,
+                p.patient_code,
+                p.full_name AS patient_name,
+                p.record_status AS patient_record_status,
+                req_u.full_name AS requested_by_name,
+                hdl_u.full_name AS handled_by_name
+            {base_from}
+            ORDER BY (r.status = 'pending') DESC, r.requested_at DESC, r.id DESC
+            LIMIT %s OFFSET %s
+            """,
+            [*params, pageSize, offset],
+        ).fetchall()
+
+    return {
+        "items": [record_request_row_to_dict(r, principal) for r in rows],
+        "pendingCount": pending_count,
+        "pagination": compute_pagination(page, pageSize, total_items),
+    }
+
+
+@router.post(
+    "/patients/record-requests/{requestId}/approve",
+    operation_id="adminApprovePatientRecordRequest",
+    response_model=ApprovePatientRecordRequestResponse,
+    tags=["AdminPatients"],
+)
+def admin_approve_patient_record_request(
+    requestId: UUID,
+    body: ApprovePatientRecordRequest,
+    request: Request,
+    principal: Principal = Depends(_require_admin_patients),
+) -> dict[str, Any]:
+    admin_note = body.adminNote.strip() if body.adminNote else None
+    pool = request.app.state.pool
+    req_id = get_request_id(request)
+    ip_addr = get_client_ip(request)
+
+    with pool.connection() as conn:
+        req_row = conn.execute(
+            """
+            SELECT
+                r.*,
+                p.patient_code,
+                p.full_name AS patient_name,
+                p.record_status AS patient_record_status,
+                req_u.full_name AS requested_by_name
+            FROM patient_record_request r
+            JOIN patient p ON p.id = r.patient_id
+            JOIN app_user req_u ON req_u.id = r.requested_by
+            WHERE r.id = %s
+            FOR UPDATE OF r, p
+            """,
+            (str(requestId),),
+        ).fetchone()
+        if not req_row:
+            raise ProblemError(
+                404,
+                "RESOURCE_NOT_FOUND",
+                "Không tìm thấy yêu cầu hồ sơ",
+                "Yêu cầu khóa/lưu trữ hồ sơ không tồn tại.",
+            )
+        if req_row["status"] != "pending":
+            raise ProblemError(
+                409,
+                "REQUEST_ALREADY_HANDLED",
+                "Yêu cầu đã được xử lý",
+                "Yêu cầu này không còn ở trạng thái chờ duyệt.",
+            )
+
+        old_status = req_row["patient_record_status"]
+        target_status = "locked" if req_row["request_type"] == "lock" else "archived"
+
+        conn.execute(
+            """
+            UPDATE patient
+            SET record_status = %s,
+                record_status_updated_at = now(),
+                record_status_updated_by = %s,
+                updated_by = %s,
+                row_version = row_version + 1
+            WHERE id = %s
+            """,
+            (target_status, str(principal.user_id), str(principal.user_id), str(req_row["patient_id"])),
+        )
+
+        updated_req = conn.execute(
+            """
+            UPDATE patient_record_request
+            SET status = 'approved',
+                handled_by = %s,
+                handled_at = now(),
+                admin_note = %s
+            WHERE id = %s
+            RETURNING *
+            """,
+            (str(principal.user_id), admin_note, str(requestId)),
+        ).fetchone()
+
+        # If approving archive (soft delete), close any other pending lock request on the same patient.
+        if target_status == "archived":
+            conn.execute(
+                """
+                UPDATE patient_record_request
+                SET status = 'rejected',
+                    handled_by = %s,
+                    handled_at = now(),
+                    admin_note = COALESCE(admin_note, 'Hồ sơ đã được duyệt chuyển sang lưu trữ.')
+                WHERE patient_id = %s AND id <> %s AND status = 'pending'
+                """,
+                (str(principal.user_id), str(req_row["patient_id"]), str(requestId)),
+            )
+
+        record_audit_log(
+            conn,
+            actor_user_id=principal.user_id,
+            action="patient_record_request_approve",
+            entity_type="patient_record_request",
+            entity_id=requestId,
+            ip=ip_addr,
+            request_id=req_id,
+            outcome="success",
+            detail={
+                "patientId": str(req_row["patient_id"]),
+                "patientCode": req_row["patient_code"],
+                "requestType": req_row["request_type"],
+                "fromStatus": old_status,
+                "toStatus": target_status,
+                "adminNote": admin_note,
+            },
+        )
+        patient_item = _load_admin_patient_item(conn, req_row["patient_id"])
+        conn.commit()
+
+    out_req = dict(updated_req)
+    out_req["patient_code"] = req_row["patient_code"]
+    out_req["patient_name"] = req_row["patient_name"]
+    out_req["patient_record_status"] = target_status
+    out_req["requested_by_name"] = req_row["requested_by_name"]
+    out_req["handled_by_name"] = principal.full_name
+
+    return {
+        "request": record_request_row_to_dict(out_req, principal),
+        "patient": patient_item,
+    }
+
+
+@router.post(
+    "/patients/record-requests/{requestId}/reject",
+    operation_id="adminRejectPatientRecordRequest",
+    response_model=PatientRecordRequestItem,
+    tags=["AdminPatients"],
+)
+def admin_reject_patient_record_request(
+    requestId: UUID,
+    body: RejectPatientRecordRequest,
+    request: Request,
+    principal: Principal = Depends(_require_admin_patients),
+) -> dict[str, Any]:
+    admin_note = body.adminNote.strip()
+    if len(admin_note) < 3:
+        raise ProblemError(
+            422,
+            "FIELD_VALIDATION_FAILED",
+            "Thiếu lý do từ chối",
+            "Ghi chú từ chối phải có ít nhất 3 ký tự.",
+            errors=[{"fieldCode": "adminNote", "message": "Ghi chú từ chối phải có ít nhất 3 ký tự."}],
+        )
+
+    pool = request.app.state.pool
+    req_id = get_request_id(request)
+    ip_addr = get_client_ip(request)
+
+    with pool.connection() as conn:
+        req_row = conn.execute(
+            """
+            SELECT
+                r.*,
+                p.patient_code,
+                p.full_name AS patient_name,
+                p.record_status AS patient_record_status,
+                req_u.full_name AS requested_by_name
+            FROM patient_record_request r
+            JOIN patient p ON p.id = r.patient_id
+            JOIN app_user req_u ON req_u.id = r.requested_by
+            WHERE r.id = %s
+            FOR UPDATE OF r
+            """,
+            (str(requestId),),
+        ).fetchone()
+        if not req_row:
+            raise ProblemError(
+                404,
+                "RESOURCE_NOT_FOUND",
+                "Không tìm thấy yêu cầu hồ sơ",
+                "Yêu cầu khóa/lưu trữ hồ sơ không tồn tại.",
+            )
+        if req_row["status"] != "pending":
+            raise ProblemError(
+                409,
+                "REQUEST_ALREADY_HANDLED",
+                "Yêu cầu đã được xử lý",
+                "Chỉ có thể từ chối yêu cầu đang chờ duyệt.",
+            )
+
+        updated = conn.execute(
+            """
+            UPDATE patient_record_request
+            SET status = 'rejected',
+                handled_by = %s,
+                handled_at = now(),
+                admin_note = %s
+            WHERE id = %s
+            RETURNING *
+            """,
+            (str(principal.user_id), admin_note, str(requestId)),
+        ).fetchone()
+
+        record_audit_log(
+            conn,
+            actor_user_id=principal.user_id,
+            action="patient_record_request_reject",
+            entity_type="patient_record_request",
+            entity_id=requestId,
+            ip=ip_addr,
+            request_id=req_id,
+            outcome="success",
+            detail={
+                "patientId": str(req_row["patient_id"]),
+                "patientCode": req_row["patient_code"],
+                "requestType": req_row["request_type"],
+                "adminNote": admin_note,
+            },
+        )
+        conn.commit()
+
+    out = dict(updated)
+    out["patient_code"] = req_row["patient_code"]
+    out["patient_name"] = req_row["patient_name"]
+    out["patient_record_status"] = req_row["patient_record_status"]
+    out["requested_by_name"] = req_row["requested_by_name"]
+    out["handled_by_name"] = principal.full_name
+    return record_request_row_to_dict(out, principal)
+
+
+@router.patch(
+    "/patients/{patientId}/record-status",
+    operation_id="adminUpdatePatientRecordStatus",
+    response_model=AdminPatientItem,
+    tags=["AdminPatients"],
+)
+def admin_update_patient_record_status(
+    patientId: UUID,
+    body: AdminUpdateRecordStatusRequest,
+    request: Request,
+    response: Response,
+    if_match: str | None = Header(default=None, alias="If-Match"),
+    principal: Principal = Depends(_require_admin_patients),
+) -> dict[str, Any]:
+    reason = body.reason.strip()
+    if len(reason) < 3:
+        raise ProblemError(
+            422,
+            "FIELD_VALIDATION_FAILED",
+            "Thiếu lý do thay đổi trạng thái hồ sơ",
+            "Lý do thao tác phải có ít nhất 3 ký tự.",
+            errors=[{"fieldCode": "reason", "message": "Lý do thao tác phải có ít nhất 3 ký tự."}],
+        )
+
+    pool = request.app.state.pool
+    req_id = get_request_id(request)
+    ip_addr = get_client_ip(request)
+
+    with pool.connection() as conn:
+        pt = conn.execute(
+            "SELECT id, patient_code, record_status, row_version FROM patient WHERE id = %s FOR UPDATE",
+            (str(patientId),),
+        ).fetchone()
+        if not pt:
+            raise ProblemError(
+                404,
+                "RESOURCE_NOT_FOUND",
+                "Không tìm thấy hồ sơ bệnh nhân",
+                "Hồ sơ bệnh nhân không tồn tại.",
+            )
+
+        current_rv = int(pt["row_version"])
+        if if_match is not None or body.rowVersion is not None:
+            expected_rv = parse_if_match(if_match, body.rowVersion, current_row_version=current_rv)
+            if expected_rv != current_rv:
+                raise ProblemError(
+                    409,
+                    "CONCURRENCY_ROW_VERSION_MISMATCH",
+                    "Xung đột phiên bản hồ sơ (409)",
+                    f"Hồ sơ bệnh nhân đã được cập nhật lên rowVersion {current_rv} ở phiên khác.",
+                    current_row_version=current_rv,
+                )
+
+        old_status = pt["record_status"]
+        if old_status == body.recordStatus:
+            raise ProblemError(
+                409,
+                "RECORD_STATUS_UNCHANGED",
+                "Trạng thái hồ sơ không thay đổi",
+                "Hồ sơ bệnh nhân hiện đã ở trạng thái này.",
+                current_row_version=current_rv,
+            )
+
+        conn.execute(
+            """
+            UPDATE patient
+            SET record_status = %s,
+                record_status_updated_at = now(),
+                record_status_updated_by = %s,
+                updated_by = %s,
+                row_version = row_version + 1
+            WHERE id = %s
+            """,
+            (body.recordStatus, str(principal.user_id), str(principal.user_id), str(patientId)),
+        )
+
+        # Keep pending nurse requests consistent when Admin applies lock/archive directly.
+        if body.recordStatus == "locked":
+            conn.execute(
+                """
+                UPDATE patient_record_request
+                SET status = 'approved',
+                    handled_by = %s,
+                    handled_at = now(),
+                    admin_note = %s
+                WHERE patient_id = %s AND request_type = 'lock' AND status = 'pending'
+                """,
+                (str(principal.user_id), f"Quản trị viên khóa trực tiếp: {reason}", str(patientId)),
+            )
+        elif body.recordStatus == "archived":
+            conn.execute(
+                """
+                UPDATE patient_record_request
+                SET status = CASE WHEN request_type = 'delete' THEN 'approved' ELSE 'rejected' END,
+                    handled_by = %s,
+                    handled_at = now(),
+                    admin_note = %s
+                WHERE patient_id = %s AND status = 'pending'
+                """,
+                (str(principal.user_id), f"Quản trị viên lưu trữ trực tiếp: {reason}", str(patientId)),
+            )
+
+        record_audit_log(
+            conn,
+            actor_user_id=principal.user_id,
+            action="patient_record_status_change",
+            entity_type="patient",
+            entity_id=patientId,
+            ip=ip_addr,
+            request_id=req_id,
+            outcome="success",
+            detail={
+                "patientCode": pt["patient_code"],
+                "fromStatus": old_status,
+                "toStatus": body.recordStatus,
+                "reason": reason,
+            },
+        )
+        patient_item = _load_admin_patient_item(conn, patientId)
+        conn.commit()
+
+    response.headers["ETag"] = f'"{patient_item["rowVersion"]}"'
+    return patient_item
