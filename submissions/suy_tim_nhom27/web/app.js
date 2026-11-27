@@ -183,15 +183,15 @@
   }
 
   function formatVisitStatusBadge(status, visitId, clickable) {
-    if (status === 'confirmed') return '<span class="badge badge--success">Đã hoàn thành</span>';
-    if (status === 'waiting') return '<span class="badge badge--info">Chờ bác sĩ</span>';
+    if (status === 'confirmed') return '<span class="badge badge--success">Hoàn thành</span>';
+    if (status === 'waiting') return '<span class="badge badge--info">Chờ khám</span>';
     if (status === 'intake') {
       if (clickable && visitId) return '<button type="button" class="badge badge--warn badge--link" data-nav="#/visits/' + esc(visitId) + '">Đang tiếp nhận</button>';
       return '<span class="badge badge--warn">Đang tiếp nhận</span>';
     }
     if (status === 'in_progress') {
-      if (clickable && visitId) return '<button type="button" class="badge badge--blue badge--link" data-nav="#/visits/' + esc(visitId) + '">Đang xử lý</button>';
-      return '<span class="badge badge--blue">Đang xử lý</span>';
+      if (clickable && visitId) return '<button type="button" class="badge badge--blue badge--link" data-nav="#/visits/' + esc(visitId) + '">Đang khám</button>';
+      return '<span class="badge badge--blue">Đang khám</span>';
     }
     if (status === 'draft') {
       if (clickable && visitId) return '<button type="button" class="badge badge--warn badge--link" data-nav="#/visits/' + esc(visitId) + '">Có lượt nháp</button>';
@@ -1655,6 +1655,8 @@
       formVersion: null,
       revisions: [],
       data: null,
+      workflow: null,
+      moduleDecisions: {},
       confirmNote: '',
       aiInputPayload: null,
       showAiPayload: false,
@@ -1872,13 +1874,57 @@
     if (!field) return;
     const zeroChip = field.querySelector('.zero-chip');
     const isZero = input.value !== '' && Number(input.value) === 0;
-    if (isZero && !zeroChip) {
+    const inputRow = field.querySelector('.input-row-unknown');
+    if (isZero && !zeroChip && inputRow) {
       const chip = document.createElement('span');
       chip.className = 'zero-chip';
       chip.textContent = 'Đã nhập: 0 (khác với để trống)';
-      field.querySelector('.input-row-unknown').after(chip);
+      inputRow.after(chip);
     } else if (!isZero && zeroChip) {
       zeroChip.remove();
+    }
+    // UI-11: Update live AI status color & missing badge immediately on numeric input
+    const tagGroup = field.querySelector('.mod-tag-group');
+    const fieldCode = field.getAttribute('data-field-code') || '';
+    const isNurseUser = Boolean(state.user && state.user.role === 'nurse');
+    if (tagGroup && fieldCode && !isNurseUser && state.screen === 'encounter') {
+      const hasErr = Boolean(input.classList.contains('input--error') || (state.encounter && state.encounter.fieldErrors && state.encounter.fieldErrors[fieldCode]));
+      const isValidNum = input.value !== '' && !isNaN(Number(input.value)) && !hasErr;
+      const existingBadge = tagGroup.querySelector('[data-ai-missing-badge]');
+      if (isValidNum) {
+        field.classList.add('field--status-valid');
+        field.classList.remove('field--status-missing', 'field--mod-missing');
+        if (existingBadge) existingBadge.remove();
+      } else {
+        field.classList.remove('field--status-valid');
+        const modFilter = (state.encounter && state.encounter.moduleFilter) || 'all';
+        const modTags = Array.from(tagGroup.querySelectorAll('.mod-tag')).map(function (el) {
+          return String(el.textContent || '').trim().toLowerCase();
+        }).filter(Boolean);
+        const wfSum = state.encounter && state.encounter.workflowSummary;
+        const missingMods = modFilter !== 'all'
+          ? (modTags.indexOf(modFilter) >= 0 ? [modFilter] : [])
+          : modTags.filter(function (m) {
+              const ms = wfSum && wfSum.modules && wfSum.modules[m];
+              return !ms || ms.state !== 'accepted';
+            });
+        if (missingMods.length > 0) {
+          field.classList.add('field--status-missing', 'field--mod-missing');
+          const badgeText = 'Thiếu cho ' + missingMods.map(function (m) { return m.toUpperCase(); }).join(', ');
+          if (existingBadge) {
+            existingBadge.textContent = badgeText;
+          } else {
+            const b = document.createElement('span');
+            b.className = 'badge badge--warn badge--xs';
+            b.setAttribute('data-ai-missing-badge', fieldCode);
+            b.textContent = badgeText;
+            tagGroup.appendChild(b);
+          }
+        } else {
+          field.classList.remove('field--status-missing', 'field--mod-missing');
+          if (existingBadge) existingBadge.remove();
+        }
+      }
     }
   }
 
@@ -1985,7 +2031,11 @@
   }
 
   async function handleRoute() {
-    const raw = (global.location.hash || '#/login').replace(/^#/, '');
+    const rawFull = (global.location.hash || '#/login').replace(/^#/, '');
+    const qIdx = rawFull.indexOf('?');
+    const raw = qIdx >= 0 ? rawFull.slice(0, qIdx) : rawFull;
+    const rawQuery = qIdx >= 0 ? rawFull.slice(qIdx + 1) : '';
+    const routeQuery = new URLSearchParams(rawQuery);
     const parts = raw.split('/').filter(Boolean);
     state.mobileMenuOpen = false;
 
@@ -2111,7 +2161,7 @@
     }
     if (head === 'visits' && parts.length === 2) {
       state.screen = 'encounter';
-      await loadEncounter(parts[1]);
+      await loadEncounter(parts[1], { allowConfirmedForm: routeQuery.get('view') === 'form' });
       return;
     }
     if (isReviewRoute) {
@@ -2580,8 +2630,9 @@
     }
   }
 
-  async function loadEncounter(visitId) {
+  async function loadEncounter(visitId, opts) {
     const enc = state.encounter;
+    const allowConfirmedForm = Boolean(opts && opts.allowConfirmedForm);
     const generation = ++enc.loadGeneration;
     enc.visitId = visitId;
     enc.access = null;
@@ -2603,6 +2654,12 @@
       ]);
       const ptRes = await api.getPatient(detail.visit.patientId);
       if (generation !== enc.loadGeneration || enc.visitId !== visitId || state.screen !== 'encounter') return;
+      // UI-14: Confirmed visits opened by doctors route directly to read-only Result screen unless explicitly viewing read-only form
+      if (detail.visit && detail.visit.status === 'confirmed' && state.user && state.user.role === 'doctor' && !allowConfirmedForm) {
+        enc.loading = false;
+        navigate('#/visits/' + visitId + '/review', true);
+        return;
+      }
       enc.patient = ptRes.patient;
       enc.access = detail.access || (ptRes.patient && ptRes.patient.access) || null;
       enc.visit = detail.visit;
@@ -2726,6 +2783,38 @@
       rev.formVersion = formRes.formVersion;
       recordPublishedFormVersion(formRes && formRes.formVersion);
       rev.data = reviewRes;
+      rev.workflow = null;
+      rev.moduleDecisions = {};
+      if (isFormV12(formRes.formVersion, formRes.fieldDefinitions, formRes.sections) && state.user && state.user.role === 'doctor') {
+        try {
+          const wfState = await api.getVisitWorkflow(visitId);
+          rev.workflow = wfState || null;
+          if (wfState && wfState.modules) {
+            const decResults = {};
+            await Promise.all(WF_MODULE_ORDER.map(async function (mod) {
+              const ms = wfState.modules[mod];
+              if (!ms) return;
+              if (ms.effectiveDecisionId) {
+                try {
+                  decResults[mod] = await api.getWorkflowDecision(visitId, mod, ms.effectiveDecisionId);
+                  return;
+                } catch (_e) {}
+              }
+              if (ms.latestRunId && (ms.state === 'ran' || ms.state === 'accepted' || ms.state === 'stale')) {
+                try {
+                  const runObj = await api.getWorkflowRun(visitId, mod, ms.latestRunId);
+                  if (runObj && runObj.output) {
+                    decResults[mod] = { source: 'ai', effectiveOutput: runObj.output, createdAt: runObj.finishedAt || runObj.startedAt, _fromRun: true };
+                  }
+                } catch (_e) {}
+              }
+            }));
+            rev.moduleDecisions = decResults;
+          }
+        } catch (_wfErr) {
+          rev.workflow = visitDetail.workflow || null;
+        }
+      }
     } catch (err) {
       rev.visit = null;
       rev.data = null;
@@ -3259,7 +3348,7 @@
     const filterBtns = [
       { v: '', label: 'Tất cả' },
       { v: 'intake', label: 'Đang tiếp nhận' },
-      { v: 'waiting', label: 'Chờ bác sĩ' }
+      { v: 'waiting', label: 'Chờ khám' }
     ].map(function (f) {
       return '<button type="button" class="filter-pill' + (nv.status === f.v ? ' is-active' : '') + '" data-nurse-visits-status="' + f.v + '">' + esc(f.label) + '</button>';
     }).join('');
@@ -3423,8 +3512,8 @@
   function renderMyVisits() {
     const mv = state.myVisits;
     const filterBtns = [
-      { v: 'in_progress', label: 'Đang xử lý' },
-      { v: 'confirmed', label: 'Đã hoàn thành' },
+      { v: 'in_progress', label: 'Đang khám' },
+      { v: 'confirmed', label: 'Hoàn thành' },
       { v: '', label: 'Tất cả' }
     ].map(function (f) {
       return '<button type="button" class="filter-pill' + (mv.status === f.v ? ' is-active' : '') + '" data-my-visits-status="' + f.v + '">' + esc(f.label) + '</button>';
@@ -3456,8 +3545,8 @@
             '<td><span class="badge badge--blue">' + esc(it.formVersionLabel || 'v2.0') + '</span></td>' +
             '<td>' + formatVisitStatusBadge(st, vid, false) + '</td>' +
             '<td style="text-align:right;white-space:nowrap;"><div class="table-actions">' +
-              '<button type="button" class="btn ' + (isConf ? 'btn--secondary' : 'btn--primary') + ' btn--sm" data-nav="#/visits/' + esc(vid) + '">' + (isConf ? 'Xem lượt khám' : 'Tiếp tục khám') + '</button>' +
-              '<button type="button" class="btn btn--ghost btn--sm" data-nav="#/visits/' + esc(vid) + '/review">Xem lại</button>' +
+              '<button type="button" class="btn ' + (isConf ? 'btn--secondary' : 'btn--primary') + ' btn--sm" data-nav="#/visits/' + esc(vid) + (isConf ? '/review' : '') + '">' + (isConf ? 'Kết quả' : 'Tiếp tục khám') + '</button>' +
+              (!isConf ? '<button type="button" class="btn btn--ghost btn--sm" data-nav="#/visits/' + esc(vid) + '/review">Xem lại</button>' : '') +
             '</div></td>' +
           '</tr>'
         );
@@ -3478,8 +3567,8 @@
               '<div><span class="record-card__label">Nhận lúc</span>' + esc(formatDateTime(it.claimedAt || it.visitDate)) + '</div>' +
             '</div>' +
             '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
-              '<button type="button" class="btn ' + (isConf ? 'btn--secondary' : 'btn--primary') + ' btn--sm" style="flex:1;" data-nav="#/visits/' + esc(vid) + '">' + (isConf ? 'Xem lượt khám' : 'Tiếp tục khám') + '</button>' +
-              '<button type="button" class="btn btn--ghost btn--sm" data-nav="#/visits/' + esc(vid) + '/review">Xem lại</button>' +
+              '<button type="button" class="btn ' + (isConf ? 'btn--secondary' : 'btn--primary') + ' btn--sm" style="flex:1;" data-nav="#/visits/' + esc(vid) + (isConf ? '/review' : '') + '">' + (isConf ? 'Kết quả' : 'Tiếp tục khám') + '</button>' +
+              (!isConf ? '<button type="button" class="btn btn--ghost btn--sm" data-nav="#/visits/' + esc(vid) + '/review">Xem lại</button>' : '') +
             '</div>' +
           '</article>'
         );
@@ -3511,8 +3600,8 @@
     const ps = state.patients;
     const filterBtns = [
       { v: '', label: 'Tất cả' },
-      { v: 'in_progress', label: 'Đang xử lý' },
-      { v: 'confirmed', label: 'Đã hoàn thành' },
+      { v: 'in_progress', label: 'Đang khám' },
+      { v: 'confirmed', label: 'Hoàn thành' },
       { v: 'none', label: 'Chưa có lượt' }
     ].map(function (f) {
       return '<button type="button" class="filter-pill' + (ps.status === f.v ? ' is-active' : '') + '" data-patient-status="' + f.v + '">' + esc(f.label) + '</button>';
@@ -3762,10 +3851,24 @@
       ? '<p class="field__help">Chưa có lượt khám nào được tạo cho hồ sơ này.</p>'
       : '<div class="timeline">' + pr.visits.map(function (v) {
           const isConf = v.status === 'confirmed';
+          const isOwnNurseOpen = isNurse && (v.status === 'intake' || v.status === 'waiting') && state.user && String(v.createdBy || '') === String(state.user.id || '');
           const perfDoc = v.performedByName || v.performingDoctorName || v.assignedDoctorName || v.createdByName || '';
           const lastEd = v.updatedByName || v.lastEditedByName || '';
+          const nurseVitalsHtml = (isNurse && v.vitals && Object.keys(v.vitals).some(function (k) { return v.vitals[k] != null; }))
+            ? '<div class="timeline-item__vitals" data-nurse-timeline-vitals="true">' + formatQueueVitalsSummary(v.vitals) + '</div>'
+            : '';
+          const actionBtnsHtml = isNurse
+            ? (isOwnNurseOpen
+                ? '<div class="timeline-item__actions"><button type="button" class="btn ' + (v.status === 'waiting' ? 'btn--secondary' : 'btn--primary') + ' btn--sm" data-nav="#/visits/' + esc(v.id) + '">' + (v.status === 'waiting' ? 'Xem tiếp nhận' : 'Tiếp tục nhập') + '</button></div>'
+                : '')
+            : (
+                '<div class="timeline-item__actions">' +
+                  '<button type="button" class="btn ' + (isConf ? 'btn--secondary' : 'btn--primary') + ' btn--sm" data-nav="#/visits/' + esc(v.id) + (isConf ? '/review' : '') + '">' + (isConf ? 'Xem lượt khám' : (v.status === 'waiting' ? 'Xem tiếp nhận' : 'Tiếp tục nhập')) + '</button>' +
+                  '<button type="button" class="btn btn--ghost btn--sm" data-nav="#/visits/' + esc(v.id) + '/review">Kết quả</button>' +
+                '</div>'
+              );
           return (
-            '<div class="timeline-item ' + (isConf ? 'timeline-item--confirmed' : 'timeline-item--draft') + '">' +
+            '<div class="timeline-item ' + (isConf ? 'timeline-item--confirmed' : 'timeline-item--draft') + '" data-timeline-visit-status="' + esc(v.status) + '">' +
               '<div class="timeline-item__top">' +
                 '<div><div class="cell-primary mono">' + esc(v.visitCode) + '</div><div class="cell-sub tabular">' + esc(formatDateTime(v.visitDate)) + ' · ' + esc(formatVisitType(v.visitType)) + '</div></div>' +
                 formatVisitStatusBadge(v.status, v.id, false) +
@@ -3773,15 +3876,13 @@
               (!isNurse && v.chiefComplaint ? '<div class="cell-sub">' + esc(v.chiefComplaint) + '</div>' : '') +
               (perfDoc || lastEd ? (
                 '<div class="cell-sub" data-visit-actors="true">' +
-                  (perfDoc ? 'Phụ trách: <strong>' + esc(perfDoc) + '</strong>' : '') +
-                  (perfDoc && lastEd ? ' · ' : '') +
-                  (lastEd ? 'Chỉnh sửa gần nhất: <strong>' + esc(lastEd) + '</strong>' : '') +
+                  (perfDoc ? ((v.assignedDoctorId ? 'Bác sĩ thực hiện: ' : 'Phụ trách: ') + '<strong>' + esc(perfDoc) + '</strong>') : '') +
+                  (!isNurse && perfDoc && lastEd ? ' · ' : '') +
+                  (!isNurse && lastEd ? 'Chỉnh sửa gần nhất: <strong>' + esc(lastEd) + '</strong>' : '') +
                 '</div>'
               ) : '') +
-              '<div class="timeline-item__actions">' +
-                '<button type="button" class="btn ' + (isConf ? 'btn--secondary' : 'btn--primary') + ' btn--sm" data-nav="#/visits/' + esc(v.id) + '">' + (isConf ? 'Xem lượt khám' : (v.status === 'waiting' ? 'Xem tiếp nhận' : 'Tiếp tục nhập')) + '</button>' +
-                (!isNurse ? '<button type="button" class="btn btn--ghost btn--sm" data-nav="#/visits/' + esc(v.id) + '/review">Kết quả</button>' : '') +
-              '</div>' +
+              nurseVitalsHtml +
+              actionBtnsHtml +
             '</div>'
           );
         }).join('') + '</div>';
@@ -4560,18 +4661,105 @@
     const showListStates = Boolean(ctx.supportsListStates || isV11Bundle(ctx.formVersion, allSections, ctx.defById));
     const bundleHasVisitNotes = hasVisitNotesPlacements(allSections, ctx.defById);
 
-    const missingSetForMod = {};
-    if (isV12Mode && modFilter !== 'all' && ctx.workflowSummary && ctx.workflowSummary.modules && ctx.workflowSummary.modules[modFilter]) {
-      (ctx.workflowSummary.modules[modFilter].missingFieldCodes || []).forEach(function (fc) {
-        const resolved = resolveFormFieldCode(fieldMetaMap, fc);
-        missingSetForMod[resolved] = true;
-        missingSetForMod[fc] = true;
+    const serverMissingByMod = {};
+    if (isV12Mode && ctx.workflowSummary && ctx.workflowSummary.modules) {
+      WF_MODULE_ORDER.forEach(function (m) {
+        const ms = ctx.workflowSummary.modules[m];
+        const map = {};
+        if (ms && Array.isArray(ms.missingFieldCodes)) {
+          ms.missingFieldCodes.forEach(function (fc) {
+            const resolved = resolveFormFieldCode(fieldMetaMap, fc);
+            map[resolved] = true;
+            map[fc] = true;
+          });
+        }
+        serverMissingByMod[m] = map;
       });
+    }
+
+    function getLiveFieldState(code) {
+      if (code === 'luot_tuoi' || code === 'age') {
+        const age = ctx.patient ? computeAge(ctx.patient, ctx.visit && ctx.visit.visitDate) : null;
+        return age !== null ? 'answered' : 'unfilled';
+      }
+      if (code === 'bn_gioi_tinh' || code === 'sex') {
+        return (ctx.patient && (ctx.patient.sex === 'male' || ctx.patient.sex === 'female')) ? 'answered' : 'unfilled';
+      }
+      if (code === 'bmi') {
+        return computeEncounterBmi(ctx) !== null ? 'answered' : 'unfilled';
+      }
+      if (unlockedUnknowns[code]) return 'unfilled';
+      const fd = ctx.defByCode && ctx.defByCode[code];
+      const val = fd && ctx.valuesByDefId ? ctx.valuesByDefId[fd.id] : null;
+      if (val) {
+        if (val.answer && typeof val.answer === 'object') {
+          if (val.answer.value_state === 'unknown') return 'unknown';
+          if (val.answer.value_state === 'answered') {
+            const v = val.answer.value;
+            if (Array.isArray(v)) return 'answered';
+            if (v !== null && v !== undefined && v !== '') return 'answered';
+            return 'unfilled';
+          }
+        }
+        if (val.valueState === 'unknown') return 'unknown';
+        if (val.valueState === 'answered') {
+          if (fd && fd.dataType === 'boolean') return (val.valueBool === true || val.valueBool === false) ? 'answered' : 'unfilled';
+          if (fd && (fd.dataType === 'number' || fd.dataType === 'integer')) return (val.valueNum !== null && val.valueNum !== undefined && val.valueNum !== '' && !isNaN(Number(val.valueNum))) ? 'answered' : 'unfilled';
+          if (fd && fd.dataType === 'single_choice') return val.fieldOptionId ? 'answered' : 'unfilled';
+          if (fd && fd.dataType === 'multi_choice') return (Array.isArray(val.selectedOptions) && val.selectedOptions.length > 0) ? 'answered' : 'unfilled';
+          if (fd && fd.dataType === 'date') return val.valueDate ? 'answered' : 'unfilled';
+          return (val.valueText && String(val.valueText).trim()) ? 'answered' : 'unfilled';
+        }
+      }
+      if (code === 'huyet_ap_tam_thu' || code === 'huyet_ap_tam_truong') {
+        const hasBp = (ctx.orthostaticBp || []).some(function (b) { return b && (code === 'huyet_ap_tam_thu' ? b.systolic != null : b.diastolic != null); });
+        if (hasBp) return 'answered';
+      }
+      if (code === 'medications') {
+        if ((ctx.medications || []).some(isValidMedRow) || ctx.medicationListState === 'none') return 'answered';
+        if (ctx.medicationListState === 'unknown') return 'unknown';
+      }
+      if (code === 'allergies') {
+        if ((ctx.allergies || []).some(isValidAllergyRow) || ctx.allergyListState === 'none') return 'answered';
+        if (ctx.allergyListState === 'unknown') return 'unknown';
+      }
+      if (code === 'diagnoses') {
+        if ((ctx.diagnoses || []).some(isValidDiagnosisRow) || ctx.diagnosisListState === 'none') return 'answered';
+        if (ctx.diagnosisListState === 'unknown') return 'unknown';
+      }
+      return 'unfilled';
+    }
+
+    function getFieldAiStatus(code) {
+      if (!isV12Mode || isNurseViewer) return { isAiInput: false, liveState: 'unfilled', missingModules: [], hasError: false };
+      const meta = getFieldMetaFromApi(fieldMetaMap, code);
+      const modsFromMeta = (meta && meta.input && Array.isArray(meta.modules)) ? meta.modules.slice() : [];
+      const mods = modsFromMeta.slice();
+      WF_MODULE_ORDER.forEach(function (m) {
+        if (serverMissingByMod[m] && serverMissingByMod[m][code] && mods.indexOf(m) < 0) mods.push(m);
+      });
+      if (mods.length === 0) return { isAiInput: false, liveState: 'unfilled', missingModules: [], hasError: false };
+
+      const liveState = getLiveFieldState(code);
+      const hasError = Boolean(ctx.fieldErrors && ctx.fieldErrors[code]);
+      const isValidAnswered = liveState === 'answered' && !hasError;
+      if (isValidAnswered) {
+        return { isAiInput: true, liveState: liveState, missingModules: [], hasError: false };
+      }
+      // UI-11: unfilled OR Chưa rõ (when AI module needs real value) OR error => orange + missing badge
+      const targetMods = modFilter !== 'all'
+        ? (mods.indexOf(modFilter) >= 0 ? [modFilter] : [])
+        : mods.filter(function (m) {
+            const ms = ctx.workflowSummary && ctx.workflowSummary.modules && ctx.workflowSummary.modules[m];
+            const notYetAccepted = !ms || ms.state !== 'accepted';
+            return (serverMissingByMod[m] && serverMissingByMod[m][code]) || notYetAccepted;
+          });
+      return { isAiInput: true, liveState: liveState, missingModules: targetMods, hasError: hasError };
     }
 
     function fieldMatchesModuleFilter(code) {
       if (!isV12Mode || modFilter === 'all') return true;
-      if (missingSetForMod[code]) return true;
+      if (serverMissingByMod[modFilter] && serverMissingByMod[modFilter][code]) return true;
       const meta = getFieldMetaFromApi(fieldMetaMap, code);
       if (meta && meta.input && Array.isArray(meta.modules) && meta.modules.indexOf(modFilter) >= 0) return true;
       if (code === 'egfr_ckd_epi') {
@@ -4589,19 +4777,19 @@
         const isFiltered = modFilter === m;
         return '<span class="mod-tag mod-tag--' + esc(m) + (isFiltered ? ' is-filtered' : '') + '">' + esc(m.toUpperCase()) + '</span>';
       }).join('');
-      const missingBadge = (modFilter !== 'all' && missingSetForMod[code])
-        ? '<span class="badge badge--warn badge--xs">Thiếu cho ' + esc(modFilter.toUpperCase()) + '</span>'
+      const st = getFieldAiStatus(code);
+      const missingBadge = st.missingModules.length > 0
+        ? '<span class="badge badge--warn badge--xs" data-ai-missing-badge="' + esc(code) + '">Thiếu cho ' + esc(st.missingModules.map(function (m) { return m.toUpperCase(); }).join(', ')) + '</span>'
         : '';
       return '<span class="mod-tag-group">' + tags + missingBadge + '</span>';
     }
 
     function getModHighlightClass(code) {
-      if (!isV12Mode || modFilter === 'all') return '';
-      if (missingSetForMod[code]) return ' field--mod-highlight field--mod-missing';
-      const meta = getFieldMetaFromApi(fieldMetaMap, code);
-      if (meta && meta.input && Array.isArray(meta.modules) && meta.modules.indexOf(modFilter) >= 0) {
-        return ' field--mod-highlight';
-      }
+      if (!isV12Mode || isNurseViewer) return '';
+      const st = getFieldAiStatus(code);
+      if (!st.isAiInput) return '';
+      if (st.missingModules.length > 0) return ' field--status-missing field--mod-missing';
+      if (st.liveState === 'answered' && !st.hasError) return ' field--status-valid';
       return '';
     }
 
@@ -6639,7 +6827,7 @@
     const enteredSummaryHtml =
       '<section class="card" id="review-recorded-summary" data-summary-expanded="' + (summaryExpanded ? 'true' : 'false') + '" style="margin-top:16px;">' +
         '<div class="card__header">' +
-          '<div><h2 class="card__title">Tóm tắt các giá trị đã ghi nhận (' + summaryItems.length + ')</h2><p class="card__subtitle">Rà nhanh các thông tin đã điền trước khi xác nhận lượt khám.</p></div>' +
+          '<div><h2 class="card__title">Tóm tắt các giá trị đã ghi nhận (' + summaryItems.length + ')</h2><p class="card__subtitle">' + (isConf ? 'Các thông tin lâm sàng đã ghi nhận trong lượt khám này.' : 'Rà nhanh các thông tin đã điền trước khi xác nhận lượt khám.') + '</p></div>' +
           (summaryCollapsible
             ? '<div class="summary-card__actions">' +
                 '<button type="button" class="btn btn--secondary btn--sm" data-action="toggle-review-summary" aria-expanded="' + (summaryExpanded ? 'true' : 'false') + '" aria-controls="review-summary-grid">' +
@@ -6659,7 +6847,7 @@
                     '<span class="summary-collapse-bar__meta">' +
                       (summaryExpanded
                         ? ('Đang hiển thị đầy đủ ' + summaryItems.length + '/' + summaryItems.length + ' mục đã ghi nhận.')
-                        : ('Đang hiển thị ' + visibleSummaryItems.length + '/' + summaryItems.length + ' mục đầu để dễ xem thẻ độ sẵn sàng AI bên dưới.')) +
+                        : ('Đang hiển thị ' + visibleSummaryItems.length + '/' + summaryItems.length + ' mục đầu. Bấm "Xem thêm" để mở đầy đủ.')) +
                     '</span>' +
                     '<button type="button" class="btn btn--secondary btn--sm" data-action="toggle-review-summary" aria-expanded="' + (summaryExpanded ? 'true' : 'false') + '" aria-controls="review-summary-grid">' +
                       (summaryExpanded ? ICONS.up : ICONS.down) + ' ' + esc(summaryToggleLabel) +
@@ -7069,57 +7257,197 @@
       );
     }
 
+    const isWfCapable = isFormV12(fv, rev.formRes && rev.formRes.fieldDefinitions, rev.formRes && rev.formRes.sections);
+    const wfState = rev.workflow || (rev.visitDetail && rev.visitDetail.workflow) || null;
+    const wfModules = (wfState && wfState.modules) || {};
+    const all4Accepted = isWfCapable && WF_MODULE_ORDER.every(function (m) {
+      return wfModules[m] && wfModules[m].state === 'accepted';
+    });
+    const wfCompleted = Boolean(wfState && wfState.completed);
+    const pendingSeriousCount = (wfState && Array.isArray(wfState.pendingSeriousAlertIds)) ? wfState.pendingSeriousAlertIds.length : 0;
+    const wfReadyToConfirm = !isWfCapable || (all4Accepted && wfCompleted && pendingSeriousCount === 0);
+    const canConfirmFinal = Boolean(r.canConfirm && wfReadyToConfirm);
+
+    function renderReviewModuleResultCard(mod) {
+      const meta = WF_MODULE_META[mod];
+      const ms = wfModules[mod] || { state: 'locked' };
+      const dec = (rev.moduleDecisions && rev.moduleDecisions[mod]) || null;
+      const out = (dec && (dec.effectiveOutput || dec.output)) || null;
+      const isAcc = ms.state === 'accepted' && Boolean(out);
+      const srcLabel = ((dec && dec.source) || ms.decisionSource) === 'manual' ? 'Bác sĩ tự nhập' : 'AI';
+      const srcBadgeCls = ((dec && dec.source) || ms.decisionSource) === 'manual' ? 'badge--blue' : 'badge--info';
+
+      let bodyHtml = '';
+      if (!isAcc) {
+        const stText = ms.state === 'stale' ? 'Cần chạy lại và chốt lại' : (ms.state === 'ran' ? 'Đã chạy — chờ bác sĩ chốt' : 'Chưa chốt');
+        bodyHtml =
+          '<p class="field__help" style="margin:0;">Trạng thái: <strong>' + esc(stText) + '</strong></p>' +
+          (!isConf
+            ? '<div style="margin-top:6px;"><button type="button" class="btn btn--secondary btn--sm" data-review-goto-module="' + esc(mod) + '">Tới Module ' + meta.num + ' ' + ICONS.arrowRight + '</button></div>'
+            : '');
+      } else if (mod === 'm1') {
+        const alerts = Array.isArray(out.canh_bao_cap_cuu) ? out.canh_bao_cap_cuu : [];
+        const mimics = Array.isArray(out.canh_bao_gia_suy_tim) ? out.canh_bao_gia_suy_tim : [];
+        bodyHtml =
+          '<div class="review-ai-card__row"><span class="review-ai-card__lbl">Giai đoạn suy tim:</span> <span class="badge badge--blue badge--xs">' + esc(out.stage ? ('Stage ' + out.stage) : 'Chưa phân loại') + '</span></div>' +
+          '<div class="review-ai-card__row"><span class="review-ai-card__lbl">Kiểu hình EF:</span> <strong>' + esc(out.kieu_hinh_ef || 'Chưa phân loại') + '</strong></div>' +
+          '<div class="review-ai-card__row"><span class="review-ai-card__lbl">Bệnh cảnh:</span> <span>' + esc(out.benh_canh || 'Chưa xác định') + '</span></div>' +
+          (alerts.length > 0 ? '<div class="review-ai-card__row"><span class="badge badge--error badge--xs">Cảnh báo cấp cứu: ' + esc(alerts.map(wfStripTechnicalCodes).join('; ')) + '</span></div>' : '') +
+          (mimics.length > 0 ? '<div class="review-ai-card__row"><span class="badge badge--warn badge--xs">Giả suy tim: ' + esc(mimics.map(wfStripTechnicalCodes).join('; ')) + '</span></div>' : '');
+      } else if (mod === 'm2') {
+        const goiY = out.goi_y_chi_dinh || {};
+        const proposedNames = [];
+        let recentCount = 0;
+        WF_M2_TESTS.forEach(function (t) {
+          const e = goiY[t.key];
+          if (!e) return;
+          if (e.trang_thai === 'Đề xuất') proposedNames.push(t.label);
+          else if (e.trang_thai === 'Đã có kết quả gần đây') recentCount += 1;
+        });
+        bodyHtml =
+          '<div class="review-ai-card__row"><span class="review-ai-card__lbl">Phân loại:</span> <strong>' + esc(out.phan_loai_ket_qua || '—') + '</strong></div>' +
+          '<div class="review-ai-card__row"><span class="review-ai-card__lbl">Mức ưu tiên:</span> <span class="badge badge--info badge--xs">' + esc(out.muc_uu_tien || '—') + '</span></div>' +
+          '<div class="review-ai-card__row"><span class="review-ai-card__lbl">Đề xuất (' + proposedNames.length + '):</span> <span>' + esc(proposedNames.length > 0 ? proposedNames.join(', ') : 'Không có đề xuất mới') + '</span></div>' +
+          (recentCount > 0 ? '<div class="review-ai-card__row"><span class="review-ai-card__lbl">Đã có kết quả gần đây:</span> <span>' + recentCount + ' mục</span></div>' : '');
+      } else if (mod === 'm3') {
+        const nhom = out.nhom_thuoc || {};
+        const pills = WF_M3_DRUG_GROUPS.map(function (g) {
+          const info = nhom[g.key];
+          if (!info) return '';
+          const cls = info.muc === 'Khuyến nghị' ? 'badge--success' : (info.muc === 'Cân nhắc' ? 'badge--info' : (info.muc === 'Chống chỉ định' ? 'badge--error' : 'badge--warn'));
+          return '<span class="badge ' + cls + ' badge--xs">' + esc(g.label + ': ' + info.muc) + '</span>';
+        }).filter(Boolean).join(' ');
+        bodyHtml =
+          '<div class="review-ai-card__row"><span class="review-ai-card__lbl">Định hướng:</span> <span>' + esc(wfStripTechnicalCodes(out.dinh_huong || '—')) + '</span></div>' +
+          '<div class="review-ai-card__row" style="gap:4px;">' + pills + '</div>' +
+          (out.ke_hoach_do_lieu ? '<div class="review-ai-card__row"><span class="review-ai-card__lbl">Dò liều:</span> <span>' + esc(wfStripTechnicalCodes(out.ke_hoach_do_lieu)) + '</span></div>' : '');
+      } else if (mod === 'm4') {
+        const alerts = Array.isArray(out.canh_bao) ? out.canh_bao : [];
+        const nSer = alerts.filter(function (a) { return a.muc_do === 'Nghiêm trọng'; }).length;
+        const nImp = alerts.filter(function (a) { return a.muc_do === 'Quan trọng'; }).length;
+        const nMon = alerts.filter(function (a) { return a.muc_do === 'Theo dõi'; }).length;
+        const alertLines = alerts.slice(0, 4).map(function (a) {
+          return '<div class="cell-sub">• <strong>' + esc(wfStripTechnicalCodes(a.loai || 'Cảnh báo')) + '</strong> (' + esc(a.muc_do || '') + '): ' + esc(wfStripTechnicalCodes(a.noi_dung || '')) + '</div>';
+        }).join('');
+        bodyHtml =
+          '<div class="review-ai-card__row">' +
+            '<span class="badge badge--error badge--xs">' + nSer + ' Nghiêm trọng</span>' +
+            '<span class="badge badge--warn badge--xs">' + nImp + ' Quan trọng</span>' +
+            '<span class="badge badge--info badge--xs">' + nMon + ' Theo dõi</span>' +
+          '</div>' +
+          (alerts.length === 0 ? '<p class="field__help" style="margin:0;">Không phát sinh cảnh báo an toàn thuốc.</p>' : alertLines);
+      }
+
+      return (
+        '<article class="review-ai-card ' + (isAcc ? 'review-ai-card--accepted' : 'review-ai-card--pending') + '" data-review-ai-module="' + esc(mod) + '" data-review-ai-accepted="' + (isAcc ? 'true' : 'false') + '">' +
+          '<div class="review-ai-card__head">' +
+            '<div class="review-ai-card__title">' + esc(meta.full) + '</div>' +
+            '<div class="review-ai-card__badges">' +
+              (isAcc
+                ? ('<span class="badge badge--success badge--xs">Đã chốt</span><span class="badge ' + srcBadgeCls + ' badge--xs">Nguồn: ' + esc(srcLabel) + '</span>')
+                : '<span class="badge badge--warn badge--xs">Chưa chốt</span>') +
+            '</div>' +
+          '</div>' +
+          '<div class="review-ai-card__body">' + bodyHtml + '</div>' +
+        '</article>'
+      );
+    }
+
+    const aiResultsSectionHtml = isWfCapable ? (
+      '<section class="card" id="review-ai-results" data-review-ai-results="true" style="margin-top:16px;">' +
+        '<div class="card__header">' +
+          '<div><h2 class="card__title">Kết quả đã chốt 4 Module AI</h2><p class="card__subtitle">Tổng hợp kết quả M1 Chẩn đoán, M2 Cận lâm sàng, M3 Điều trị và M4 An toàn thuốc (AI mô phỏng hoặc bác sĩ tự nhập).</p></div>' +
+          (!isConf ? '<button type="button" class="btn btn--secondary btn--sm" data-nav="#/visits/' + esc(v.id) + '/workflow">Mở Luồng 4 Module AI ' + ICONS.arrowRight + '</button>' : '') +
+        '</div>' +
+        '<div class="card__body">' +
+          '<div class="wf-sim-note" role="note">' + ICONS.alert + '<span>Kết quả AI mô phỏng, chưa thẩm định lâm sàng — chỉ tham khảo.</span></div>' +
+          '<div class="review-ai-grid">' + WF_MODULE_ORDER.map(renderReviewModuleResultCard).join('') + '</div>' +
+        '</div>' +
+      '</section>'
+    ) : '';
+
+    const wfBlockerHtml = (isWfCapable && !wfReadyToConfirm) ? (
+      '<div class="banner banner--warn" style="margin-bottom:0;" data-review-wf-blocker="true">' +
+        '<div class="banner__main">' + ICONS.alert + '<div><p class="banner__title">Chưa đủ điều kiện kết thúc lượt khám</p><p class="banner__desc">' +
+          (!all4Accepted
+            ? 'Cần chốt đủ cả 4 module M1–M4 trước khi xác nhận và kết thúc lượt khám.'
+            : (pendingSeriousCount > 0
+                ? ('Còn ' + pendingSeriousCount + ' cảnh báo mức Nghiêm trọng ở Module 4 chưa được xác nhận.')
+                : 'Vui lòng bấm "Hoàn tất đánh giá AI" tại Module 4 trước khi xác nhận và kết thúc lượt khám.')) +
+        '</p></div></div>' +
+        '<div class="banner__actions"><button type="button" class="btn btn--primary btn--sm" data-nav="#/visits/' + esc(v.id) + '/workflow">Tới Luồng 4 Module AI ' + ICONS.arrowRight + '</button></div>' +
+      '</div>'
+    ) : '';
+
     const gateHtml = !isConf ? (
       '<section class="confirm-gate">' +
+        wfBlockerHtml +
         '<div class="banner banner--blue" style="margin-bottom:0;">' +
-          '<div class="banner__main">' + ICONS.shield + '<div><p class="banner__title">Ranh giới chuyên môn khi xác nhận</p><p class="banner__desc">Xác nhận này chốt dữ liệu lâm sàng bác sĩ đã ghi nhận cho lượt khám để lưu trữ chuẩn hóa. <strong>Đây không phải là xác nhận chẩn đoán cuối cùng hay y lệnh điều trị.</strong></p></div></div>' +
+          '<div class="banner__main">' + ICONS.shield + '<div><p class="banner__title">Ranh giới chuyên môn khi xác nhận</p><p class="banner__desc">Xác nhận và kết thúc lượt khám sẽ chốt dữ liệu lâm sàng cùng kết quả 4 module và chuyển lượt khám sang chế độ chỉ đọc.</p></div></div>' +
         '</div>' +
         (rev.confirmError ? '<div class="banner banner--error" style="margin-bottom:0;"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__title">Chưa xác nhận được lượt khám</p><p class="banner__desc">' + esc(rev.confirmError) + '</p></div></div></div>' : '') +
         '<div class="kv-grid">' +
           '<div><div class="kv-item__label">Người xác nhận</div><div class="kv-item__value">' + esc(state.user.fullName) + '</div></div>' +
-          '<div><div class="kv-item__label">Biểu mẫu áp dụng</div><div class="kv-item__value">' + esc(fv ? fv.versionLabel : 'v1') + '</div></div>' +
           '<div><div class="kv-item__label">Bản sửa hiện tại</div><div class="kv-item__value">Bản sửa #' + esc(v.currentRevisionNo) + '</div></div>' +
         '</div>' +
-        '<div class="field"><label class="field__label" for="confirm-note-input">Ghi chú xác nhận (không bắt buộc)</label><input id="confirm-note-input" type="text" class="input" placeholder="VD: Đã đối chiếu kết quả sinh hiệu và cận lâm sàng lượt tái khám" value="' + esc(rev.confirmNote) + '"></div>' +
+        '<div class="field"><label class="field__label" for="confirm-note-input">Ghi chú kết thúc lượt khám (không bắt buộc)</label><input id="confirm-note-input" type="text" class="input" placeholder="VD: Đã đối chiếu sinh hiệu, cận lâm sàng và kết quả 4 module AI" value="' + esc(rev.confirmNote) + '"></div>' +
         '<div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">' +
-          '<button type="button" class="btn btn--secondary" data-nav="#/visits/' + esc(v.id) + '">' + ICONS.arrowLeft + ' Quay lại chỉnh sửa</button>' +
-          '<button type="button" class="btn btn--primary' + (rev.confirming ? ' is-loading' : '') + '" data-action="confirm-visit"' + (!r.canConfirm || rev.confirming ? ' disabled' : '') + '>' + (rev.confirming ? '' : ICONS.checkCircle) + (rev.confirming ? 'Đang xác nhận...' : ' Xác nhận dữ liệu lượt khám') + '</button>' +
+          '<button type="button" class="btn btn--secondary" data-nav="#/visits/' + esc(v.id) + '">' + ICONS.arrowLeft + ' Về biểu mẫu lượt khám</button>' +
+          '<button type="button" class="btn btn--primary' + (rev.confirming ? ' is-loading' : '') + '" data-action="confirm-visit"' + (!canConfirmFinal || rev.confirming ? ' disabled' : '') + '>' + (rev.confirming ? '' : ICONS.checkCircle) + (rev.confirming ? 'Đang xác nhận...' : ' Xác nhận và kết thúc lượt khám') + '</button>' +
         '</div>' +
       '</section>'
     ) : (
-      '<section class="confirm-gate">' +
-        '<div class="banner banner--success" style="margin-bottom:0;">' +
-          '<div class="banner__main">' + ICONS.checkCircle + '<div><p class="banner__title">Lượt khám đã xác nhận (Chế độ chỉ đọc)</p><p class="banner__desc">Xác nhận lúc ' + esc(formatDateTime(v.confirmedAt)) + ' · Biểu mẫu ' + esc(fv ? fv.versionLabel : 'v1') + ' · Bản sửa #' + esc(v.currentRevisionNo) + (v.confirmNote ? ' · Ghi chú: ' + esc(v.confirmNote) : '') + '</p></div></div>' +
-        '</div>' +
-        '<div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between;align-items:center;">' +
-          '<button type="button" class="btn btn--secondary" data-nav="#/visits/' + esc(v.id) + '">Xem biểu mẫu chỉ đọc</button>' +
+      '<section class="confirm-gate" data-readonly-result-footer="true">' +
+        '<div class="review-readonly-actions">' +
           '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
-            (isDoctor ? '<button type="button" class="btn btn--navy' + (rev.aiExportLoading ? ' is-loading' : '') + '" data-action="export-ai-json-v1"' + (rev.aiExportLoading ? ' disabled' : '') + '>' + (rev.aiExportLoading ? '' : ICONS.download) + (rev.aiExportLoading ? 'Đang kiểm tra & xuất...' : ' Xuất JSON cho AI') + '</button>' : '') +
-            (isDoctor ? '<button type="button" class="btn btn--secondary" data-action="load-ai-payload">' + ICONS.code + ' Xem gói chuẩn cũ</button>' : '') +
-            '<button type="button" class="btn btn--primary" data-action="open-create-revision">Tạo bản sửa mới</button>' +
+            '<button type="button" class="btn btn--primary" data-nav="#/patients/' + esc(v.patientId) + '">' + ICONS.arrowLeft + ' Về hồ sơ bệnh nhân</button>' +
+            '<button type="button" class="btn btn--secondary" data-nav="#/my-visits">Về danh sách lượt khám</button>' +
+          '</div>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+            '<button type="button" class="btn btn--ghost" data-nav="#/visits/' + esc(v.id) + '?view=form">Xem biểu mẫu chỉ đọc</button>' +
+            '<button type="button" class="btn btn--secondary" data-action="open-create-revision">Tạo bản sửa mới</button>' +
           '</div>' +
         '</div>' +
-        renderAiQualityPanel() +
-        (rev.showAiPayload && rev.aiInputPayload ? (
-          '<div>' +
-            '<div class="field__meta-row" style="margin-bottom:8px;"><strong>Gói dữ liệu chuẩn hóa JSON (phiên bản cũ)</strong><button type="button" class="btn btn--secondary btn--sm" data-action="copy-ai-payload">Sao chép JSON</button></div>' +
-            '<pre class="json-viewer">' + esc(JSON.stringify(rev.aiInputPayload, null, 2)) + '</pre>' +
-          '</div>'
-        ) : '') +
       '</section>'
     );
 
     const perfDoctorName = v.performedByName || v.performingDoctorName || v.createdByName || '';
     const lastEditorName = v.updatedByName || v.lastEditedByName || '';
 
-    const body =
+    const body = isConf ? (
+      '<div data-readonly-result="true">' +
+        '<div class="page-head">' +
+          '<div>' +
+            '<h1 class="page-head__title" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">Kết quả lượt khám <span class="badge badge--success">Hoàn thành · Chỉ đọc</span></h1>' +
+            '<p class="page-head__sub"><span class="mono">' + esc(pt ? pt.patientCode : '') + '</span> · ' + esc(pt ? pt.fullName : '') + ' · <span class="mono">' + esc(v.visitCode) + '</span>' +
+              (perfDoctorName ? ' · Bác sĩ thực hiện: <strong>' + esc(perfDoctorName) + '</strong>' : '') +
+              (v.confirmedAt ? ' · Xác nhận lúc <span class="tabular">' + esc(formatDateTime(v.confirmedAt)) + '</span>' : '') +
+            '</p>' +
+          '</div>' +
+          '<div class="page-head__actions">' +
+            '<button type="button" class="btn btn--primary" data-nav="#/patients/' + esc(v.patientId) + '">' + ICONS.arrowLeft + ' Về hồ sơ bệnh nhân</button>' +
+            '<button type="button" class="btn btn--secondary" data-nav="#/my-visits">Về danh sách lượt khám</button>' +
+          '</div>' +
+        '</div>' +
+        (v.confirmNote ? '<div class="banner banner--success"><div class="banner__main">' + ICONS.checkCircle + '<div><p class="banner__title">Ghi chú xác nhận lượt khám</p><p class="banner__desc">' + esc(v.confirmNote) + '</p></div></div></div>' : '') +
+        '<div class="stats-4">' +
+          '<div class="stat-card stat-card--blue"><div class="stat-card__label">Đã nhập</div><div class="stat-card__num">' + r.totalAnswered + '</div></div>' +
+          '<div class="stat-card stat-card--muted"><div class="stat-card__label">Chưa điền</div><div class="stat-card__num">' + r.totalUnfilled + '</div></div>' +
+          '<div class="stat-card stat-card--info"><div class="stat-card__label">Đã chọn "Chưa rõ"</div><div class="stat-card__num">' + r.totalUnknown + '</div></div>' +
+          '<div class="stat-card stat-card--error"><div class="stat-card__label">Cần kiểm tra</div><div class="stat-card__num">' + r.totalErrors + '</div></div>' +
+        '</div>' +
+        aiResultsSectionHtml +
+        enteredSummaryHtml +
+        gateHtml +
+        revisionsHtml +
+      '</div>'
+    ) : (
       '<div class="page-head">' +
         '<div><h1 class="page-head__title">Xem lại &amp; Xác nhận dữ liệu lượt khám</h1><p class="page-head__sub"><span class="mono">' + esc(pt ? pt.patientCode : '') + '</span> · ' + esc(pt ? pt.fullName : '') + ' · <span class="mono">' + esc(v.visitCode) + '</span>' +
           (perfDoctorName ? ' · Bác sĩ thực hiện: <strong>' + esc(perfDoctorName) + '</strong>' : '') +
           (lastEditorName ? ' · Chỉnh sửa gần nhất: <strong>' + esc(lastEditorName) + '</strong>' : '') +
         '</p></div>' +
         '<div class="page-head__actions">' +
-          '<button type="button" class="btn btn--secondary" data-action="scroll-to-ai-readiness">' + ICONS.down + ' Tới phần độ sẵn sàng AI</button>' +
           '<button type="button" class="btn btn--secondary" data-nav="#/visits/' + esc(v.id) + '">' + ICONS.arrowLeft + ' Về biểu mẫu lượt khám</button>' +
         '</div>' +
       '</div>' +
@@ -7136,21 +7464,15 @@
       '</section>' +
       '<div class="mobile-cards" style="margin-top:12px;">' + secCards + '</div>' +
       enteredSummaryHtml +
-      '<section class="card" id="review-ai-readiness" style="margin-top:16px;">' +
-        '<div class="card__header"><div><h2 class="card__title">Đối chiếu độ sẵn sàng dữ liệu cho 4 Module AI (Danh sách dự kiến, chờ nhóm AI xác nhận)</h2><p class="card__subtitle">Chỉ mang tính tham khảo đối chiếu — <strong>không chặn xác nhận lượt khám</strong> và không chạy dự đoán AI trong phạm vi hệ thống thu thập dữ liệu.</p></div>' +
-        (isFormV12(fv, rev.formRes && rev.formRes.fieldDefinitions)
-          ? '<button type="button" class="btn btn--primary btn--sm" data-nav="#/visits/' + esc(v.id) + '/workflow">Chạy luồng 4 Module theo từng bước ' + ICONS.arrowRight + '</button>'
-          : '') +
-        '</div>' +
-        '<div class="card__body"><div class="ai-module-grid">' + tier4Cards + '</div></div>' +
-      '</section>' +
-      gateHtml + revisionsHtml;
+      aiResultsSectionHtml +
+      gateHtml + revisionsHtml
+    );
 
     const crumbs =
       '<button type="button" class="breadcrumbs__link" data-nav="#/patients">Hồ sơ bệnh nhân</button><span>/</span>' +
       '<button type="button" class="breadcrumbs__link mono" data-nav="#/patients/' + esc(v.patientId) + '">' + esc(pt ? pt.patientCode : 'BN') + '</button><span>/</span>' +
-      '<button type="button" class="breadcrumbs__link mono" data-nav="#/visits/' + esc(v.id) + '">' + esc(v.visitCode) + '</button><span>/</span>' +
-      '<span class="breadcrumbs__current">Xem lại &amp; Xác nhận</span>';
+      '<button type="button" class="breadcrumbs__link mono" data-nav="#/visits/' + esc(v.id) + (isConf ? '?view=form' : '') + '">' + esc(v.visitCode) + '</button><span>/</span>' +
+      '<span class="breadcrumbs__current">' + (isConf ? 'Kết quả lượt khám' : 'Xem lại &amp; Xác nhận') + '</span>';
     return renderShell(crumbs, body);
   }
 
@@ -8510,15 +8832,69 @@
     );
   }
 
+  // UI-09: Render human-readable missing-data notice instead of raw technical dataGaps codes
+  function wfRenderHumanDataGapsNotice(mod, output, wf, readonlyPreview) {
+    const rawGaps = Array.isArray(output && output.dataGaps) ? output.dataGaps : [];
+    if (rawGaps.length === 0) return '';
+    const defs = (wf && wf.formRes && Array.isArray(wf.formRes.fieldDefinitions)) ? wf.formRes.fieldDefinitions : [];
+    const labelByCode = {};
+    defs.forEach(function (fd) { if (fd && fd.code && fd.labelVi) labelByCode[fd.code] = fd.labelVi; });
+    const fieldMeta = (wf && wf.fieldMetadata) || {};
+    const missingFields = [];
+    const seenCodes = {};
+    const caveats = [];
+    const seenCaveats = {};
+
+    rawGaps.forEach(function (g) {
+      const s = String(g || '').trim();
+      if (!s) return;
+      // Match technical entries like "cls_creatinin: unknown" or "bat_thuong_cau_truc_chi_tiet: unfilled"
+      const m = s.match(/^([a-z][a-z0-9_]+)\s*:\s*(unknown|unfilled|missing|null)$/i);
+      if (m) {
+        const rawCode = m[1];
+        const resolved = resolveFormFieldCode(fieldMeta, rawCode);
+        const lbl = labelByCode[resolved] || labelByCode[rawCode] || AI_FALLBACK_FIELD_LABELS[resolved] || AI_FALLBACK_FIELD_LABELS[rawCode] || '';
+        if (lbl && !seenCodes[resolved]) {
+          seenCodes[resolved] = true;
+          missingFields.push({ code: resolved, label: lbl });
+        }
+        return;
+      }
+      // Skip boilerplate mock-engine disclaimers already covered by the top compact notice
+      if (/^(?:Luật\s+dự\s+án|Kết\s+quả\s+mô\s+phỏng|Mock\s+chỉ|Chưa\s+thẩm\s+định\s+lâm\s+sàng|Không\s+đề\s+xuất\s+chỉnh\s+liều|Đánh\s+giá\s+an\s+toàn\s+thuốc\s+do\s+bác\s+sĩ\s+tự\s+nhập)/i.test(s)) {
+        return;
+      }
+      const cleaned = wfStripTechnicalCodes(s);
+      if (cleaned && !seenCaveats[cleaned]) {
+        seenCaveats[cleaned] = true;
+        caveats.push(cleaned);
+      }
+    });
+
+    if (missingFields.length === 0 && caveats.length === 0) return '';
+    const canJump = !readonlyPreview && !(wf && wf.isPharmacistView) && !(wf && wf.visit && wf.visit.status === 'confirmed');
+    const fieldsHtml = missingFields.length > 0
+      ? '<div class="wf-human-gaps__line">' +
+          ICONS.alert +
+          ' <span><strong>Thiếu dữ liệu:</strong> ' +
+          missingFields.map(function (f) {
+            return canJump
+              ? '<button type="button" class="jump-chip jump-chip--info" data-wf-open-form="' + esc(mod + ':' + f.code) + '">' + esc(f.label) + ' ↗</button>'
+              : '<strong>' + esc(f.label) + '</strong>';
+          }).join(' ') +
+          ' — kết quả có thể chưa đầy đủ.</span>' +
+        '</div>'
+      : '';
+    const caveatsHtml = caveats.length > 0
+      ? '<ul class="wf-human-gaps__caveats">' + caveats.map(function (c) { return '<li>' + esc(c) + '</li>'; }).join('') + '</ul>'
+      : '';
+    return '<div class="wf-human-gaps" data-wf-human-gaps="' + esc(mod) + '">' + fieldsHtml + caveatsHtml + '</div>';
+  }
+
   function renderModuleOutputBody(mod, output, wf, readonlyPreview) {
     if (!output) return '<p class="field__help">Chưa có dữ liệu kết quả.</p>';
-    const gapsHtml = Array.isArray(output.dataGaps) && output.dataGaps.length > 0
-      ? '<div class="wf-gaps-box"><strong>Khoảng trống dữ liệu (dataGaps):</strong><ul>' + output.dataGaps.map(function (g) {
-          const s = String(g || '');
-          const cleaned = (/\b(Luật\s+[A-Z0-9]|DD\s*#?\d+)/i.test(s)) ? wfStripTechnicalCodes(s) : s;
-          return '<li>' + esc(cleaned) + '</li>';
-        }).join('') + '</ul></div>'
-      : '';
+    const stripTech = (typeof wfStripTechnicalCodes === 'function') ? wfStripTechnicalCodes : function (s) { return String(s == null ? '' : s); };
+    const gapsHtml = (typeof wfRenderHumanDataGapsNotice === 'function') ? wfRenderHumanDataGapsNotice(mod, output, wf, readonlyPreview) : '';
 
     if (mod === 'm1') {
       const prob = output.xac_suat_suy_tim || {};
@@ -8527,22 +8903,22 @@
       return (
         (Array.isArray(output.canh_bao_cap_cuu) && output.canh_bao_cap_cuu.length > 0 ? (
           '<div class="banner banner--error" role="alert"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__title">Cảnh báo cấp cứu cần bác sĩ đánh giá ngay</p><div class="wf-chip-list">' +
-            output.canh_bao_cap_cuu.map(function (c) { return '<span class="badge badge--error">' + esc(wfStripTechnicalCodes(c)) + '</span>'; }).join('') +
+            output.canh_bao_cap_cuu.map(function (c) { return '<span class="badge badge--error">' + esc(stripTech(c)) + '</span>'; }).join('') +
           '</div></div></div></div>'
         ) : '') +
         '<div class="wf-kpi-3">' +
-          '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Xác suất / Giai đoạn suy tim</div><div class="wf-kpi-card__val">' + esc(wfStripTechnicalCodes(prob.muc || '—')) + '</div><div class="wf-kpi-card__sub">Xác suất mô phỏng: <strong>' + esc(pctText) + '</strong>' + (output.stage ? (' · Stage ' + esc(output.stage)) : '') + '</div></div>' +
+          '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Xác suất / Giai đoạn suy tim</div><div class="wf-kpi-card__val">' + esc(stripTech(prob.muc || '—')) + '</div><div class="wf-kpi-card__sub">Xác suất mô phỏng: <strong>' + esc(pctText) + '</strong>' + (output.stage ? (' · Stage ' + esc(output.stage)) : '') + '</div></div>' +
           '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Kiểu hình EF nghi ngờ</div><div class="wf-kpi-card__val">' + esc(output.kieu_hinh_ef || '—') + '</div>' + (!output.kieu_hinh_ef || output.kieu_hinh_ef === 'Chưa phân loại do thiếu EF' ? '<div class="wf-kpi-card__sub">Không tự suy kiểu hình khi thiếu EF</div>' : '') + '</div>' +
-          '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Bệnh cảnh lâm sàng</div><div class="wf-kpi-card__val">' + esc(output.benh_canh || 'Chưa xác định') + '</div><div class="wf-kpi-card__sub">Frailty/dung nạp: ' + esc(wfStripTechnicalCodes(output.frailty_dung_nap || '—')) + '</div></div>' +
+          '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Bệnh cảnh lâm sàng</div><div class="wf-kpi-card__val">' + esc(output.benh_canh || 'Chưa xác định') + '</div><div class="wf-kpi-card__sub">Frailty/dung nạp: ' + esc(stripTech(output.frailty_dung_nap || '—')) + '</div></div>' +
         '</div>' +
         (Array.isArray(output.canh_bao_gia_suy_tim) && output.canh_bao_gia_suy_tim.length > 0 ? (
           '<div class="wf-subblock"><h4>Cảnh báo giả suy tim cần loại trừ</h4><div class="wf-chip-list">' +
-            output.canh_bao_gia_suy_tim.map(function (m) { return '<span class="badge badge--warn">' + esc(wfStripTechnicalCodes(m)) + '</span>'; }).join('') +
+            output.canh_bao_gia_suy_tim.map(function (m) { return '<span class="badge badge--warn">' + esc(stripTech(m)) + '</span>'; }).join('') +
           '</div></div>'
         ) : '') +
         (Array.isArray(output.xep_hang_nguyen_nhan) && output.xep_hang_nguyen_nhan.length > 0 ? (
           '<div class="wf-subblock"><h4>Xếp hạng nguyên nhân nghi ngờ</h4><ol class="wf-ranked-list">' +
-            output.xep_hang_nguyen_nhan.map(function (x) { return '<li><strong>' + esc(wfStripTechnicalCodes(x.code)) + '</strong> — ' + esc(wfStripTechnicalCodes(x.ly_do)) + '</li>'; }).join('') +
+            output.xep_hang_nguyen_nhan.map(function (x) { return '<li><strong>' + esc(stripTech(x.code)) + '</strong> — ' + esc(stripTech(x.ly_do)) + '</li>'; }).join('') +
           '</ol></div>'
         ) : '') +
         '<div class="wf-subblock"><h4>Dự báo 6 nhóm nguy cơ (mô phỏng chưa hiệu chuẩn)</h4><div class="wf-risk-grid">' +
@@ -8745,8 +9121,9 @@
             '</select></div>' +
           '<div class="field field--span-2"><label class="field__label" for="wf-man-m2-br">Cân nhắc lợi ích / nguy cơ</label>' +
             '<input id="wf-man-m2-br" type="text" class="input" data-wf-man="loi_ich_nguy_co" value="' + esc(draft.loi_ich_nguy_co || '') + '"></div>' +
-          '<div class="field field--span-2"><label class="field__label" for="wf-man-m2-inv">Cảnh báo thủ thuật xâm lấn</label>' +
-            '<input id="wf-man-m2-inv" type="text" class="input" data-wf-man="canh_bao_xam_lan" value="' + esc(draft.canh_bao_xam_lan || '') + '"></div>' +
+          '<div class="field field--span-2"><label class="field__label" for="wf-man-m2-inv">Lưu ý an toàn thủ thuật xâm lấn</label>' +
+            '<input id="wf-man-m2-inv" type="text" class="input" data-wf-man="canh_bao_xam_lan" value="' + esc(draft.canh_bao_xam_lan || '') + '">' +
+            '<p class="field__help">Hiển thị như cảnh báo an toàn trên kết quả Module 2 (nhắc không chỉ định thủ thuật xâm lấn chỉ dựa trên tuổi).</p></div>' +
         '</div>' +
         '<div class="wf-subblock"><h4>Chỉnh sửa 25 mục chỉ định cận lâm sàng</h4>' +
           '<div class="wf-man-m2-tests">' +
@@ -8765,9 +9142,7 @@
               );
             }).join('') +
           '</div>' +
-        '</div>' +
-        '<div class="field"><label class="field__label">Khoảng trống dữ liệu (mỗi dòng 1 mục)</label>' +
-          '<textarea class="textarea" rows="2" data-wf-man-lines="dataGaps">' + esc((draft.dataGaps || []).join('\n')) + '</textarea></div>';
+        '</div>';
     } else if (mod === 'm3') {
       const khuyenNghi = draft.khuyen_nghi || {};
       const followups = Array.isArray(draft.ke_hoach_theo_doi) ? draft.ke_hoach_theo_doi : [];
@@ -8861,9 +9236,8 @@
           '<div class="field"><label class="field__label">Đề xuất chỉnh liều (mỗi dòng 1 mục)</label><textarea class="textarea" rows="2" data-wf-man-lines="de_xuat_chinh_lieu">' + esc((draft.de_xuat_chinh_lieu || []).join('\n')) + '</textarea></div>' +
           '<div class="field"><label class="field__label">Đơn giản hóa phác đồ (mỗi dòng 1 mục)</label><textarea class="textarea" rows="2" data-wf-man-lines="don_gian_hoa_phac_do">' + esc((draft.don_gian_hoa_phac_do || []).join('\n')) + '</textarea></div>' +
           '<div class="field"><label class="field__label">Giảm / ngừng thuốc cần cân nhắc</label><textarea class="textarea" rows="2" data-wf-man-lines="giam_ngung_thuoc">' + esc((draft.giam_ngung_thuoc || []).join('\n')) + '</textarea></div>' +
-          '<div class="field"><label class="field__label">Độ bao phủ &amp; Khoảng trống dữ liệu</label>' +
-            '<select class="select input--sm" data-wf-man="coverage" style="margin-bottom:6px;"><option value="incomplete"' + (draft.coverage !== 'complete' ? ' selected' : '') + '>Chưa đầy đủ (incomplete)</option><option value="complete"' + (draft.coverage === 'complete' ? ' selected' : '') + '>Đầy đủ (complete)</option></select>' +
-            '<textarea class="textarea" rows="2" data-wf-man-lines="dataGaps">' + esc((draft.dataGaps || []).join('\n')) + '</textarea></div>' +
+          '<div class="field"><label class="field__label">Độ bao phủ đánh giá an toàn thuốc</label>' +
+            '<select class="select input--sm" data-wf-man="coverage"><option value="incomplete"' + (draft.coverage !== 'complete' ? ' selected' : '') + '>Chưa đầy đủ</option><option value="complete"' + (draft.coverage === 'complete' ? ' selected' : '') + '>Đầy đủ</option></select></div>' +
         '</div>';
     }
 
@@ -9062,9 +9436,9 @@
     const stateInfo = wfFormatStateInfo(isRunning ? 'running' : ms.state, ms);
     const outputPanelHtml = showOutputPanel ? (
       '<section class="wf-output-panel' + (ms.state === 'stale' ? ' wf-output-panel--stale' : '') + '" aria-label="Kết quả Module ' + meta.num + '">' +
-        '<div class="wf-sim-banner" role="note">' +
-          '<div class="wf-sim-banner__left">' + ICONS.alert + ' <strong>' + esc((wf.data && wf.data.simulationLabel) || WF_SIMULATION_LABEL) + '</strong></div>' +
-          '<div class="wf-sim-banner__right mono">Engine: ' + esc(outInfo.engine || 'mock-rules') + ' · Luật: ' + esc(outInfo.rulesVersion || 'mock-1.1') + '</div>' +
+        '<div class="wf-sim-note" role="note">' +
+          ICONS.alert +
+          '<span>Kết quả AI mô phỏng, chưa thẩm định lâm sàng — chỉ tham khảo.</span>' +
         '</div>' +
         '<div class="wf-meta-strip">' +
           '<div class="wf-meta-strip__left">' +
@@ -9168,7 +9542,6 @@
         '<div class="card__header wf-stage-card__head">' +
           '<div>' +
             '<h2 class="card__title">' + esc(meta.full) + '</h2>' +
-            '<p class="card__subtitle">Màn xem kết quả và quyết định theo từng bước — không chạy chuỗi tự động.</p>' +
           '</div>' +
           '<div class="wf-stage-card__badges">' +
             '<span class="badge badge--' + esc(stateInfo.badgeCls) + '">' + esc(stateInfo.label) + '</span>' +
@@ -9934,6 +10307,18 @@
         '<div class="modal__foot">' +
           '<button type="button" class="btn btn--secondary" data-action="close-modal">Hủy</button>' +
           '<button type="button" class="btn btn--primary" data-action="submit-create-visit">Tạo lượt khám &amp; Mở biểu mẫu</button>' +
+        '</div>';
+    }
+
+    if (m.type === 'confirm-visit-final') {
+      html =
+        '<div class="modal__head"><h2 class="modal__title" id="modal-title">Xác nhận và kết thúc lượt khám?</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Đóng">' + ICONS.x + '</button></div>' +
+        '<div class="modal__body">' +
+          '<div class="banner banner--info" style="margin-bottom:0;"><div class="banner__main">' + ICONS.shield + '<div><p class="banner__desc">Lượt khám <strong class="mono">' + esc(m.visitCode || '') + '</strong> sẽ được chốt ở trạng thái <strong>Hoàn thành (Chỉ đọc)</strong> cùng toàn bộ dữ liệu và kết quả 4 module AI đã chốt. Nếu cần chỉnh sửa về sau, bạn có thể tạo bản sửa mới mà không làm mất lịch sử.</p></div></div></div>' +
+        '</div>' +
+        '<div class="modal__foot">' +
+          '<button type="button" class="btn btn--secondary" data-action="close-modal">Hủy</button>' +
+          '<button type="button" class="btn btn--primary" data-action="confirm-visit-submit">' + ICONS.checkCircle + ' Xác nhận và kết thúc</button>' +
         '</div>';
     }
 
@@ -11782,20 +12167,11 @@
           if (!isPrev) focusUnlockedFieldInput(fd.code);
           return;
         }
-        let unknownReason = null;
-        if (!isPrev && state.user && state.user.role === 'nurse' &&
-            ['chieu_cao_cm', 'can_nang_kg', 'huyet_ap_tam_thu', 'huyet_ap_tam_truong', 'mach'].includes(fd.code)) {
-          unknownReason = window.prompt('Lý do chưa đo được ' + fd.labelVi + ' (bắt buộc, tối đa 500 ký tự):', '');
-          if (unknownReason === null) return;
-          unknownReason = unknownReason.trim();
-          if (!unknownReason || unknownReason.length > 500) {
-            toast('Nhập lý do từ 1 đến 500 ký tự.', 'error');
-            return;
-          }
+        if (!isPrev) {
+          delete state.encounter.unlockedUnknownCodes[fd.code];
+          delete state.encounter.fieldErrors[fd.code];
         }
-        if (!isPrev) delete state.encounter.unlockedUnknownCodes[fd.code];
         ft.valuesByDefId[fd.id] = makeEmptyVisitValue(ft.visitId, fd, 'unknown');
-        if (unknownReason) ft.valuesByDefId[fd.id].unknownReason = unknownReason;
         if (fd.code === 'mach') ft.setAutoPulseSourceIndex(null);
         ft.markDirty();
         render();
@@ -12488,17 +12864,32 @@
       else if (ok) openModal(destination);
       return;
     }
+    const reviewGotoMod = target.getAttribute('data-review-goto-module');
+    if (reviewGotoMod && state.review.visit) {
+      state.workflow.preferredModuleOnLoad = reviewGotoMod;
+      navigate('#/visits/' + state.review.visit.id + '/workflow');
+      return;
+    }
     if (action === 'confirm-visit' && state.review.visit) {
       const rev = state.review;
       const noteEl = document.getElementById('confirm-note-input');
       rev.confirmNote = noteEl ? noteEl.value.trim() : rev.confirmNote;
+      openModal({
+        type: 'confirm-visit-final',
+        visitCode: rev.visit.visitCode
+      });
+      return;
+    }
+    if (action === 'confirm-visit-submit' && state.review.visit) {
+      const rev = state.review;
+      closeModal();
       rev.confirming = true;
       rev.confirmError = '';
       render();
       try {
         const confirmedVisit = await api.confirmVisit(rev.visit.id, { rowVersion: rev.visit.rowVersion, confirmNote: rev.confirmNote || null }, rev.visit.rowVersion);
         syncCachedPatientVisitStatus(confirmedVisit);
-        toast('Đã xác nhận dữ liệu lượt khám thành công.', 'success');
+        toast('Đã xác nhận và kết thúc lượt khám thành công.', 'success');
         await loadReview(rev.visit.id);
       } catch (err) {
         rev.confirmError = (err && err.detail) || 'Không thể xác nhận lượt khám.';
@@ -13168,7 +13559,10 @@
           ft.markDirty();
         }
       } else {
-        if (!isPrev) delete state.encounter.unlockedUnknownCodes[fd.code];
+        if (!isPrev) {
+          delete state.encounter.unlockedUnknownCodes[fd.code];
+          delete state.encounter.fieldErrors[fd.code];
+        }
         const item = makeEmptyVisitValue(ft.visitId, fd, 'answered');
         item.valueNum = Number(t.value);
         item.unit = fd.canonicalUnit || null;
@@ -13176,6 +13570,7 @@
         if (fd.code === 'mach') ft.setAutoPulseSourceIndex(null);
         ft.markDirty();
       }
+      t.classList.remove('input--error');
       // Do not rebuild number inputs while typing: replacement resets the native
       // caret for number fields and reverses subsequent digits/backspaces.
       refreshNumericInput(t);
@@ -13202,7 +13597,10 @@
           ft.markDirty();
         }
       } else {
-        if (!isPrev) delete state.encounter.unlockedUnknownCodes[fd.code];
+        if (!isPrev) {
+          delete state.encounter.unlockedUnknownCodes[fd.code];
+          delete state.encounter.fieldErrors[fd.code];
+        }
         const item = makeEmptyVisitValue(ft.visitId, fd, 'answered');
         if (fd.dataType === 'date') item.valueDate = t.value;
         else item.valueText = t.value;
@@ -13464,7 +13862,10 @@
           ft.markDirty();
         }
       } else {
-        if (!isPrev) delete state.encounter.unlockedUnknownCodes[fd.code];
+        if (!isPrev) {
+          delete state.encounter.unlockedUnknownCodes[fd.code];
+          delete state.encounter.fieldErrors[fd.code];
+        }
         const item = makeEmptyVisitValue(ft.visitId, fd, 'answered');
         item.fieldOptionId = t.value;
         ft.valuesByDefId[fd.id] = item;
@@ -13484,7 +13885,10 @@
       const cur = ft.valuesByDefId[fd.id];
       let opts = (cur && cur.valueState === 'answered' && Array.isArray(cur.selectedOptions)) ? clone(cur.selectedOptions) : [];
       if (t.checked) {
-        if (!isPrev) delete state.encounter.unlockedUnknownCodes[fd.code];
+        if (!isPrev) {
+          delete state.encounter.unlockedUnknownCodes[fd.code];
+          delete state.encounter.fieldErrors[fd.code];
+        }
         if (!opts.some(function (o) { return o.fieldOptionId === t.value; })) {
           opts.push({ visitId: ft.visitId, fieldDefinitionId: fd.id, fieldOptionId: t.value });
         }

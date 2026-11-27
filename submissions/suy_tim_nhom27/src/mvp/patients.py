@@ -672,8 +672,6 @@ def list_patient_visits(
         params: list[Any] = [str(patientId)]
         if principal.role == 'doctor':
             where.append('v.assigned_doctor_id=%s'); params.append(str(principal.user_id))
-        else:
-            where.extend(["v.status IN ('intake','waiting')",'v.created_by=%s']); params.append(str(principal.user_id))
         if status is not None:
             where.append("v.status = %s::visit_status")
             params.append(status)
@@ -705,8 +703,14 @@ def list_patient_visits(
             [*params, pageSize, offset],
         ).fetchall()
 
+        if principal.role == 'nurse':
+            from .visits import _queue_vitals
+            items = [{**nurse_visit_dict(r), "vitals": _queue_vitals(conn, r["id"])[0]} for r in rows]
+        else:
+            items = [visit_row_to_dict(r) for r in rows]
+
     return {
-        "items": [(nurse_visit_dict(r) if principal.role=='nurse' else visit_row_to_dict(r)) for r in rows],
+        "items": items,
         "pagination": compute_pagination(page, pageSize, total_items),
     }
 

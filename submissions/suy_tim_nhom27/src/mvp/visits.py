@@ -109,9 +109,8 @@ def submit_visit(visitId: UUID, request: Request, response: Response,
             row = values.get(code) or {}
             obj = row.get('answer') or {}
             unknown = row.get('value_state')=='unknown' or obj.get('value_state')=='unknown'
-            reason = row.get('unknown_reason') or obj.get('reason') or obj.get('unknown_reason')
-            if vitals[key] is None and not (unknown and isinstance(reason,str) and reason.strip()):
-                missing.append({'fieldCode':code,'message':'Bắt buộc nhập hoặc Chưa rõ kèm lý do.'})
+            if vitals[key] is None and not unknown:
+                missing.append({'fieldCode':code,'message':'Bắt buộc nhập giá trị hợp lệ hoặc chọn Chưa rõ.'})
         if missing:
             raise ProblemError(422,'INTAKE_REQUIREMENTS_UNMET','Thiếu sinh hiệu tiếp nhận',
                                'Bổ sung sinh hiệu trước khi gửi hàng chờ.',errors=missing)

@@ -4919,19 +4919,185 @@ button {
 .mod-tag--m3 { background: #EDE9FE; color: #5B21B6; border-color: #C4B5FD; }
 .mod-tag--m4 { background: #FEF3C7; color: #92400E; border-color: #FCD34D; }
 
-/* Highlight required / missing fields when filtered by module */
+/* UI-11: Unified data-status colors (green = valid value, orange = missing for AI; jump highlight is temporary pulse only) */
+.field--status-valid,
 .field--mod-highlight {
-  border-left: 3px solid #2563EB;
+  border-left: 3px solid #16A34A;
   padding-left: 10px;
-  background: rgba(239, 246, 255, 0.35);
+  background: rgba(240, 253, 244, 0.48);
   border-radius: var(--radius-sm);
 }
 
+.field--status-missing,
 .field--mod-missing {
   border-left: 3px solid #D97706;
   padding-left: 10px;
   background: rgba(254, 243, 199, 0.42);
   border-radius: var(--radius-sm);
+}
+
+.tristate.field--status-valid {
+  border-color: #86EFAC;
+  border-left: 3px solid #16A34A;
+  background: rgba(240, 253, 244, 0.48);
+}
+
+.tristate.field--status-missing {
+  border-color: #FCD34D;
+  border-left: 3px solid #D97706;
+  background: rgba(254, 243, 199, 0.42);
+}
+
+.field--highlight,
+.tristate--highlight {
+  animation: jumpPulseOnly 1.8s ease;
+}
+
+@keyframes jumpPulseOnly {
+  0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.55); }
+  35% { box-shadow: 0 0 0 5px rgba(37, 99, 235, 0.25); }
+  100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+}
+
+/* UI-09: Compact simulation notice & readable missing-data notice */
+.wf-sim-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  border-radius: var(--radius-sm);
+  background: #FFFBEB;
+  border: 1px solid #FDE68A;
+  color: #92400E;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.wf-sim-note .icon {
+  flex: 0 0 auto;
+  color: #D97706;
+}
+
+.wf-human-gaps {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: #FFFBEB;
+  border: 1px solid #FDE68A;
+  color: #78350F;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wf-human-gaps__line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.wf-human-gaps__caveats {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--ink-secondary);
+}
+
+/* UI-14: Finalized M1-M4 results & read-only result screen */
+.review-ai-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.review-ai-card {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.review-ai-card--accepted {
+  border-color: #86EFAC;
+  background: linear-gradient(180deg, rgba(240, 253, 244, 0.35) 0%, var(--bg-surface) 48px);
+}
+
+.review-ai-card--pending {
+  border-color: #FCD34D;
+  background: linear-gradient(180deg, rgba(254, 243, 199, 0.35) 0%, var(--bg-surface) 48px);
+}
+
+.review-ai-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.review-ai-card__title {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--ink-primary);
+}
+
+.review-ai-card__badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.review-ai-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13.5px;
+  color: var(--ink-primary);
+}
+
+.review-ai-card__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.review-ai-card__lbl {
+  font-size: 12.5px;
+  color: var(--ink-secondary);
+  font-weight: 600;
+}
+
+.review-readonly-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.timeline-item__vitals {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+@media (max-width: 900px) {
+  .review-ai-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Ensure jumped fields aren't obscured by sticky header + pinned 4-Module bar */
