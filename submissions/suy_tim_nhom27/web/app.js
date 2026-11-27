@@ -1725,6 +1725,7 @@
       template: null,
       versions: [],
       selectedVersionId: null,
+      versionDropdownOpen: false,
       versionDetail: null,
       draftSections: null, // mutable copy for Tab 1 editing
       draftDirty: false,
@@ -2945,15 +2946,16 @@
             '<div class="brand-mark__icon">' + ICONS.heart + '</div>' +
             '<div>' +
               '<div class="brand-mark__name">HFCARE</div>' +
-              '<div class="brand-mark__sub">Thu thập &amp; Xác nhận Dữ liệu Trước AI</div>' +
+              '<div class="brand-mark__sub">Quản lý &amp; Đánh giá Suy tim Người cao tuổi</div>' +
             '</div>' +
           '</div>' +
           '<div class="login-brand__hero">' +
-            '<h1 class="login-brand__title">Hệ thống Thu thập Dữ liệu Lâm sàng Suy tim</h1>' +
-            '<p class="login-brand__lead">Hỗ trợ ghi nhận, rà soát và xác nhận thông tin khám suy tim rõ ràng, đầy đủ trước khi kết nối các công cụ hỗ trợ quyết định lâm sàng.</p>' +
+            '<h1 class="login-brand__title">Hệ thống Hỗ trợ Quản lý và Đánh giá Suy tim Người cao tuổi</h1>' +
+            '<p class="login-brand__lead">Nền tảng hỗ trợ tiếp nhận bệnh nhân, nhập liệu lượt khám chuẩn hóa, vận hành 4 module AI hỗ trợ quyết định lâm sàng và quản trị biểu mẫu theo phiên bản.</p>' +
             '<div class="login-audience">' +
-              '<div class="login-audience__item"><span class="login-audience__dot"></span><span><strong>Bác sĩ lâm sàng:</strong> Quản lý hồ sơ, ghi nhận lượt khám, theo dõi sinh hiệu, thuốc, cận lâm sàng và xác nhận dữ liệu.</span></div>' +
-              '<div class="login-audience__item"><span class="login-audience__dot"></span><span><strong>Quản trị viên bệnh viện:</strong> Quản lý tài khoản, cập nhật biểu mẫu khám theo phiên bản và tra cứu nhật ký hoạt động.</span></div>' +
+              '<div class="login-audience__item"><span class="login-audience__dot"></span><span><strong>Bác sĩ lâm sàng:</strong> Nhận lượt khám, ghi nhận dữ liệu lâm sàng, đánh giá cùng 4 module AI hỗ trợ quyết định và xác nhận kết quả.</span></div>' +
+              '<div class="login-audience__item"><span class="login-audience__dot"></span><span><strong>Nhân viên y tế:</strong> Tiếp nhận hồ sơ bệnh nhân, tạo lượt khám mới, ghi nhận thông tin hành chính – sinh hiệu và gửi vào hàng chờ bác sĩ.</span></div>' +
+              '<div class="login-audience__item"><span class="login-audience__dot"></span><span><strong>Quản trị viên bệnh viện:</strong> Quản lý tài khoản và phân quyền, cấu hình phiên bản biểu mẫu khám và tra cứu nhật ký hệ thống.</span></div>' +
             '</div>' +
           '</div>' +
           '<div class="login-brand__spacer" aria-hidden="true"></div>' +
@@ -3043,7 +3045,7 @@
                 '<div class="brand-mark__icon">' + ICONS.heart + '</div>' +
                 '<div class="brand-mark__text">' +
                   '<div class="brand-mark__name">HFCARE</div>' +
-                  '<div class="brand-mark__sub">Thu thập &amp; Xác nhận Dữ liệu</div>' +
+                  '<div class="brand-mark__sub">Quản lý &amp; Đánh giá Suy tim</div>' +
                 '</div>' +
               '</div>' +
             '</div>' +
@@ -3715,13 +3717,8 @@
             }).join('') + '</div>'
           : '<div class="cell-sub" data-latest-visit-alerts="true">Không có cảnh báo an toàn thuốc M4 còn hiệu lực.</div>';
 
-        const srcStatusVi = sum.sourceVisitStatus === 'confirmed'
-          ? 'Đã hoàn thành'
-          : (sum.sourceVisitStatus === 'in_progress' ? 'Đang xử lý' : 'Bản nháp');
-
         summaryBody =
           '<div class="latest-visit-v2" data-latest-visit-card="v2">' +
-            '<div class="source-strip">' + ICONS.clock + '<span>Nguồn tham chiếu: <strong class="mono">' + esc(sum.sourceVisitCode || (sum.sourceVisitId ? sum.sourceVisitId.slice(0, 8) : '')) + '</strong> · ' + esc(formatDateTime(sum.sourceVisitDate)) + ' (' + esc(srcStatusVi) + (sum.sourceFormVersionLabel ? ' · Biểu mẫu ' + esc(sum.sourceFormVersionLabel) : '') + ')</span></div>' +
             '<div class="lv-class-row" data-latest-visit-classification="true">' +
               '<div class="lv-class-box">' +
                 '<div class="lv-class-box__lbl">Giai đoạn suy tim (A–D)</div>' +
@@ -3781,12 +3778,9 @@
                   (lastEd ? 'Chỉnh sửa gần nhất: <strong>' + esc(lastEd) + '</strong>' : '') +
                 '</div>'
               ) : '') +
-              '<div class="field__meta-row">' +
-                '<span class="badge badge--blue">Biểu mẫu ' + esc(v.formVersionLabel || 'v2.0') + (v.currentRevisionNo > 1 ? ' · Bản sửa #' + esc(v.currentRevisionNo) : '') + '</span>' +
-                '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
-                  '<button type="button" class="btn ' + (isConf ? 'btn--secondary' : 'btn--primary') + ' btn--sm" data-nav="#/visits/' + esc(v.id) + '">' + (isConf ? 'Xem lượt khám' : (v.status === 'waiting' ? 'Xem tiếp nhận' : 'Tiếp tục nhập')) + '</button>' +
-                  (!isNurse ? '<button type="button" class="btn btn--ghost btn--sm" data-nav="#/visits/' + esc(v.id) + '/review">Xem lại</button>' : '') +
-                '</div>' +
+              '<div class="timeline-item__actions">' +
+                '<button type="button" class="btn ' + (isConf ? 'btn--secondary' : 'btn--primary') + ' btn--sm" data-nav="#/visits/' + esc(v.id) + '">' + (isConf ? 'Xem lượt khám' : (v.status === 'waiting' ? 'Xem tiếp nhận' : 'Tiếp tục nhập')) + '</button>' +
+                (!isNurse ? '<button type="button" class="btn btn--ghost btn--sm" data-nav="#/visits/' + esc(v.id) + '/review">Kết quả</button>' : '') +
               '</div>' +
             '</div>'
           );
@@ -3866,21 +3860,25 @@
     return custom || (fd && fd.labelVi) || (ff && ff.fieldCode) || '';
   }
 
-  function sanitizeDoctorHelpText(text) {
+  function sanitizeDoctorHelpText(text, renderMode) {
     if (!text) return '';
-    const s = String(text).trim();
+    let s = String(text).trim();
     if (!s) return '';
     if (/\b(TL0[1-9]|Q-AI-\d+|Q-PM-\d+|CR-W\d+-\d+|STT\s*\d+|visit_[a-z_]+|field_definition|value_state|bảng\s+patient|NULL|G1\s+\d{1,2}\/\d{1,2}\/\d{4}|Biểu mẫu suy tim\s+\d{1,2}\/\d{1,2}\/\d{4})\b/i.test(s)) {
       return '';
     }
+    if (renderMode !== 'config') {
+      s = s.replace(/(?:^|\s*[·.;]\s*)Chọn\s+Chưa\s+rõ\s+khi\s+chưa\s+có\s+thông\s+tin\s+xác\s+minh\.?/gi, '').trim();
+      s = s.replace(/^[·.;,\s]+|[·\s]+$/g, '').trim();
+    }
     return s;
   }
 
-  function joinUniqueHelpTexts(entries) {
+  function joinUniqueHelpTexts(entries, renderMode) {
     const seen = {};
     const out = [];
     (entries || []).forEach(function (e) {
-      const h = getFieldHelpText(e.ff, e.fd);
+      const h = getFieldHelpText(e.ff, e.fd, renderMode);
       if (h && !seen[h]) {
         seen[h] = true;
         out.push(h);
@@ -3889,10 +3887,10 @@
     return out.join(' · ');
   }
 
-  function getFieldHelpText(ff, fd) {
+  function getFieldHelpText(ff, fd, renderMode) {
     const custom = ff && ff.customHelpText && String(ff.customHelpText).trim();
-    if (custom) return sanitizeDoctorHelpText(custom);
-    return sanitizeDoctorHelpText(fd && fd.helpText);
+    if (custom) return sanitizeDoctorHelpText(custom, renderMode);
+    return sanitizeDoctorHelpText(fd && fd.helpText, renderMode);
   }
 
   function getFieldMetaFlags(ff, fd) {
@@ -4553,6 +4551,8 @@
     const nurseUnlocked = Boolean(ctx.nurseSectionsUnlocked);
     const prefix = ctx.mode === 'preview' ? 'prev-' : 'enc-';
     const isPreview = ctx.mode === 'preview';
+    const renderMode = ctx.renderMode || 'entry'; // 'config' | 'entry'
+    const showTechMeta = renderMode === 'config';
     const isV12Mode = Boolean(!isPreview && ctx.isV12);
     const modFilter = isV12Mode && !isNurseViewer ? (ctx.moduleFilter || 'all') : 'all';
     const fieldMetaMap = isV12Mode ? (ctx.fieldMetadata || {}) : {};
@@ -4789,8 +4789,8 @@
       const fd = ctx.defById[ff.fieldDefinitionId] || ff._virtualDef;
       if (!fd) return '';
       const label = getFieldLabel(ff, fd);
-      const helpText = getFieldHelpText(ff, fd);
-      const customHelp = ff.customHelpText && String(ff.customHelpText).trim() ? sanitizeDoctorHelpText(ff.customHelpText) : '';
+      const helpText = getFieldHelpText(ff, fd, renderMode);
+      const customHelp = ff.customHelpText && String(ff.customHelpText).trim() ? sanitizeDoctorHelpText(ff.customHelpText, renderMode) : '';
       const val = ctx.valuesByDefId[fd.id] || null;
       const errMsg = (ctx.fieldErrors && ctx.fieldErrors[fd.code]) || '';
       const flags = getFieldMetaFlags(ff, fd);
@@ -4894,14 +4894,17 @@
       }
 
       // Special computed [T] / patient cards
+      const autoBadgeHtml = showTechMeta ? '<span class="badge badge--blue badge--xs">Tự động</span>' : '';
+      const sysBadgeHtml = showTechMeta ? '<span class="badge badge--info badge--xs">Trường hệ thống</span>' : '';
+
       if (fd.code === 'bmi') {
         const bmi = computeEncounterBmi(ctx);
         const obeseHint = bmi !== null && bmi >= 25 ? ' · <span class="badge badge--warn badge--xs">BMI ≥ 25 (gợi ý béo phì)</span>' : '';
         return (
           '<div class="bmi-card" data-field-code="bmi" data-auto-calc="true">' +
-            '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--blue badge--xs">Tự động</span></div>' +
+            '<div class="bmi-card__label"><span>' + esc(label) + '</span>' + autoBadgeHtml + '</div>' +
             '<div class="bmi-card__value">' + (bmi !== null ? esc(bmi) + ' kg/m²' : 'Chưa đủ dữ liệu') + obeseHint + '</div>' +
-            '<div class="bmi-card__note">Công thức: Cân nặng (kg) / [Chiều cao (m)]²' + (customHelp ? ' · ' + esc(customHelp) : '') + '</div>' +
+            (showTechMeta ? '<div class="bmi-card__note">Công thức: Cân nặng (kg) / [Chiều cao (m)]²' + (customHelp ? ' · ' + esc(customHelp) : '') + '</div>' : (customHelp ? '<div class="bmi-card__note">' + esc(customHelp) + '</div>' : '')) +
           '</div>'
         );
       }
@@ -4911,9 +4914,9 @@
         const statusVal = bmi === null ? 'Chưa đủ dữ liệu' : (bmi >= 25 ? 'Có (BMI ' + bmi + ' ≥ 25)' : 'Không (BMI ' + bmi + ' < 25)');
         return (
           '<div class="bmi-card" data-field-code="' + esc(fd.code) + '" data-auto-calc="true">' +
-            '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--blue badge--xs">Tự động</span></div>' +
+            '<div class="bmi-card__label"><span>' + esc(label) + '</span>' + autoBadgeHtml + '</div>' +
             '<div class="bmi-card__value bmi-card__value--sm">' + esc(statusVal) + '</div>' +
-            '<div class="bmi-card__note">Công thức: BMI ≥ 25 kg/m² (chuẩn châu Á)</div>' +
+            (showTechMeta ? '<div class="bmi-card__note">Công thức: BMI ≥ 25 kg/m² (chuẩn châu Á)</div>' : '') +
           '</div>'
         );
       }
@@ -4930,9 +4933,9 @@
         const polyText = medCountNum >= 5 ? ('Có (' + medCountNum + ' thuốc ≥ 5)') : (medCountNum > 0 ? ('Không (' + medCountNum + ' thuốc)') : 'Chưa đủ dữ liệu');
         return (
           '<div class="bmi-card" data-field-code="co_da_thuoc" data-auto-calc="true">' +
-            '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--blue badge--xs">Tự động</span></div>' +
+            '<div class="bmi-card__label"><span>' + esc(label) + '</span>' + autoBadgeHtml + '</div>' +
             '<div class="bmi-card__value bmi-card__value--sm">' + esc(polyText) + '</div>' +
-            '<div class="bmi-card__note">Công thức: Số thuốc đồng thời ≥ 5 = Đa thuốc (Luật 4.4)</div>' +
+            (showTechMeta ? '<div class="bmi-card__note">Công thức: Số thuốc đồng thời ≥ 5 = Đa thuốc (Luật 4.4)</div>' : '') +
           '</div>'
         );
       }
@@ -4953,9 +4956,9 @@
         }).join(' ');
         return (
           '<div class="bmi-card field--span-2" data-field-code="nhom_thuoc_tu_dong" data-auto-calc="true">' +
-            '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--blue badge--xs">Tự động</span></div>' +
+            '<div class="bmi-card__label"><span>' + esc(label) + '</span>' + autoBadgeHtml + '</div>' +
             '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">' + (badges || '<span class="cell-sub">Chưa có thuốc để phân nhóm</span>') + '</div>' +
-            '<div class="bmi-card__note">Công thức: Tự gán nhóm theo tên thuốc / hoạt chất (4 trụ cột GDMT &amp; nhóm cần tránh)</div>' +
+            (showTechMeta ? '<div class="bmi-card__note">Công thức: Tự gán nhóm theo tên thuốc / hoạt chất (4 trụ cột GDMT &amp; nhóm cần tránh)</div>' : '') +
           '</div>'
         );
       }
@@ -4974,8 +4977,8 @@
         };
         return (
           '<div class="bmi-card" data-field-code="' + esc(fd.code) + '">' +
-            '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--info badge--xs">Trường hệ thống</span></div>' +
-            '<div class="bmi-card__value bmi-card__value--sm' + (fd.code === 'bn_ma' || fd.code === 'ma_benh_nhan_his' || fd.code === 'ma_luot_kham_his' ? ' mono' : '') + '">' + esc(isPreview ? 'Đồng bộ từ hồ sơ' : (sysMap[fd.code] || '—')) + '</div>' +
+            '<div class="bmi-card__label"><span>' + esc(label) + '</span>' + sysBadgeHtml + '</div>' +
+            '<div class="bmi-card__value bmi-card__value--sm' + (fd.code === 'bn_ma' || fd.code === 'ma_benh_nhan_his' || fd.code === 'ma_luot_kham_his' ? ' mono' : '') + '">' + esc(isPreview ? (showTechMeta ? 'Đồng bộ từ hồ sơ' : '—') : (sysMap[fd.code] || '—')) + '</div>' +
           '</div>'
         );
       }
@@ -4985,9 +4988,9 @@
         const dropAlert = drop !== null && drop >= 20 ? ' <span class="badge badge--error badge--xs">Hạ HA tư thế (≥ 20 mmHg)</span>' : '';
         return (
           '<div class="bmi-card" data-field-code="' + esc(fd.code) + '" data-auto-calc="true">' +
-            '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--blue badge--xs">Tự động</span></div>' +
+            '<div class="bmi-card__label"><span>' + esc(label) + '</span>' + autoBadgeHtml + '</div>' +
             '<div class="bmi-card__value bmi-card__value--sm">' + (drop !== null ? (esc(drop) + ' mmHg' + dropAlert) : 'Chưa đủ dữ liệu') + '</div>' +
-            '<div class="bmi-card__note">Công thức: HA tâm thu nằm/ngồi − HA tâm thu đứng (≥ 20 mmHg = Luật 4.4)</div>' +
+            (showTechMeta ? '<div class="bmi-card__note">Công thức: HA tâm thu nằm/ngồi − HA tâm thu đứng (≥ 20 mmHg = Luật 4.4)</div>' : '') +
           '</div>'
         );
       }
@@ -4997,19 +5000,23 @@
         if (isPreview) {
           return (
             '<div class="bmi-card" data-field-code="luot_tuoi" data-auto-calc="true">' +
-              '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--blue badge--xs">Tự động</span></div>' +
+              '<div class="bmi-card__label"><span>' + esc(label) + '</span>' + autoBadgeHtml + '</div>' +
               '<div class="bmi-card__value bmi-card__value--muted">Chưa có dữ liệu</div>' +
-              '<div class="bmi-card__note">Công thức: Ngày khám − Ngày sinh hồ sơ' + (customHelp ? ' · ' + esc(customHelp) : '') + '</div>' +
+              (showTechMeta ? '<div class="bmi-card__note">Công thức: Ngày khám − Ngày sinh hồ sơ' + (customHelp ? ' · ' + esc(customHelp) : '') + '</div>' : (customHelp ? '<div class="bmi-card__note">' + esc(customHelp) + '</div>' : '')) +
             '</div>'
           );
         }
+        const profileLinkHtml = (ctx.visit && ctx.visit.patientId)
+          ? '<button type="button" class="breadcrumbs__link" data-nav="#/patients/' + esc(ctx.visit.patientId) + '">Mở hồ sơ bệnh nhân ↗</button>'
+          : '';
+        const ageNoteHtml = showTechMeta
+          ? ('<div class="bmi-card__note">Công thức: Ngày khám − Ngày sinh (' + esc(ctx.patient ? formatBirthPrecision(ctx.patient) : 'Hồ sơ hành chính') + ')' + (profileLinkHtml ? ' · ' + profileLinkHtml : '') + '</div>')
+          : (profileLinkHtml ? '<div class="bmi-card__note">' + profileLinkHtml + '</div>' : '');
         return (
           '<div class="bmi-card' + modCls + '" data-field-code="luot_tuoi" data-auto-calc="true">' +
-            '<div class="bmi-card__label"><span>' + esc(label) + ' ' + modBadgesHtml + '</span><span class="badge badge--blue badge--xs">Tự động</span></div>' +
+            '<div class="bmi-card__label"><span>' + esc(label) + ' ' + modBadgesHtml + '</span>' + autoBadgeHtml + '</div>' +
             '<div class="bmi-card__value">' + (age !== null ? esc(age) + ' tuổi' : 'Chưa ghi nhận') + '</div>' +
-            '<div class="bmi-card__note">Công thức: Ngày khám − Ngày sinh (' + esc(ctx.patient ? formatBirthPrecision(ctx.patient) : 'Hồ sơ hành chính') + ')' +
-              (ctx.visit && ctx.visit.patientId ? ' · <button type="button" class="breadcrumbs__link" data-nav="#/patients/' + esc(ctx.visit.patientId) + '">Mở hồ sơ bệnh nhân ↗</button>' : '') +
-            '</div>' +
+            ageNoteHtml +
           '</div>'
         );
       }
@@ -5018,19 +5025,25 @@
         if (isPreview) {
           return (
             '<div class="bmi-card" data-field-code="bn_gioi_tinh">' +
-              '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--info badge--xs">Trường hệ thống</span></div>' +
+              '<div class="bmi-card__label"><span>' + esc(label) + '</span>' + sysBadgeHtml + '</div>' +
               '<div class="bmi-card__value bmi-card__value--muted">Chưa có dữ liệu</div>' +
-              '<div class="bmi-card__note">' + esc(customHelp || 'Đồng bộ từ hồ sơ hành chính bệnh nhân.') + '</div>' +
+              (showTechMeta ? '<div class="bmi-card__note">' + esc(customHelp || 'Đồng bộ từ hồ sơ hành chính bệnh nhân.') + '</div>' : (customHelp ? '<div class="bmi-card__note">' + esc(customHelp) + '</div>' : '')) +
             '</div>'
           );
         }
+        const sexProfileLinkHtml = (ctx.visit && ctx.visit.patientId)
+          ? '<button type="button" class="breadcrumbs__link" data-nav="#/patients/' + esc(ctx.visit.patientId) + '">Mở hồ sơ bệnh nhân ↗</button>'
+          : '';
+        const sexNoteHtml = showTechMeta
+          ? ('<div class="bmi-card__note">' + esc(customHelp || 'Đồng bộ từ hồ sơ hành chính bệnh nhân.') + (sexProfileLinkHtml ? ' · ' + sexProfileLinkHtml : '') + '</div>')
+          : ((customHelp || sexProfileLinkHtml)
+              ? '<div class="bmi-card__note">' + (customHelp ? esc(customHelp) : '') + (customHelp && sexProfileLinkHtml ? ' · ' : '') + sexProfileLinkHtml + '</div>'
+              : '');
         return (
           '<div class="bmi-card' + modCls + '" data-field-code="bn_gioi_tinh">' +
-            '<div class="bmi-card__label"><span>' + esc(label) + ' ' + modBadgesHtml + '</span><span class="badge badge--info badge--xs">Trường hệ thống</span></div>' +
+            '<div class="bmi-card__label"><span>' + esc(label) + ' ' + modBadgesHtml + '</span>' + sysBadgeHtml + '</div>' +
             '<div class="bmi-card__value bmi-card__value--sm">' + esc(ctx.patient ? formatSex(ctx.patient.sex) : 'Chưa ghi nhận') + '</div>' +
-            '<div class="bmi-card__note">' + esc(customHelp || 'Đồng bộ từ hồ sơ hành chính bệnh nhân.') +
-              (ctx.visit && ctx.visit.patientId ? ' · <button type="button" class="breadcrumbs__link" data-nav="#/patients/' + esc(ctx.visit.patientId) + '">Mở hồ sơ bệnh nhân ↗</button>' : '') +
-            '</div>' +
+            sexNoteHtml +
           '</div>'
         );
       }
@@ -5059,9 +5072,9 @@
         const polyTag = medCountNum >= 5 ? ' <span class="badge badge--warn badge--xs">Đa thuốc (≥ 5)</span>' : '';
         return (
           '<div class="bmi-card" data-field-code="so_luong_thuoc_dong_thoi" data-auto-calc="true">' +
-            '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--blue badge--xs">Tự động</span></div>' +
+            '<div class="bmi-card__label"><span>' + esc(label) + '</span>' + autoBadgeHtml + '</div>' +
             '<div class="bmi-card__value bmi-card__value--sm">' + esc(valLabel) + polyTag + '</div>' +
-            '<div class="bmi-card__note">Công thức: Đếm số thuốc đang dùng (≥ 5 thuốc = Đa thuốc)' + (customHelp ? ' · ' + esc(customHelp) : '') + '</div>' +
+            (showTechMeta ? '<div class="bmi-card__note">Công thức: Đếm số thuốc đang dùng (≥ 5 thuốc = Đa thuốc)' + (customHelp ? ' · ' + esc(customHelp) : '') + '</div>' : (customHelp ? '<div class="bmi-card__note">' + esc(customHelp) + '</div>' : '')) +
           '</div>'
         );
       }
@@ -5069,12 +5082,12 @@
       if (flags.computed || fd.isCalculated || fd.is_calculated) {
         const autoValText = val && val.valueState === 'answered'
           ? (val.valueNum != null ? (String(val.valueNum) + (fd.canonicalUnit ? ' ' + fd.canonicalUnit : '')) : (val.valueText || 'Đã tính'))
-          : 'Tự tính khi có đủ dữ liệu';
+          : (showTechMeta ? 'Tự tính khi có đủ dữ liệu' : 'Chưa đủ dữ liệu');
         return (
           '<div class="bmi-card" data-field-code="' + esc(fd.code) + '" data-auto-calc="true">' +
-            '<div class="bmi-card__label"><span>' + esc(label) + '</span><span class="badge badge--blue badge--xs">Tự động</span></div>' +
+            '<div class="bmi-card__label"><span>' + esc(label) + '</span>' + autoBadgeHtml + '</div>' +
             '<div class="bmi-card__value ' + (val && val.valueState === 'answered' ? 'bmi-card__value--sm' : 'bmi-card__value--muted') + '">' + esc(autoValText) + '</div>' +
-            '<div class="bmi-card__note">' + esc(fd.formulaVi || helpText || 'Tự động tính từ dữ liệu trong cùng lượt khám.') + '</div>' +
+            (showTechMeta ? '<div class="bmi-card__note">' + esc(fd.formulaVi || helpText || 'Tự động tính từ dữ liệu trong cùng lượt khám.') + '</div>' : (customHelp ? '<div class="bmi-card__note">' + esc(customHelp) + '</div>' : '')) +
           '</div>'
         );
       }
@@ -5973,11 +5986,11 @@
       const isCollapsedBody = collapsedNurseForDoctor && !forceExpanded;
       const nurseHeaderControls = (!isPreview && !isNurseViewer && isV2Mode && secIsNurse && !ro)
         ? ('<div class="section-role-controls">' +
-            '<span class="badge ' + (nurseUnlocked ? 'badge--warn' : 'badge--info') + ' badge--xs">' + (nurseUnlocked ? 'Đang sửa phần NVYT' : 'NVYT nhập · Chỉ đọc') + '</span>' +
+            (showTechMeta ? '<span class="badge ' + (nurseUnlocked ? 'badge--warn' : 'badge--info') + ' badge--xs">' + (nurseUnlocked ? 'Đang sửa phần NVYT' : 'NVYT nhập · Chỉ đọc') + '</span>' : '') +
             '<button type="button" class="btn btn--secondary btn--xs" data-action="toggle-edit-nurse-vitals">' + (nurseUnlocked ? (ICONS.lock + ' Khóa lại') : (ICONS.edit + ' Sửa')) + '</button>' +
           '</div>')
-        : (isV2Mode && secIsNurse && isNurseViewer
-            ? '<span class="badge badge--teal badge--xs">NVYT nhập</span>'
+        : (showTechMeta && isV2Mode && secIsNurse && isNurseViewer
+            ? '<span class="badge badge--blue badge--xs">NVYT nhập</span>'
             : '');
       return (
         '<section class="card clinical-section' + (isCollapsedBody ? ' clinical-section--collapsed' : '') + (sectionRo ? ' clinical-section--readonly' : '') + '" id="' + esc(secDomId) + '" data-section-block="' + esc(section.sectionCode) + '" data-section-entry-role="' + (secIsNurse ? 'nurse' : 'doctor') + '">' +
@@ -6184,7 +6197,6 @@
         '<div class="enc-wf-bar__head">' +
           '<div class="enc-wf-bar__title">' +
             '<strong>Tiến trình 4 Module</strong>' +
-            (wfSum.completed ? '<span class="badge badge--success badge--xs">Đã hoàn tất workflow</span>' : '') +
             (enc.dirty ? '<span class="badge badge--warn badge--xs">Chưa lưu thay đổi mới nhất</span>' : '') +
           '</div>' +
           '<button type="button" class="btn btn--ghost btn--xs" data-nav="#/visits/' + esc(enc.visit.id) + '/workflow">Mở màn kết quả &amp; quyết định ' + ICONS.arrowRight + '</button>' +
@@ -6224,7 +6236,7 @@
       enc.runningModule = null;
       if (err && err.status === 401) return handleAuthOrError(err);
       if (err && err.status === 409) {
-        toast((err && err.detail) || 'Trạng thái workflow đã thay đổi (409). Đang tải lại...', 'warn');
+        toast((err && err.detail) || 'Trạng thái Luồng 4 Module AI đã thay đổi (409). Đang tải lại...', 'warn');
         await loadEncounter(enc.visit.id);
         return;
       }
@@ -6290,7 +6302,7 @@
       '<section class="nurse-vitals-card" data-nurse-vitals-summary="true">' +
         '<div class="nurse-vitals-card__head">' +
           '<div class="nurse-vitals-card__title">' +
-            '<strong>Sinh hiệu tiếp nhận (NVYT nhập · Chỉ đọc)</strong>' +
+            '<strong>Sinh hiệu tiếp nhận</strong>' +
             (v.submittedByName ? '<span class="cell-sub"> · Người gửi: <strong>' + esc(v.submittedByName) + '</strong>' + (v.submittedAt ? ' (' + esc(formatDateTime(v.submittedAt)) + ')' : '') + '</span>' : '') +
           '</div>' +
           (!isConf
@@ -6299,7 +6311,7 @@
         '</div>' +
         '<div class="nurse-vitals-card__grid">' +
           '<div class="nv-metric"><span class="nv-metric__lbl">Chiều cao / Cân nặng</span><span class="nv-metric__val tabular">' + esc(fmt(h, 'cm')) + ' / ' + esc(fmt(w, 'kg')) + '</span></div>' +
-          '<div class="nv-metric"><span class="nv-metric__lbl">BMI (Tự động)</span><span class="nv-metric__val tabular">' + esc(bmi !== null ? (bmi + ' kg/m²') : '—') + '</span></div>' +
+          '<div class="nv-metric"><span class="nv-metric__lbl">BMI</span><span class="nv-metric__val tabular">' + esc(bmi !== null ? (bmi + ' kg/m²') : '—') + '</span></div>' +
           '<div class="nv-metric' + (typeof sbp === 'number' && sbp < 90 ? ' nv-metric--alert' : '') + '"><span class="nv-metric__lbl">Huyết áp</span><span class="nv-metric__val tabular">' + esc(bpText) + '</span></div>' +
           '<div class="nv-metric' + (typeof hr === 'number' && (hr < 40 || hr > 130) ? ' nv-metric--alert' : '') + '"><span class="nv-metric__lbl">Mạch</span><span class="nv-metric__val tabular">' + esc(fmt(hr, 'lần/phút')) + '</span></div>' +
           '<div class="nv-metric' + (typeof rr === 'number' && rr > 25 ? ' nv-metric--alert' : '') + '"><span class="nv-metric__lbl">Nhịp thở</span><span class="nv-metric__val tabular">' + esc(fmt(rr, 'lần/phút')) + '</span></div>' +
@@ -6334,7 +6346,7 @@
       return (
         '<button type="button" class="rail-btn' + (sec.sectionCode === enc.activeSectionCode ? ' is-active' : '') + '" data-enc-section="' + esc(sec.sectionCode) + '">' +
           '<span><span class="rail-btn__num">' + String(sec.displayOrder).padStart(2, '0') + '</span>' + esc(sec.titleVi) + '</span>' +
-          '<span class="rail-btn__counts">' + (p.hasErr ? '<span class="err-dot" title="Có lỗi trường"></span>' : '') + (p.total > 0 ? (p.filled + '/' + p.total) : 'Tự động') + '</span>' +
+          '<span class="rail-btn__counts">' + (p.hasErr ? '<span class="err-dot" title="Có lỗi trường"></span>' : '') + (p.total > 0 ? (p.filled + '/' + p.total) : '') + '</span>' +
         '</button>'
       );
     }).join('');
@@ -6389,6 +6401,7 @@
 
     const sectionCard = renderClinicalSectionForm({
       mode: 'encounter',
+      renderMode: 'entry',
       viewerRole: isNurse ? 'nurse' : 'doctor',
       readonly: formReadonly,
       isV12: enc.isV12,
@@ -7218,15 +7231,89 @@
     return map;
   }
 
+  // UI-10: Display-only filter removing DD # codes, rule codes (Luật X.Y), and raw technical IDs.
+  // Original AI output / API data is never mutated.
+  function wfStripTechnicalCodes(text) {
+    if (text === null || text === undefined) return '';
+    let s = String(text).trim();
+    if (!s) return '';
+    // Remove parenthetical DD / rule references like (DD #125), (DD #121–145), (Luật 4.4)
+    s = s.replace(/\s*\(\s*(?:DD\s*#?\s*\d+(?:\s*[–-]\s*\d+)?|Luật\s+[0-9A-Za-z._–-]+)\s*\)/gi, '');
+    // Remove standalone DD # ranges/numbers like "DD #197-206" or "DD #125"
+    s = s.replace(/\s*\bDD\s*#?\s*\d+(?:\s*[–-]\s*\d+)?\b/gi, '');
+    // Replace "Vượt ngưỡng Luật 4.2;" -> "Vượt ngưỡng an toàn;"
+    s = s.replace(/Vượt\s+ngưỡng\s+Luật\s+\d+(?:\.\d+)?(?:\s*[–-]\s*\d+(?:\.\d+)?)?\s*([;:,])?/gi, function (_m, p) {
+      return 'Vượt ngưỡng an toàn' + (p || ';');
+    });
+    // Strip leading "Luật 2.1–2.2; " / "Luật 3.5 mô phỏng: " / "Dùng lại nội dung luật M3-C0; "
+    s = s.replace(/^\s*(?:Dùng\s+lại\s+nội\s+dung\s+)?Luật\s+[A-Z0-9]+(?:[.\-–][A-Z0-9]+)*(?:\s+mô\s+phỏng)?\s*[;:,]\s*/i, '');
+    // Strip inline phrases referencing rule codes like "của Luật 1.9" or "để áp dụng Luật 3.1" or "Luật 2.4:"
+    s = s.replace(/\s*(?:của|theo|để\s+áp\s+dụng)\s+Luật\s+[A-Z0-9]+(?:[.\-–][A-Z0-9]+)*/gi, '');
+    s = s.replace(/\bLuật\s+[A-Z0-9]+(?:[.\-–][A-Z0-9]+)*\s*[;:,]?\s*/gi, '');
+    // Clean orphaned punctuation / spacing
+    s = s.replace(/\s+([,.;:])/g, '$1').replace(/\s{2,}/g, ' ').replace(/^[;:,.\s]+/, '').trim();
+    if (s) {
+      s = s.charAt(0).toUpperCase() + s.slice(1);
+    }
+    return s;
+  }
+
+  function wfIsRawTechnicalToken(val) {
+    const s = String(val || '').trim();
+    if (!s) return true;
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) return true;
+    if (/^(?:obs|ev|run|dec|al|rule|dd)[-_:#][a-z0-9._-]+$/i.test(s)) return true;
+    if (/^[a-z0-9_]+$/i.test(s) && (s.indexOf('_') >= 0 || /\d{4,}/.test(s))) return true;
+    return false;
+  }
+
+  function wfFormatEvidenceDisplay(evidenceIds, wf) {
+    if (!Array.isArray(evidenceIds) || evidenceIds.length === 0) return '';
+    const obsList = (wf && Array.isArray(wf.observations)) ? wf.observations : [];
+    const defs = (wf && wf.formRes && Array.isArray(wf.formRes.fieldDefinitions)) ? wf.formRes.fieldDefinitions : [];
+    const labelByCode = {};
+    defs.forEach(function (fd) { if (fd && fd.code && fd.labelVi) labelByCode[fd.code] = fd.labelVi; });
+    const parts = [];
+    const seen = {};
+    evidenceIds.forEach(function (rawId) {
+      const idStr = String(rawId || '').trim();
+      if (!idStr) return;
+      const obs = obsList.find(function (o) { return o && String(o.id) === idStr; });
+      if (obs && obs.answer && obs.answer.value_state === 'answered') {
+        const lbl = labelByCode[obs.fieldCode] || AI_FALLBACK_FIELD_LABELS[obs.fieldCode] || '';
+        const val = obs.answer.value;
+        const valStr = (val !== null && val !== undefined && typeof val !== 'object')
+          ? (String(val) + (obs.answer.unit ? (' ' + obs.answer.unit) : ''))
+          : '';
+        const timeStr = obs.answer.measuredAt ? ('đo lúc ' + formatDateTime(obs.answer.measuredAt)) : '';
+        const summary = [lbl ? (lbl + (valStr ? ': ' + valStr : '')) : valStr, timeStr].filter(Boolean).join(' · ');
+        if (summary && !seen[summary]) {
+          seen[summary] = true;
+          parts.push(summary);
+        }
+        return;
+      }
+      if (!wfIsRawTechnicalToken(idStr)) {
+        const cleaned = wfStripTechnicalCodes(idStr);
+        if (cleaned && !seen[cleaned]) {
+          seen[cleaned] = true;
+          parts.push(cleaned);
+        }
+      }
+    });
+    if (parts.length === 0) return '';
+    return '<div class="cell-sub">Bằng chứng: ' + esc(parts.join('; ')) + '</div>';
+  }
+
   function wfFormatFollowupItemHtml(f) {
     if (typeof f === 'string') {
-      const s = f.trim();
+      const s = wfStripTechnicalCodes(f);
       return s ? ('<li>' + esc(s) + '</li>') : '';
     }
     if (f && typeof f === 'object') {
-      const hm = String(f.hang_muc || '').trim();
-      const td = String(f.thoi_diem || '').trim();
-      const ld = String(f.ly_do || '').trim();
+      const hm = wfStripTechnicalCodes(f.hang_muc || '');
+      const td = wfStripTechnicalCodes(f.thoi_diem || '');
+      const ld = wfStripTechnicalCodes(f.ly_do || '');
       if (!hm && !td && !ld) return '';
       let html = '';
       if (hm) html += '<strong>' + esc(hm) + '</strong>';
@@ -7653,8 +7740,8 @@
       moduleNum: meta.num,
       formVersionLabel: wfVerLabel,
       fallback: status === 409
-        ? ('Xung đột trạng thái workflow (HTTP 409) tại Module ' + meta.num + '.')
-        : 'Đã xảy ra lỗi khi xử lý yêu cầu workflow.'
+        ? ('Xung đột trạng thái đánh giá AI (HTTP 409) tại Module ' + meta.num + '.')
+        : 'Đã xảy ra lỗi khi xử lý yêu cầu đánh giá AI.'
     });
   }
 
@@ -8220,7 +8307,7 @@
       return (output.phan_loai_ket_qua || '—') + ' · Ưu tiên: ' + (output.muc_uu_tien || '—');
     }
     if (mod === 'm3') {
-      return (output.dinh_huong || ('Stage ' + (output.stage || '—') + ' · ' + (output.kieu_hinh_ef || '—')));
+      return wfStripTechnicalCodes(output.dinh_huong || ('Stage ' + (output.stage || '—') + ' · ' + (output.kieu_hinh_ef || '—')));
     }
     if (mod === 'm4') {
       const n = (output.canh_bao || []).length;
@@ -8330,7 +8417,7 @@
     return (
       '<div class="wf-rx-box">' +
         '<div class="wf-rx-box__head">' +
-          '<div><strong>Phương án đơn thuốc bác sĩ chọn cho Module 3 (chuyển sang Module 4)</strong><p class="field__help">Độc lập với khuyến nghị AI; chỉ lưu trong workflow thử nghiệm, không tự ghi vào đơn thuốc thật.</p></div>' +
+          '<div><strong>Phương án đơn thuốc bác sĩ chọn cho Module 3 (chuyển sang Module 4)</strong><p class="field__help">Độc lập với khuyến nghị AI; chỉ lưu trong luồng đánh giá AI thử nghiệm, không tự ghi vào đơn thuốc thật.</p></div>' +
           '<div class="list-state-bar__group">' +
             '<button type="button" class="list-state-btn' + (listState === 'none' ? ' is-none' : '') + '" data-wf-rx-mode="none"' + (isReadonly ? ' disabled' : '') + '>Không kê đơn mới</button>' +
             '<button type="button" class="list-state-btn' + (listState === 'known' ? ' is-known' : '') + '" data-wf-rx-mode="known"' + (isReadonly ? ' disabled' : '') + '>Có thuốc mới (' + items.length + ')</button>' +
@@ -8392,11 +8479,10 @@
         '<div class="wf-alert-card__info">' +
           '<div class="wf-alert-card__head">' +
             '<span class="badge badge--' + sevCls + '">' + esc(al.muc_do) + '</span>' +
-            '<strong>' + esc(al.loai) + '</strong>' +
-            '<span class="badge badge--neutral badge--xs mono">DD #' + esc(al.ddCode || '—') + '</span>' +
+            '<strong>' + esc(wfStripTechnicalCodes(al.loai)) + '</strong>' +
           '</div>' +
-          '<p class="wf-alert-card__desc">' + esc(al.noi_dung) + '</p>' +
-          '<p class="wf-alert-card__action"><strong>Đề xuất:</strong> ' + esc(al.hanh_dong_de_xuat || 'Bác sĩ rà soát') + '</p>' +
+          '<p class="wf-alert-card__desc">' + esc(wfStripTechnicalCodes(al.noi_dung)) + '</p>' +
+          '<p class="wf-alert-card__action"><strong>Đề xuất:</strong> ' + esc(wfStripTechnicalCodes(al.hanh_dong_de_xuat || 'Bác sĩ rà soát')) + '</p>' +
           (Array.isArray(al.thuoc_lien_quan) && al.thuoc_lien_quan.length > 0
             ? '<div class="wf-chip-list"><span class="field__help">Thuốc liên quan:</span>' + al.thuoc_lien_quan.map(function (id) {
                 const resolved = medLabelMap[String(id)] || 'Thuốc không xác định';
@@ -8427,7 +8513,11 @@
   function renderModuleOutputBody(mod, output, wf, readonlyPreview) {
     if (!output) return '<p class="field__help">Chưa có dữ liệu kết quả.</p>';
     const gapsHtml = Array.isArray(output.dataGaps) && output.dataGaps.length > 0
-      ? '<div class="wf-gaps-box"><strong>Khoảng trống dữ liệu (dataGaps):</strong><ul>' + output.dataGaps.map(function (g) { return '<li>' + esc(g) + '</li>'; }).join('') + '</ul></div>'
+      ? '<div class="wf-gaps-box"><strong>Khoảng trống dữ liệu (dataGaps):</strong><ul>' + output.dataGaps.map(function (g) {
+          const s = String(g || '');
+          const cleaned = (/\b(Luật\s+[A-Z0-9]|DD\s*#?\d+)/i.test(s)) ? wfStripTechnicalCodes(s) : s;
+          return '<li>' + esc(cleaned) + '</li>';
+        }).join('') + '</ul></div>'
       : '';
 
     if (mod === 'm1') {
@@ -8437,22 +8527,22 @@
       return (
         (Array.isArray(output.canh_bao_cap_cuu) && output.canh_bao_cap_cuu.length > 0 ? (
           '<div class="banner banner--error" role="alert"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__title">Cảnh báo cấp cứu cần bác sĩ đánh giá ngay</p><div class="wf-chip-list">' +
-            output.canh_bao_cap_cuu.map(function (c) { return '<span class="badge badge--error">' + esc(c) + '</span>'; }).join('') +
+            output.canh_bao_cap_cuu.map(function (c) { return '<span class="badge badge--error">' + esc(wfStripTechnicalCodes(c)) + '</span>'; }).join('') +
           '</div></div></div></div>'
         ) : '') +
         '<div class="wf-kpi-3">' +
-          '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Xác suất / Giai đoạn suy tim</div><div class="wf-kpi-card__val">' + esc(prob.muc || '—') + '</div><div class="wf-kpi-card__sub">Xác suất mô phỏng: <strong>' + esc(pctText) + '</strong>' + (output.stage ? (' · Stage ' + esc(output.stage)) : '') + '</div></div>' +
+          '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Xác suất / Giai đoạn suy tim</div><div class="wf-kpi-card__val">' + esc(wfStripTechnicalCodes(prob.muc || '—')) + '</div><div class="wf-kpi-card__sub">Xác suất mô phỏng: <strong>' + esc(pctText) + '</strong>' + (output.stage ? (' · Stage ' + esc(output.stage)) : '') + '</div></div>' +
           '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Kiểu hình EF nghi ngờ</div><div class="wf-kpi-card__val">' + esc(output.kieu_hinh_ef || '—') + '</div>' + (!output.kieu_hinh_ef || output.kieu_hinh_ef === 'Chưa phân loại do thiếu EF' ? '<div class="wf-kpi-card__sub">Không tự suy kiểu hình khi thiếu EF</div>' : '') + '</div>' +
-          '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Bệnh cảnh lâm sàng</div><div class="wf-kpi-card__val">' + esc(output.benh_canh || 'Chưa xác định') + '</div><div class="wf-kpi-card__sub">Frailty/dung nạp: ' + esc(output.frailty_dung_nap || '—') + '</div></div>' +
+          '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Bệnh cảnh lâm sàng</div><div class="wf-kpi-card__val">' + esc(output.benh_canh || 'Chưa xác định') + '</div><div class="wf-kpi-card__sub">Frailty/dung nạp: ' + esc(wfStripTechnicalCodes(output.frailty_dung_nap || '—')) + '</div></div>' +
         '</div>' +
         (Array.isArray(output.canh_bao_gia_suy_tim) && output.canh_bao_gia_suy_tim.length > 0 ? (
           '<div class="wf-subblock"><h4>Cảnh báo giả suy tim cần loại trừ</h4><div class="wf-chip-list">' +
-            output.canh_bao_gia_suy_tim.map(function (m) { return '<span class="badge badge--warn">' + esc(m) + '</span>'; }).join('') +
+            output.canh_bao_gia_suy_tim.map(function (m) { return '<span class="badge badge--warn">' + esc(wfStripTechnicalCodes(m)) + '</span>'; }).join('') +
           '</div></div>'
         ) : '') +
         (Array.isArray(output.xep_hang_nguyen_nhan) && output.xep_hang_nguyen_nhan.length > 0 ? (
           '<div class="wf-subblock"><h4>Xếp hạng nguyên nhân nghi ngờ</h4><ol class="wf-ranked-list">' +
-            output.xep_hang_nguyen_nhan.map(function (x) { return '<li><strong>' + esc(x.code) + '</strong> — ' + esc(x.ly_do) + '</li>'; }).join('') +
+            output.xep_hang_nguyen_nhan.map(function (x) { return '<li><strong>' + esc(wfStripTechnicalCodes(x.code)) + '</strong> — ' + esc(wfStripTechnicalCodes(x.ly_do)) + '</li>'; }).join('') +
           '</ol></div>'
         ) : '') +
         '<div class="wf-subblock"><h4>Dự báo 6 nhóm nguy cơ (mô phỏng chưa hiệu chuẩn)</h4><div class="wf-risk-grid">' +
@@ -8481,10 +8571,13 @@
       const renderRows = function (arr, badgeCls) {
         if (arr.length === 0) return '<p class="field__help">Không có mục nào.</p>';
         return '<div class="wf-m2-list">' + arr.map(function (r) {
+          const cleanReason = wfStripTechnicalCodes(r.ly_do);
+          const evidenceHtml = wfFormatEvidenceDisplay(r.evidenceObservationIds, wf);
           return (
             '<div class="wf-m2-row">' +
-              '<div><strong>' + esc(r.label) + '</strong> <span class="cell-sub mono">(DD #' + r.dd + ')</span><div class="cell-sub">' + esc(r.ly_do) + '</div>' +
-              (Array.isArray(r.evidenceObservationIds) && r.evidenceObservationIds.length > 0 ? '<div class="cell-sub mono">Bằng chứng: ' + esc(r.evidenceObservationIds.join(', ')) + '</div>' : '') +
+              '<div><strong>' + esc(r.label) + '</strong>' +
+              (cleanReason ? '<div class="cell-sub">' + esc(cleanReason) + '</div>' : '') +
+              evidenceHtml +
               '</div>' +
               '<span class="badge badge--' + badgeCls + '">' + esc(r.trang_thai) + '</span>' +
             '</div>'
@@ -8495,12 +8588,12 @@
         '<div class="wf-kpi-3">' +
           '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Phân loại kết quả</div><div class="wf-kpi-card__val">' + esc(output.phan_loai_ket_qua || '—') + '</div></div>' +
           '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Mức ưu tiên</div><div class="wf-kpi-card__val"><span class="badge badge--' + prioCls + '">' + esc(output.muc_uu_tien || '—') + '</span></div></div>' +
-          '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Cân nhắc lợi ích / nguy cơ</div><div class="wf-kpi-card__sub">' + esc(output.loi_ich_nguy_co || '—') + '</div></div>' +
+          '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Cân nhắc lợi ích / nguy cơ</div><div class="wf-kpi-card__sub">' + esc(wfStripTechnicalCodes(output.loi_ich_nguy_co || '—')) + '</div></div>' +
         '</div>' +
-        '<div class="banner banner--info"><div class="banner__main">' + ICONS.shield + '<div><p class="banner__title">Lưu ý thủ thuật xâm lấn</p><p class="banner__desc">' + esc(output.canh_bao_xam_lan || 'Không chỉ định thăm dò xâm lấn chỉ dựa trên tuổi đơn thuần.') + '</p></div></div></div>' +
+        '<div class="banner banner--info"><div class="banner__main">' + ICONS.shield + '<div><p class="banner__title">Lưu ý thủ thuật xâm lấn</p><p class="banner__desc">' + esc(wfStripTechnicalCodes(output.canh_bao_xam_lan || 'Không chỉ định thăm dò xâm lấn chỉ dựa trên tuổi đơn thuần.')) + '</p></div></div></div>' +
         '<div class="wf-subblock"><h4>Đề xuất thực hiện (' + proposed.length + ')</h4>' + renderRows(proposed, 'info') + '</div>' +
         '<div class="wf-subblock"><h4>Đã có kết quả gần đây — khóa trùng lặp (' + recent.length + ')</h4>' + renderRows(recent, 'success') + '</div>' +
-        '<details class="wf-details"><summary>Không đề xuất (' + notProposed.length + ' mục DD #121–145)</summary>' + renderRows(notProposed, 'neutral') + '</details>' +
+        '<details class="wf-details"><summary>Không đề xuất (' + notProposed.length + ' mục)</summary>' + renderRows(notProposed, 'neutral') + '</details>' +
         gapsHtml
       );
     }
@@ -8515,11 +8608,11 @@
         return 'neutral';
       };
       return (
-        (output.canh_bao ? '<div class="banner banner--warn"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc"><strong>' + esc(output.canh_bao) + '</strong></p></div></div></div>' : '') +
+        (output.canh_bao ? '<div class="banner banner--warn"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc"><strong>' + esc(wfStripTechnicalCodes(output.canh_bao)) + '</strong></p></div></div></div>' : '') +
         '<div class="wf-kpi-3">' +
           '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Giai đoạn &amp; Kiểu hình EF</div><div class="wf-kpi-card__val">Stage ' + esc(output.stage || '—') + ' · ' + esc(output.kieu_hinh_ef || '—') + '</div></div>' +
-          '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Định hướng tổng quan</div><div class="wf-kpi-card__sub">' + esc(output.dinh_huong || '—') + '</div></div>' +
-          '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Kế hoạch dò liều</div><div class="wf-kpi-card__sub">' + esc(output.ke_hoach_do_lieu || '—') + '</div></div>' +
+          '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Định hướng tổng quan</div><div class="wf-kpi-card__sub">' + esc(wfStripTechnicalCodes(output.dinh_huong || '—')) + '</div></div>' +
+          '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Kế hoạch dò liều</div><div class="wf-kpi-card__sub">' + esc(wfStripTechnicalCodes(output.ke_hoach_do_lieu || '—')) + '</div></div>' +
         '</div>' +
         '<div class="wf-subblock"><h4>5 Nhóm thuốc nền tảng</h4><div class="wf-drug-grid">' +
           WF_M3_DRUG_GROUPS.map(function (g) {
@@ -8527,14 +8620,14 @@
             return (
               '<div class="wf-drug-card">' +
                 '<div class="wf-drug-card__head"><strong>' + esc(g.label) + '</strong><span class="badge badge--' + badgeForMuc(info.muc) + '">' + esc(info.muc) + '</span></div>' +
-                '<p class="wf-drug-card__reason">' + esc(info.ly_do) + '</p>' +
+                '<p class="wf-drug-card__reason">' + esc(wfStripTechnicalCodes(info.ly_do)) + '</p>' +
               '</div>'
             );
           }).join('') +
         '</div></div>' +
         (Array.isArray(output.ca_the_hoa) && output.ca_the_hoa.length > 0 ? (
           '<div class="wf-subblock"><h4>Cá thể hóa người cao tuổi</h4><div class="wf-chip-list">' +
-            output.ca_the_hoa.map(function (c) { return '<span class="badge badge--blue">' + esc(c) + '</span>'; }).join('') +
+            output.ca_the_hoa.map(function (c) { return '<span class="badge badge--blue">' + esc(wfStripTechnicalCodes(c)) + '</span>'; }).join('') +
           '</div></div>'
         ) : '') +
         (function () {
@@ -8561,7 +8654,7 @@
       const actions = (m4ms && Array.isArray(m4ms.availableActions)) ? m4ms.availableActions : [];
       const canConfirm = !readonlyPreview && !wf.isPharmacistView && actions.indexOf('confirm_m4') >= 0 && !wf.runningModule;
       return (
-        '<div class="banner banner--info"><div class="banner__main">' + ICONS.shield + '<div><p class="banner__desc"><strong>AI chỉ đưa ra cảnh báo tham khảo, không tự ngừng hoặc đổi thuốc.</strong> Bác sĩ cần xác nhận tất cả cảnh báo mức Nghiêm trọng trước khi hoàn tất workflow.</p></div></div></div>' +
+        '<div class="banner banner--info"><div class="banner__main">' + ICONS.shield + '<div><p class="banner__desc"><strong>AI chỉ đưa ra cảnh báo tham khảo, không tự ngừng hoặc đổi thuốc.</strong> Bác sĩ cần xác nhận tất cả cảnh báo mức Nghiêm trọng trước khi hoàn tất đánh giá AI.</p></div></div></div>' +
         '<div class="wf-m4-counters">' +
           '<span class="badge badge--error">' + nSer + ' Nghiêm trọng</span>' +
           '<span class="badge badge--warn">' + nImp + ' Quan trọng</span>' +
@@ -8655,19 +8748,19 @@
           '<div class="field field--span-2"><label class="field__label" for="wf-man-m2-inv">Cảnh báo thủ thuật xâm lấn</label>' +
             '<input id="wf-man-m2-inv" type="text" class="input" data-wf-man="canh_bao_xam_lan" value="' + esc(draft.canh_bao_xam_lan || '') + '"></div>' +
         '</div>' +
-        '<div class="wf-subblock"><h4>Chỉnh sửa 25 mục chỉ định cận lâm sàng (DD #121–145)</h4>' +
+        '<div class="wf-subblock"><h4>Chỉnh sửa 25 mục chỉ định cận lâm sàng</h4>' +
           '<div class="wf-man-m2-tests">' +
             WF_M2_TESTS.map(function (t) {
               const cur = goiY[t.key] || { trang_thai: 'Không đề xuất', ly_do: '' };
               return (
                 '<div class="wf-man-m2-row">' +
-                  '<span class="wf-man-m2-label"><strong>' + esc(t.label) + '</strong> <span class="cell-sub mono">#' + t.dd + '</span></span>' +
+                  '<span class="wf-man-m2-label"><strong>' + esc(t.label) + '</strong></span>' +
                   '<select class="select input--sm" data-wf-man="goi_y_chi_dinh.' + esc(t.key) + '.trang_thai">' +
                     ['Đề xuất', 'Không đề xuất', 'Đã có kết quả gần đây'].map(function (st) {
                       return '<option value="' + esc(st) + '"' + (cur.trang_thai === st ? ' selected' : '') + '>' + esc(st) + '</option>';
                     }).join('') +
                   '</select>' +
-                  '<input type="text" class="input input--sm" data-wf-man="goi_y_chi_dinh.' + esc(t.key) + '.ly_do" value="' + esc(cur.ly_do || '') + '" placeholder="Lý do chỉ định...">' +
+                  '<input type="text" class="input input--sm" data-wf-man="goi_y_chi_dinh.' + esc(t.key) + '.ly_do" value="' + esc(wfStripTechnicalCodes(cur.ly_do || '')) + '" placeholder="Lý do chỉ định...">' +
                 '</div>'
               );
             }).join('') +
@@ -8707,24 +8800,24 @@
             );
           }).join('') +
         '</div></div>' +
-        '<div class="wf-subblock"><h4>7 Nhóm khuyến nghị (DD #173–179)</h4><div class="wf-man-m2-tests">' +
+        '<div class="wf-subblock"><h4>7 Nhóm khuyến nghị</h4><div class="wf-man-m2-tests">' +
           WF_M3_KHUYEN_NGHI_KEYS.map(function (k) {
             const cur = khuyenNghi[k.key] || { ap_dung: 'chua_ro', noi_dung: '', ly_do: '' };
             return (
               '<div class="wf-man-m3-rec-row">' +
-                '<strong>' + esc(k.label) + '</strong>' +
+                '<strong>' + esc(wfStripTechnicalCodes(k.label)) + '</strong>' +
                 '<select class="select input--sm" data-wf-man="khuyen_nghi.' + esc(k.key) + '.ap_dung">' +
                   [['co', 'Áp dụng'], ['khong', 'Không áp dụng'], ['chua_ro', 'Chưa rõ']].map(function (o) {
                     return '<option value="' + o[0] + '"' + (cur.ap_dung === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
                   }).join('') +
                 '</select>' +
-                '<input type="text" class="input input--sm" data-wf-man="khuyen_nghi.' + esc(k.key) + '.noi_dung" value="' + esc(cur.noi_dung || '') + '" placeholder="Nội dung...">' +
-                '<input type="text" class="input input--sm" data-wf-man="khuyen_nghi.' + esc(k.key) + '.ly_do" value="' + esc(cur.ly_do || '') + '" placeholder="Lý do...">' +
+                '<input type="text" class="input input--sm" data-wf-man="khuyen_nghi.' + esc(k.key) + '.noi_dung" value="' + esc(wfStripTechnicalCodes(cur.noi_dung || '')) + '" placeholder="Nội dung...">' +
+                '<input type="text" class="input input--sm" data-wf-man="khuyen_nghi.' + esc(k.key) + '.ly_do" value="' + esc(wfStripTechnicalCodes(cur.ly_do || '')) + '" placeholder="Lý do...">' +
               '</div>'
             );
           }).join('') +
         '</div></div>' +
-        '<div class="wf-subblock"><h4>Kế hoạch theo dõi (DD #180) <button type="button" class="btn btn--secondary btn--xs" data-wf-man-add-followup="1">' + ICONS.plus + ' Thêm lịch theo dõi</button></h4>' +
+        '<div class="wf-subblock"><h4>Kế hoạch theo dõi <button type="button" class="btn btn--secondary btn--xs" data-wf-man-add-followup="1">' + ICONS.plus + ' Thêm lịch theo dõi</button></h4>' +
           '<div class="wf-list-editor">' + followups.map(function (f, idx) {
             const isStr = typeof f === 'string';
             const hm = isStr ? f : (f && f.hang_muc ? f.hang_muc : '');
@@ -8789,7 +8882,7 @@
         '<div class="wf-manual-panel__foot">' +
           '<button type="button" class="btn btn--ghost" data-wf-cancel-manual="1"' + (wf.submittingAction ? ' disabled' : '') + '>Quay lại kết quả AI</button>' +
           '<button type="button" class="btn btn--primary' + (wf.submittingAction ? ' is-loading' : '') + '" data-wf-submit-manual="' + esc(mod) + '"' + (wf.submittingAction ? ' disabled' : '') + '>' +
-            (wf.submittingAction ? 'Đang lưu...' : (isM4 ? 'Lưu và hoàn tất workflow' : 'Lưu và tiếp tục')) +
+            (wf.submittingAction ? 'Đang lưu...' : (isM4 ? 'Lưu và hoàn tất đánh giá AI' : 'Lưu và tiếp tục')) +
           '</button>' +
         '</div>' +
       '</section>'
@@ -8858,7 +8951,7 @@
             (pt ? ('<span class="mono">' + esc(pt.patientCode) + '</span><span>' + esc(pt.fullName) + '</span>') : '<span>Lượt khám</span>') +
             '<span class="badge badge--blue mono">' + esc((v && v.visitCode) || wf.visitId) + '</span>' +
             '<span class="badge badge--info" data-wf-form-version="' + esc(wfVerLabel) + '">' + esc(wfBadgeLabel) + '</span>' +
-            (wf.data.completed ? '<span class="badge badge--success">Đã hoàn tất workflow</span>' : '') +
+            (wf.data.completed ? '<span class="badge badge--success">Đã hoàn tất đánh giá AI</span>' : '') +
           '</div>' +
           '<div class="encounter-sticky-head__meta">' +
             (v ? ('<span class="tabular">' + esc(formatDateTime(v.visitDate)) + ' · ' + esc(formatVisitType(v.visitType)) + '</span>') : '') +
@@ -9050,13 +9143,13 @@
         }
         if (mod === 'm4') {
           if (hasAction('complete')) {
-            btns.push('<button type="button" class="btn btn--primary" data-wf-action="complete" data-wf-module="m4">' + ICONS.checkCircle + ' Hoàn tất workflow</button>');
+            btns.push('<button type="button" class="btn btn--primary" data-wf-action="complete" data-wf-module="m4">' + ICONS.checkCircle + ' Hoàn tất đánh giá AI</button>');
           } else if (wf.submittingAction && actions.indexOf('complete') >= 0) {
-            btns.push('<button type="button" class="btn btn--primary is-loading" disabled>Đang hoàn tất workflow...</button>');
+            btns.push('<button type="button" class="btn btn--primary is-loading" disabled>Đang hoàn tất đánh giá AI...</button>');
           } else if (ms.state === 'ran' || (ms.state === 'accepted' && !wf.data.completed)) {
             const pendingCount = (wf.data.pendingSeriousAlertIds || []).length;
-            const cTip = 'Chưa thể hoàn tất workflow: còn ' + (pendingCount || 1) + ' cảnh báo mức Nghiêm trọng chưa có quyết định hoặc thiếu lý do.';
-            btns.push('<button type="button" class="btn btn--primary" data-wf-disabled-action="complete" disabled title="' + esc(cTip) + '">' + ICONS.checkCircle + ' Hoàn tất workflow</button>');
+            const cTip = 'Chưa thể hoàn tất đánh giá AI: còn ' + (pendingCount || 1) + ' cảnh báo mức Nghiêm trọng chưa có quyết định hoặc thiếu lý do.';
+            btns.push('<button type="button" class="btn btn--primary" data-wf-disabled-action="complete" disabled title="' + esc(cTip) + '">' + ICONS.checkCircle + ' Hoàn tất đánh giá AI</button>');
             statusNote = cTip;
           }
         }
@@ -9125,7 +9218,7 @@
         const isPharm = u.role === 'pharmacist';
         const roleBadge = isAdm
           ? '<span class="badge badge--blue">Quản trị viên</span>'
-          : (isNurse ? '<span class="badge badge--teal">Nhân viên y tế</span>' : (isPharm ? '<span class="badge badge--neutral">Dược sĩ</span>' : '<span class="badge badge--info">Bác sĩ</span>'));
+          : (isNurse ? '<span class="badge badge--blue">Nhân viên y tế</span>' : (isPharm ? '<span class="badge badge--neutral">Dược sĩ</span>' : '<span class="badge badge--info">Bác sĩ</span>'));
         const scopeDesc = isAdm
           ? 'Quản lý tài khoản, biểu mẫu, nhật ký (không xem hồ sơ bệnh án)'
           : (isNurse
@@ -9151,6 +9244,12 @@
       }).join('');
 
       const cards = au.items.map(function (u) {
+        const isAdm = u.role === 'admin';
+        const isNurse = u.role === 'nurse';
+        const isPharm = u.role === 'pharmacist';
+        const cardRoleBadge = isAdm
+          ? '<span class="badge badge--blue">Quản trị viên</span>'
+          : (isNurse ? '<span class="badge badge--blue">Nhân viên y tế</span>' : (isPharm ? '<span class="badge badge--neutral">Dược sĩ</span>' : '<span class="badge badge--info">Bác sĩ</span>'));
         return (
           '<article class="record-card">' +
             '<div class="record-card__top">' +
@@ -9158,7 +9257,7 @@
               (u.isActive ? '<span class="badge badge--success">Đang hoạt động</span>' : '<span class="badge badge--error">Đã khóa</span>') +
             '</div>' +
             '<div class="record-card__meta">' +
-              '<div><span class="record-card__label">Vai trò</span>' + esc(formatRoleShort(u.role)) + '</div>' +
+              '<div><span class="record-card__label">Vai trò</span>' + cardRoleBadge + '</div>' +
               '<div><span class="record-card__label">Đăng nhập gần nhất</span>' + esc(formatDateTime(u.lastLoginAt)) + '</div>' +
             '</div>' +
             '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
@@ -9177,7 +9276,7 @@
 
     const body =
       '<div class="page-head">' +
-        '<div><h1 class="page-head__title">Quản lý tài khoản &amp; Phạm vi quyền</h1><p class="page-head__sub">Quản lý tài khoản bác sĩ, nhân viên y tế, dược sĩ, quản trị viên và phạm vi quyền tương ứng.</p></div>' +
+        '<div><h1 class="page-head__title">Quản lý tài khoản &amp; Phạm vi quyền</h1><p class="page-head__sub">Quản lý tài khoản bác sĩ, nhân viên y tế, quản trị viên và phạm vi quyền tương ứng.</p></div>' +
         '<div class="page-head__actions"><button type="button" class="btn btn--primary" data-action="open-create-user">' + ICONS.userPlus + ' Tạo tài khoản mới</button></div>' +
       '</div>' +
       '<div class="toolbar">' +
@@ -9187,7 +9286,6 @@
             '<option value="">Tất cả vai trò</option>' +
             '<option value="doctor"' + (au.role === 'doctor' ? ' selected' : '') + '>Bác sĩ</option>' +
             '<option value="nurse"' + (au.role === 'nurse' ? ' selected' : '') + '>Nhân viên y tế</option>' +
-            '<option value="pharmacist"' + (au.role === 'pharmacist' ? ' selected' : '') + '>Dược sĩ</option>' +
             '<option value="admin"' + (au.role === 'admin' ? ' selected' : '') + '>Quản trị viên</option>' +
           '</select>' +
           '<select class="select" id="admin-user-active-filter" style="width:auto;min-height:36px;">' +
@@ -9218,26 +9316,44 @@
       return 'Đã lưu trữ';
     };
     const selectedVer = af.versions.find(function (v) { return v.id === af.selectedVersionId; }) || af.versions[0] || null;
-    const verTabs = af.versions.map(function (v) {
-      const sel = v.id === af.selectedVersionId;
-      const badge = v.status === 'published'
+    const renderVerStatusBadges = function (v) {
+      if (!v) return '';
+      const primaryBadge = v.status === 'published'
         ? '<span class="badge badge--success badge--xs">Đang dùng</span>'
         : (v.status === 'draft' ? '<span class="badge badge--warn badge--xs">Bản nháp</span>' : '<span class="badge badge--info badge--xs">Đã lưu trữ</span>');
+      const lockBadge = v.status !== 'draft' ? '<span class="badge badge--neutral badge--xs">Đã khóa</span>' : '';
+      return primaryBadge + lockBadge;
+    };
+    const isDropOpen = Boolean(af.versionDropdownOpen);
+    const verMenuItems = af.versions.map(function (v) {
+      const sel = v.id === af.selectedVersionId;
       return (
-        '<button type="button" role="tab" aria-selected="' + (sel ? 'true' : 'false') + '" class="version-tab' + (sel ? ' is-selected' : '') + '" data-select-version="' + esc(v.id) + '">' +
-          '<span class="version-tab__label mono">' + esc(v.versionLabel) + '</span>' +
-          badge +
+        '<button type="button" role="option" aria-selected="' + (sel ? 'true' : 'false') + '" class="version-dropdown__item' + (sel ? ' is-selected' : '') + '" data-select-version="' + esc(v.id) + '">' +
+          '<span class="version-dropdown__item-left">' +
+            '<span class="version-dropdown__item-label mono">' + esc(v.versionLabel) + '</span>' +
+            renderVerStatusBadges(v) +
+          '</span>' +
+          (sel ? '<span class="version-dropdown__check" aria-hidden="true">' + ICONS.checkCircle + '</span>' : '') +
         '</button>'
       );
     }).join('');
-    const verMetaHtml = selectedVer
-      ? '<div class="version-bar__meta" data-version-bar-meta="true">' +
-          '<strong class="mono">' + esc(selectedVer.versionLabel) + '</strong>' +
-          '<span>· ' + esc(selectedVer.changeNote || 'Phiên bản biểu mẫu lâm sàng') + '</span>' +
-          '<span class="tabular">· Gắn ' + esc(selectedVer.visitCount || 0) + ' lượt khám</span>' +
-          (selectedVer.publishedAt ? '<span class="tabular">· Phát hành ' + esc(formatDateTime(selectedVer.publishedAt)) + '</span>' : '') +
-        '</div>'
-      : '';
+    const verDropdownHtml =
+      '<div class="version-dropdown-wrap" data-version-dropdown-wrap="true">' +
+        '<div class="version-dropdown' + (isDropOpen ? ' is-open' : '') + '" data-version-dropdown="true">' +
+          '<button type="button" class="version-dropdown__trigger" data-action="toggle-version-dropdown" aria-haspopup="listbox" aria-expanded="' + (isDropOpen ? 'true' : 'false') + '" aria-label="Chọn phiên bản biểu mẫu">' +
+            '<span class="version-dropdown__trigger-main">' +
+              '<span class="version-dropdown__prefix">Phiên bản:</span>' +
+              (selectedVer
+                ? ('<span class="version-dropdown__label mono">' + esc(selectedVer.versionLabel) + '</span>' + renderVerStatusBadges(selectedVer))
+                : '<span>Chọn phiên bản</span>') +
+            '</span>' +
+            '<span class="version-dropdown__chevron" aria-hidden="true">' + ICONS.down + '</span>' +
+          '</button>' +
+          (isDropOpen
+            ? '<div class="version-dropdown__menu" role="listbox" aria-label="Danh sách phiên bản biểu mẫu">' + verMenuItems + '</div>'
+            : '') +
+        '</div>' +
+      '</div>';
 
     let workspaceHtml = '';
     if (af.versionDetail) {
@@ -9368,7 +9484,7 @@
             '</div>';
         }
 
-        const defaultHelpPlaceholder = activeFD ? sanitizeDoctorHelpText(activeFD.helpText) : '';
+        const defaultHelpPlaceholder = activeFD ? sanitizeDoctorHelpText(activeFD.helpText, 'config') : '';
         const propHtml = !activeFF || !activeFD ? '<p class="field__help">Chọn một trường ở cột giữa để xem hoặc cấu hình thuộc tính.</p>' : (
           systemExplainHtml +
           '<div class="field"><label class="field__label">Nhãn hiển thị tiếng Việt</label><input class="input" data-ed-prop="customLabelVi" value="' + esc(activeFF.customLabelVi || activeFD.labelVi) + '"' + (!canEditPlacement ? ' disabled' : '') + '></div>' +
@@ -9420,6 +9536,7 @@
               '<div class="form-canvas">' +
                 renderClinicalSectionForm({
                   mode: 'preview',
+                  renderMode: 'entry',
                   readonly: false,
                   sections: pSections,
                   defById: pDefById,
@@ -9505,10 +9622,7 @@
       '<div class="page-head">' +
         '<div><h1 class="page-head__title">Quản lý biểu mẫu &amp; Phiên bản</h1><p class="page-head__sub">' + esc(af.template ? af.template.name : 'Biểu mẫu lâm sàng suy tim') + ' · Danh mục chuẩn ' + af.allDefinitions.length + ' trường.</p></div>' +
       '</div>' +
-      '<div class="version-bar-wrap" data-version-bar="true">' +
-        '<div class="version-bar" role="tablist" aria-label="Chọn phiên bản biểu mẫu">' + verTabs + '</div>' +
-        verMetaHtml +
-      '</div>' +
+      verDropdownHtml +
       workspaceHtml;
 
     return renderShell('<span class="breadcrumbs__current">Biểu mẫu &amp; Phiên bản</span>', body);
@@ -9861,7 +9975,6 @@
             '<div class="field"><label class="field__label" for="mu-role">Vai trò hệ thống *</label><select id="mu-role" class="select">' +
               '<option value="doctor"' + (d.role === 'doctor' ? ' selected' : '') + '>Bác sĩ (lâm sàng)</option>' +
               '<option value="nurse"' + (d.role === 'nurse' ? ' selected' : '') + '>Nhân viên y tế (tiếp nhận &amp; sinh hiệu)</option>' +
-              '<option value="pharmacist"' + (d.role === 'pharmacist' ? ' selected' : '') + '>Dược sĩ (chỉ xem M4)</option>' +
               '<option value="admin"' + (d.role === 'admin' ? ' selected' : '') + '>Quản trị viên (tách biệt khỏi bệnh án)</option>' +
             '</select></div>' +
             '<div class="field"><label class="field__label" for="mu-reason">Lý do tạo / cập nhật (ghi vào Nhật ký hệ thống) *</label><input id="mu-reason" class="input" value="' + esc(d.reason) + '" placeholder="VD: Cấp tài khoản bác sĩ khoa Tim mạch mới tiếp nhận"></div>' +
@@ -11849,8 +11962,14 @@
     }
 
     // M7 Form Version Selection, Tabs, Editor Panes, Reordering
+    if (target.getAttribute('data-action') === 'toggle-version-dropdown') {
+      state.adminForms.versionDropdownOpen = !state.adminForms.versionDropdownOpen;
+      render();
+      return;
+    }
     const selVerId = target.getAttribute('data-select-version');
     if (selVerId) {
+      state.adminForms.versionDropdownOpen = false;
       await selectAdminFormVersion(selVerId);
       return;
     }
@@ -13493,6 +13612,10 @@
 
   document.addEventListener('pointerdown', function (ev) {
     if (!ev.target.closest('#account-menu, [data-action="toggle-account-menu"]')) closeAccountMenu(false);
+    if (state.adminForms && state.adminForms.versionDropdownOpen && !ev.target.closest('[data-version-dropdown="true"]')) {
+      state.adminForms.versionDropdownOpen = false;
+      render();
+    }
   });
   document.addEventListener('focusin', function (ev) {
     if (!ev.target.closest('#account-menu, [data-action="toggle-account-menu"]')) closeAccountMenu(false);
@@ -13552,6 +13675,13 @@
     }
     if (ev.key === 'Escape' && state.modal) {
       closeModal();
+      return;
+    }
+    if (ev.key === 'Escape' && state.adminForms && state.adminForms.versionDropdownOpen) {
+      state.adminForms.versionDropdownOpen = false;
+      render();
+      const vBtn = document.querySelector('[data-action="toggle-version-dropdown"]');
+      if (vBtn) vBtn.focus();
       return;
     }
     if (ev.key === 'Escape' && state.mobileMenuOpen) {
