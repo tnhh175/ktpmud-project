@@ -30,8 +30,6 @@ from .models import (
 
 router = APIRouter(prefix="/api/v1", tags=["Patients"])
 
-_require_doctor_patient = require_role(["doctor", "nurse"], "patient")
-_require_doctor_visit = require_role(["doctor", "nurse"], "visit")
 
 
 # Display flags follow the supplied rule-base; no invented Na/HbA1c cutoff.
@@ -45,6 +43,10 @@ SUMMARY_LABS = (
     ('cls_natri','Na','mmol/L',None,None,False),
     ('cls_hba1c','HbA1c','%',None,None,False),
 )
+
+
+def patient_has_visits(conn, patient_id):
+    return bool(conn.execute('SELECT 1 FROM visit WHERE patient_id=%s LIMIT 1', (patient_id,)).fetchone())
 
 
 def latest_visit_summary(conn, patient_id, principal):
@@ -79,8 +81,12 @@ def latest_visit_summary(conn, patient_id, principal):
     if conn.execute("SELECT to_regclass('public.ai_module_decision') AS r").fetchone()['r']:
         decisions = {r['module']:r for r in conn.execute("""SELECT module,source,effective_output
           FROM ai_module_decision WHERE visit_id=%s AND superseded_at IS NULL""",(ref['id'],)).fetchall()}
-    m1 = decisions.get('m1',{})
-    output = m1.get('effective_output') or {}
+    from .his_v2.rules import effective_diagnosis
+    m1 = decisions.get('m1', {})
+    m2 = decisions.get('m2', {})
+    m2_output = m2.get('effective_output') or {}
+    output = effective_diagnosis({'effective_m1': m1.get('effective_output'), 'effective_m2': m2_output})
+    diagnosis_source = (m2 if 'stage' in m2_output else m1).get('source')
     stage = output.get('stage')
     if stage not in ('A','B','C','D'):
         stage = None
@@ -88,11 +94,11 @@ def latest_visit_summary(conn, patient_id, principal):
     if phenotype not in ('HFrEF','HFmrEF','HFpEF'):
         phenotype = None
     # Explicit doctor classification is also valid on pinned pre-workflow forms.
-    if not stage:
+    if not stage and 'stage' not in m2_output:
         raw = answer('chan_doan_stage_suy_tim') or answer('chan_doan_giai_doan_suy_tim')
         stage = raw.upper().removeprefix('STAGE_') if isinstance(raw,str) else None
         if stage not in ('A','B','C','D'): stage = None
-    if not phenotype:
+    if not phenotype and 'stage' not in m2_output:
         raw = answer('chan_doan_kieu_hinh_ef')
         phenotype = {'hfref':'HFrEF','hfmref':'HFmrEF','hfpef':'HFpEF'}.get(str(raw).lower())
     labs = conn.execute('SELECT * FROM visit_lab_result WHERE visit_id=%s ORDER BY measured_at DESC,created_at DESC,id',
@@ -145,7 +151,7 @@ def latest_visit_summary(conn, patient_id, principal):
     return dict(sourceVisitId=str(ref['id']),sourceVisitCode=ref['visit_code'],sourceVisitDate=to_iso(ref['visit_date']),
         sourceVisitStatus=ref['status'],sourceFormVersionId=str(ref['form_version_id']),
         sourceFormVersionLabel=ref['form_version_label'],sourceRowVersion=ref['row_version'],
-        hfStage=dict(code=stage,label='Giai đoạn '+stage if stage else 'Chưa phân loại',source=(m1.get('source') or 'manual') if stage else None),
+        hfStage=dict(code=stage,label='Giai đoạn '+stage if stage else 'Chưa phân loại',source=(diagnosis_source or 'manual') if stage else None),
         efPhenotype=dict(code=phenotype,label=phenotype or 'Chưa phân loại'),keyLabs=key_labs,medications=meds,
         openAlerts=[dict(ruleId=a.get('ruleId') or a.get('rule_id') or a.get('id'),
                          severity=a.get('severity') or a.get('muc_do'),message=a.get('message') or a.get('noi_dung')) for a in alerts])
@@ -379,7 +385,7 @@ def list_patients(
     recordStatus: Literal["active", "locked"] | None = Query(default=None),
     page: int = Query(default=1, ge=1),
     pageSize: int = Query(default=20, ge=1, le=100),
-    principal: Principal = Depends(_require_doctor_patient),
+    principal: Principal = Depends(require_role(["doctor", "nurse"], "patient", "patients.read")),
 ) -> dict[str, Any]:
     pool = request.app.state.pool
     where_clauses: list[str] = [ACCESS_EXISTS_SQL] if principal.role == "doctor" else []
@@ -481,7 +487,7 @@ def create_patient(
     body: CreatePatientRequest,
     request: Request,
     response: Response,
-    principal: Principal = Depends(_require_doctor_patient),
+    principal: Principal = Depends(require_role(["doctor", "nurse"], "patient", "patients.create")),
 ) -> dict[str, Any]:
     full_name = body.fullName.strip()
     ext_code = body.externalPatientCode.strip() if body.externalPatientCode else None
@@ -559,7 +565,7 @@ def get_patient(
     patientId: UUID,
     request: Request,
     response: Response,
-    principal: Principal = Depends(_require_doctor_patient),
+    principal: Principal = Depends(require_role(["doctor", "nurse"], "patient", "patients.read")),
 ) -> dict[str, Any]:
     pool = request.app.state.pool
     with pool.connection() as conn:
@@ -585,11 +591,13 @@ def get_patient(
         summary = latest_visit_summary(conn, patientId, principal) if principal.role == 'doctor' else None
 
         pt["access"] = access
+        has_visits = patient_has_visits(conn, patientId)
 
     response.headers["ETag"] = f'"{int(pt["row_version"])}"'
     return {
         "patient": patient_row_to_dict(pt),
         "latestVisitSummary": summary,
+        "hasVisits": has_visits,
     }
 
 
@@ -604,7 +612,7 @@ def update_patient(
     request: Request,
     response: Response,
     if_match: str | None = Header(default=None, alias="If-Match"),
-    principal: Principal = Depends(_require_doctor_patient),
+    principal: Principal = Depends(require_role(["doctor", "nurse"], "patient", "patients.update")),
 ) -> dict[str, Any]:
     pool = request.app.state.pool
     with pool.connection() as conn:
@@ -719,7 +727,7 @@ def list_patient_visits(
     status: Literal["draft", "intake", "waiting", "in_progress", "confirmed"] | None = Query(default=None),
     page: int = Query(default=1, ge=1),
     pageSize: int = Query(default=20, ge=1, le=100),
-    principal: Principal = Depends(_require_doctor_visit),
+    principal: Principal = Depends(require_role(["doctor", "nurse"], "visit", "visits.read")),
 ) -> dict[str, Any]:
     pool = request.app.state.pool
     with pool.connection() as conn:
@@ -794,7 +802,7 @@ def create_visit(
     body: CreateVisitRequest,
     request: Request,
     response: Response,
-    principal: Principal = Depends(require_role("nurse", "visit")),
+    principal: Principal = Depends(require_role("nurse", "visit", "visits.create")),
 ) -> dict[str, Any]:
     if body.chiefComplaint is not None:
         raise ProblemError(403, 'FIELD_NOT_ALLOWED_FOR_ROLE', 'Trường ngoài quyền NVYT',
@@ -836,6 +844,15 @@ def create_visit(
                 "Hồ sơ bệnh nhân đã lưu trữ",
                 "Không thể tạo lượt khám mới cho hồ sơ đã lưu trữ.",
             )
+
+        has_visits = patient_has_visits(conn, patientId)
+        default_type = 'follow_up' if has_visits else 'outpatient_new'
+        visit_type = body.visitType or default_type
+        if visit_type not in (default_type, 'acute_inpatient'):
+            detail = ('Hồ sơ đã có lượt khám. Chỉ chọn Tái khám hoặc Cấp cứu.' if has_visits
+                      else 'Hồ sơ chưa có lượt khám. Chỉ chọn Khám mới hoặc Cấp cứu.')
+            raise ProblemError(422, 'VISIT_TYPE_NOT_ALLOWED', 'Loại lượt khám không hợp lệ',
+                               detail, errors=[{'fieldCode': 'visitType', 'message': detail}])
 
         published = conn.execute(
             """
@@ -883,7 +900,7 @@ def create_visit(
                 str(patientId),
                 str(published["id"]),
                 visit_dt,
-                body.visitType,
+                visit_type,
                 body.chiefComplaint,
                 str(principal.user_id),
             ),
@@ -942,7 +959,7 @@ def record_request_row_to_dict(
 def list_patient_record_requests(
     patientId: UUID,
     request: Request,
-    principal: Principal = Depends(_require_doctor_patient),
+    principal: Principal = Depends(require_role(["doctor", "nurse"], "patient", "records.requests.read")),
 ) -> dict[str, Any]:
     pool = request.app.state.pool
     with pool.connection() as conn:
@@ -980,7 +997,7 @@ def create_patient_record_request(
     patientId: UUID,
     body: CreatePatientRecordRequest,
     request: Request,
-    principal: Principal = Depends(require_role("nurse", "patient_record_request")),
+    principal: Principal = Depends(require_role("nurse", "patient_record_request", "records.requests.write")),
 ) -> dict[str, Any]:
     reason = body.reason.strip()
     if len(reason) < 3:
@@ -1094,7 +1111,7 @@ def cancel_patient_record_request(
     patientId: UUID,
     requestId: UUID,
     request: Request,
-    principal: Principal = Depends(require_role("nurse", "patient_record_request")),
+    principal: Principal = Depends(require_role("nurse", "patient_record_request", "records.requests.write")),
 ) -> dict[str, Any]:
     pool = request.app.state.pool
     req_id = get_request_id(request)

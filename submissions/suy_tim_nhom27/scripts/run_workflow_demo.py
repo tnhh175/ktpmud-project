@@ -13,6 +13,7 @@ def main():
     expected='postgresql://postgres@127.0.0.1:5450/hf_test_workflow'
     if settings['database_url']!=expected:
         raise SystemExit('Refuse unexpected demo database')
+    os.environ.setdefault("MVP_DATA_DIR", str(config.parent))
     os.environ.update(MVP_DATABASE_URL=expected,MVP_AUTH_SECRET=settings['auth_secret'],
        HF_AI_HMAC_SECRET=settings['hmac_secret'],HF_AI_KEY_VERSION='workflow-synthetic-1',MVP_HOSTED='0')
     import uvicorn

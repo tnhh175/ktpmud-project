@@ -80,11 +80,17 @@ class WorkflowFieldsRequest(WorkflowRunRequest):
     recentTestEvidence: dict[str, Any] | None = None
 
 
+class UnselectedReason(BaseModel):
+    group: Literal['ARNI_ACEI_ARB', 'beta_blocker', 'MRA', 'SGLT2i', 'loop_diuretic']
+    reason: str = Field(max_length=1000)
+
+
 class WorkflowDecisionRequest(WorkflowRunRequest):
     source: Literal['ai', 'manual']
     runId: str | None = None
     output: dict[str, Any] | None = None
     selectedPrescription: dict[str, Any] | None = None
+    unselectedReasons: list[UnselectedReason] | None = Field(default=None, max_length=5)
     manualReason: str | None = None
     intent: Literal['accept', 'finish_workflow'] | None = None
 
@@ -250,8 +256,6 @@ class CreateUserRequest(BaseModel):
 
 class CreateUserResponse(BaseModel):
     user: AppUser
-    oneTimeSetupCode: str
-    setupExpiresAt: datetime
 
 
 class UpdateUserRequest(BaseModel):
@@ -265,7 +269,6 @@ class UpdateUserRequest(BaseModel):
 
 class UpdateUserResponse(BaseModel):
     user: AppUser
-    oneTimeSetupCode: str | None = None
 
 
 class PermissionPreviewRequest(BaseModel):
@@ -578,9 +581,9 @@ class VisitListResponse(BaseModel):
 
 class CreateVisitRequest(BaseModel):
     visitDate: datetime
-    visitType: VisitType = "outpatient_new"
+    visitType: VisitType | None = None
     chiefComplaint: str | None = Field(default=None, max_length=500)
-    externalVisitCode: str | None = Field(default=None, max_length=64)
+    externalVisitCode: str | None = Field(default=None, min_length=1, max_length=20, pattern=r"^[A-Za-z0-9_./-]+$")
 
     @field_validator("chiefComplaint", "externalVisitCode", mode="before")
     @classmethod
@@ -864,6 +867,7 @@ class LatestVisitClinicalSummary(BaseModel):
 class PatientDetailResponse(BaseModel):
     patient: Patient
     latestVisitSummary: LatestVisitClinicalSummary | None = None
+    hasVisits: bool = False
 
 
 class DiagnosisInput(BaseModel):
@@ -1076,7 +1080,6 @@ class ResolvePasswordResetRequest(BaseModel):
 class ResolvePasswordResetResponse(BaseModel):
     request: PasswordResetRequestItem
     user: AppUser
-    oneTimeSetupCode: str
 
 
 class RejectPasswordResetRequest(BaseModel):

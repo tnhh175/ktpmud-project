@@ -169,10 +169,7 @@
         "ran_am_phoi",
         "bien_thien_can_nang_7ngay",
         "trieu_chung_khong_dien_hinh",
-        "danh_gia_suy_yeu_frailty",
-        "cls_lvef",
-        "cls_bnp",
-        "cls_nt_probnp"
+        "danh_gia_suy_yeu_frailty"
       ],
       "M2": [
         "age",
@@ -184,10 +181,7 @@
         "ran_am_phoi",
         "bien_thien_can_nang_7ngay",
         "trieu_chung_khong_dien_hinh",
-        "danh_gia_suy_yeu_frailty",
-        "cls_lvef",
-        "cls_bnp",
-        "cls_nt_probnp"
+        "danh_gia_suy_yeu_frailty"
       ],
       "M3": [
         "age",
@@ -264,590 +258,6 @@
     ]
   },
   "rules": [
-    {
-      "id": "M1-D0",
-      "module": "M1",
-      "group": "diagnosis",
-      "priority": 0,
-      "when": {
-        "all": [
-          {
-            "path": "fields.kho_tho_nang.value",
-            "op": "gt",
-            "value": 0
-          },
-          {
-            "any": [
-              {
-                "path": "fields.bat_thuong_cau_truc_tim.value",
-                "op": "eq",
-                "value": true
-              },
-              {
-                "path": "fields.cls_lvef.value",
-                "op": "lt",
-                "value": 50
-              }
-            ]
-          }
-        ]
-      },
-      "effects": [
-        {
-          "op": "set",
-          "path": "stage",
-          "value": "C"
-        },
-        {
-          "op": "set",
-          "path": "xac_suat_suy_tim",
-          "value": {
-            "muc": "Suy tim có triệu chứng – Stage C",
-            "xac_suat": 0.9,
-            "calibration": "synthetic_not_calibrated"
-          }
-        }
-      ],
-      "sources": [
-        "BYT:I.3, II.1; PDF 7-8 (in 6-7)",
-        "DOCX:Model 1/Đầu ra; DD #93"
-      ],
-      "evidence": "unvalidated_mock_combination",
-      "note": "Stage C cần triệu chứng và bất thường cấu trúc/chức năng; không dùng NT-proBNP đơn độc."
-    },
-    {
-      "id": "M1-D1",
-      "module": "M1",
-      "group": "diagnosis",
-      "priority": 10,
-      "when": {
-        "all": [
-          {
-            "path": "fields.kho_tho_nang.value",
-            "op": "eq",
-            "value": 0
-          },
-          {
-            "any": [
-              {
-                "path": "fields.bat_thuong_cau_truc_tim.value",
-                "op": "eq",
-                "value": true
-              },
-              {
-                "path": "fields.cls_lvef.value",
-                "op": "lt",
-                "value": 50
-              }
-            ]
-          }
-        ]
-      },
-      "effects": [
-        {
-          "op": "set",
-          "path": "stage",
-          "value": "B"
-        },
-        {
-          "op": "set",
-          "path": "xac_suat_suy_tim",
-          "value": {
-            "muc": "Pre-HF – Stage B",
-            "xac_suat": 0.3,
-            "calibration": "synthetic_not_calibrated"
-          }
-        }
-      ],
-      "sources": [
-        "BYT:I.3; PDF 7 (in 6)",
-        "DOCX:Model 1/Đầu ra; DD #93"
-      ],
-      "evidence": "unvalidated_mock_combination",
-      "note": "Xác suất chỉ là hằng số test."
-    },
-    {
-      "id": "M1-D2",
-      "module": "M1",
-      "group": "diagnosis",
-      "priority": 20,
-      "when": {
-        "all": [
-          {
-            "path": "fields.kho_tho_nang.value",
-            "op": "eq",
-            "value": 0
-          },
-          {
-            "path": "fields.bat_thuong_cau_truc_tim.value",
-            "op": "eq",
-            "value": false
-          },
-          {
-            "path": "fields.cls_lvef.value",
-            "op": "gte",
-            "value": 50
-          },
-          {
-            "all": [
-              {
-                "path": "fields.cls_nt_probnp.value",
-                "op": "lt",
-                "value": 125
-              },
-              {
-                "path": "fields.cls_bnp.value",
-                "op": "lt",
-                "value": 35
-              }
-            ]
-          },
-          {
-            "any": [
-              {
-                "path": "fields.tang_huyet_ap.value",
-                "op": "eq",
-                "value": true
-              },
-              {
-                "path": "fields.dai_thao_duong.value",
-                "op": "eq",
-                "value": true
-              }
-            ]
-          }
-        ]
-      },
-      "effects": [
-        {
-          "op": "set",
-          "path": "stage",
-          "value": "A"
-        },
-        {
-          "op": "set",
-          "path": "xac_suat_suy_tim",
-          "value": {
-            "muc": "Có nguy cơ – Stage A",
-            "xac_suat": 0.1,
-            "calibration": "synthetic_not_calibrated"
-          }
-        }
-      ],
-      "sources": [
-        "BYT:I.3; PDF 7 (in 6)",
-        "DOCX:Model 1/Đầu ra; DD #93"
-      ],
-      "evidence": "unvalidated_mock_combination",
-      "note": "Không gọi HFpEF khi chỉ có EF bình thường và không triệu chứng."
-    },
-    {
-      "id": "M1-D3",
-      "module": "M1",
-      "group": "diagnosis",
-      "priority": 30,
-      "when": {
-        "all": [
-          {
-            "path": "fields.kho_tho_nang.value",
-            "op": "gt",
-            "value": 0
-          },
-          {
-            "path": "fields.bat_thuong_cau_truc_tim.value",
-            "op": "eq",
-            "value": false
-          },
-          {
-            "all": [
-              {
-                "path": "fields.cls_nt_probnp.value",
-                "op": "lt",
-                "value": 125
-              },
-              {
-                "path": "fields.cls_bnp.value",
-                "op": "lt",
-                "value": 35
-              }
-            ]
-          },
-          {
-            "path": "fields.copd.value",
-            "op": "eq",
-            "value": true
-          },
-          {
-            "path": "fields.thieu_mau.value",
-            "op": "eq",
-            "value": true
-          }
-        ]
-      },
-      "effects": [
-        {
-          "op": "set",
-          "path": "stage",
-          "value": null
-        },
-        {
-          "op": "set",
-          "path": "xac_suat_suy_tim",
-          "value": {
-            "muc": "Không phù hợp",
-            "xac_suat": 0.05,
-            "calibration": "synthetic_not_calibrated"
-          }
-        },
-        {
-          "op": "set",
-          "path": "canh_bao_gia_suy_tim",
-          "value": [
-            "COPD/bệnh phổi khác",
-            "Thiếu máu"
-          ]
-        }
-      ],
-      "sources": [
-        "BYT:II.1/Bảng 4; PDF 10 (in 9)",
-        "DOCX:Model 1/Bệnh giả suy tim; DD #97"
-      ],
-      "evidence": "unvalidated_mock_combination",
-      "note": "Chỉ cho fixture có đồng thời COPD và thiếu máu; không phải quy tắc loại trừ bệnh thật."
-    },
-    {
-      "id": "M1-D4",
-      "module": "M1",
-      "group": "diagnosis",
-      "priority": 40,
-      "when": {
-        "all": [
-          {
-            "path": "fields.kho_tho_nang.value",
-            "op": "gt",
-            "value": 0
-          },
-          {
-            "any": [
-              {
-                "path": "fields.cls_nt_probnp.value",
-                "op": "gte",
-                "value": 125
-              },
-              {
-                "path": "fields.cls_bnp.value",
-                "op": "gte",
-                "value": 35
-              }
-            ]
-          }
-        ]
-      },
-      "effects": [
-        {
-          "op": "set",
-          "path": "stage",
-          "value": null
-        },
-        {
-          "op": "set",
-          "path": "xac_suat_suy_tim",
-          "value": {
-            "muc": "Nghi ngờ suy tim",
-            "xac_suat": 0.6,
-            "calibration": "synthetic_not_calibrated"
-          }
-        }
-      ],
-      "sources": [
-        "BYT:II.1/Bảng 4; PDF 10 (in 9)",
-        "TASK:AI chỉ cần kỳ vọng"
-      ],
-      "evidence": "unvalidated_mock_combination",
-      "note": "Ngưỡng ngoại trú không xác nhận Stage C; không áp dụng như ngưỡng chẩn đoán cấp cứu."
-    },
-    {
-      "id": "M1-D9",
-      "module": "M1",
-      "group": "diagnosis",
-      "priority": 99,
-      "when": {
-        "always": true
-      },
-      "effects": [
-        {
-          "op": "set",
-          "path": "stage",
-          "value": null
-        },
-        {
-          "op": "set",
-          "path": "xac_suat_suy_tim",
-          "value": {
-            "muc": "Chưa đủ dữ liệu để kết luận",
-            "xac_suat": null,
-            "calibration": "synthetic_not_calibrated"
-          }
-        }
-      ],
-      "sources": [
-        "DOCX:Model 1/Đầu ra; DD #93"
-      ],
-      "evidence": "unvalidated_mock_combination",
-      "note": "Không gán xác suất số khi thiếu bằng chứng."
-    },
-    {
-      "id": "M1-E0",
-      "module": "M1",
-      "group": "phenotype",
-      "priority": 0,
-      "when": {
-        "all": [
-          {
-            "path": "output.stage",
-            "op": "in",
-            "value": [
-              "B",
-              "C",
-              "D"
-            ]
-          },
-          {
-            "path": "fields.cls_lvef.value",
-            "op": "lte",
-            "value": 40
-          }
-        ]
-      },
-      "effects": [
-        {
-          "op": "set",
-          "path": "kieu_hinh_ef",
-          "value": "HFrEF"
-        }
-      ],
-      "sources": [
-        "BYT:I.2/Bảng 1; PDF 7 (in 6)"
-      ],
-      "evidence": "unvalidated_mock_combination",
-      "note": "Stage B: nhãn miền EF cho test, không khẳng định suy tim có triệu chứng."
-    },
-    {
-      "id": "M1-E1",
-      "module": "M1",
-      "group": "phenotype",
-      "priority": 10,
-      "when": {
-        "all": [
-          {
-            "path": "output.stage",
-            "op": "in",
-            "value": [
-              "B",
-              "C",
-              "D"
-            ]
-          },
-          {
-            "path": "fields.cls_lvef.value",
-            "op": "gte",
-            "value": 41
-          },
-          {
-            "path": "fields.cls_lvef.value",
-            "op": "lte",
-            "value": 49
-          }
-        ]
-      },
-      "effects": [
-        {
-          "op": "set",
-          "path": "kieu_hinh_ef",
-          "value": "HFmrEF"
-        }
-      ],
-      "sources": [
-        "BYT:I.2/Bảng 1; PDF 7 (in 6)",
-        "TASK:TC03"
-      ],
-      "evidence": "unvalidated_mock_combination",
-      "note": "HFmrEF là mở rộng so với DD #94; chờ C1 duyệt enum."
-    },
-    {
-      "id": "M1-E2",
-      "module": "M1",
-      "group": "phenotype",
-      "priority": 20,
-      "when": {
-        "all": [
-          {
-            "path": "output.stage",
-            "op": "eq",
-            "value": "C"
-          },
-          {
-            "path": "fields.cls_lvef.value",
-            "op": "gte",
-            "value": 50
-          },
-          {
-            "path": "fields.bat_thuong_cau_truc_tim.value",
-            "op": "eq",
-            "value": true
-          },
-          {
-            "any": [
-              {
-                "path": "fields.cls_nt_probnp.value",
-                "op": "gte",
-                "value": 125
-              },
-              {
-                "path": "fields.cls_bnp.value",
-                "op": "gte",
-                "value": 35
-              }
-            ]
-          }
-        ]
-      },
-      "effects": [
-        {
-          "op": "set",
-          "path": "kieu_hinh_ef",
-          "value": "HFpEF"
-        }
-      ],
-      "sources": [
-        "BYT:I.2/Bảng 1; PDF 7 (in 6)"
-      ],
-      "evidence": "unvalidated_mock_combination",
-      "note": "Fixture biểu diễn bằng chứng cấu trúc/chức năng và peptide; không đủ để xác thực thuật toán."
-    },
-    {
-      "id": "M1-E3",
-      "module": "M1",
-      "group": "phenotype",
-      "priority": 30,
-      "when": {
-        "path": "fields.cls_lvef.value",
-        "op": "missing_or_null",
-        "value": null
-      },
-      "effects": [
-        {
-          "op": "set",
-          "path": "kieu_hinh_ef",
-          "value": "Chưa phân loại do thiếu EF"
-        }
-      ],
-      "sources": [
-        "DOCX:Model 1/Phân loại kiểu hình; DD #94"
-      ],
-      "evidence": "unvalidated_mock_combination",
-      "note": "Unknown không thành EF=0."
-    },
-    {
-      "id": "M1-E9",
-      "module": "M1",
-      "group": "phenotype",
-      "priority": 99,
-      "when": {
-        "always": true
-      },
-      "effects": [
-        {
-          "op": "set",
-          "path": "kieu_hinh_ef",
-          "value": "Không áp dụng"
-        }
-      ],
-      "sources": [
-        "TASK:TC02, TC06; quy ước bổ sung"
-      ],
-      "evidence": "unvalidated_mock_combination",
-      "note": "Không áp dụng là enum test tạm, chờ C1."
-    },
-    {
-      "id": "M1-C0",
-      "module": "M1",
-      "group": "context",
-      "priority": 0,
-      "when": {
-        "all": [
-          {
-            "path": "output.stage",
-            "op": "eq",
-            "value": "C"
-          },
-          {
-            "all": [
-              {
-                "path": "fields.spo2.value",
-                "op": "lt",
-                "value": 90
-              },
-              {
-                "path": "fields.ran_am_phoi.value",
-                "op": "eq",
-                "value": true
-              },
-              {
-                "path": "fields.kho_tho_nang.value",
-                "op": "eq",
-                "value": 3
-              }
-            ]
-          }
-        ]
-      },
-      "effects": [
-        {
-          "op": "set",
-          "path": "benh_canh",
-          "value": "Decompensated HF"
-        },
-        {
-          "op": "set",
-          "path": "canh_bao_cap_cuu",
-          "value": [
-            "Phù phổi cấp",
-            "Giảm SpO₂"
-          ]
-        }
-      ],
-      "sources": [
-        "BYT:III.3-4.3; PDF 21-22 (in 20-21)",
-        "DOCX:Model 1/Cảnh báo cấp cứu; DD #105",
-        "TASK:TC01"
-      ],
-      "evidence": "unvalidated_mock_combination",
-      "note": "Tổ hợp và nhãn phù phổi là giả định demo, không chẩn đoán xác định."
-    },
-    {
-      "id": "M1-C9",
-      "module": "M1",
-      "group": "context",
-      "priority": 99,
-      "when": {
-        "path": "output.stage",
-        "op": "eq",
-        "value": "C"
-      },
-      "effects": [
-        {
-          "op": "set",
-          "path": "benh_canh",
-          "value": "Suy tim cấp hoặc mạn tính"
-        }
-      ],
-      "sources": [
-        "DOCX:Model 1/Bệnh cảnh; DD #95"
-      ],
-      "evidence": "unvalidated_mock_combination",
-      "note": "Nhãn chung theo DD; không suy diễn cấp tính từ thiếu dữ liệu."
-    },
     {
       "id": "M1-F0",
       "module": "M1",
@@ -1297,7 +707,7 @@
       "group": "plan",
       "priority": 0,
       "when": {
-        "path": "effective_m1.stage",
+        "path": "effective_diagnosis.stage",
         "op": "eq",
         "value": "A"
       },
@@ -1330,7 +740,7 @@
       "group": "plan",
       "priority": 10,
       "when": {
-        "path": "effective_m1.stage",
+        "path": "effective_diagnosis.stage",
         "op": "eq",
         "value": "B"
       },
@@ -1365,12 +775,12 @@
       "when": {
         "all": [
           {
-            "path": "effective_m1.stage",
+            "path": "effective_diagnosis.stage",
             "op": "eq",
             "value": "C"
           },
           {
-            "path": "effective_m1.kieu_hinh_ef",
+            "path": "effective_diagnosis.kieu_hinh_ef",
             "op": "eq",
             "value": "HFrEF"
           }
@@ -1433,12 +843,12 @@
       "when": {
         "all": [
           {
-            "path": "effective_m1.stage",
+            "path": "effective_diagnosis.stage",
             "op": "eq",
             "value": "C"
           },
           {
-            "path": "effective_m1.kieu_hinh_ef",
+            "path": "effective_diagnosis.kieu_hinh_ef",
             "op": "eq",
             "value": "HFpEF"
           }
@@ -1511,7 +921,7 @@
       "group": "safety_decomp",
       "priority": 0,
       "when": {
-        "path": "effective_m1.benh_canh",
+        "path": "effective_diagnosis.benh_canh",
         "op": "eq",
         "value": "Decompensated HF"
       },
@@ -2071,11 +1481,7 @@
     "gapFields": {
       "M1": [
         "age",
-        "bat_thuong_cau_truc_tim",
         "bien_thien_can_nang_7ngay",
-        "cls_bnp",
-        "cls_lvef",
-        "cls_nt_probnp",
         "copd",
         "dai_thao_duong",
         "danh_gia_suy_yeu_frailty",
@@ -2086,13 +1492,16 @@
         "sex",
         "spo2",
         "tang_huyet_ap",
-        "thieu_mau",
         "tinh_mach_co_noi",
         "trieu_chung_khong_dien_hinh"
       ],
       "M2": [
         "age",
+        "bat_thuong_cau_truc_tim",
         "bien_thien_can_nang_7ngay",
+        "cls_bnp",
+        "cls_lvef",
+        "cls_nt_probnp",
         "danh_gia_suy_yeu_frailty",
         "diagnoses",
         "kho_tho_nang",
@@ -2129,8 +1538,8 @@
     },
     "unestimatedRiskGap": "Các nguy cơ null chưa được mock ước tính; không thay bằng nguy cơ Thấp.",
     "m3CopyFrom": {
-      "stage": "effective_m1.stage",
-      "kieu_hinh_ef": "effective_m1.kieu_hinh_ef"
+      "stage": "effective_diagnosis.stage",
+      "kieu_hinh_ef": "effective_diagnosis.kieu_hinh_ef"
     },
     "medicationFields": [
       "medications",

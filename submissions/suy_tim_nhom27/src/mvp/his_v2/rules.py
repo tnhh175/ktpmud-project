@@ -4,19 +4,134 @@ from copy import deepcopy
 SYMPTOMS=('kho_tho_khi_gang_suc','kho_tho_khi_nam','kho_tho_kich_phat_ve_dem','met_moi',
           'phu_hai_chi_duoi','tinh_mach_co_noi','ran_am_phoi')
 RISKS=('tang_huyet_ap','dai_thao_duong','ts_beo_phi','ts_benh_mach_vanh_nmct','ts_benh_than_man','ts_hoa_tri_thuoc_doc_tim')
-M1_FIELDS=set(SYMPTOMS)|set(RISKS)|{'age','sex','diagnoses','cls_lvef','cls_bnp','cls_nt_probnp','nyha_hien_tai',
+M1_FIELDS=set(SYMPTOMS)|set(RISKS)|{'age','sex','diagnoses','nyha_hien_tai',
  'trieu_chung_khang_tri_khi_nghi','dien_bien_cap','co_keo_co_ho_hap','huyet_ap_tam_thu','nhip_tho','mach','spo2',
- 'roi_loan_tam_truong','bat_thuong_cau_truc_tim','bat_thuong_cau_truc_chi_tiet','kho_tho_nang','phu_chi_duoi_muc_do','bien_thien_can_nang_7ngay','trieu_chung_khong_dien_hinh','danh_gia_suy_yeu_frailty'}
+ 'dau_nguc','ts_rung_nhi_roi_loan_nhip','kho_tho_nang','phu_chi_duoi_muc_do','bien_thien_can_nang_7ngay','trieu_chung_khong_dien_hinh','danh_gia_suy_yeu_frailty'}
 M3_FIELDS={'age','sex','diagnoses','cls_lvef','cls_bnp','cls_nt_probnp','cls_creatinin','cls_kali','egfr_ckd_epi','egfr_formula',
  'ecg_12_chuyen_dao','xquang_nguc_thang','e_over_a_ratio','huyet_ap_tam_thu','mach','nhip_tho','spo2','dien_bien_cap',
  'ran_am_phoi','phu_hai_chi_duoi','tinh_mach_co_noi','dang_dung_loi_tieu_quai_uong','lieu_loi_tieu_quai_ngay','natri_nieu_2gio','nuoc_tieu_6gio'}
 M4_FIELDS={'age','sex','allergies','medications','selected_medications','cls_creatinin','cls_kali','egfr_ckd_epi',
  'giam_ha_tu_the','huyet_ap_tam_thu','ha_tam_thu_dung','danh_gia_suy_yeu_frailty','suy_giam_nhan_thuc','so_luong_thuoc_dong_thoi'}
-M2_LAB_FIELDS={'cls_creatinin','egfr_ckd_epi','cls_kali','cls_natri'}
+M2_DIAGNOSIS_FIELDS = {
+    'cls_lvef', 'cls_bnp', 'cls_nt_probnp', 'bat_thuong_cau_truc_tim',
+    'bat_thuong_cau_truc_chi_tiet', 'roi_loan_tam_truong',
+}
+M2_LAB_FIELDS = M2_DIAGNOSIS_FIELDS | {
+    'cls_creatinin', 'egfr_ckd_epi', 'cls_kali', 'cls_natri',
+    'ecg_12_chuyen_dao', 'xquang_nguc_thang',
+}
+PENDING_EF = 'Chưa phân loại – chờ cận lâm sàng'
+
+
+def effective_diagnosis(snapshot):
+    clinical = snapshot.get('effective_m1') or {}
+    confirmed = snapshot.get('effective_m2') or {}
+    if 'stage' in confirmed:
+        return {**clinical, **{key: confirmed.get(key) for key in ('stage', 'kieu_hinh_ef', 'benh_canh')}}
+    return clinical
+
+
+def field_value(fields, key):
+    answer = fields.get(key, {})
+    return answer.get('value') if answer.get('value_state') == 'answered' else None
+
+
+def symptom_status(fields):
+    signs = [field_value(fields, key) for key in SYMPTOMS]
+    severity = [field_value(fields, key) for key in ('kho_tho_nang', 'phu_chi_duoi_muc_do')]
+    symptoms = True in signs or any(type(value) in (int, float) and value > 0 for value in severity)
+    absent = all(value is False for value in signs)
+    # v1.2 has structured dyspnea/edema severity but lacks the full symptom list.
+    if fields.get('kho_tho_khi_gang_suc') is None:
+        absent = severity[0] == 0 and not any(value is True for value in signs)
+    return symptoms, absent and not symptoms
+
+
+def diagnosis(module, snapshot, rules):
+    fields = snapshot.get('fields', {})
+    threshold = rules['v2Thresholds']
+    def val(key):
+        return field_value(fields, key)
+
+    def compare(key, test):
+        value = val(key)
+        return type(value) in (int, float) and test(value)
+
+    symptoms, asymptomatic = symptom_status(fields)
+    risk = any(val(key) is True for key in RISKS + ('ts_rung_nhi_roi_loan_nhip',))
+    refractory = val('nyha_hien_tai') == 'nyha_iv' and val('trieu_chung_khang_tri_khi_nghi') is True
+    acute = val('dien_bien_cap') is True
+    stage, phenotype, matched = None, PENDING_EF, []
+    context = None
+    if module == 'M1':
+        if symptoms:
+            stage = 'D' if refractory else 'C'
+            matched.append('M1-clinical-D' if refractory else 'M1-clinical-C')
+        elif asymptomatic and risk:
+            stage = 'A'
+            matched.append('M1-clinical-A')
+        if acute:
+            context = 'Suy tim cấp hoặc mạn tính'
+            matched.append('1.8')
+        elif stage in ('C', 'D'):
+            context = 'Suy tim cấp hoặc mạn tính'
+        alerts = [
+            label for triggered, label in (
+                (compare('huyet_ap_tam_thu', lambda x: x < threshold['sbpLow']), 'Tụt huyết áp'),
+                (compare('nhip_tho', lambda x: x > threshold['rrHigh']), 'Thở nhanh'),
+                (compare('mach', lambda x: x < threshold['hrLow'] or x > threshold['hrHigh']), 'Rối loạn nhịp nguy hiểm'),
+                (compare('spo2', lambda x: x < threshold['spo2Low']), 'Giảm SpO₂'),
+                (val('co_keo_co_ho_hap') is True, 'Co kéo cơ hô hấp'),
+            ) if triggered and acute
+        ]
+        if alerts:
+            matched.append('1.9')
+        level = ('Nghi ngờ suy tim' if symptoms or acute else
+                 'Có nguy cơ – Stage A' if stage == 'A' else 'Chưa đủ dữ liệu để kết luận')
+        return dict(stage=stage, kieu_hinh_ef=phenotype, benh_canh=context,
+                    stageProvisional=True, canh_bao_cap_cuu=alerts,
+                    xac_suat_suy_tim={'muc': level, 'xac_suat': None,
+                                      'calibration': 'synthetic_not_calibrated'}), matched
+
+    ef = val('cls_lvef')
+    bnp, nt = val('cls_bnp'), val('cls_nt_probnp')
+    structural = (val('bat_thuong_cau_truc_tim') is True or bool(val('bat_thuong_cau_truc_chi_tiet'))
+                  or val('roi_loan_tam_truong') is True or (ef is not None and ef < threshold['efPreservedMin']))
+    peptide = ((bnp is not None and bnp >= threshold['bnpOutpatient'])
+               or (nt is not None and nt >= threshold['ntprobnpOutpatient']))
+    if symptoms and (structural or peptide):
+        stage = 'D' if refractory else 'C'
+        matched.extend(['1.3', '1.4'] if refractory else ['1.3'])
+    elif asymptomatic and (structural or peptide):
+        stage = 'B'
+        matched.append('1.2')
+    elif (asymptomatic and risk and ef is not None and ef >= threshold['efPreservedMin']
+          and val('bat_thuong_cau_truc_tim') is False and val('roi_loan_tam_truong') is False
+          and not structural and not peptide and (bnp is not None or nt is not None)):
+        stage = 'A'
+        matched.append('1.1')
+    if stage in ('C', 'D') and ef is not None:
+        if ef <= threshold['efReducedMax']:
+            phenotype = 'HFrEF'
+            matched.append('1.5')
+        elif ef < threshold['efPreservedMin']:
+            phenotype = 'HFmrEF'
+            matched.append('1.6')
+        elif val('roi_loan_tam_truong') is True:
+            phenotype = 'HFpEF'
+            matched.append('1.7')
+    elif stage in ('A', 'B'):
+        phenotype = 'Không áp dụng'
+    if acute and ((bnp is not None and bnp >= threshold['bnpAcute'])
+                  or (nt is not None and nt >= threshold['ntprobnpAcute'])):
+        context = 'Decompensated HF'
+    elif stage in ('C', 'D'):
+        context = 'Suy tim cấp hoặc mạn tính'
+    return dict(stage=stage, kieu_hinh_ef=phenotype, benh_canh=context), matched
 
 def profile(rules):
     rules=deepcopy(rules);rules['rulesVersion']='mock-2.0'
-    for module,fields in [('M1',M1_FIELDS),('M2',M1_FIELDS|M2_LAB_FIELDS|{'dau_nguc','ecg_12_chuyen_dao'}),('M3',M3_FIELDS),('M4',M4_FIELDS)]:
+    for module,fields in [('M1',M1_FIELDS),('M2',M1_FIELDS|M2_LAB_FIELDS),('M3',M3_FIELDS),('M4',M4_FIELDS)]:
         rules['outputProjection']['gapFields'][module]=sorted(fields)
         # Explicit unknown is allowed, preserving the workflow uncertainty contract.
         # Core resolved fields match v1.2; removed COPD/anemia are never required.
@@ -31,40 +146,9 @@ def run_v2(module,snapshot,rules,legacy_output):
     def numeric(key,op,limit):
         value=val(key)
         return type(value) in (int,float) and {'lt':lambda:value<limit,'gt':lambda:value>limit,'gte':lambda:value>=limit,'lte':lambda:value<=limit}[op]()
-    def raised(bnp,nt):return numeric('cls_bnp','gte',bnp) or numeric('cls_nt_probnp','gte',nt)
     out=deepcopy(legacy_output)
     out.update(rulesVersion='mock-2.0',clinicalUse=False,displayLabel=rules['displayLabel'])
-    if module=='M1':
-        symptoms=any(val(k) is True for k in SYMPTOMS) or numeric('kho_tho_nang','gt',0) or numeric('phu_chi_duoi_muc_do','gt',0)
-        asymptomatic=all(val(k) is False for k in SYMPTOMS) and not symptoms
-        structural=val('bat_thuong_cau_truc_tim') is True or bool(val('bat_thuong_cau_truc_chi_tiet')) or val('roi_loan_tam_truong') is True or numeric('cls_lvef','lt',50)
-        peptide=raised(t['bnpOutpatient'],t['ntprobnpOutpatient'])
-        stage=None
-        if symptoms and (structural or peptide):stage='C';matched.append('1.3')
-        elif asymptomatic and (structural or peptide):stage='B';matched.append('1.2')
-        elif asymptomatic and val('bat_thuong_cau_truc_tim') is False and val('roi_loan_tam_truong') is False and numeric('cls_lvef','gte',50) and not structural and any(val(k) is True for k in RISKS):stage='A';matched.append('1.1')
-        if stage=='C' and val('nyha_hien_tai')=='nyha_iv' and val('trieu_chung_khang_tri_khi_nghi') is True:stage='D';matched.append('1.4')
-        ef=val('cls_lvef');phenotype='Chưa phân loại do thiếu EF' if ef is None else 'Không áp dụng'
-        if stage in ('C','D'):
-            if numeric('cls_lvef','lte',t['efReducedMax']):phenotype='HFrEF';matched.append('1.5')
-            elif numeric('cls_lvef','gte',t['efMildMin']) and numeric('cls_lvef','lte',t['efMildMax']):phenotype='HFmrEF';matched.append('1.6')
-            elif numeric('cls_lvef','gte',t['efPreservedMin']) and symptoms and val('roi_loan_tam_truong') is True:phenotype='HFpEF';matched.append('1.7')
-        acute=val('dien_bien_cap') is True and raised(t['bnpAcute'],t['ntprobnpAcute'])
-        alerts=[]
-        if acute:
-            matched.append('1.8')
-            for yes,label in [(numeric('huyet_ap_tam_thu','lt',t['sbpLow']),'Tụt huyết áp'),(numeric('nhip_tho','gt',t['rrHigh']),'Thở nhanh'),
-              (numeric('mach','lt',t['hrLow']) or numeric('mach','gt',t['hrHigh']),'Rối loạn nhịp nguy hiểm'),
-              (numeric('spo2','lt',t['spo2Low']),'Giảm SpO₂'),(val('co_keo_co_ho_hap') is True,'Co kéo cơ hô hấp')]:
-                if yes and label not in alerts:alerts.append(label)
-            if alerts:matched.append('1.9')
-        out.update(stage=stage,kieu_hinh_ef=phenotype,benh_canh='Decompensated HF' if acute else ('Suy tim cấp hoặc mạn tính' if stage in ('C','D') else None),
-                   canh_bao_cap_cuu=alerts,canh_bao_gia_suy_tim=[],xac_suat_suy_tim={'muc':'Chưa ước tính xác suất (mock)' if stage or ef is not None else 'Chưa đủ dữ liệu để kết luận','xac_suat':None,'calibration':'synthetic_not_calibrated'})
-        out['dataGaps']=['Luật dự án hỗ trợ bác sĩ; chưa có thẩm định lâm sàng. Không ước tính xác suất.']
-        if numeric('spo2','lt',t['spo2Low']):out['dataGaps'].append('HIS/form chưa ghi tình trạng thở oxy; bác sĩ xác minh điều kiện SpO₂ sau oxy của Luật 1.9.')
-        for key in sorted(M1_FIELDS):
-            if val(key) is None:out['dataGaps'].append(key+': unknown')
-    elif module=='M2':
+    if module=='M2':
         # v2 deduplicates dated results automatically; v1.2 keeps reuse confirmation.
         suspected=(snapshot.get('effective_m1',{}).get('stage') in ('A','B','C','D') or
                    any(val(k) is True for k in SYMPTOMS+RISKS))
@@ -83,13 +167,13 @@ def run_v2(module,snapshot,rules,legacy_output):
         if numeric('cls_lvef','lte',40) and (val('dau_nguc') is True or val('ts_benh_mach_vanh_nmct') is True or ecg.get('pathological_q') is True):
             matched.append('2.3')
             out['goi_y_chi_dinh']['danh_gia_mach_vanh']={'trang_thai':'Đề xuất','ly_do':'Luật 2.3; bác sĩ phân tầng nguy cơ, kiểm tra đau ngực dù tối ưu nội khoa trước chọn MSCT hoặc chụp mạch qua da.'}
-        if snapshot.get('effective_m1',{}).get('kieu_hinh_ef')=='HFpEF' and 'day_that_trai' in (val('bat_thuong_cau_truc_chi_tiet') or []):
+        if out.get('kieu_hinh_ef')=='HFpEF' and 'day_that_trai' in (val('bat_thuong_cau_truc_chi_tiet') or []):
             out['dataGaps'].append('Luật 2.4: bác sĩ xác minh tuổi cao và phì đại thất trái không do THA trước cân nhắc MRI LGE hoặc SPECT 99mTc-bisphosphonate; không tự đặt ngưỡng tuổi.')
         out['dataGaps']=[g for g in out['dataGaps'] if not g.startswith('Mock chỉ có luật')]
         out['dataGaps'].append('Kết quả mô phỏng hỗ trợ bác sĩ; chưa thẩm định lâm sàng.')
     elif module=='M3':
         out=deepcopy(rules['outputDefaults']['M3']);out.update(rulesVersion='mock-2.0')
-        m1=snapshot.get('effective_m1',{});out.update(stage=m1.get('stage'),kieu_hinh_ef=m1.get('kieu_hinh_ef','Chưa phân loại do thiếu EF'))
+        m1=effective_diagnosis(snapshot);out.update(stage=m1.get('stage'),kieu_hinh_ef=m1.get('kieu_hinh_ef',PENDING_EF))
         out['dinh_huong']='Bác sĩ đánh giá dữ liệu, huyết động và chống chỉ định trước khi chọn thuốc.'
         # Stability is positive evidence: all four vital signs must be present.
         stable=(val('dien_bien_cap') is False and numeric('huyet_ap_tam_thu','gte',t['sbpLow']) and
@@ -135,7 +219,7 @@ def run_v2(module,snapshot,rules,legacy_output):
         if classes & raas and (numeric('cls_kali','gt',t['potassiumHigh']) or numeric('cls_creatinin','gt',t['creatinineHigh']) or numeric('egfr_ckd_epi','lt',t['egfrLow'])):
             alert('4.2','Kali / chức năng thận',raas,'Vượt ngưỡng Luật 4.2; bác sĩ rà soát thuốc và theo dõi điện giải/chức năng thận 24–48 giờ.','Nghiêm trọng')
         harmful={'NSAID','corticosteroid','TZD','class_I_antiarrhythmic'}
-        if snapshot.get('effective_m1',{}).get('stage') in ('A','B','C','D') and classes & harmful:alert('4.3','Thuốc cần tránh',harmful,'Luật 4.3: bác sĩ đánh giá thuốc giữ nước/độc tim và xem xét lựa chọn khác.')
+        if effective_diagnosis(snapshot).get('stage') in ('A','B','C','D') and classes & harmful:alert('4.3','Thuốc cần tránh',harmful,'Luật 4.3: bác sĩ đánh giá thuốc giữ nước/độc tim và xem xét lựa chọn khác.')
         # The project provides no CFS cut-off: never infer frailty from its score.
         frail=val('suy_giam_nhan_thuc') is True
         drop=val('giam_ha_tu_the')

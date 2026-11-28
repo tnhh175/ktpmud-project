@@ -15,7 +15,7 @@ from .db import compute_pagination, to_iso
 from .models import ProblemError, PaginationMeta
 
 router = APIRouter(prefix='/api/v1', tags=['Care assignments'])
-def admin(principal: Principal = Depends(require_role('admin', 'care_assignment'))):
+def admin(principal: Principal = Depends(require_role('admin', 'care_assignment', 'care.manage'))):
     raise ProblemError(410, 'CARE_ASSIGNMENTS_RETIRED', 'Đã bỏ phân công bệnh nhân',
                        'Bác sĩ nhận lượt khám từ hàng chờ; bảng phân công cũ chỉ được lưu giữ.')
 

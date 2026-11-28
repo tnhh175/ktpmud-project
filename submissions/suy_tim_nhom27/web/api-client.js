@@ -335,6 +335,9 @@
       },
 
       /* Admin Users */
+      getRolePermissions() { return request('GET', '/admin/role-permissions'); },
+      updateRolePermissions(changes) { return request('PUT', '/admin/role-permissions', { body: { changes: changes } }); },
+      revealTemporaryPassword(id) { return request('GET', '/admin/users/' + encodeURIComponent(id) + '/temporary-password'); },
       listUsers(params) { return request('GET', '/admin/users' + buildQuery(params)); },
       createUser(payload) { return request('POST', '/admin/users', { body: payload }); },
       getUser(userId) { return request('GET', '/admin/users/' + encodeURIComponent(userId)); },
@@ -512,6 +515,9 @@
         if (typeof adapter.finishWorkflow !== 'function') return Promise.reject(new HttpApiError(501, { code: 'WORKFLOW_STATIC_UNSUPPORTED', detail: 'Luồng 4 Module AI yêu cầu kết nối máy chủ API.' }));
         return adapter.finishWorkflow(id, p, rv, idk);
       },
+      getRolePermissions: function () { return adapter.getRolePermissions(); },
+      updateRolePermissions: function (changes) { return adapter.updateRolePermissions(changes); },
+      revealTemporaryPassword: function (id) { return adapter.revealTemporaryPassword(id); },
       listUsers: function (p) { return adapter.listUsers(p); },
       createUser: function (p) { return adapter.createUser(p); },
       getUser: function (id) { return adapter.getUser(id); },

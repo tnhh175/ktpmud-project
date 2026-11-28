@@ -1,11 +1,13 @@
 """Admin endpoints (D5: M6 Users & Permissions, M7 Form Versions, M8 Audit Logs)."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
+from psycopg import Error as DatabaseError
+from pydantic import BaseModel, Field
 
 from .audit import record_audit_log, sanitize_audit_detail
 from .auth import (
@@ -62,6 +64,8 @@ from .models import (
     UserListResponse,
     UserRole,
 )
+from .permissions import CATALOG, PROTECTED, ROLES, is_granted, permission_available
+from .temporary_credentials import clear_expired, credential_key, storage_available, store_credential
 from .patients import record_request_row_to_dict
 from .visits import (
     form_version_row_to_dict,
@@ -72,119 +76,115 @@ from .visits import (
 
 router = APIRouter(prefix="/api/v1/admin", tags=["Admin"])
 
-_require_admin_users = require_role("admin", "app_user")
-_require_admin_forms = require_role("admin", "form_version")
-_require_admin_audit = require_role("admin", "audit_log")
-_require_admin_patients = require_role("admin", "patient")
+_require_admin_users = require_role("admin", "app_user", "accounts.manage")
+_require_admin_forms = require_role("admin", "form_version", "forms.manage")
+_require_admin_audit = require_role("admin", "audit_log", "audit.read")
+_require_admin_patients = require_role("admin", "patient", "records.manage")
 
 
-def _permission_matrix_for_role(role: str) -> dict[str, Any]:
-    if role == 'nurse':
-        return dict(role='nurse',clinicalDataAccessAllowed=False,
-            separationNoticeVi='NVYT chỉ nhập hành chính và sinh hiệu, gửi/rút lượt trước khi bác sĩ nhận.',
-            grantedPermissions=[dict(code=code,labelVi=label,category='clinical') for code,label in (
-                ('patients:read_write','Tìm, tạo và sửa hành chính bệnh nhân'),
-                ('visits:intake','Tạo lượt, nhập hành chính và sinh hiệu ở intake'),
-                ('visits:submit_withdraw','Gửi hàng chờ hoặc rút lượt của mình trước khi được nhận'))],
-            deniedPermissions=[dict(code=code,labelVi=label,category='clinical') for code,label in (
-                ('visits:clinical','Không đọc chẩn đoán, thuốc hay kết quả AI'),
-                ('visits:claim_confirm','Không nhận hoặc xác nhận lượt khám'),
-                ('admin_users:manage','Không quản trị tài khoản và biểu mẫu'))])
-    if role == "doctor":
-        return {
-            "role": "doctor",
-            "clinicalDataAccessAllowed": True,
-            "separationNoticeVi": (
-                "Vai trò Bác sĩ (doctor) được phép quản lý hồ sơ bệnh nhân, nhập và xác nhận dữ liệu lượt khám; "
-                "không có quyền truy cập phân hệ Quản trị tài khoản, Biểu mẫu hay Nhật ký hệ thống."
-            ),
-            "grantedPermissions": [
-                {
-                    "code": "patients:read_write",
-                    "labelVi": "Tìm kiếm, tạo mới và cập nhật hành chính hồ sơ bệnh nhân (BN-xxxxx)",
-                    "category": "clinical",
-                },
-                {
-                    "code": "visits:draft",
-                    "labelVi": "Nhận lượt hàng chờ, nhập và lưu lượt mình đã nhận",
-                    "category": "clinical",
-                },
-                {
-                    "code": "visits:confirm",
-                    "labelVi": "Xem lại dữ liệu lượt khám và xác nhận lượt khám (Tầng 3)",
-                    "category": "clinical",
-                },
-                {
-                    "code": "visits:revise",
-                    "labelVi": "Tạo bản sửa mới (visit_revision) kèm lý do sau khi xác nhận",
-                    "category": "clinical",
-                },
-                {
-                    "code": "visits:ai_input_export",
-                    "labelVi": "Xuất gói dữ liệu chuẩn AiInputPayload của lượt khám đã xác nhận",
-                    "category": "clinical",
-                },
-            ],
-            "deniedPermissions": [
-                {
-                    "code": "admin_users:manage",
-                    "labelVi": "Tạo, phân quyền, khóa/mở hoặc đặt lại mật khẩu tài khoản hệ thống",
-                    "category": "administration",
-                },
-                {
-                    "code": "admin_forms:manage",
-                    "labelVi": "Tạo bản nháp, chỉnh sửa cấu trúc và phát hành phiên bản biểu mẫu",
-                    "category": "administration",
-                },
-                {
-                    "code": "admin_audit:read",
-                    "labelVi": "Tra cứu nhật ký kiểm toán hệ thống toàn cục",
-                    "category": "audit",
-                },
-            ],
-        }
-    return {
-        "role": "admin",
-        "clinicalDataAccessAllowed": False,
-        "separationNoticeVi": (
-            "Vai trò Quản trị viên (admin) bị tách biệt hoàn toàn khỏi quyền đọc và chỉnh sửa bệnh án lâm sàng (chốt K8). "
-            "Mọi truy cập trực tiếp vào /patients* hoặc /visits* đều bị chặn với mã 403 Forbidden."
-        ),
-        "grantedPermissions": [
-            {
-                "code": "admin_users:manage",
-                "labelVi": "Quản lý tài khoản hệ thống, xem trước quyền, khóa/mở và đặt lại mật khẩu",
-                "category": "administration",
-            },
-            {
-                "code": "admin_forms:manage",
-                "labelVi": "Quản lý vòng đời phiên bản biểu mẫu (Bản nháp, Xem trước, Diff, Phát hành)",
-                "category": "administration",
-            },
-            {
-                "code": "admin_audit:read",
-                "labelVi": "Tra cứu nhật ký kiểm toán hệ thống (chỉ siêu dữ liệu, che giấu PHI và mật khẩu)",
-                "category": "audit",
-            },
-        ],
-        "deniedPermissions": [
-            {
-                "code": "patients:read_write",
-                "labelVi": "Đọc hoặc sửa hồ sơ bệnh nhân lâm sàng (bị chặn 403 theo chốt K8)",
-                "category": "clinical",
-            },
-            {
-                "code": "visits:draft",
-                "labelVi": "Đọc chi tiết, nhập liệu hoặc lưu nháp lượt khám bệnh nhân",
-                "category": "clinical",
-            },
-            {
-                "code": "visits:confirm",
-                "labelVi": "Xác nhận dữ liệu lượt khám hoặc xuất dữ liệu lâm sàng AiInputPayload",
-                "category": "clinical",
-            },
-        ],
-    }
+class PermissionChange(BaseModel):
+    role: Literal['admin', 'doctor', 'nurse']
+    permissionCode: str
+    granted: bool
+    previous: bool
+
+
+class UpdateRolePermissionsRequest(BaseModel):
+    changes: list[PermissionChange] = Field(min_length=1, max_length=len(CATALOG) * len(ROLES))
+
+
+_require_permissions = require_role('admin', 'role_permission', 'permissions.manage')
+_require_reveal = require_role('admin', 'app_user', 'credentials.reveal')
+
+
+def permission_matrix(conn):
+    if not permission_available(conn):
+        raise ProblemError(503, 'PERMISSIONS_UNAVAILABLE', 'Chưa có bảng phân quyền',
+                           'Cần nâng cơ sở dữ liệu lên migration 013.')
+    rows = conn.execute('SELECT role, permission_code, granted FROM role_permission').fetchall()
+    grants = {(row['role'], row['permission_code']): row['granted'] for row in rows}
+    return {'roles': list(ROLES), 'permissions': [
+        {'code': code, 'labelVi': label,
+         'grants': {role: grants.get((role, code), False) for role in ROLES},
+         'editable': {role: role in eligible and not (role == 'admin' and code in PROTECTED)
+                      for role in ROLES}}
+        for code, (label, _, eligible) in CATALOG.items()
+    ]}
+
+
+@router.get('/role-permissions', operation_id='getRolePermissions')
+def list_role_permissions(request: Request, principal: Principal = Depends(_require_permissions)):
+    with request.app.state.pool.connection() as conn:
+        return permission_matrix(conn)
+
+
+@router.put('/role-permissions', operation_id='updateRolePermissions')
+def update_role_permissions(body: UpdateRolePermissionsRequest, request: Request,
+                            principal: Principal = Depends(_require_permissions)):
+    with request.app.state.pool.connection() as conn:
+        permission_matrix(conn)
+        changes = sorted(body.changes, key=lambda item: (item.role, item.permissionCode))
+        if len({(item.role, item.permissionCode) for item in changes}) != len(changes):
+            raise ProblemError(422, 'DUPLICATE_PERMISSION_CHANGE', 'Trùng quyền',
+                               'Mỗi quyền của một vai trò chỉ được gửi một lần.')
+        for change in changes:
+            code = change.permissionCode
+            if change.role == 'admin' and code in PROTECTED:
+                raise ProblemError(422, 'ADMIN_PERMISSION_PROTECTED', 'Quyền quản trị được bảo vệ',
+                                   'Không thể đổi quyền quản lý tài khoản hoặc phân quyền của Admin.')
+            if code not in CATALOG or change.role not in CATALOG[code][2]:
+                raise ProblemError(422, 'UNSUPPORTED_ROLE_PERMISSION', 'Quyền không hợp lệ',
+                                   'Quyền này không áp dụng cho vai trò đã chọn.')
+            updated = conn.execute('''UPDATE role_permission SET granted=%s
+                WHERE role=%s AND permission_code=%s AND granted=%s RETURNING role''',
+                (change.granted, change.role, code, change.previous)).fetchone()
+            if updated is None:
+                raise ProblemError(409, 'PERMISSION_CHANGED', 'Quyền đã thay đổi',
+                                   'Tải lại ma trận phân quyền rồi lưu lại.')
+        record_audit_log(conn, actor_user_id=principal.user_id, action='user_update',
+                         entity_type='role_permission', entity_id=None, ip=get_client_ip(request),
+                         request_id=get_request_id(request), outcome='success',
+                         detail={'event': 'role_permissions_update',
+                                 'changes': [change.model_dump() for change in changes]})
+        return permission_matrix(conn)
+
+
+@router.get('/users/{userId}/temporary-password', operation_id='revealTemporaryPassword')
+def reveal_temporary_password(userId: UUID, request: Request, response: Response,
+                              principal: Principal = Depends(_require_reveal)):
+    response.headers['Cache-Control'] = 'no-store'
+    with request.app.state.pool.connection() as conn:
+        if not conn.execute('SELECT id FROM app_user WHERE id=%s FOR SHARE', (userId,)).fetchone():
+            raise ProblemError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy tài khoản',
+                               'Tài khoản không còn tồn tại.')
+        row = None
+        if storage_available(conn):
+            clear_expired(conn)
+            encrypted = conn.execute('''SELECT ciphertext, expires_at FROM temporary_credential
+                WHERE user_id=%s AND ciphertext IS NOT NULL AND expires_at > now()''', (userId,)).fetchone()
+            if encrypted:
+                try:
+                    key = credential_key()
+                    row = conn.execute('SELECT public.pgp_sym_decrypt(%s, %s) AS code',
+                                       (encrypted['ciphertext'], key)).fetchone()
+                except DatabaseError:
+                    raise ProblemError(503, 'CREDENTIAL_DECRYPT_FAILED', 'Không đọc được mật khẩu tạm',
+                                       'Kiểm tra khóa bảo vệ mật khẩu tạm trên máy chủ.') from None
+        record_audit_log(conn, actor_user_id=principal.user_id, action='user_update', entity_type='app_user',
+                         entity_id=userId, ip=get_client_ip(request), request_id=get_request_id(request),
+                         outcome='success', detail={'event': 'temporary_password_view', 'available': bool(row)})
+        return {'temporaryPassword': row['code'] if row else None,
+                'expiresAt': to_iso(encrypted['expires_at']) if row else None}
+
+
+def _permission_matrix_for_role(conn, role: str) -> dict[str, Any]:
+    granted, denied = [], []
+    for code, (label, _, eligible) in CATALOG.items():
+        entry = {'code': code, 'labelVi': label, 'category': 'audit' if code == 'audit.read' else ('administration' if eligible == ('admin',) else 'clinical')}
+        (granted if is_granted(conn, role, code) else denied).append(entry)
+    return {'role': role, 'clinicalDataAccessAllowed': role == 'doctor',
+            'separationNoticeVi': 'Phạm vi hồ sơ phụ thuộc vai trò và lượt khám được phân công.',
+            'grantedPermissions': granted, 'deniedPermissions': denied}
 
 
 def _generate_one_time_code(prefix: str = "OTP") -> str:
@@ -299,7 +299,6 @@ def create_user(
 
     one_time_code = _generate_one_time_code("OTP")
     pw_hash = hash_password(one_time_code)
-    setup_expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
 
     pool = request.app.state.pool
     req_id = get_request_id(request)
@@ -327,6 +326,7 @@ def create_user(
             (uname, pw_hash, full_name, body.role, body.isActive),
         ).fetchone()
 
+        store_credential(conn, user_row["id"], one_time_code)
         record_audit_log(
             conn,
             actor_user_id=principal.user_id,
@@ -348,8 +348,6 @@ def create_user(
     response.headers["ETag"] = f'"{int(user_row["row_version"])}"'
     return {
         "user": user_row_to_schema_dict(user_row),
-        "oneTimeSetupCode": one_time_code,
-        "setupExpiresAt": to_iso(setup_expires_at),
     }
 
 
@@ -529,6 +527,9 @@ def update_user(
                 (next_full_name, next_role, next_active, str(userId), current_rv),
             ).fetchone()
 
+        if body.resetPassword:
+            store_credential(conn, userId, one_time_code)
+
         if not next_active or body.resetPassword or next_role != u_row["role"]:
             conn.execute(
                 """
@@ -566,7 +567,6 @@ def update_user(
     response.headers["ETag"] = f'"{int(updated["row_version"])}"'
     return {
         "user": user_row_to_schema_dict(out_row),
-        "oneTimeSetupCode": one_time_code,
     }
 
 
@@ -578,9 +578,11 @@ def update_user(
 )
 def preview_user_permissions(
     body: PermissionPreviewRequest,
+    request: Request,
     principal: Principal = Depends(_require_admin_users),
 ) -> dict[str, Any]:
-    return _permission_matrix_for_role(body.role)
+    with request.app.state.pool.connection() as conn:
+        return _permission_matrix_for_role(conn, body.role)
 
 
 # ---------------------------------------------------------------------------
@@ -1900,6 +1902,7 @@ def resolve_password_reset_request(
             (new_pw_hash, str(user_row["id"])),
         ).fetchone()
 
+        store_credential(conn, user_row["id"], one_time_code)
         conn.execute(
             """
             UPDATE user_session
@@ -1959,7 +1962,6 @@ def resolve_password_reset_request(
     return {
         "request": _pw_reset_row_to_dict(out_req),
         "user": user_row_to_schema_dict(out_user),
-        "oneTimeSetupCode": one_time_code,
     }
 
 

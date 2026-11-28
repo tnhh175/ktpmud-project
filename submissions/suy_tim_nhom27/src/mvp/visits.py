@@ -33,8 +33,8 @@ from .patients import allergy_row_to_dict, bp_row_to_dict, med_row_to_dict, visi
 
 router = APIRouter(prefix="/api/v1", tags=["Visits"])
 
-_require_doctor_visit = require_role("doctor", "visit")
-_require_intake_visit = require_role(["doctor", "nurse"], "visit")
+_require_intake_visit = require_role(["doctor", "nurse"], "visit",
+    {"doctor": "visits.clinical", "nurse": "visits.intake"})
 
 
 def _nurse_detail(conn, detail):
@@ -96,7 +96,7 @@ def _transition_response(row, response, *, nurse=False):
 
 @router.post('/visits/{visitId}/submit',operation_id='submitVisit',response_model=Visit)
 def submit_visit(visitId: UUID, request: Request, response: Response,
-                 principal: Principal = Depends(require_role('nurse','visit'))):
+                 principal: Principal = Depends(require_role("nurse", "visit", "visits.submit"))):
     with request.app.state.pool.connection() as conn:
         require_visit_access(conn,visitId,principal,write=True)
         visit = conn.execute('SELECT * FROM visit WHERE id=%s',(str(visitId),)).fetchone()
@@ -124,7 +124,7 @@ def submit_visit(visitId: UUID, request: Request, response: Response,
 
 @router.post('/visits/{visitId}/withdraw',operation_id='withdrawVisit',response_model=Visit)
 def withdraw_visit(visitId: UUID, request: Request, response: Response,
-                   principal: Principal = Depends(require_role('nurse','visit'))):
+                   principal: Principal = Depends(require_role("nurse", "visit", "visits.submit"))):
     with request.app.state.pool.connection() as conn:
         require_visit_access(conn,visitId,principal,write=True,allow_waiting=True)
         row = conn.execute('''UPDATE visit SET status='intake',submitted_by=NULL,submitted_at=NULL,
@@ -139,7 +139,7 @@ def withdraw_visit(visitId: UUID, request: Request, response: Response,
 
 @router.post('/visits/{visitId}/claim',operation_id='claimVisit',response_model=Visit)
 def claim_visit(visitId: UUID, request: Request, response: Response,
-                principal: Principal = Depends(_require_doctor_visit)):
+                principal: Principal = Depends(require_role("doctor", "visit", "visits.claim"))):
     with request.app.state.pool.connection() as conn:
         # A single conditional UPDATE determines the winner, including concurrent requests.
         row = conn.execute('''UPDATE visit SET status='in_progress',assigned_doctor_id=%s,claimed_at=now(),
@@ -156,15 +156,17 @@ def claim_visit(visitId: UUID, request: Request, response: Response,
 
 @router.get('/visit-queue',operation_id='listVisitQueue',response_model=VisitQueueResponse)
 def visit_queue(request: Request, page: int = Query(1,ge=1),pageSize: int = Query(20,ge=1,le=100),
-                principal: Principal = Depends(_require_doctor_visit)):
+                principal: Principal = Depends(require_role("doctor", "visit", "queue.read"))):
     from .db import compute_pagination
     with request.app.state.pool.connection() as conn:
         active_filter = " AND p.record_status <> 'archived'" if has_record_status_schema(conn) else ""
-        total = conn.execute(f"SELECT count(*) AS n FROM visit v JOIN patient p ON p.id=v.patient_id WHERE v.status='waiting'{active_filter}").fetchone()['n']
+        own = ' AND v.created_by=%s' if principal.role == 'nurse' else ''
+        params = (principal.user_id,) if own else ()
+        total = conn.execute(f"SELECT count(*) AS n FROM visit v JOIN patient p ON p.id=v.patient_id WHERE v.status='waiting'{active_filter}{own}", params).fetchone()['n']
         rows = conn.execute(f'''SELECT v.*,p.patient_code,p.full_name AS patient_name,p.sex,p.birth_date,
            p.birth_year,p.declared_age,u.full_name AS submitter_name FROM visit v JOIN patient p ON p.id=v.patient_id
-           LEFT JOIN app_user u ON u.id=v.submitted_by WHERE v.status='waiting'{active_filter}
-           ORDER BY v.submitted_at ASC NULLS LAST,v.id LIMIT %s OFFSET %s''',(pageSize,(page-1)*pageSize)).fetchall()
+           LEFT JOIN app_user u ON u.id=v.submitted_by WHERE v.status='waiting'{active_filter}{own}
+           ORDER BY v.submitted_at ASC NULLS LAST,v.id LIMIT %s OFFSET %s''',(*params,pageSize,(page-1)*pageSize)).fetchall()
         items = [dict(visitId=str(r['id']),visitCode=r['visit_code'],patientId=str(r['patient_id']),
             patientCode=r['patient_code'],patientName=r['patient_name'],sex=r['sex'],age=_compute_age(r,r['visit_date']),
             submittedAt=to_iso(r['submitted_at']),submittedByName=r['submitter_name'],vitals=_queue_vitals(conn,r['id'])[0]) for r in rows]
@@ -198,14 +200,14 @@ def _personal_visits(request, principal, status, page, page_size):
 @router.get('/my-visits',operation_id='listMyVisits',response_model=VisitListResponse)
 def my_visits(request: Request,status: Literal['in_progress','confirmed'] | None = None,
               page: int = Query(1,ge=1),pageSize: int = Query(20,ge=1,le=100),
-              principal: Principal = Depends(_require_doctor_visit)):
+              principal: Principal = Depends(require_role("doctor", "visit", "visits.mine"))):
     return _personal_visits(request,principal,status,page,pageSize)
 
 
 @router.get('/nurse/visits',operation_id='listNurseVisits',response_model=VisitListResponse)
 def nurse_visits(request: Request,status: Literal['intake','waiting'] | None = None,
                  page: int = Query(1,ge=1),pageSize: int = Query(20,ge=1,le=100),
-                 principal: Principal = Depends(require_role('nurse','visit'))):
+                 principal: Principal = Depends(require_role("nurse", "visit", "visits.intake_list"))):
     return _personal_visits(request,principal,status,page,pageSize)
 
 _CORE_AI_MODULE_BASELINE: dict[str, list[str]] = {
@@ -1987,7 +1989,7 @@ def get_visit(
     visitId: UUID,
     request: Request,
     response: Response,
-    principal: Principal = Depends(_require_intake_visit),
+    principal: Principal = Depends(require_role(["doctor", "nurse"], "visit", "visits.read")),
 ) -> dict[str, Any]:
     pool = request.app.state.pool
     with pool.connection() as conn:
@@ -2010,7 +2012,7 @@ def get_visit(
 def get_visit_form(
     visitId: UUID,
     request: Request,
-    principal: Principal = Depends(_require_intake_visit),
+    principal: Principal = Depends(require_role(["doctor", "nurse"], "visit", "visits.read")),
 ) -> dict[str, Any]:
     pool = request.app.state.pool
     with pool.connection() as conn:
@@ -2337,7 +2339,7 @@ def save_visit_draft(
 def get_visit_review(
     visitId: UUID,
     request: Request,
-    principal: Principal = Depends(_require_doctor_visit),
+    principal: Principal = Depends(require_role("doctor", "visit", "visits.review")),
 ) -> dict[str, Any]:
     pool = request.app.state.pool
     with pool.connection() as conn:
@@ -2357,7 +2359,7 @@ def confirm_visit(
     request: Request,
     response: Response,
     if_match: str | None = Header(default=None, alias="If-Match"),
-    principal: Principal = Depends(_require_doctor_visit),
+    principal: Principal = Depends(require_role("doctor", "visit", "visits.confirm")),
 ) -> dict[str, Any]:
     pool = request.app.state.pool
     req_id = get_request_id(request)
@@ -2572,7 +2574,7 @@ def create_visit_revision(
     request: Request,
     response: Response,
     if_match: str | None = Header(default=None, alias="If-Match"),
-    principal: Principal = Depends(_require_doctor_visit),
+    principal: Principal = Depends(require_role("doctor", "visit", "visits.revise")),
 ) -> dict[str, Any]:
     reason = body.changeReason.strip()
     if len(reason) < 5:
@@ -2723,7 +2725,7 @@ def create_visit_revision(
 def get_visit_ai_input(
     visitId: UUID,
     request: Request,
-    principal: Principal = Depends(_require_doctor_visit),
+    principal: Principal = Depends(require_role("doctor", "visit", "visits.ai_export")),
 ) -> dict[str, Any]:
     pool = request.app.state.pool
     with pool.connection() as conn:
@@ -2753,14 +2755,14 @@ def get_visit_ai_input(
 
 
 @router.get("/visits/{visitId}/ai-input/hf/1.0", operation_id="getVisitHfAiInputV1", responses={409:{"description":"Visit not confirmed"},422:{"description":"AI_INPUT_NOT_READY with quality"},503:{"description":"HMAC key unavailable"}})
-def get_visit_hf_ai_input(visitId: UUID, request: Request, module: Literal["ai_diagnosis","ai_lab_test","ai_treatment","ai_medsafety"] | None = None, diagnostic: bool = False, principal: Principal = Depends(_require_doctor_visit)):
+def get_visit_hf_ai_input(visitId: UUID, request: Request, module: Literal["ai_diagnosis","ai_lab_test","ai_treatment","ai_medsafety"] | None = None, diagnostic: bool = False, principal: Principal = Depends(require_role("doctor", "visit", "visits.ai_export"))):
     from .hf_ai import export_hf_input
     return export_hf_input(visitId,request,principal,module,diagnostic)
 
 
 @router.get('/visits/{visitId}/ai-input/hf/1.1',operation_id='getVisitHfAiInputV11')
 def get_visit_hf_ai_input_v11(visitId:UUID,request:Request,module:Literal['ai_diagnosis','ai_lab_test','ai_treatment','ai_medsafety']|None=None,
-                            diagnostic:bool=False,principal:Principal=Depends(_require_doctor_visit)):
+                            diagnostic:bool=False,principal:Principal=Depends(require_role("doctor", "visit", "visits.ai_export"))):
     from .hf_ai import export_hf_input
     return export_hf_input(visitId,request,principal,module,diagnostic,version='1.1')
 
@@ -2770,6 +2772,6 @@ def get_visit_hf_ai_input_v11(visitId:UUID,request:Request,module:Literal['ai_di
         'content':{'application/json':{'schema':{'$ref':'./schemas/hf-ai-input-2.0.schema.json'}}}}})
 def get_visit_hf_ai_input_v20(visitId: UUID,request: Request,
     module: Literal['ai_diagnosis','ai_lab_test','ai_treatment','ai_medsafety'] | None = None,
-    diagnostic: bool = False,principal: Principal = Depends(_require_doctor_visit)):
+    diagnostic: bool = False,principal: Principal = Depends(require_role("doctor", "visit", "visits.ai_export"))):
     from .hf_ai import export_hf_input
     return export_hf_input(visitId,request,principal,module,diagnostic,version='2.0')

@@ -53,7 +53,8 @@
         "HFimpEF",
         "Chưa phân loại do thiếu EF",
         "HFmrEF",
-        "Không áp dụng"
+        "Không áp dụng",
+        "Chưa phân loại – chờ cận lâm sàng"
       ]
     },
     "stage": {
@@ -2052,7 +2053,9 @@
               "Giảm SpO₂",
               "Rối loạn nhịp nguy hiểm",
               "Hội chứng vành cấp",
-              "Thiểu niệu hoặc giảm tưới máu"
+              "Thiểu niệu hoặc giảm tưới máu",
+              "Thở nhanh",
+              "Co kéo cơ hô hấp"
             ]
           },
           "uniqueItems": true
@@ -2080,6 +2083,9 @@
         "author": {
           "type": "string",
           "minLength": 1
+        },
+        "stageProvisional": {
+          "const": true
         }
       },
       "required": [
@@ -2338,6 +2344,29 @@
         "author": {
           "type": "string",
           "minLength": 1
+        },
+        "stage": {
+          "$ref": "#/$defs/stage"
+        },
+        "kieu_hinh_ef": {
+          "$ref": "#/$defs/phenotype"
+        },
+        "benh_canh": {
+          "anyOf": [
+            {
+              "enum": [
+                "Suy tim mới khởi phát",
+                "Suy tim cấp hoặc mạn tính",
+                "Worsening HF",
+                "Decompensated HF",
+                "Suy tim cải thiện/thuyên giảm",
+                "Suy tim tiến triển/kháng trị"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -3126,6 +3155,9 @@
                 "accept",
                 "finish_workflow"
               ]
+            },
+            "unselectedReasons": {
+              "$ref": "#/$defs/unselectedReasons"
             }
           },
           "required": [
@@ -3206,6 +3238,9 @@
               "minLength": 1,
               "pattern": "\\S",
               "description": "Lý do tự nhập / điều chỉnh so với AI; API trim trước khi lưu ai_module_decision.manual_reason."
+            },
+            "unselectedReasons": {
+              "$ref": "#/$defs/unselectedReasons"
             }
           },
           "required": [
@@ -3412,6 +3447,9 @@
         },
         "contractVersion": {
           "const": "hf-workflow/1.0"
+        },
+        "unselectedReasons": {
+          "$ref": "#/$defs/unselectedReasons"
         }
       },
       "required": [
@@ -6257,6 +6295,35 @@
           }
         }
       ]
+    },
+    "unselectedReasons": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "required": [
+          "group",
+          "reason"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "group": {
+            "enum": [
+              "ARNI_ACEI_ARB",
+              "beta_blocker",
+              "MRA",
+              "SGLT2i",
+              "loop_diuretic"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000,
+            "pattern": "\\S"
+          }
+        }
+      }
     }
   }
 }

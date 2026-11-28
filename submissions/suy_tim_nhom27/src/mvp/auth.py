@@ -18,6 +18,8 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import psycopg
 
 from .audit import record_audit_log
+from .permissions import CATALOG, is_granted
+from .temporary_credentials import revoke_credential, storage_available
 from .db import normalize_ip, to_iso
 from .models import (
     AppUser,
@@ -337,7 +339,8 @@ def get_current_principal(
     )
 
 
-def require_role(allowed_role: str | list[str] | tuple[str, ...], entity_type_for_audit: str) -> Callable[..., Principal]:
+def require_role(allowed_role: str | list[str] | tuple[str, ...], entity_type_for_audit: str,
+                 permission: str | dict[str, str]) -> Callable[..., Principal]:
     """Dependency enforcing strict K8 separation between doctor and admin roles."""
 
     allowed_roles = (allowed_role,) if isinstance(allowed_role, str) else tuple(allowed_role)
@@ -346,7 +349,10 @@ def require_role(allowed_role: str | list[str] | tuple[str, ...], entity_type_fo
         request: Request,
         principal: Principal = Depends(get_current_principal),
     ) -> Principal:
-        if principal.role not in allowed_roles:
+        code = permission.get(principal.role) if isinstance(permission, dict) else permission
+        with request.app.state.pool.connection() as conn:
+            allowed = bool(code and is_granted(conn, principal.role, code))
+        if not allowed:
             is_admin_clinical = principal.role == "admin" and "doctor" in allowed_roles
             err_code = (
                 "CLINICAL_DATA_SEPARATION_ENFORCED"
@@ -356,7 +362,8 @@ def require_role(allowed_role: str | list[str] | tuple[str, ...], entity_type_fo
             detail_msg = (
                 "Vai trò Quản trị viên (admin) bị tách biệt hoàn toàn khỏi quyền đọc và chỉnh sửa hồ sơ/dữ liệu lâm sàng (chốt K8)."
                 if is_admin_clinical
-                else "Tài khoản hiện tại không có quyền truy cập chức năng quản trị này."
+                else (f"Tài khoản hiện tại thiếu quyền {CATALOG[code][0]}." if code
+                      else "Tài khoản hiện tại không có quyền truy cập chức năng này.")
             )
             pool = request.app.state.pool
             with pool.connection() as conn:
@@ -373,6 +380,7 @@ def require_role(allowed_role: str | list[str] | tuple[str, ...], entity_type_fo
                         "event": "rbac_denied",
                         "code": err_code,
                         "requiredRole": allowed_role,
+                        "permission": code,
                         "actorRole": principal.role,
                         "method": request.method,
                         "path": request.url.path,
@@ -429,7 +437,11 @@ def login(body: LoginRequest, request: Request) -> dict[str, Any]:
         ).fetchone()
 
         password_ok = False
-        if user is not None:
+        expired = user is not None and storage_available(conn) and conn.execute(
+            'SELECT 1 FROM temporary_credential WHERE user_id=%s AND expires_at <= now()',
+            (user['id'],),
+        ).fetchone()
+        if user is not None and not expired:
             stored = user["password_hash"]
             if _SEED_PLACEHOLDER_MARKER in stored:
                 expected_seed_pw = seed_password_for_username(user["username"])
@@ -592,6 +604,7 @@ def change_password(
             """,
             (hash_password(body.newPassword), str(principal.user_id)),
         ).fetchone()
+        revoke_credential(conn, principal.user_id)
         conn.execute(
             """
             UPDATE user_session SET revoked_at = GREATEST(now(), created_at)

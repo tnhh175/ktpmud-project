@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 
 from .workflow_schema import ROOT, validate
+from .his_v2.rules import diagnosis, effective_diagnosis, profile, run_v2
 
 
 def load_rules():
@@ -112,27 +113,33 @@ def recent_v2_evidence(observations, visit_time):
 def run_module(module, snapshot, *, rules=None):
     rules = rules or load_rules()
     module = module.upper()
+    if snapshot.get('formVersionLabel') == 'v2.0' and rules['rulesVersion'] != 'mock-2.0':
+        rules = profile(rules)
     data = deepcopy(snapshot)
     fields = data.get('fields', {})
     # Null out unknown values even for callers that are not the HTTP adapter.
     for answer in fields.values():
         if answer.get('value_state') != 'answered':
             answer['value'] = None
-    drugs = [row for key in rules['outputProjection']['medicationFields']
+    drugs = [] if module == 'M1' else [row for key in rules['outputProjection']['medicationFields']
              for row in (fields.get(key, {}).get('value') or [])]
     data['medicationClasses'] = sorted({medication_class(row) for row in drugs if medication_class(row)})
     # v1.2 requires doctor-confirmed reuse; v2 derives reuse from dated observations.
-    if 'observations' in data:
+    if module == 'M2' and 'observations' in data:
         evidence = (recent_v2_evidence(data['observations'], data['visitTime']) if snapshot.get('formVersionLabel')=='v2.0'
                     else recent_evidence(fields, data['observations'], data['visitTime'], data.get('recentTestEvidence', {})))
         data['recentTestEvidence'], data['recentTests'] = evidence, list(evidence)
+    data['effective_diagnosis'] = effective_diagnosis(snapshot)
     output = deepcopy(rules['outputDefaults'][module])
+    matched = []
+    if module in ('M1', 'M2'):
+        assessment, matched = diagnosis(module, data, rules)
+        output.update(assessment)
     data['output'] = output
     groups = OrderedDict()
     for rule in rules['rules']:
         if rule['module'] == module:
             groups.setdefault(rule['group'], []).append(rule)
-    matched = []
     for candidates in groups.values():
         for rule in sorted(candidates, key=lambda r: r['priority']):
             if not condition(rule['when'], data):
@@ -168,8 +175,12 @@ def run_module(module, snapshot, *, rules=None):
         for alert in output['canh_bao']:
             classes = projection['relatedClassesByAlert'].get(alert['id'], [])
             alert['thuoc_lien_quan'] = sorted({r['id'] for r in drugs if medication_class(r) in classes})
-    if snapshot.get('formVersionLabel')=='v2.0':
-        from .his_v2.rules import run_v2
-        output,matched=run_v2(module,data,rules,output)
+    if snapshot.get('formVersionLabel') == 'v2.0':
+        output['rulesVersion'] = rules['rulesVersion']
+        if module != 'M1':
+            output, extra = run_v2(module, data, rules, output)
+            matched.extend(extra)
+    if module == 'M1' and 'Giảm SpO₂' in output['canh_bao_cap_cuu']:
+        output['dataGaps'].append('Chưa ghi tình trạng thở oxy. Bác sĩ xác minh điều kiện SpO₂ sau oxy của Luật 1.9.')
     validate(output, module.lower() + 'Output')
     return output, matched

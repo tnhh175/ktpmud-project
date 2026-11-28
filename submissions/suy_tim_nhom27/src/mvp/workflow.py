@@ -15,6 +15,8 @@ from .auth import Principal, get_current_principal, get_client_ip, get_request_i
 from .care import require_visit_access
 from .db import parse_if_match, to_iso
 from .hf_ai import digest
+from .his_v2.rules import M2_DIAGNOSIS_FIELDS, PENDING_EF
+from .permissions import is_granted, require_grant
 from .models import ProblemError, WorkflowFieldsRequest, WorkflowRunRequest, WorkflowDecisionRequest, WorkflowConfirmationRequest, WorkflowFinishRequest
 from . import workflow_mock as mock
 from .workflow_schema import SCHEMA, matches, validate
@@ -234,34 +236,31 @@ def problem(code, status=409, *, fields=(), detail=None):
         errors=[{'fieldCode':f,'message':code,'rejectedValue':None} for f in fields])
 
 
-def check_role(principal, *, write=False, module=None):
+def check_role(request, principal, permission, *, legacy_m4=False):
     if principal.role == 'admin':
         raise problem('CLINICAL_DATA_SEPARATION_ENFORCED',403)
-    if principal.role != 'doctor' and (write or principal.role != 'pharmacist' or module != 'm4'):
-        raise problem('WORKFLOW_FORBIDDEN',403)
+    if legacy_m4 and principal.role == 'pharmacist':
+        return
+    with request.app.state.pool.connection() as conn:
+        if not is_granted(conn, principal.role, permission):
+            raise problem('WORKFLOW_FORBIDDEN',403,detail='Tài khoản hiện tại thiếu quyền thao tác với module AI.')
 
 
 def access(conn, visit_id, principal, *, write=False):
-    if principal.role != 'doctor':
+    try:
         require_visit_access(conn, visit_id, principal, write=write)
-    if principal.role == 'doctor':
-        try:
-            require_visit_access(conn, visit_id, principal, write=write)
-        except ProblemError as exc:
-            if exc.status == 404:
-                raise problem('VISIT_NOT_FOUND',404) from None
-            raise
-    else:
-        if not conn.execute('''SELECT 1 FROM visit v JOIN workflow_pharmacist_assignment a ON a.patient_id=v.patient_id
-           WHERE v.id=%s AND a.pharmacist_user_id=%s AND a.revoked_at IS NULL''',
-           (str(visit_id),str(principal.user_id))).fetchone():
-            raise problem('VISIT_NOT_FOUND',404)
+    except ProblemError as exc:
+        if exc.status == 404:
+            raise problem('VISIT_NOT_FOUND',404) from None
+        raise
     row=conn.execute('SELECT * FROM visit WHERE id=%s'+(' FOR UPDATE' if write else ' FOR SHARE'),(str(visit_id),)).fetchone()
     if not row:
         raise problem('VISIT_NOT_FOUND',404)
     if write and row['status']=='confirmed':
         raise problem('VISIT_ALREADY_CONFIRMED')
     version=conn.execute('SELECT version_label FROM form_version WHERE id=%s',(row['form_version_id'],)).fetchone()
+    if principal.role == 'pharmacist' and version['version_label'] != 'v1.2':
+        raise problem('WORKFLOW_FORBIDDEN',403)
     if version['version_label'] not in ('v1.2','v2.0'):
         raise problem('FORM_VERSION_NOT_WORKFLOW_CAPABLE', detail=f"Lượt khám dùng phiên bản biểu mẫu {version['version_label']} chưa hỗ trợ Luồng 4 Module AI (chỉ hỗ trợ v1.2 và v2.0).")
     return row
@@ -607,6 +606,8 @@ def semantic(answer):
 def owner_for(key, module=None, fields=None, rules=None):
     if key in ('medications','allergies'):
         return 'm4'
+    if key in M2_DIAGNOSIS_FIELDS:
+        return 'm2'
     if key in M3_FIELDS:
         return 'm3'
     return 'm1'
@@ -703,7 +704,7 @@ def run_view(row):
 
 def decision_view(row):
     return dict(id=str(row['id']),visitId=str(row['visit_id']),module=row['module'],source=row['source'],runId=str(row['run_id']) if row['run_id'] else None,
-      output=row['effective_output'],selectedPrescription=row['selected_prescription'],inputHash=row['input_hash'],upstreamDecisionIds=row['upstream_decision_ids'],
+      output=row['effective_output'],selectedPrescription=row['selected_prescription'],unselectedReasons=row.get('unselected_reasons',[]),inputHash=row['input_hash'],upstreamDecisionIds=row['upstream_decision_ids'],
       decidedBy=str(row['decided_by']),decidedAt=to_iso(row['decided_at']),supersededAt=to_iso(row['superseded_at']),contractVersion=CONTRACT)
 
 
@@ -714,7 +715,7 @@ def module_match(module, body):
 
 @router.get('/{visitId}/workflow', operation_id='getVisitWorkflow')
 def get_workflow(visitId:UUID,request:Request,response:Response,module:str|None=Query(default=None),principal:Principal=Depends(workflow_principal)):
-    check_role(principal,module=module)
+    check_role(request, principal, 'workflow.read', legacy_m4=module == 'm4')
     with request.app.state.pool.connection() as conn:
         visit=access(conn,visitId,principal)
         workflow=load(conn,visit,request=request,principal=principal)
@@ -731,7 +732,7 @@ def get_workflow(visitId:UUID,request:Request,response:Response,module:str|None=
 
 @router.get('/{visitId}/workflow/{module}/fields',operation_id='getWorkflowFields')
 def get_fields(visitId:UUID,module:str,request:Request,response:Response,principal:Principal=Depends(workflow_principal)):
-    check_role(principal)
+    check_role(request, principal, 'workflow.read')
     if module not in MODULES:
         raise problem('WORKFLOW_MODULE_MISMATCH',422)
     with request.app.state.pool.connection() as conn:
@@ -746,7 +747,7 @@ def get_fields(visitId:UUID,module:str,request:Request,response:Response,princip
 @router.put('/{visitId}/workflow/{module}/fields',operation_id='saveWorkflowFields')
 def put_fields(visitId:UUID,module:str,body:WorkflowFieldsRequest,request:Request,response:Response,
                if_match:str|None=Header(default=None,alias='If-Match'),principal:Principal=Depends(workflow_principal)):
-    check_role(principal,write=True);module_match(module,body)
+    check_role(request, principal, 'workflow.edit');module_match(module,body)
     rules=mock.load_rules()
     with request.app.state.pool.connection() as conn:
         visit=access(conn,visitId,principal,write=True);workflow=load(conn,visit,write=True,request=request,principal=principal)
@@ -806,7 +807,7 @@ def remember(conn,principal,endpoint,key,body,receipt):
 def post_run(visitId:UUID,module:str,body:WorkflowRunRequest,request:Request,response:Response,
              if_match:str|None=Header(default=None,alias='If-Match'),idempotency_key:str|None=Header(default=None,alias='Idempotency-Key'),
              principal:Principal=Depends(workflow_principal)):
-    check_role(principal,write=True);module_match(module,body)
+    check_role(request, principal, 'workflow.run');module_match(module,body)
     rules=mock.load_rules();endpoint=str(request.url.path);payload=body.model_dump(mode='json')
     with request.app.state.pool.connection() as conn:
         visit=access(conn,visitId,principal,write=True);workflow=load(conn,visit,write=True,request=request,principal=principal)
@@ -847,6 +848,7 @@ def post_run(visitId:UUID,module:str,body:WorkflowRunRequest,request:Request,res
     with request.app.state.pool.connection() as conn:
         # Scope and input are checked again after releasing the lock for the engine.
         try:
+            require_grant(conn, principal.role, 'workflow.run')
             visit=access(conn,visitId,principal,write=True)
             workflow=load(conn,visit,write=True,request=request,principal=principal)
             current_snapshot,_,current_hash=make_snapshot(conn,visit,workflow,module,rules)
@@ -875,18 +877,21 @@ def post_run(visitId:UUID,module:str,body:WorkflowRunRequest,request:Request,res
 
 @router.get('/{visitId}/workflow/{module}/runs',operation_id='listWorkflowRuns')
 def list_runs(visitId:UUID,module:str,request:Request,principal:Principal=Depends(workflow_principal)):
-    check_role(principal)
+    check_role(request, principal, 'workflow.read')
     if module not in MODULES:
         raise problem('WORKFLOW_MODULE_MISMATCH',422)
     with request.app.state.pool.connection() as conn:
         access(conn,visitId,principal)
         records=conn.execute("SELECT * FROM ai_module_run WHERE visit_id=%s AND module=%s AND status<>'running' ORDER BY attempt DESC",(visitId,module)).fetchall()
-        return {'items':[run_view(row) for row in records]}
+        decisions = conn.execute('''SELECT * FROM ai_module_decision
+            WHERE visit_id=%s AND module=%s ORDER BY decided_at DESC''', (visitId,module)).fetchall()
+        return {'items':[run_view(row) for row in records],
+                'decisions':[decision_view(row) for row in decisions]}
 
 
 @router.get('/{visitId}/workflow/{module}/runs/{runId}',operation_id='getWorkflowRun')
 def get_run(visitId:UUID,module:str,runId:UUID,request:Request,principal:Principal=Depends(workflow_principal)):
-    check_role(principal)
+    check_role(request, principal, 'workflow.read')
     with request.app.state.pool.connection() as conn:
         access(conn,visitId,principal)
         row=conn.execute('SELECT * FROM ai_module_run WHERE id=%s AND visit_id=%s AND module=%s AND status<>\'running\'',(runId,visitId,module)).fetchone()
@@ -897,7 +902,7 @@ def get_run(visitId:UUID,module:str,runId:UUID,request:Request,principal:Princip
 
 @router.get('/{visitId}/workflow/{module}/decisions/{decisionId}',operation_id='getWorkflowDecision')
 def get_decision(visitId:UUID,module:str,decisionId:UUID,request:Request,principal:Principal=Depends(workflow_principal)):
-    check_role(principal)
+    check_role(request, principal, 'workflow.read')
     with request.app.state.pool.connection() as conn:
         access(conn,visitId,principal)
         row=conn.execute('SELECT * FROM ai_module_decision WHERE id=%s AND visit_id=%s AND module=%s',(decisionId,visitId,module)).fetchone()
@@ -909,7 +914,7 @@ def get_decision(visitId:UUID,module:str,decisionId:UUID,request:Request,princip
 @router.post('/{visitId}/workflow/m4/confirmations',operation_id='confirmWorkflowM4')
 def post_confirmations(visitId:UUID,body:WorkflowConfirmationRequest,request:Request,response:Response,
                        if_match:str|None=Header(default=None,alias='If-Match'),idempotency_key:str|None=Header(default=None,alias='Idempotency-Key'),principal:Principal=Depends(workflow_principal)):
-    check_role(principal,write=True);module_match('m4',body)
+    check_role(request, principal, 'workflow.decide');module_match('m4',body)
     with request.app.state.pool.connection() as conn:
         visit=access(conn,visitId,principal,write=True);workflow=load(conn,visit,write=True,request=request,principal=principal)
         payload=body.model_dump(mode='json');endpoint=str(request.url.path)
@@ -937,11 +942,40 @@ def post_confirmations(visitId:UUID,body:WorkflowConfirmationRequest,request:Req
         return receipt
 
 
+M3_GROUPS = {
+    'ARNI_ACEI_ARB': ('ARNI / ACEI / ARB', 'raas'),
+    'beta_blocker': ('Chẹn beta', 'beta_blocker'),
+    'MRA': ('MRA', 'mra'),
+    'SGLT2i': ('SGLT2i', 'sglt2i'),
+    'loop_diuretic': ('Lợi tiểu quai', 'loop_diuretic'),
+}
+
+
+def m3_unselected_reasons(body, ai_output):
+    selected = {
+        item['therapeuticGroup'] for item in body.selectedPrescription['items']
+        if item['action'] != 'stop'
+    }
+    reasons = {item.group: item.reason.strip() for item in body.unselectedReasons or []}
+    if len(reasons) != len(body.unselectedReasons or []):
+        raise problem('DUPLICATE_M3_REASON', 422, detail='Mỗi nhóm thuốc chỉ nhập một lý do không chọn.')
+    outstanding = {
+        group: label for group, (label, prescription_group) in M3_GROUPS.items()
+        if ai_output['nhom_thuoc'][group]['muc'] in ('Khuyến nghị', 'Cân nhắc')
+        and prescription_group not in selected
+    }
+    missing = [label for group, label in outstanding.items() if not reasons.get(group)]
+    if missing:
+        raise problem('M3_UNSELECTED_REASON_REQUIRED', 422,
+                      detail='Nhập lý do không chọn cho nhóm thuốc ' + ', '.join(missing) + '.')
+    return [{'group': group, 'reason': reasons[group]} for group in outstanding]
+
+
 @router.post('/{visitId}/workflow/{module}/decision',operation_id='decideWorkflowModule')
 def post_decision(visitId:UUID,module:str,body:WorkflowDecisionRequest,request:Request,response:Response,
                   if_match:str|None=Header(default=None,alias='If-Match'),idempotency_key:str|None=Header(default=None,alias='Idempotency-Key'),
                   principal:Principal=Depends(workflow_principal)):
-    check_role(principal,write=True);module_match(module,body)
+    check_role(request, principal, 'workflow.decide');module_match(module,body)
     endpoint=str(request.url.path);payload=body.model_dump(mode='json',exclude_none=True)
     with request.app.state.pool.connection() as conn:
         visit=access(conn,visitId,principal,write=True);workflow=load(conn,visit,write=True,request=request,principal=principal)
@@ -958,7 +992,8 @@ def post_decision(visitId:UUID,module:str,body:WorkflowDecisionRequest,request:R
                 raise problem('MANUAL_REQUIRES_RERUN')
             if not body.manualReason or not body.manualReason.strip():
                 raise problem('MANUAL_REASON_REQUIRED',422)
-        if not matches(payload,SCHEMA['$defs']['decisionRequest']):
+        validation_payload = {key: value for key, value in payload.items() if key != 'unselectedReasons'}
+        if not matches(validation_payload,SCHEMA['$defs']['decisionRequest']):
             raise problem('OUTPUT_SCHEMA_INVALID',422)
         if body.source=='ai':
             if str(body.runId)!=str(run['id']):
@@ -966,10 +1001,22 @@ def post_decision(visitId:UUID,module:str,body:WorkflowDecisionRequest,request:R
             output=merged_confirmations(conn,run)
         else:
             output=deepcopy(body.output)
+            if run['input_snapshot'].get('formVersionLabel') == 'v2.0':
+                if module == 'm1':
+                    if output.get('kieu_hinh_ef') != PENDING_EF:
+                        raise problem('M1_EF_PENDING', 422,
+                                      detail='Kiểu hình EF được xác định ở M2 sau cận lâm sàng.')
+                    output['stageProvisional'] = True
+                elif module == 'm2':
+                    for key in ('stage', 'kieu_hinh_ef', 'benh_canh'):
+                        output.setdefault(key, run['output'].get(key))
             try:
                 validate(output,module+'Output')
             except ValueError:
                 raise problem('OUTPUT_SCHEMA_INVALID',422) from None
+        if module != 'm3' and body.unselectedReasons is not None:
+            raise problem('WORKFLOW_MODULE_MISMATCH', 422)
+        reasons = m3_unselected_reasons(body, run['output']) if module == 'm3' else []
         if module=='m4':
             # A decision freezes confirmations. Require serious reviews before accepting,
             # otherwise accepted M4 cannot be confirmed through the run endpoint.
@@ -981,15 +1028,23 @@ def post_decision(visitId:UUID,module:str,body:WorkflowDecisionRequest,request:R
         if current_hash!=run['input_hash']:
             raise problem('WORKFLOW_RESULT_STALE')
         decision_id=uuid4()
-        conn.execute('''INSERT INTO ai_module_decision(id,visit_id,module,source,run_id,effective_output,selected_prescription,manual_reason,input_hash,upstream_decision_ids,decided_by)
-          VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''',
-          (decision_id,visitId,module,body.source,run['id'] if body.source=='ai' else None,Jsonb(output),
-           Jsonb(body.selectedPrescription) if module=='m3' else None,body.manualReason.strip() if body.source=='manual' else None,
-           run['input_hash'],Jsonb(run['upstream_decision_ids']),principal.user_id))
+        has_reasons = conn.execute('''SELECT EXISTS(SELECT 1 FROM pg_attribute
+            WHERE attrelid='public.ai_module_decision'::regclass
+            AND attname='unselected_reasons' AND NOT attisdropped) AS available''').fetchone()['available']
+        if reasons and not has_reasons:
+            raise problem('WORKFLOW_STORAGE_UNAVAILABLE', 503, detail='Cần nâng cơ sở dữ liệu lên migration 013.')
+        conn.execute('''INSERT INTO ai_module_decision(id,visit_id,module,source,run_id,effective_output,
+            selected_prescription,manual_reason,input_hash,upstream_decision_ids,decided_by'''
+            + (',unselected_reasons' if has_reasons else '') + ') VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s'
+            + (',%s' if has_reasons else '') + ')',
+            (decision_id,visitId,module,body.source,run['id'] if body.source=='ai' else None,Jsonb(output),
+             Jsonb(body.selectedPrescription) if module=='m3' else None,body.manualReason.strip() if body.source=='manual' else None,
+             run['input_hash'],Jsonb(run['upstream_decision_ids']),principal.user_id)
+            + ((Jsonb(reasons),) if has_reasons else ()))
         if body.intent=='finish_workflow':
             workflow['completed_at']=datetime.now(timezone.utc)
             audit(conn,request,principal,'workflow_finished',visitId,decisionId=str(decision_id))
-        save(conn,workflow);audit(conn,request,principal,'workflow_decision',visitId,module=module,decisionId=str(decision_id),source=body.source,inputHash=run['input_hash'])
+        save(conn,workflow);audit(conn,request,principal,'workflow_decision',visitId,module=module,decisionId=str(decision_id),source=body.source,inputHash=run['input_hash'],unselectedGroups=[item['group'] for item in reasons])
         receipt=dict(rowVersion=workflow['row_version'],module=module,state='accepted',decisionId=str(decision_id),decisionSource=body.source,
                      nextModule=MODULES[MODULES.index(module)+1] if module!='m4' else None,autoRunModules=[])
         remember(conn,principal,endpoint,idempotency_key,payload,receipt)
@@ -1001,7 +1056,7 @@ def post_decision(visitId:UUID,module:str,body:WorkflowDecisionRequest,request:R
 @router.post('/{visitId}/workflow/finish',operation_id='finishVisitWorkflow')
 def post_finish(visitId:UUID,body:WorkflowFinishRequest,request:Request,response:Response,
                 if_match:str|None=Header(default=None,alias='If-Match'),idempotency_key:str|None=Header(default=None,alias='Idempotency-Key'),principal:Principal=Depends(workflow_principal)):
-    check_role(principal,write=True)
+    check_role(request, principal, 'workflow.decide')
     with request.app.state.pool.connection() as conn:
         visit=access(conn,visitId,principal,write=True);workflow=load(conn,visit,write=True,request=request,principal=principal)
         payload=body.model_dump(mode='json');endpoint=str(request.url.path)
@@ -1119,7 +1174,8 @@ def attach_visit_workflow(conn, visit_id, detail, request=None, principal=None):
             detail['values'].append(dict(visitId=str(visit_id),updatedAt=to_iso(visit['updated_at']),fieldDefinitionId=str(definitions[code]),fieldCode=code,valueState=a['value_state'],answer=deepcopy(a),
                 valueNum=a['value'] if type(a['value']) in (int,float) else None,valueBool=a['value'] if type(a['value']) is bool else None,
                 valueText=None,valueDate=None,fieldOptionId=None,selectedOptions=[],unit=a.get('unit')))
-    if principal is not None and principal.role=='nurse':return
+    if principal is not None and not is_granted(conn, principal.role, 'workflow.read'):
+        return
     summary=state(conn,visit,workflow)
     # selected_medications belongs to the M3 decision, not an input to jump to.
     for module in summary['modules'].values():

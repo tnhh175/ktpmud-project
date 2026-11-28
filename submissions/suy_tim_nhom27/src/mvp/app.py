@@ -1,7 +1,9 @@
 """FastAPI application factory for the Heart Failure Clinical Intake MVP (Stage D)."""
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
+import asyncio
+from contextlib import asynccontextmanager, suppress
+import logging
 import os
 from pathlib import Path
 import secrets
@@ -22,6 +24,7 @@ from .admin import router as admin_router
 from .auth import bootstrap_seed_passwords, get_request_id, router as auth_router
 from .db import check_pool, create_pool, resolve_database_url
 from .models import ProblemError, problem_response
+from .temporary_credentials import clear_expired
 from .care import router as care_router
 from .patients import router as patients_router
 from .visits import router as visits_router
@@ -54,6 +57,18 @@ def create_app(
     secret_raw = auth_secret or os.environ.get("MVP_AUTH_SECRET") or secrets.token_hex(32)
     secret_bytes = secret_raw.encode("utf-8")
 
+    def expire_credentials():
+        with owned_pool.connection() as conn:
+            clear_expired(conn)
+
+    async def credential_expiry_loop():
+        while True:
+            try:
+                await asyncio.to_thread(expire_credentials)
+            except (psycopg.Error, PoolTimeout):
+                logging.getLogger(__name__).warning('Temporary credential cleanup failed')
+            await asyncio.sleep(60)
+
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.pool = owned_pool
@@ -61,9 +76,14 @@ def create_app(
             owned_pool.open(wait=True, timeout=10.0)
         with owned_pool.connection() as conn:
             bootstrap_seed_passwords(conn)
+            clear_expired(conn)
+        cleanup = asyncio.create_task(credential_expiry_loop())
         try:
             yield
         finally:
+            cleanup.cancel()
+            with suppress(asyncio.CancelledError):
+                await cleanup
             if pool is None:
                 owned_pool.close()
 
