@@ -20,7 +20,7 @@ def credential_key():
         return key
     if os.environ.get('RAILWAY_ENVIRONMENT_ID') or os.environ.get('MVP_HOSTED') == '1':
         raise ProblemError(503, 'CREDENTIAL_KEY_REQUIRED', 'Thiếu cấu hình mật khẩu tạm',
-                           'Máy chủ cần cấu hình khóa bảo vệ mật khẩu tạm.')
+                           'Máy chủ chưa có biến MVP_CREDENTIAL_KEY nên chưa cấp được mật khẩu tạm. Thêm biến rồi triển khai lại.')
     data = Path(os.environ.get('MVP_DATA_DIR') or
                 Path(os.environ.get('LOCALAPPDATA', Path.home())) / 'hfcare' / 'data').expanduser()
     data.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -42,18 +42,9 @@ def store_credential(conn, user_id, code):
     if not storage_available(conn):
         raise ProblemError(503, 'CREDENTIAL_STORAGE_UNAVAILABLE', 'Chưa có kho mật khẩu tạm',
                            'Cần nâng cơ sở dữ liệu lên migration 013.')
-    try:
-        key = credential_key()
-    except ProblemError as exc:
-        if exc.code != 'CREDENTIAL_KEY_REQUIRED':
-            raise
-        # Hosted without MVP_CREDENTIAL_KEY: still issue the account/reset and keep
-        # the 24-hour expiry, but store no copy, so the code cannot be viewed again.
-        conn.execute('''INSERT INTO temporary_credential(user_id, ciphertext, expires_at)
-            VALUES (%s, NULL, now() + interval '24 hours')
-            ON CONFLICT (user_id) DO UPDATE SET ciphertext=NULL, expires_at=excluded.expires_at''',
-            (user_id,))
-        return
+    # Fail closed: without a usable key the new code could never be shown to the
+    # admin, so the account would be locked out. Raising rolls the reset back.
+    key = credential_key()
     conn.execute('''INSERT INTO temporary_credential(user_id, ciphertext, expires_at)
         VALUES (%s, public.pgp_sym_encrypt(%s, %s, 'cipher-algo=aes256'), now() + interval '24 hours')
         ON CONFLICT (user_id) DO UPDATE SET ciphertext=excluded.ciphertext, expires_at=excluded.expires_at''',

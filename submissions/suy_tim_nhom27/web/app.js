@@ -11410,8 +11410,10 @@
       html =
         '<div class="modal__head"><h2 class="modal__title" id="modal-title">Mật khẩu tạm</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Đóng">' + ICONS.x + '</button></div>' +
         '<div class="modal__body">' +
-          '<div class="banner banner--success" style="margin-bottom:0;"><div class="banner__main">' + ICONS.key + '<div><p class="banner__title">' + esc(m.title) + '</p><p class="banner__desc">' + (m.expiresAt ? 'Hết hạn ' + esc(formatDateTime(m.expiresAt)) + '.' : 'Không còn mật khẩu tạm.') + '</p></div></div></div>' +
-          '<div class="bmi-card"><div class="bmi-card__label">Tài khoản: <span class="mono">' + esc(m.username) + '</span></div><div class="bmi-card__value mono" style="font-size:20px;" data-setup-code-value="true">' + esc(m.code || 'Không còn mật khẩu tạm') + '</div></div>' +
+          (m.code
+            ? '<div class="banner banner--success" style="margin-bottom:0;"><div class="banner__main">' + ICONS.key + '<div><p class="banner__title">' + esc(m.title) + '</p><p class="banner__desc">Gửi mã cho người dùng; họ phải đổi mật khẩu khi đăng nhập.' + (m.expiresAt ? ' Hết hạn ' + esc(formatDateTime(m.expiresAt)) + '.' : '') + '</p></div></div></div>' +
+              '<div class="bmi-card"><div class="bmi-card__label">Tài khoản: <span class="mono">' + esc(m.username) + '</span></div><div class="bmi-card__value mono" style="font-size:20px;" data-setup-code-value="true">' + esc(m.code) + '</div></div>'
+            : '<div class="banner banner--info" style="margin-bottom:0;"><div class="banner__main">' + ICONS.key + '<div><p class="banner__title">Không còn mật khẩu tạm cho <span class="mono">' + esc(m.username) + '</span></p><p class="banner__desc">Mã đã hết hạn 24 giờ hoặc người dùng đã đổi mật khẩu. Bấm “Đặt lại MK” để cấp mã mới.</p></div></div></div>') +
         '</div>' +
         '<div class="modal__foot"><button type="button" class="btn btn--primary" data-action="close-modal">Đã ghi nhận</button></div>';
     }
@@ -14563,7 +14565,8 @@
         const res = await api.resolvePasswordResetRequest(m.req.id, { adminNote: note || null });
         await loadAdminUsers();
         closeModal();
-        toast('Đã cấp mật khẩu tạm. Có thể xem lại trong danh sách tài khoản.', 'success');
+        if (res && res.user) await showTemporaryPassword(res.user, 'Đã cấp mật khẩu tạm');
+        else toast('Đã cấp mật khẩu tạm. Có thể xem lại trong danh sách tài khoản.', 'success');
       } catch (err) {
         m.error = (err && err.detail) || 'Không thể cấp mã đăng nhập một lần.';
         renderModal();
@@ -14753,7 +14756,7 @@
           });
           await loadAdminUsers();
           closeModal();
-          toast('Đã tạo tài khoản ' + created.user.username + '.', 'success');
+          await showTemporaryPassword(created.user, 'Đã tạo tài khoản ' + created.user.username);
         }
       } catch (err) {
         m.error = (err && err.detail) || 'Không thể lưu tài khoản.';
@@ -14772,7 +14775,8 @@
         await api.updateUser(m.user.id, payload, m.user.rowVersion || 1);
         await loadAdminUsers();
         closeModal();
-        toast(m.kind === 'reset-pw' ? 'Đã cấp mật khẩu tạm.' : 'Đã cập nhật tài khoản.', 'success');
+        if (m.kind === 'reset-pw') await showTemporaryPassword(m.user, 'Đã cấp mật khẩu tạm');
+        else toast('Đã cập nhật tài khoản.', 'success');
       } catch (err) {
         m.error = (err && err.detail) || 'Thao tác không thành công.';
         renderModal();
