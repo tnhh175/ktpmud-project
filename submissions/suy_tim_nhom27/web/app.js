@@ -9614,7 +9614,6 @@
           const cleanReason = wfStripTechnicalCodes(r.ly_do);
           const evidenceHtml = wfFormatEvidenceDisplay(r.evidenceObservationIds, wf);
           return (
-        renderM2Diagnosis(output) +
             '<div class="wf-m2-row">' +
               '<div><strong>' + esc(r.label) + '</strong>' +
               (cleanReason ? '<div class="cell-sub">' + esc(cleanReason) + '</div>' : '') +
@@ -9626,6 +9625,7 @@
         }).join('') + '</div>';
       };
       return (
+        renderM2Diagnosis(output) +
         '<div class="wf-kpi-3">' +
           '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Phân loại kết quả</div><div class="wf-kpi-card__val">' + esc(output.phan_loai_ket_qua || '—') + '</div></div>' +
           '<div class="wf-kpi-card"><div class="wf-kpi-card__label">Mức ưu tiên</div><div class="wf-kpi-card__val"><span class="badge badge--' + prioCls + '">' + esc(output.muc_uu_tien || '—') + '</span></div></div>' +
