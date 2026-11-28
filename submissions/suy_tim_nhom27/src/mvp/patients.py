@@ -1,7 +1,7 @@
 """Patients & Visits listing/creation endpoints (D2: M2, M3, M4 createVisit)."""
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 import re
 from typing import Any, Literal
 from uuid import UUID
@@ -813,7 +813,8 @@ def create_visit(
         visit_dt = visit_dt.replace(tzinfo=timezone.utc)
     else:
         visit_dt = visit_dt.astimezone(timezone.utc)
-    date_part = visit_dt.strftime("%Y%m%d")
+    # Visit codes carry the hospital's local date (UTC+7), not the UTC date.
+    date_part = visit_dt.astimezone(timezone(timedelta(hours=7))).strftime("%Y%m%d")
     prefix = f"LK-{date_part}-"
 
     with pool.connection() as conn:

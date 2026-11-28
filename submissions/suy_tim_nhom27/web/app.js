@@ -428,7 +428,7 @@
     if (status === 403) {
       if (!isRawErrorCodeString(rawDetail, code)) return rawDetail;
       if (!isRawErrorCodeString(rawTitle, code)) return rawTitle;
-      return 'Bạn không có quyền thực hiện thao tác tạo lượt khám này (HTTP 403).';
+      return 'Bạn không có quyền thực hiện thao tác tạo lượt khám này.';
     }
     if (status === 422) {
       const errs = Array.isArray(err.errors) ? err.errors : [];
@@ -451,7 +451,7 @@
       }
       if (!isRawErrorCodeString(rawDetail, code)) return rawDetail;
       if (!isRawErrorCodeString(rawTitle, code)) return rawTitle;
-      return 'Dữ liệu tạo lượt khám chưa hợp lệ (HTTP 422). Vui lòng kiểm tra thời điểm khám và loại lượt khám.';
+      return 'Dữ liệu tạo lượt khám chưa hợp lệ. Vui lòng kiểm tra thời điểm khám và loại lượt khám.';
     }
     if (status === 404) return 'Không tìm thấy hồ sơ bệnh nhân để tạo lượt khám.';
     if (status === 0) return 'Không thể kết nối máy chủ — vui lòng kiểm tra mạng và thử lại.';
@@ -477,14 +477,14 @@
       }
       return 'Module trước chưa được chốt hoặc đang ở trạng thái cần chạy lại. Vui lòng hoàn tất bước trước đó.';
     },
-    CONCURRENCY_ROW_VERSION_MISMATCH: 'Lượt khám vừa được cập nhật ở phiên khác (HTTP 409). Hãy tải lại dữ liệu mới nhất trước khi tiếp tục.',
-    WORKFLOW_RESULT_STALE: 'Lượt khám vừa được cập nhật ở phiên khác hoặc dữ liệu đầu vào đã thay đổi (HTTP 409). Hãy tải lại dữ liệu mới nhất trước khi tiếp tục.',
-    INPUT_CHANGED_DURING_RUN: 'Lượt khám vừa được cập nhật trong lúc đang chạy AI (HTTP 409). Hãy tải lại dữ liệu mới nhất trước khi tiếp tục.',
+    CONCURRENCY_ROW_VERSION_MISMATCH: 'Lượt khám vừa được cập nhật ở phiên khác. Hãy tải lại trang.',
+    WORKFLOW_RESULT_STALE: 'Lượt khám vừa được cập nhật ở phiên khác hoặc dữ liệu đầu vào đã đổi. Hãy tải lại trang.',
+    INPUT_CHANGED_DURING_RUN: 'Lượt khám vừa được cập nhật trong lúc đang chạy AI. Hãy tải lại trang.',
     WORKFLOW_RUN_IN_PROGRESS: 'Module này đang có lượt chạy AI khác chưa hoàn tất. Vui lòng chờ xong hoặc đồng bộ lại trạng thái.',
     WORKFLOW_REQUIRED_VALUE_MISSING: 'Chưa thể chạy module do còn trường dữ liệu bắt buộc chưa nhập hoặc chưa hợp lệ.',
     WORKFLOW_MODULE_MISMATCH: 'Yêu cầu không khớp với module hiện tại. Vui lòng tải lại trang và thử lại.',
     WORKFLOW_RESULT_NOT_FOUND: 'Không tìm thấy kết quả chạy AI tương ứng. Vui lòng đồng bộ lại trạng thái.',
-    WORKFLOW_INPUTS_MOVED_TO_DRAFT: 'Các trường dữ liệu đầu vào đã chuyển sang biểu mẫu lượt khám 8 nhóm. Vui lòng nhập và lưu nháp trên biểu mẫu trước khi chạy AI.',
+    WORKFLOW_INPUTS_MOVED_TO_DRAFT: 'Hãy nhập và lưu nháp biểu mẫu trước khi chạy AI.',
     MANUAL_REQUIRES_RERUN: 'Cần chạy lại module hoặc đồng bộ trạng thái trước khi lưu kết quả tự nhập.',
     MANUAL_REASON_REQUIRED: 'Vui lòng nhập lý do tự nhập / điều chỉnh so với kết quả AI.',
     M4_ALERT_INVALID: 'Thông tin cảnh báo an toàn thuốc không hợp lệ. Vui lòng tải lại và kiểm tra lại.',
@@ -739,10 +739,10 @@
   const WF_EXP_TAG_FULL = 'Thang thử nghiệm · chờ bác sĩ duyệt';
   const WF_MODULE_ORDER = ['m1', 'm2', 'm3', 'm4'];
   const WF_MODULE_META = {
-    m1: { num: 1, full: 'M1 · Chẩn đoán (Diagnosis)', short: 'M1 Chẩn đoán', next: 'm2', nextNum: 2 },
-    m2: { num: 2, full: 'M2 · Cận lâm sàng (Lab/Test)', short: 'M2 Xét nghiệm', next: 'm3', nextNum: 3 },
-    m3: { num: 3, full: 'M3 · Điều trị (Treatment)', short: 'M3 Điều trị', next: 'm4', nextNum: 4 },
-    m4: { num: 4, full: 'M4 · An toàn thuốc (MedSafety)', short: 'M4 An toàn thuốc', next: null, nextNum: null }
+    m1: { num: 1, full: 'M1 · Chẩn đoán', short: 'M1 Chẩn đoán', next: 'm2', nextNum: 2 },
+    m2: { num: 2, full: 'M2 · Cận lâm sàng', short: 'M2 Cận lâm sàng', next: 'm3', nextNum: 3 },
+    m3: { num: 3, full: 'M3 · Điều trị', short: 'M3 Điều trị', next: 'm4', nextNum: 4 },
+    m4: { num: 4, full: 'M4 · An toàn thuốc', short: 'M4 An toàn thuốc', next: null, nextNum: null }
   };
 
   const V12_NINE_FIELD_CODES = [
@@ -949,6 +949,7 @@
     egfr_ckd_epi: 'mL/min/1.73m2'
   };
   const WF_MED_CLASSES = ['MRA', 'ACEI', 'ARB', 'ARNI', 'NSAID', 'corticosteroid', 'TZD', 'class_I_antiarrhythmic', 'digoxin', 'amiodarone', 'loop_diuretic', 'beta_blocker', 'SGLT2i', 'other'];
+  const WF_MED_CLASS_LABELS = { MRA: 'MRA (kháng aldosterone)', ACEI: 'ACEI (ức chế men chuyển)', ARB: 'ARB (chẹn thụ thể AT1)', ARNI: 'ARNI', NSAID: 'NSAID (kháng viêm không steroid)', corticosteroid: 'Corticosteroid', TZD: 'Thiazolidinedione', class_I_antiarrhythmic: 'Chống loạn nhịp nhóm I', digoxin: 'Digoxin', amiodarone: 'Amiodarone', loop_diuretic: 'Lợi tiểu quai', beta_blocker: 'Chẹn beta', SGLT2i: 'SGLT2i', other: 'Khác' };
   const WF_MED_UNITS = ['mg', 'g', 'mcg', 'mL', 'IU', 'tablet'];
   const WF_MED_ROUTES = ['oral', 'iv', 'im', 'sc', 'inhaled', 'topical', 'other'];
   const WF_MED_FREQS = [
@@ -2482,7 +2483,7 @@
       }
       if (role === 'admin') {
         state.screen = 'forbidden';
-        state.forbiddenReason = 'Tài khoản Quản trị viên (admin) không có quyền truy cập hồ sơ bệnh nhân hoặc dữ liệu lượt khám lâm sàng theo nguyên tắc tách quyền K8.';
+        state.forbiddenReason = 'Quản trị viên không xem được dữ liệu lâm sàng.';
         try { await api.listPatients({}); } catch (_ignored) {}
         render();
         return;
@@ -3584,7 +3585,7 @@
           '</div>' +
           '<div class="login-brand__hero">' +
             '<h1 class="login-brand__title">Hệ thống Hỗ trợ Quản lý và Đánh giá Suy tim Người cao tuổi</h1>' +
-            '<p class="login-brand__lead">Nền tảng hỗ trợ tiếp nhận bệnh nhân, nhập liệu lượt khám chuẩn hóa, vận hành 4 module AI hỗ trợ quyết định lâm sàng và quản trị biểu mẫu theo phiên bản.</p>' +
+            '<p class="login-brand__lead">Tiếp nhận, khám và hỗ trợ quyết định lâm sàng cho bệnh nhân suy tim cao tuổi.</p>' +
             '<div class="login-audience">' +
               '<div class="login-audience__item"><span class="login-audience__dot"></span><span><strong>Bác sĩ lâm sàng:</strong> Nhận lượt khám, ghi nhận dữ liệu lâm sàng, đánh giá cùng 4 module AI hỗ trợ quyết định và xác nhận kết quả.</span></div>' +
               '<div class="login-audience__item"><span class="login-audience__dot"></span><span><strong>Nhân viên y tế:</strong> Tiếp nhận hồ sơ bệnh nhân, tạo lượt khám mới, ghi nhận thông tin hành chính – sinh hiệu và gửi vào hàng chờ bác sĩ.</span></div>' +
@@ -3788,10 +3789,10 @@
     const homeHash = state.user ? getHomeHashForRole(state.user.role) : '#/login';
     const content =
       '<div class="forbidden-box">' +
-        '<span class="badge badge--error">HTTP 403 · Từ chối truy cập</span>' +
+        '<span class="badge badge--error">Từ chối truy cập</span>' +
         '<h1 class="page-head__title" style="margin-top:10px;">Không có quyền truy cập khu vực này</h1>' +
         '<p class="page-head__sub" style="margin-top:8px;">' + esc(state.forbiddenReason || 'Tài khoản hiện tại không được cấp quyền truy cập tài nguyên yêu cầu.') + '</p>' +
-        '<p class="field__help" style="margin-top:10px;">Sự kiện từ chối truy cập đã được ghi nhận vào nhật ký kiểm toán hệ thống theo chính sách tách quyền lâm sàng và quản trị.</p>' +
+        '' +
         '<div style="margin-top:16px;">' +
           '<button type="button" class="btn btn--primary" data-nav="' + homeHash + '">' + ICONS.arrowLeft + ' Quay về không gian làm việc của bạn</button>' +
         '</div>' +
@@ -3804,9 +3805,9 @@
     const isDoctor = state.user && state.user.role === 'doctor';
     const content =
       '<div class="forbidden-box" data-visit-locked="true" role="alert">' +
-        '<span class="badge badge--error">HTTP 403 · Lượt khám đã bị khóa</span>' +
+        '<span class="badge badge--error">Lượt khám đã bị khóa</span>' +
         '<h1 class="page-head__title" style="margin-top:10px;">Lượt khám đang được bác sĩ khác phụ trách</h1>' +
-        '<p class="page-head__sub" style="margin-top:8px;">' + esc(vl.message || 'Lượt khám này đã được bác sĩ khác nhận và khóa. Dữ liệu lâm sàng không được hiển thị để bảo vệ quyền riêng tư và tránh ghi đè.') + '</p>' +
+        '<p class="page-head__sub" style="margin-top:8px;">' + esc(vl.message || 'Lượt khám này đã có bác sĩ khác nhận.') + '</p>' +
         '<div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;">' +
           (isDoctor
             ? '<button type="button" class="btn btn--primary" data-nav="#/queue">' + ICONS.clock + ' Về Hàng chờ lượt khám</button>' +
@@ -3893,7 +3894,7 @@
 
     const body =
       '<div class="page-head">' +
-        '<div><h1 class="page-head__title">Tiếp nhận bệnh nhân</h1><p class="page-head__sub">Tìm hoặc tạo hồ sơ bệnh nhân, tạo lượt khám mới, nhập Hành chính &amp; Sinh hiệu rồi gửi vào hàng chờ bác sĩ.</p></div>' +
+        '<div><h1 class="page-head__title">Tiếp nhận bệnh nhân</h1><p class="page-head__sub">Tìm hoặc tạo hồ sơ, tạo lượt khám và gửi vào hàng chờ bác sĩ.</p></div>' +
         '<div class="page-head__actions">' +
           '<button type="button" class="btn btn--secondary" data-nav="#/nurse/visits">' + ICONS.clock + ' Lượt đã gửi</button>' +
           '<button type="button" class="btn btn--primary" data-action="open-create-patient">' + ICONS.plus + ' Tạo hồ sơ bệnh nhân</button>' +
@@ -3988,7 +3989,7 @@
 
     const body =
       '<div class="page-head">' +
-        '<div><h1 class="page-head__title">Lượt đã gửi &amp; Đang tiếp nhận</h1><p class="page-head__sub">Theo dõi các lượt khám đang nhập sinh hiệu hoặc đã gửi vào hàng chờ bác sĩ. Có thể rút lại lượt đang chờ nếu cần sửa.</p></div>' +
+        '<div><h1 class="page-head__title">Lượt đã gửi &amp; Đang tiếp nhận</h1><p class="page-head__sub">Lượt đang nhập sinh hiệu hoặc đang chờ bác sĩ.</p></div>' +
         '<div class="page-head__actions">' +
           '<button type="button" class="btn btn--secondary" data-action="reload-nurse-visits">' + ICONS.refresh + ' Làm mới</button>' +
           '<button type="button" class="btn btn--primary" data-nav="#/nurse/intake">' + ICONS.plus + ' Tiếp nhận mới</button>' +
@@ -4063,7 +4064,7 @@
 
     const body =
       '<div class="page-head">' +
-        '<div><h1 class="page-head__title">Hàng chờ lượt khám</h1><p class="page-head__sub">Lượt khám do Nhân viên y tế gửi lên (cũ nhất lên đầu). Bấm <strong>Nhận</strong> để khóa lượt khám về tài khoản của bạn và mở ngay biểu mẫu.</p></div>' +
+        '<div><h1 class="page-head__title">Hàng chờ lượt khám</h1><p class="page-head__sub">Lượt cũ nhất ở trên cùng. Bấm <strong>Nhận</strong> để bắt đầu khám.</p></div>' +
         '<div class="page-head__actions">' +
           '<span class="badge badge--neutral" data-queue-refresh-meta="1">' + ICONS.clock + ' Tự làm mới 15 giây' + (qs.lastUpdatedAt ? ' · ' + esc(formatDateTime(qs.lastUpdatedAt)) : '') + '</span>' +
           '<button type="button" class="btn btn--secondary btn--sm" data-action="reload-queue">' + ICONS.refresh + ' Làm mới</button>' +
@@ -4184,7 +4185,7 @@
           '<h3 class="empty-state__title">' + (hasFilters ? 'Không có bệnh nhân nào khớp điều kiện lọc' : 'Chưa có bệnh nhân nào trong danh sách của bạn') + '</h3>' +
           '<p class="empty-state__desc">' + (hasFilters
             ? 'Hãy thử xóa từ khóa tìm kiếm hoặc đổi bộ lọc trạng thái.'
-            : 'Bệnh nhân sẽ xuất hiện tại đây sau khi bạn nhận ít nhất một lượt khám từ Hàng chờ lượt khám hoặc tạo hồ sơ mới.') + '</p>' +
+            : 'Nhận một lượt từ hàng chờ để bắt đầu.') + '</p>' +
           '<div class="empty-state__actions">' +
             '<button type="button" class="btn btn--secondary" data-nav="#/queue">' + ICONS.clock + ' Mở Hàng chờ lượt khám</button>' +
             '<button type="button" class="btn btn--primary" data-action="open-create-patient">' + ICONS.plus + ' Tạo hồ sơ bệnh nhân</button>' +
@@ -4409,7 +4410,7 @@
 
       latestVisitCardHtml =
         '<section class="card">' +
-          '<div class="card__header"><div><h2 class="card__title">Lượt khám gần nhất (chỉ tham chiếu)</h2><p class="card__subtitle">Giai đoạn, kiểu hình EF, xét nghiệm trọng yếu, thuốc theo nhóm và cảnh báo M4 — không tự sao chép sang lượt mới.</p></div></div>' +
+          '<div class="card__header"><div><h2 class="card__title">Lượt khám gần nhất (chỉ tham chiếu)</h2><p class="card__subtitle">Chỉ để tham chiếu, không tự chép sang lượt mới.</p></div></div>' +
           '<div class="card__body">' + summaryBody + '</div>' +
         '</section>';
     }
@@ -4939,7 +4940,7 @@
     const isUnlockedUnknown = Boolean(opts.unlockedUnknown);
     const isUnknown = Boolean(compact && compact.value_state === 'unknown' && !isUnlockedUnknown);
     const isAnswered = Boolean(compact && compact.value_state === 'answered');
-    const expBadge = '<span class="badge badge--warn badge--xs wf-exp-tag" title="' + esc(WF_EXP_TAG_FULL) + '">Thang thử nghiệm · chờ bác sĩ duyệt</span>';
+    const expBadge = '<span class="badge badge--warn badge--xs wf-exp-tag" title="' + esc(WF_EXP_TAG_FULL) + '">Thử nghiệm</span>';
     const scopeAttr = ' data-v12-scope="' + esc(scope) + '" data-v12-code="' + esc(code) + '"';
     const unlockNoticeHtml = isUnlockedUnknown
       ? '<p class="field__help v12-unlock-hint">Đã mở khóa từ "Chưa rõ" — nhập giá trị mới để thay thế, hoặc giữ trống nếu muốn giữ nguyên "Chưa rõ".</p>'
@@ -5429,16 +5430,16 @@
                 '<span class="badge badge--xs ' + grpBadgeCls + ' med-auto-group-badge" data-med-auto-group-idx="' + idx + '" title="Nhóm thuốc tự động phân loại">' + esc(autoGrp.label) + '</span>' +
                 '<select class="select input--sm" data-enc-v12list-item="medications:' + idx + ':class"' + (!canEditList || isV2Mode ? ' disabled' : '') + '>' +
                   '<option value="">-- Nhóm thuốc --</option>' +
-                  WF_MED_CLASSES.map(function (c) { return '<option value="' + esc(c) + '"' + (clsVal === c ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('') +
+                  WF_MED_CLASSES.map(function (c) { return '<option value="' + esc(c) + '"' + (clsVal === c ? ' selected' : '') + '>' + esc(WF_MED_CLASS_LABELS[c] || c) + '</option>'; }).join('') +
                 '</select>' +
                 '<input type="number" step="any" min="0" class="input input--sm" data-enc-v12list-item="medications:' + idx + ':dose" value="' + esc(doseVal) + '" placeholder="Liều"' + (!canEditList ? ' disabled' : '') + '>' +
                 '<select class="select input--sm" data-enc-v12list-item="medications:' + idx + ':unit"' + (!canEditList ? ' disabled' : '') + '>' +
                   '<option value="">Đơn vị</option>' +
-                  WF_MED_UNITS.map(function (u) { return '<option value="' + esc(u) + '"' + (unitVal === u ? ' selected' : '') + '>' + esc(u) + '</option>'; }).join('') +
+                  WF_MED_UNITS.map(function (u) { return '<option value="' + esc(u) + '"' + (unitVal === u ? ' selected' : '') + '>' + esc(u === 'tablet' ? 'viên' : u) + '</option>'; }).join('') +
                 '</select>' +
                 '<select class="select input--sm" data-enc-v12list-item="medications:' + idx + ':route"' + (!canEditList ? ' disabled' : '') + '>' +
                   '<option value="">Đường dùng</option>' +
-                  WF_MED_ROUTES.map(function (r) { return '<option value="' + esc(r) + '"' + (routeVal === r ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join('') +
+                  WF_MED_ROUTES.map(function (r) { const lb = WF_RX_ROUTE_OPTIONS.find(function (o) { return o[0] === r; }); return '<option value="' + esc(r) + '"' + (routeVal === r ? ' selected' : '') + '>' + esc(lb ? lb[1] : r) + '</option>'; }).join('') +
                 '</select>' +
                 '<select class="select input--sm" data-enc-v12list-item="medications:' + idx + ':frequency"' + (!canEditList ? ' disabled' : '') + '>' +
                   '<option value="">Tần suất</option>' +
@@ -5460,7 +5461,7 @@
           }).join('') + '</div>';
         }
       } else if (curListState === 'none') {
-        rowsHtml = '<p class="field__help">Đã xác nhận không có mục nào (<code>[]</code>).</p>';
+        rowsHtml = '<p class="field__help">Đã xác nhận: không có.</p>';
       } else if (curListState === 'unknown') {
         rowsHtml = '<p class="field__help">Đang ở trạng thái <strong>Chưa rõ</strong> (khác với xác nhận không có).</p>';
       } else {
@@ -7100,7 +7101,7 @@
     const conflictBanner = enc.conflictError ? (
       '<div class="banner banner--error" role="alert">' +
         '<div class="banner__main">' + ICONS.alert +
-          '<div><p class="banner__title">Xung đột sửa đồng thời (HTTP 409)</p><p class="banner__desc">' + esc(enc.conflictError) + '</p></div>' +
+          '<div><p class="banner__title">Dữ liệu vừa được sửa ở phiên khác</p><p class="banner__desc">' + esc(enc.conflictError) + '</p></div>' +
         '</div>' +
         '<div class="banner__actions"><button type="button" class="btn btn--danger btn--sm" data-action="reload-encounter">' + ICONS.refresh + ' Tải lại bản mới nhất</button></div>' +
       '</div>'
@@ -7623,7 +7624,7 @@
 
     const revisionsHtml = (rev.revisions || []).length > 0 ? (
       '<section class="card" style="margin-top:16px;">' +
-        '<div class="card__header"><div><h2 class="card__title">Lịch sử xác nhận &amp; Bản sửa</h2><p class="card__subtitle">Mọi lần xác nhận và chỉnh sửa sau xác nhận được lưu nối tiếp, giữ nguyên lịch sử.</p></div></div>' +
+        '<div class="card__header"><div><h2 class="card__title">Lịch sử xác nhận &amp; Bản sửa</h2></div></div>' +
         '<div class="card__body"><div class="timeline">' + rev.revisions.map(function (rv) {
           return (
             '<div class="timeline-item timeline-item--confirmed">' +
@@ -7651,7 +7652,7 @@
       const statusBanner = !q
         ? '<div class="banner banner--error" style="margin-bottom:0;" role="alert"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__title">Không thể xuất JSON cho AI</p><p class="banner__desc">' + esc(errMsg) + '</p></div></div></div>'
         : (isReady
-            ? '<div class="banner banner--success" style="margin-bottom:0;"><div class="banner__main">' + ICONS.checkCircle + '<div><p class="banner__title">Sẵn sàng gửi AI (hf-ai-input/1.0)</p><p class="banner__desc">Tất cả module kiểm tra đạt chất lượng. Tệp JSON ẩn danh đã được chuẩn bị để tải xuống.</p></div></div></div>'
+            ? '<div class="banner banner--success" style="margin-bottom:0;"><div class="banner__main">' + ICONS.checkCircle + '<div><p class="banner__title">Sẵn sàng gửi AI</p><p class="banner__desc">Dữ liệu đạt kiểm tra cho cả 4 module.</p></div></div></div>'
             : '<div class="banner banner--error" style="margin-bottom:0;" role="alert"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__title">Bị chặn (Blocked) — Chưa đủ điều kiện gửi AI</p><p class="banner__desc">' + esc(errMsg || ('Phát hiện ' + issues.length + ' vấn đề chất lượng dữ liệu theo hợp đồng hf-ai-input/1.0. Gói này KHÔNG được coi là sẵn sàng gửi AI.')) + '</p></div></div>' +
                 '<div class="banner__actions"><button type="button" class="btn btn--secondary btn--sm" data-action="export-ai-json-diagnostic">' + ICONS.download + ' Tải gói chẩn đoán (diagnostic)</button></div>' +
               '</div>');
@@ -7925,7 +7926,7 @@
     const aiResultsSectionHtml = isWfCapable ? (
       '<section class="card" id="review-ai-results" data-review-ai-results="true" style="margin-top:16px;">' +
         '<div class="card__header">' +
-          '<div><h2 class="card__title">Kết quả 4 Module AI</h2><p class="card__subtitle">Tổng hợp trạng thái và kết quả cuối cùng của M1 Chẩn đoán, M2 Cận lâm sàng, M3 Điều trị và M4 An toàn thuốc (chỉ lưu kết quả bác sĩ đã chốt, không tự tạo kết quả cho module chưa thực hiện).</p></div>' +
+          '<div><h2 class="card__title">Kết quả 4 Module AI</h2><p class="card__subtitle">Kết quả bác sĩ đã chốt cho từng module.</p></div>' +
           (!isConf ? '<button type="button" class="btn btn--secondary btn--sm" data-nav="#/visits/' + esc(v.id) + '/workflow">Mở Luồng 4 Module AI ' + ICONS.arrowRight + '</button>' : '') +
         '</div>' +
         '<div class="card__body">' +
@@ -7948,7 +7949,7 @@
       '<div class="banner banner--warn" style="margin-bottom:0;" data-review-wf-incomplete-notice="true">' +
         '<div class="banner__main">' + ICONS.alert + '<div><p class="banner__title">Còn ' + incompleteModules.length + ' Module AI chưa hoàn thành</p><p class="banner__desc">' +
           incompleteModules.map(function (im) { return '<strong>' + esc(im.label) + '</strong> (' + esc(im.statusLabel) + ')'; }).join(' · ') +
-          '. Bạn vẫn có thể xác nhận và kết thúc lượt khám; hệ thống sẽ giữ đúng trạng thái hiện có và không tự tạo kết quả cho các module này.' +
+          '. Vẫn có thể kết thúc lượt khám.' +
         '</p></div></div>' +
         '<div class="banner__actions"><button type="button" class="btn btn--secondary btn--sm" data-review-goto-module="' + esc(incompleteModules[0].module) + '">Tới ' + esc(incompleteModules[0].module.toUpperCase()) + ' ' + ICONS.arrowRight + '</button></div>' +
       '</div>'
@@ -7958,7 +7959,7 @@
       '<section class="confirm-gate">' +
         wfBlockerHtml +
         '<div class="banner banner--blue" style="margin-bottom:0;">' +
-          '<div class="banner__main">' + ICONS.shield + '<div><p class="banner__title">Ranh giới chuyên môn khi xác nhận</p><p class="banner__desc">Xác nhận và kết thúc lượt khám sẽ chốt dữ liệu lâm sàng cùng kết quả 4 module và chuyển lượt khám sang chế độ chỉ đọc.</p></div></div>' +
+          '<div class="banner__main">' + ICONS.shield + '<div><p class="banner__title">Sau khi xác nhận, lượt khám chỉ còn xem được</p></div></div>' +
         '</div>' +
         (rev.confirmError ? '<div class="banner banner--error" style="margin-bottom:0;"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__title">Chưa xác nhận được lượt khám</p><p class="banner__desc">' + esc(rev.confirmError) + '</p></div></div></div>' : '') +
         '<div class="kv-grid">' +
@@ -8648,7 +8649,7 @@
         : formatWorkflowError(err, {
             moduleNum: meta.num,
             formVersionLabel: wfVerLabel,
-            fallback: 'Dữ liệu chưa hợp lệ (HTTP 422) tại Module ' + meta.num + '.'
+            fallback: 'Dữ liệu chưa hợp lệ tại Module ' + meta.num + '.'
           });
       return;
     }
@@ -8656,7 +8657,7 @@
       moduleNum: meta.num,
       formVersionLabel: wfVerLabel,
       fallback: status === 409
-        ? ('Xung đột trạng thái đánh giá AI (HTTP 409) tại Module ' + meta.num + '.')
+        ? ('Trạng thái đánh giá AI vừa thay đổi tại Module ' + meta.num + '.')
         : 'Đã xảy ra lỗi khi xử lý yêu cầu đánh giá AI.'
     });
   }
@@ -8727,7 +8728,7 @@
     } catch (err) {
       wfApplyApiErrorBanner(err, mod);
       if (err && (err.status === 503 || err.status === 504)) {
-        wf.lastRunErrors[mod] = { code: err.code || 'ENGINE_UNAVAILABLE', detail: err.detail || 'Lỗi chạy mô phỏng.' };
+        wf.lastRunErrors[mod] = { code: err.code || 'ENGINE_UNAVAILABLE', detail: err.detail || 'Không chạy được module.' };
       }
       render();
     } finally {
@@ -9242,7 +9243,7 @@
     }
     if (mod === 'm4') {
       const n = (output.canh_bao || []).length;
-      return n > 0 ? (n + ' cảnh báo an toàn thuốc') : 'Không có cảnh báo trong phạm vi luật mock';
+      return n > 0 ? (n + ' cảnh báo an toàn thuốc') : 'Không có cảnh báo';
     }
     return 'Đã chốt';
   }
@@ -9397,7 +9398,7 @@
     return (
       '<div class="wf-rx-box">' +
         '<div class="wf-rx-box__head">' +
-          '<div><strong>Phương án đơn thuốc bác sĩ chọn cho Module 3 (chuyển sang Module 4)</strong><p class="field__help">Độc lập với khuyến nghị AI; chỉ lưu trong luồng đánh giá AI thử nghiệm, không tự ghi vào đơn thuốc thật.</p></div>' +
+          '<div><strong>Phương án đơn thuốc bác sĩ chọn cho Module 3 (chuyển sang Module 4)</strong><p class="field__help">Không tự ghi vào đơn thuốc của bệnh viện.</p></div>' +
           '<div class="list-state-bar__group">' +
             (!isReadonly ? demoButton('prescription') : '') +
             '<button type="button" class="list-state-btn' + (listState === 'none' ? ' is-none' : '') + '" data-wf-rx-mode="none"' + (isReadonly ? ' disabled' : '') + '>Không kê đơn mới</button>' +
@@ -9706,7 +9707,7 @@
           '<span class="badge badge--neutral">Độ bao phủ: ' + esc(output.coverage === 'complete' ? 'Đầy đủ' : 'Chưa đầy đủ') + '</span>' +
         '</div>' +
         (alerts.length === 0
-          ? '<p class="field__help">Không phát sinh cảnh báo trong bộ luật mock hiện hành (không đồng nghĩa an toàn tuyệt đối khi độ bao phủ chưa đầy đủ).</p>'
+          ? '<p class="field__help">Không có cảnh báo. Bộ luật chưa bao phủ mọi tương tác, bác sĩ vẫn cần tự rà soát.</p>'
           : (
             '<div class="wf-alert-stack">' +
               alerts.map(function (al) { return renderM4AlertCard(al, wf, canConfirm, false); }).join('') +
@@ -9915,7 +9916,7 @@
     return (
       '<section class="wf-manual-panel" aria-label="Biểu mẫu tự nhập kết quả">' +
         '<div class="wf-manual-panel__head">' +
-          '<div><h3>Tự nhập kết quả Module ' + meta.num + ' (thay cho kết quả AI)</h3><p class="field__help">Biểu mẫu giữ nguyên cấu trúc schema của AI. Lịch sử các lần chạy AI trước vẫn được bảo toàn.</p></div>' +
+          '<div><h3>Tự nhập kết quả Module ' + meta.num + ' (thay cho kết quả AI)</h3><p class="field__help">Lịch sử các lần chạy AI vẫn được giữ.</p></div>' +
           '<div class="table-actions">' +
             '<button type="button" class="btn btn--secondary btn--sm" data-wf-prefill-manual="' + esc(mod) + '">Điền sẵn từ kết quả AI</button>' +
             (isV2 ? demoButton('workflow-manual') : '') +
@@ -9948,7 +9949,7 @@
         ? '<button type="button" class="btn btn--primary btn--sm" data-nav="#/visits/' + esc(wf.visitId) + '">' + ICONS.arrowLeft + ' Về biểu mẫu lượt khám</button>'
         : '';
       const visitReviewBtn = canOpenVisit
-        ? '<button type="button" class="btn btn--secondary btn--sm" data-nav="#/visits/' + esc(wf.visitId) + '/review">Về Xem lại &amp; Xác nhận</button>'
+        ? '<button type="button" class="btn btn--secondary btn--sm" data-nav="#/visits/' + esc(wf.visitId) + '/review">Xem lại &amp; Xác nhận</button>'
         : '';
       const backBtn = wf.isPharmacistView
         ? ''
@@ -10006,8 +10007,8 @@
           '</div>' +
         '</div>' +
         '<div class="encounter-sticky-head__right">' +
-          (!isPharm ? '<button type="button" class="btn btn--secondary btn--sm" data-nav="#/visits/' + esc(wf.visitId) + '">' + ICONS.arrowLeft + ' Về biểu mẫu 8 nhóm</button>' : '') +
-          (!isPharm ? '<button type="button" class="btn btn--secondary btn--sm" data-nav="#/visits/' + esc(wf.visitId) + '/review">Về Xem lại &amp; Xác nhận</button>' : '') +
+          (!isPharm ? '<button type="button" class="btn btn--secondary btn--sm" data-nav="#/visits/' + esc(wf.visitId) + '">' + ICONS.arrowLeft + ' Biểu mẫu khám</button>' : '') +
+          (!isPharm ? '<button type="button" class="btn btn--secondary btn--sm" data-nav="#/visits/' + esc(wf.visitId) + '/review">Xem lại &amp; Xác nhận</button>' : '') +
         '</div>' +
       '</div>';
 
@@ -10172,7 +10173,7 @@
       const btns = [];
       let statusNote = '';
       if (isRunning) {
-        statusNote = 'Đang chạy mô phỏng... các nút tạm khóa để tránh bấm 2 lần.';
+        statusNote = 'Đang chạy...';
         btns.push('<button type="button" class="btn btn--primary is-loading" disabled>Đang chạy Module ' + meta.num + '...</button>');
       } else {
         if (hasAction('edit')) {
@@ -10289,20 +10290,12 @@
         const roleBadge = isAdm
           ? '<span class="badge badge--blue">Quản trị viên</span>'
           : (isNurse ? '<span class="badge badge--blue">Nhân viên y tế</span>' : (isPharm ? '<span class="badge badge--neutral">Dược sĩ</span>' : '<span class="badge badge--info">Bác sĩ</span>'));
-        const scopeDesc = isAdm
-          ? 'Quản lý tài khoản, biểu mẫu, nhật ký (không xem hồ sơ bệnh án)'
-          : (isNurse
-              ? 'Tiếp nhận bệnh nhân, nhập hành chính & sinh hiệu, gửi vào hàng chờ'
-              : (isPharm
-                  ? 'Chỉ xem kết quả Module 4: An toàn thuốc'
-                  : 'Nhận lượt từ hàng chờ, khám lâm sàng, chạy AI M1–M4 và xác nhận'));
         return (
           '<tr>' +
             '<td class="mono cell-primary">' + esc(u.username) + '</td>' +
             '<td>' + esc(u.fullName) + '</td>' +
             '<td>' + roleBadge + '</td>' +
-            '<td><span class="cell-sub">' + esc(scopeDesc) + '</span></td>' +
-            '<td>' + (u.isActive ? '<span class="badge badge--success">Đang hoạt động</span>' : '<span class="badge badge--error">Đã khóa</span>') + '</td>' +
+                        '<td>' + (u.isActive ? '<span class="badge badge--success">Đang hoạt động</span>' : '<span class="badge badge--error">Đã khóa</span>') + '</td>' +
             '<td class="tabular cell-sub">' + esc(formatDateTime(u.lastLoginAt)) + '</td>' +
             '<td style="text-align:right;white-space:nowrap;"><div class="table-actions">' +
               '<button type="button" class="btn btn--secondary btn--sm" data-admin-edit-user="' + esc(u.id) + '">Sửa quyền</button>' +
@@ -10342,7 +10335,7 @@
       }).join('');
 
       listHtml =
-        '<div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Tên đăng nhập</th><th>Họ tên hiển thị</th><th>Vai trò</th><th>Phạm vi quyền</th><th>Trạng thái</th><th>Đăng nhập gần nhất</th><th style="text-align:right;">Thao tác</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
+        '<div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Tên đăng nhập</th><th>Họ tên hiển thị</th><th>Vai trò</th><th>Trạng thái</th><th>Đăng nhập gần nhất</th><th style="text-align:right;">Thao tác</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
         '<div class="mobile-cards">' + cards + '</div>';
     }
 
@@ -10356,7 +10349,7 @@
       } else if (au.pwError) {
         pwResetHtml = '<div class="banner banner--error"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(au.pwError) + '</p></div></div></div>';
       } else if (!au.pwRequests || au.pwRequests.length === 0) {
-        pwResetHtml = '<div class="empty-state" data-empty-pw-resets="true"><h3 class="empty-state__title">Chưa có yêu cầu cấp lại mật khẩu nào</h3><p class="empty-state__desc">Khi Bác sĩ hoặc Nhân viên y tế gửi yêu cầu "Quên mật khẩu?" từ trang đăng nhập, yêu cầu sẽ xuất hiện tại đây.</p></div>';
+        pwResetHtml = '<div class="empty-state" data-empty-pw-resets="true"><h3 class="empty-state__title">Chưa có yêu cầu cấp lại mật khẩu nào</h3></div>';
       } else {
         const pwRows = au.pwRequests.map(function (r) {
           const mu = r.matchedUser;
@@ -10465,7 +10458,7 @@
 
     const body =
       '<div class="page-head">' +
-        '<div><h1 class="page-head__title">Quản lý tài khoản &amp; Phạm vi quyền</h1><p class="page-head__sub">Quản lý tài khoản bác sĩ, nhân viên y tế, quản trị viên và tiếp nhận yêu cầu cấp lại mật khẩu.</p></div>' +
+        '<div><h1 class="page-head__title">Quản lý tài khoản &amp; Phạm vi quyền</h1></div>' +
         '<div class="page-head__actions"><button type="button" class="btn btn--primary" data-action="open-create-user">' + ICONS.userPlus + ' Tạo tài khoản mới</button></div>' +
       '</div>' +
       tabsHtml +
@@ -10585,7 +10578,7 @@
       } else if (ap.reqError) {
         reqHtml = '<div class="banner banner--error"><div class="banner__main">' + ICONS.alert + '<div><p class="banner__desc">' + esc(ap.reqError) + '</p></div></div></div>';
       } else if (!ap.requests || ap.requests.length === 0) {
-        reqHtml = '<div class="empty-state" data-empty-record-reqs="true"><h3 class="empty-state__title">Chưa có yêu cầu khóa/lưu trữ nào từ NVYT</h3><p class="empty-state__desc">Khi Nhân viên y tế gửi yêu cầu khóa hoặc xóa (lưu trữ) hồ sơ bệnh nhân, yêu cầu sẽ hiển thị tại đây để Quản trị viên xét duyệt.</p></div>';
+        reqHtml = '<div class="empty-state" data-empty-record-reqs="true"><h3 class="empty-state__title">Chưa có yêu cầu khóa/lưu trữ nào từ NVYT</h3></div>';
       } else {
         const reqRows = ap.requests.map(function (r) {
           const isPending = r.status === 'pending';
@@ -10657,7 +10650,7 @@
 
     const body =
       '<div class="page-head">' +
-        '<div><h1 class="page-head__title">Quản lý hồ sơ bệnh nhân</h1><p class="page-head__sub">Quản lý thông tin hành chính toàn hệ thống, trạng thái khóa/lưu trữ mềm và xét duyệt yêu cầu từ Nhân viên y tế. Không hiển thị dữ liệu lâm sàng.</p></div>' +
+        '<div><h1 class="page-head__title">Quản lý hồ sơ bệnh nhân</h1><p class="page-head__sub">Thông tin hành chính, khóa/lưu trữ và yêu cầu từ NVYT.</p></div>' +
       '</div>' +
       tabsHtml +
       contentHtml;
@@ -10731,7 +10724,7 @@
 
       const lockBanner = !isDraft ? (
         '<div class="banner banner--info">' +
-          '<div class="banner__main">' + ICONS.lock + '<div><p class="banner__title">Phiên bản ' + esc(fv.versionLabel) + ' đã khóa</p><p class="banner__desc">Phiên bản đã phát hành hoặc đã có lượt khám sử dụng không thể chỉnh sửa trực tiếp. Mọi thay đổi cần thực hiện trên bản nháp phiên bản mới.</p></div></div>' +
+          '<div class="banner__main">' + ICONS.lock + '<div><p class="banner__title">Phiên bản ' + esc(fv.versionLabel) + ' đã khóa</p><p class="banner__desc">Muốn thay đổi, hãy tạo bản nháp mới.</p></div></div>' +
           '<div class="banner__actions">' +
             (existingDraft
               ? '<button type="button" class="btn btn--primary btn--sm" data-action="continue-form-draft" data-draft-id="' + esc(existingDraft.id) + '">Tiếp tục chỉnh bản nháp (' + esc(existingDraft.versionLabel) + ')</button>'
@@ -11101,7 +11094,7 @@
             );
           }).join('') + '</div>';
 
-      let detailHtml = '<div class="empty-state"><h3 class="empty-state__title">Chọn một bệnh nhân ở danh sách bên trái</h3><p class="empty-state__desc">Quản trị viên chỉ xem mã và tên hồ sơ để phân công nhiều bác sĩ phụ trách và xem lịch sử phân công, không xem dữ liệu lâm sàng.</p></div>';
+      let detailHtml = '<div class="empty-state"><h3 class="empty-state__title">Chọn một bệnh nhân ở danh sách bên trái</h3></div>';
       if (ac.selectedPatient) {
         const sp = ac.selectedPatient;
         const activeList = (ac.assignments || []).filter(isAssignmentActiveNow);
@@ -11163,7 +11156,7 @@
 
     const body =
       '<div class="page-head">' +
-        '<div><h1 class="page-head__title">Phân công bác sĩ phụ trách</h1><p class="page-head__sub">Thêm hoặc thu hồi nhiều bác sĩ phụ trách cho từng hồ sơ và theo dõi lịch sử phân công. Quản trị viên chỉ thấy mã và tên hồ sơ, không thấy dữ liệu lâm sàng (K8).</p></div>' +
+        '<div><h1 class="page-head__title">Phân công bác sĩ phụ trách</h1><p class="page-head__sub">Thêm hoặc thu hồi bác sĩ phụ trách cho từng hồ sơ.</p></div>' +
       '</div>' +
       contentHtml;
 
